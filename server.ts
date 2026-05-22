@@ -268,6 +268,18 @@ app.post("/api/admin/draft-inventory/:id/publish", async (req, res) => {
   try {
     const result = await publishDealerDraftToMarketplace(req.params.id);
     if ("error" in result) {
+      if (
+        result.error === "missing_required_fields" &&
+        "missingFields" in result
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          message: result.message,
+          missingFields: result.missingFields,
+          missingLabelsThai: result.missingLabelsThai,
+        });
+      }
       return res.status(400).json({ success: false, message: result.error });
     }
     res.json({ success: true, data: result.car });

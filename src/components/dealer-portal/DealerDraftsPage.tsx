@@ -6,7 +6,10 @@ import {
   fetchDealerDrafts,
   patchDealerDraft,
   publishDealerDraft,
+  PublishDraftBlockedError,
 } from "../../services/dealer/dealerApi";
+import { validateDraftForPublish } from "../../utils/dealerPublishGuard";
+import { PublishBlockedModal } from "./PublishBlockedModal";
 
 interface Props {
   apiHeaders: DealerApiHeaders;
@@ -20,6 +23,9 @@ export function DealerDraftsPage({ apiHeaders, onPublished }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string | number>>({});
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [blockedLabels, setBlockedLabels] = useState<string[]>([]);
+  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [blockedEditId, setBlockedEditId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,22 +43,62 @@ export function DealerDraftsPage({ apiHeaders, onPublished }: Props) {
     load();
   }, [load]);
 
+  const showBlocked = (labels: string[], editId?: string) => {
+    setBlockedLabels(labels);
+    setBlockedEditId(editId ?? null);
+    setBlockedOpen(true);
+  };
+
   const tryPublish = async (id: string) => {
     setPublishError(null);
+    const draft = drafts.find((d) => d.id === id);
+    if (draft) {
+      const guard = validateDraftForPublish({
+        id: draft.id,
+        brand: draft.brand,
+        model: draft.model,
+        price: draft.price,
+        images: draft.images,
+      });
+      if (!guard.ok) {
+        showBlocked(guard.missingLabelsThai, id);
+        return;
+      }
+    }
     try {
       await publishDealerDraft(apiHeaders, id);
       await load();
       onPublished?.();
     } catch (e) {
+      if (e instanceof PublishDraftBlockedError) {
+        showBlocked(
+          e.missingLabelsThai.length
+            ? e.missingLabelsThai
+            : e.missingFields.map((f) => f),
+          id
+        );
+        return;
+      }
       setPublishError(e instanceof Error ? e.message : "Publish ล้มเหลว");
     }
   };
 
   return (
     <div className="space-y-4">
+      <PublishBlockedModal
+        open={blockedOpen}
+        missingLabelsThai={blockedLabels}
+        onClose={() => {
+          setBlockedOpen(false);
+          setBlockedEditId(null);
+        }}
+        onEdit={() => {
+          if (blockedEditId) setEditingId(blockedEditId);
+        }}
+      />
       <h1 className="text-xl font-bold">Draft / รอเติมข้อมูล</h1>
       <p className="text-xs text-slate-400">
-        แก้ year, price และข้อมูลที่ขาด แล้วกด Publish เมื่อครบ
+        ต้องมีรูปจริง ยี่ห้อ รุ่น และราคาก่อน Publish — ระบบจะแจ้งรายการที่ขาด
       </p>
 
       {publishError && (

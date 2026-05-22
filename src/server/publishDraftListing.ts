@@ -13,26 +13,52 @@ import {
   duplicateFieldsFromMeta,
 } from "./duplicateDetectionService";
 import { migrateListingImagesToCarId } from "./listingImageStorage";
+import {
+  validateDraftForPublish,
+  type PublishRequiredFieldKey,
+} from "../utils/dealerPublishGuard";
+
+export type PublishDraftFailure =
+  | { error: string }
+  | {
+      error: "missing_required_fields";
+      missingFields: PublishRequiredFieldKey[];
+      missingLabelsThai: string[];
+      message: string;
+    };
 
 export async function publishDealerDraftToMarketplace(
   draftId: string
-): Promise<{ car: MarketplaceCarRecord } | { error: string }> {
+): Promise<{ car: MarketplaceCarRecord } | PublishDraftFailure> {
   const draft = getDealerDraftById(draftId);
   if (!draft) return { error: "ไม่พบรถ draft" };
 
-  const brand = draft.brand?.trim();
-  const model = draft.model?.trim();
-  const year = Number(draft.year);
-  const price = Number(draft.price);
+  const guard = validateDraftForPublish({
+    id: draft.id,
+    brand: draft.brand,
+    model: draft.model,
+    price: draft.price,
+    images: draft.images,
+    sourceImageUrls: draft.sourceImageUrls,
+  });
+  if (!guard.ok) {
+    return {
+      error: "missing_required_fields",
+      missingFields: guard.missingFields,
+      missingLabelsThai: guard.missingLabelsThai,
+      message: "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด",
+    };
+  }
 
-  if (!brand) return { error: "ต้องมี brand ก่อนเผยแพร่" };
-  if (!model) return { error: "ต้องมี model ก่อนเผยแพร่" };
-  if (!year || year < 1980 || year > new Date().getFullYear() + 2) {
-    return { error: "ต้องมีปีรถที่ถูกต้องก่อนเผยแพร่" };
-  }
-  if (!price || price <= 0) {
-    return { error: "ต้องมีราคาก่อนเผยแพร่" };
-  }
+  const brand = draft.brand.trim();
+  const model = draft.model.trim();
+  const price = Number(draft.price);
+  const yearRaw = Number(draft.year);
+  const maxYear = new Date().getFullYear() + 2;
+  const year =
+    yearRaw >= 1980 && yearRaw <= maxYear
+      ? yearRaw
+      : new Date().getFullYear();
 
   const carId = `car-${Date.now()}`;
   const images = migrateListingImagesToCarId(
@@ -57,7 +83,7 @@ export async function publishDealerDraftToMarketplace(
     mileage: draft.mileage || 0,
     fuelType: draft.fuelType || "petrol",
     images,
-    description: draft.description || draft.title,
+    description: draft.description?.trim() || draft.title || "",
     dealerId: normalizeDealerId(draft.dealerId),
     ownerId: `owner-${normalizeDealerId(draft.dealerId)}`,
     ownerName: draft.ownerName,

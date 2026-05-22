@@ -68,6 +68,10 @@ export interface CommitImportRowInput {
   ownerName?: string;
   ownerPhone?: string;
   showroomName?: string;
+  /** รหัส Draft ที่กำหนดล่วงหน้า (paste image import) */
+  commitDraftId?: string;
+  /** Paste: ห้ามดาวน์โหลดรูปจาก sourceImageUrls อัตโนมัติ */
+  skipSourceImageDownload?: boolean;
 }
 
 export interface SmartCommitInput {
@@ -293,6 +297,10 @@ async function resolveImagesForRow(
     };
   }
 
+  if (row.skipSourceImageDownload) {
+    return { images: [], warnings: [], report: null };
+  }
+
   const sourceUrls = row.sourceImageUrls ?? row.images ?? [];
   const report = await downloadListingImagesForCar(
     carId,
@@ -372,7 +380,8 @@ export async function processSmartInventoryImport(
       continue;
     }
 
-    const draftId = `draft-import-${baseId}-d${i}`;
+    const draftId =
+      row.commitDraftId?.trim() || `draft-import-${baseId}-d${i}`;
     const { images, warnings, report } = await resolveImagesForRow(draftId, row);
     if (report) imageReports.push(report);
     const allWarnings = [...warnings, ...(row.warnings ?? [])];

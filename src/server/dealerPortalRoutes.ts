@@ -21,7 +21,19 @@ import {
   filterCarsForDealer,
 } from "./dealerAccess";
 import { processSmartInventoryImport } from "./inventoryImportCommit";
+import {
+  fetchPreviewProxy,
+  importSelectedPasteImages,
+  probePasteImageCandidates,
+} from "./pasteImageImportService";
+import { persistPasteUploadedImages } from "./pasteUploadedImageStorage";
+import type { ImageLinkCandidate } from "../utils/inventoryImport/imageLinkExtractor";
 import { getMissingPublishFields } from "../utils/inventoryImport/importConfidence";
+import {
+  isMissingFieldsPublishError,
+  publishGuardApiBody,
+  validateDraftForPublish,
+} from "../utils/dealerPublishGuard";
 import { createEmptyNormalizedRow } from "../utils/inventoryImport/inventoryImportSchema";
 import {
   applyDuplicateReview,
@@ -197,22 +209,29 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบ draft" });
     }
-    const norm = draft.normalizedData ?? createEmptyNormalizedRow();
-    norm.brand = draft.brand;
-    norm.model = draft.model;
-    norm.year = String(draft.year);
-    norm.price = String(draft.price);
-    const missing = getMissingPublishFields(norm);
-    if (missing.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `ข้อมูลยังไม่ครบ: ${missing.join(", ")}`,
-        missingFields: missing,
-      });
+    const guard = validateDraftForPublish({
+      id: draft.id,
+      brand: draft.brand,
+      model: draft.model,
+      price: draft.price,
+      images: draft.images,
+      sourceImageUrls: draft.sourceImageUrls,
+    });
+    if (!guard.ok) {
+      return res.status(400).json(publishGuardApiBody(guard));
     }
     try {
       const result = await publishDealerDraftToMarketplace(req.params.id);
       if ("error" in result) {
+        if (isMissingFieldsPublishError(result)) {
+          return res.status(400).json({
+            success: false,
+            error: result.error,
+            message: result.message,
+            missingFields: result.missingFields,
+            missingLabelsThai: result.missingLabelsThai,
+          });
+        }
         return res.status(400).json({ success: false, message: result.error });
       }
       res.json({ success: true, data: result.car });
@@ -319,5 +338,79 @@ export function registerDealerPortalRoutes(app: Express): void {
       const message = err instanceof Error ? err.message : "Import failed";
       res.status(500).json({ success: false, message });
     }
+  });
+
+  app.post("/api/dealer/paste-import/image-probe", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const candidates = (req.body?.candidates ?? []) as ImageLinkCandidate[];
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+    const limited = candidates.slice(0, 12);
+    const data = await probePasteImageCandidates(limited);
+    res.json({ success: true, data });
+  });
+
+  app.get("/api/dealer/paste-import/preview-proxy", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const url = String(req.query.url ?? "");
+    const result = await fetchPreviewProxy(url);
+    if (result.ok === false) {
+      return res.status(result.status).json({
+        success: false,
+        message: result.message,
+      });
+    }
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.send(result.buffer);
+  });
+
+  app.post("/api/dealer/paste-import/import-selected-images", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const listingId = String(req.body?.listingId ?? "").trim();
+    const candidates = (req.body?.candidates ?? []) as ImageLinkCandidate[];
+    const selectedSourceUrls = (req.body?.selectedSourceUrls ?? []) as string[];
+    const primarySourceUrl = req.body?.primarySourceUrl as string | undefined;
+
+    if (!listingId) {
+      return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
+    }
+
+    try {
+      const data = await importSelectedPasteImages(
+        listingId,
+        candidates,
+        selectedSourceUrls,
+        primarySourceUrl
+      );
+      res.json({ success: true, data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "import images failed";
+      res.status(500).json({ success: false, message });
+    }
+  });
+
+  app.post("/api/dealer/paste-import/upload-images", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const listingId = String(req.body?.listingId ?? "").trim();
+    const files = req.body?.files;
+
+    if (!listingId) {
+      return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
+    }
+
+    const result = persistPasteUploadedImages(listingId, files);
+    if (result.ok === false) {
+      return res.status(result.status).json({
+        success: false,
+        message: result.message,
+      });
+    }
+    res.json({ success: true, data: result });
   });
 }

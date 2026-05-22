@@ -164,6 +164,23 @@ export async function patchDealerDraft(
   return body.data;
 }
 
+export class PublishDraftBlockedError extends Error {
+  readonly code = "missing_required_fields";
+  readonly missingFields: string[];
+  readonly missingLabelsThai: string[];
+
+  constructor(
+    message: string,
+    missingFields: string[],
+    missingLabelsThai: string[]
+  ) {
+    super(message);
+    this.name = "PublishDraftBlockedError";
+    this.missingFields = missingFields;
+    this.missingLabelsThai = missingLabelsThai;
+  }
+}
+
 export async function publishDealerDraft(
   h: DealerApiHeaders,
   id: string
@@ -173,7 +190,16 @@ export async function publishDealerDraft(
     headers: headers(h),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? body.error ?? "Publish ล้มเหลว");
+  if (!res.ok) {
+    if (body.error === "missing_required_fields") {
+      throw new PublishDraftBlockedError(
+        body.message ?? "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด",
+        body.missingFields ?? [],
+        body.missingLabelsThai ?? []
+      );
+    }
+    throw new Error(body.message ?? body.error ?? "Publish ล้มเหลว");
+  }
   return body.data;
 }
 

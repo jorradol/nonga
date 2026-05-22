@@ -13,6 +13,7 @@ import { DealerDraftsPage } from "./DealerDraftsPage";
 import { DealerProfilePage } from "./DealerProfilePage";
 import InventoryImportView from "../admin/inventory-import/InventoryImportView";
 import { commitDealerImport } from "../../services/dealer/dealerApi";
+import { navigateToDealerDraftsAfterPasteSave } from "../../utils/dealer/dealerPasteSaveRedirect";
 import { AlertCircle } from "lucide-react";
 import { DuplicateReviewSection } from "../duplicate/DuplicateReviewSection";
 
@@ -70,6 +71,7 @@ export default function DealerPortalView() {
       content = (
         <InventoryImportView
           mode="dealer"
+          dealerApiHeaders={apiHeaders}
           ownerContextOverride={{
             dealerId: importOwner.dealerId!,
             ownerId: importOwner.ownerId!,
@@ -81,10 +83,7 @@ export default function DealerPortalView() {
           commitImport={async (published, drafts, owner) =>
             commitDealerImport(apiHeaders, published, drafts, owner)
           }
-          onGoToDrafts={() => {
-            window.history.replaceState(null, "", "/dealer/drafts");
-            setTab("drafts");
-          }}
+          onGoToDrafts={() => navigateToDealerDraftsAfterPasteSave(setTab)}
           compact
         />
       );

@@ -39,6 +39,7 @@ async function main() {
     updateDealerDraft(mazdaDraft.id, {
       year: 2019,
       price: 389000,
+      images: [`/storage/listings/${mazdaDraft.id}/publish-test.jpg`],
       normalizedData: {
         ...mazdaDraft.normalizedData,
         brand: "Mazda",

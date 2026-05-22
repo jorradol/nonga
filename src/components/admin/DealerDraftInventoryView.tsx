@@ -12,6 +12,8 @@ import { useAppStore } from "../../store";
 import { DuplicateReviewSection } from "../duplicate/DuplicateReviewSection";
 import { adminAuthHeaders } from "../../utils/apiAuthHeaders";
 import { normalizeDealerId } from "../../utils/dealerIdentity";
+import { validateDraftForPublish } from "../../utils/dealerPublishGuard";
+import { PublishBlockedModal } from "../dealer-portal/PublishBlockedModal";
 
 interface DraftRecord {
   id: string;
@@ -41,6 +43,9 @@ export default function DealerDraftInventoryView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<DraftRecord>>({});
   const [publishing, setPublishing] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [blockedLabels, setBlockedLabels] = useState<string[]>([]);
+  const [blockedEditId, setBlockedEditId] = useState<string | null>(null);
 
   const dealerId = normalizeDealerId(user?.dealerId ?? user?.uid ?? "thor-auto");
 
@@ -96,13 +101,42 @@ export default function DealerDraftInventoryView() {
   const publishDraft = async (id: string) => {
     setPublishing(true);
     setError(null);
+    const draft = drafts.find((d) => d.id === id);
+    if (draft) {
+      const guard = validateDraftForPublish({
+        id: draft.id,
+        brand: draft.brand,
+        model: draft.model,
+        price: draft.price,
+        images: draft.images,
+      });
+      if (!guard.ok) {
+        setBlockedLabels(guard.missingLabelsThai);
+        setBlockedEditId(id);
+        setBlockedOpen(true);
+        setPublishing(false);
+        return;
+      }
+    }
     try {
       const res = await fetch(`/api/admin/draft-inventory/${id}/publish`, {
         method: "POST",
         headers: adminAuthHeaders(),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.message ?? "เผยแพร่ไม่สำเร็จ");
+      if (!res.ok) {
+        if (body.error === "missing_required_fields") {
+          setBlockedLabels(
+            body.missingLabelsThai ??
+              (body.missingFields as string[] | undefined) ??
+              []
+          );
+          setBlockedEditId(id);
+          setBlockedOpen(true);
+          return;
+        }
+        throw new Error(body.message ?? "เผยแพร่ไม่สำเร็จ");
+      }
       setEditingId(null);
       await loadDrafts();
       await fetchCars();
@@ -119,6 +153,17 @@ export default function DealerDraftInventoryView() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 text-left">
+      <PublishBlockedModal
+        open={blockedOpen}
+        missingLabelsThai={blockedLabels}
+        onClose={() => {
+          setBlockedOpen(false);
+          setBlockedEditId(null);
+        }}
+        onEdit={() => {
+          if (blockedEditId) setEditingId(blockedEditId);
+        }}
+      />
       <button
         type="button"
         onClick={() => setView("admin-dashboard")}

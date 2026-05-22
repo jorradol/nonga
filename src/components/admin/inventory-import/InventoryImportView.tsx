@@ -34,6 +34,7 @@ import type { InventoryCleanPipelineResult } from "../../../utils/inventoryImpor
 import { prepareSmartInventoryImport } from "../../../utils/inventoryImport/import/prepareSmartImport";
 import { flattenSmartPrepForCommit } from "../../../utils/inventoryImport/import/prepareSmartImport";
 import { commitInventoryImport } from "../../../utils/inventoryImport/import/commitImport";
+import type { DealerApiHeaders } from "../../../services/dealer/dealerApi";
 import type {
   ImportCommitResult,
   ImportOwnerContext,
@@ -48,7 +49,10 @@ import { ColumnMappingSection } from "./ColumnMappingSection";
 import { CleanedDataPreviewSection } from "./CleanedDataPreviewSection";
 import { ImportConfirmationSection } from "./ImportConfirmationSection";
 import { DealerImportHelpSection } from "./DealerImportHelpSection";
+import { DealerPasteImportSection } from "./DealerPasteImportSection";
 import { SmartImportReviewSection } from "./SmartImportReviewSection";
+
+type DealerImportSourceTab = "file" | "paste";
 
 type ImportUiPhase =
   | "idle"
@@ -68,6 +72,7 @@ export interface InventoryImportViewProps {
   ) => Promise<ImportCommitResult>;
   onGoToDrafts?: () => void;
   compact?: boolean;
+  dealerApiHeaders?: DealerApiHeaders;
 }
 
 export default function InventoryImportView({
@@ -76,6 +81,7 @@ export default function InventoryImportView({
   commitImport: commitImportFn,
   onGoToDrafts,
   compact = false,
+  dealerApiHeaders,
 }: InventoryImportViewProps = {}) {
   const { setView, isDarkMode, fetchCars, setFilters, user } = useAppStore();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,8 +101,14 @@ export default function InventoryImportView({
   const [commitResult, setCommitResult] = useState<ImportCommitResult | null>(
     null
   );
+  const [dealerSourceTab, setDealerSourceTab] =
+    useState<DealerImportSourceTab>("file");
 
   const accept = ".csv,.xlsx";
+  const doCommit =
+    commitImportFn ??
+    ((published, drafts, owner) =>
+      commitInventoryImport(published, drafts, owner));
 
   const resetAll = () => {
     setParsed(null);
@@ -237,9 +249,6 @@ export default function InventoryImportView({
 
     try {
       const { published, drafts } = flattenSmartPrepForCommit(smartPrep);
-      const doCommit =
-        commitImportFn ??
-        ((pub, dr, own) => commitInventoryImport(pub, dr, own));
       const result = await doCommit(published, drafts, ownerContext);
 
       if (!result.success || result.importedCount === 0) {
@@ -345,6 +354,57 @@ export default function InventoryImportView({
 
       <DealerImportHelpSection isDarkMode={isDarkMode} />
 
+      {mode === "dealer" && (
+        <div
+          className={`flex rounded-xl border p-1 gap-1 ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-100"}`}
+          role="tablist"
+          aria-label="วิธีนำเข้า"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={dealerSourceTab === "file"}
+            onClick={() => setDealerSourceTab("file")}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition ${
+              dealerSourceTab === "file"
+                ? "bg-orange-600 text-white shadow"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            Import CSV/XLSX
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={dealerSourceTab === "paste"}
+            onClick={() => setDealerSourceTab("paste")}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition ${
+              dealerSourceTab === "paste"
+                ? "bg-orange-600 text-white shadow"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            Paste Raw Text
+          </button>
+        </div>
+      )}
+
+      {mode === "dealer" && dealerSourceTab === "paste" ? (
+        dealerApiHeaders ? (
+          <DealerPasteImportSection
+            ownerContext={ownerContext}
+            dealerApiHeaders={dealerApiHeaders}
+            commitImport={doCommit}
+            onGoToDrafts={onGoToDrafts}
+            isDarkMode={isDarkMode}
+          />
+        ) : (
+          <p className="text-sm text-rose-400">
+            ต้องเข้าสู่ระบบ Dealer เพื่อใช้ Paste Import
+          </p>
+        )
+      ) : (
+      <>
       <div
         className={`rounded-2xl border p-6 sm:p-8 ${panel}`}
         onDragOver={(e) => {
@@ -636,6 +696,8 @@ export default function InventoryImportView({
           </>
         )}
       </AnimatePresence>
+      </>
+      )}
     </div>
   );
 }

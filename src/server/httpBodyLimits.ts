@@ -4,7 +4,10 @@ export const DEFAULT_JSON_LIMIT = "512kb";
 export const LISTING_IMAGE_JSON_LIMIT = "4mb";
 
 export function isListingImageUploadPath(path: string): boolean {
-  return /^\/api\/cars\/[^/]+\/images$/i.test(path);
+  return (
+    /^\/api\/cars\/[^/]+\/images$/i.test(path) ||
+    /^\/api\/dealer\/paste-import\/upload-images$/i.test(path)
+  );
 }
 
 /** JSON parser — route อัปโหลดรูปใช้ limit สูงกว่า API ทั่วไป */

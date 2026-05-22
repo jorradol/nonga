@@ -1,6 +1,6 @@
 /** คะแนนความคล้ายข้อความ 0–1 */
-export function normalizeText(s: string): string {
-  return s
+export function normalizeText(s: string | null | undefined): string {
+  return String(s ?? "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
@@ -39,7 +39,7 @@ export function normalizePhone(phone: string): string {
 }
 
 /** ดึง VIN จากข้อความ (17 ตัวอักษร) */
-export function extractVinFromText(text: string): string {
-  const m = text.match(/\b([A-HJ-NPR-Z0-9]{17})\b/i);
+export function extractVinFromText(text: string | null | undefined): string {
+  const m = String(text ?? "").match(/\b([A-HJ-NPR-Z0-9]{17})\b/i);
   return m ? normalizeVin(m[1]) : "";
 }

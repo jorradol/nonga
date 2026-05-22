@@ -28,6 +28,10 @@ export interface MarketplaceImportPayload {
   missingFields?: string[];
   rawRow?: Record<string, string>;
   warnings?: string[];
+  /** Paste import: รหัส Draft ที่จองไว้ก่อนดาวน์โหลดรูป */
+  commitDraftId?: string;
+  /** Paste: ห้ามดาวน์โหลดรูปจาก sourceImageUrls อัตโนมัติ */
+  skipSourceImageDownload?: boolean;
 }
 
 export interface ImportOwnerContext {
