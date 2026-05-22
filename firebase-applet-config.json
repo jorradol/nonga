@@ -1,0 +1,9 @@
+{
+  "apiKey": "AIzaSyFakePlaceholder_NongAMarketplace_12345",
+  "authDomain": "nonga-marketplace.firebaseapp.com",
+  "projectId": "nonga-marketplace",
+  "storageBucket": "nonga-marketplace.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef123456",
+  "firestoreDatabaseId": "(default)"
+}

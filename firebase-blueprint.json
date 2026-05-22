@@ -1,0 +1,628 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account document documenting subscription tier, role, and custom car limits in Firestore.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier matching Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Display user name." },
+        "email": { "type": "string", "description": "Verified user email address." },
+        "photoURL": { "type": "string", "description": "URL of user high-contrast avatar illustration." },
+        "role": { "type": "string", "enum": ["guest", "member", "dealer", "premium", "admin", "superadmin"], "description": "Role-Based Access Control tier." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" },
+        "favoriteCars": { "type": "array", "description": "Array of bookmarked car IDs." },
+        "aiPersona": { "type": "string", "description": "Preferred AI salesperson persona, e.g., Energetic, Tech Savvy, Professional." },
+        "membershipType": { "type": "string", "enum": ["free", "pro", "dealer", "enterprise"], "description": "Billing plan identifier." },
+        "postLimit": { "type": "integer", "description": "Total allowable car posts." },
+        "totalPosts": { "type": "integer", "description": "Currently posted cars counter." },
+        "premiumExpireDate": { "type": "string", "format": "date-time", "description": "Expiry check for premium limits." }
+      },
+      "required": ["uid", "displayName", "email", "role", "createdAt", "lastLogin", "favoriteCars", "membershipType", "postLimit", "totalPosts"]
+    },
+    "UserSettings": {
+      "title": "User Settings",
+      "description": "Personalized portal preferences, notification toggles, and layout styles.",
+      "type": "object",
+      "properties": {
+        "theme": { "type": "string", "enum": ["light", "dark", "system"] },
+        "emailNotifications": { "type": "boolean" },
+        "pushNotifications": { "type": "boolean" },
+        "language": { "type": "string", "enum": ["th", "en"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["theme", "emailNotifications"]
+    },
+    "UserSession": {
+      "title": "User Session Log",
+      "description": "Session tracking for audit trails, geography checks, and credential validation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "loginTime": { "type": "string", "format": "date-time" },
+        "ipAddress": { "type": "string" },
+        "device": { "type": "string" },
+        "browser": { "type": "string" }
+      },
+      "required": ["userId", "loginTime"]
+    },
+    "AiPreferences": {
+      "title": "AI Preferences",
+      "description": "Smart customization criteria for tailored AI reports from Nong A.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "preferredBrands": { "type": "array" },
+        "aiResponseLength": { "type": "string", "enum": ["short", "medium", "conversational"] },
+        "focusArea": { "type": "string", "enum": ["ev", "luxury", "general", "performance"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "aiResponseLength", "focusArea"]
+    },
+    "CarListing": {
+      "title": "Car Listing",
+      "description": "A comprehensive vehicle listing in the marketplace, supporting standard, EV, and luxury segments.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the car listing." },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "integer" },
+        "generation": { "type": "string" },
+        "bodyType": { "type": "string" },
+        "transmission": { "type": "string", "enum": ["auto", "manual", "other"] },
+        "fuelType": { "type": "string", "enum": ["petrol", "diesel", "electric", "hybrid", "plug-in-hybrid", "other"] },
+        "mileage": { "type": "number" },
+        "color": { "type": "string" },
+        "engineSize": { "type": "string" },
+        "drivetrain": { "type": "string" },
+        "condition": { "type": "string", "enum": ["new", "used", "excellent", "good", "fair"] },
+        "price": { "type": "number" },
+        "negotiable": { "type": "boolean" },
+        "province": { "type": "string" },
+        "description": { "type": "string" },
+        "features": { "type": "array" },
+        "tags": { "type": "array" },
+        "coverImage": { "type": "string" },
+        "gallery": { "type": "array" },
+        "sellerId": { "type": "string" },
+        "sellerType": { "type": "string", "enum": ["private", "dealer", "agent"] },
+        "dealerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "pending", "approved", "rejected", "archived"] },
+        "featured": { "type": "boolean" },
+        "boosted": { "type": "boolean" },
+        "aiGenerated": { "type": "boolean" },
+        "aiScore": { "type": "number" },
+        "aiAnalysis": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "totalViews": { "type": "integer" },
+        "totalFavorites": { "type": "integer" }
+      },
+      "required": ["title", "slug", "brand", "model", "year", "price", "bodyType", "transmission", "fuelType", "mileage", "color", "condition", "province", "description", "sellerId", "sellerType", "status"]
+    },
+    "CarImage": {
+      "title": "Car Image Asset Reference",
+      "description": "Image gallery references for vehicle listings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "url": { "type": "string" },
+        "isCover": { "type": "boolean" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["carId", "url", "isCover", "uploadedBy"]
+    },
+    "CarBrand": {
+      "title": "Manufacturer Brand",
+      "description": "Vehicle brand metadata.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "country": { "type": "string" },
+        "establishedYear": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug"]
+    },
+    "CarModel": {
+      "title": "Vehicle Model",
+      "description": "Vehicle model metadata relating back to brands.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "brandId": { "type": "string" },
+        "brandName": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "bodyType": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["brandId", "brandName", "name", "slug"]
+    },
+    "CarView": {
+      "title": "Car Page View Log",
+      "description": "Individually tracked views of vehicle postings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "userId": { "type": "string" },
+        "ipAddress": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "viewedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["carId", "viewedAt"]
+    },
+    "CarFavorite": {
+      "title": "Car Bookmark/Favorite Connection",
+      "description": "Favorites joining users to car listings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "carId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "carId"]
+    },
+    "Dealer": {
+      "title": "Dealer Showroom",
+      "description": "Showroom of certified car dealers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "userId": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "coverImageUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "province": { "type": "string" },
+        "website": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "totalReviews": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "userId", "phone", "email", "address", "province"]
+    },
+    "ShowroomReview": {
+      "title": "Dealer Review",
+      "description": "Public review or comment on a dealer's showroom.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dealerId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userDisplayName": { "type": "string" },
+        "userPhotoURL": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["dealerId", "userId", "userDisplayName", "rating", "comment"]
+    },
+    "CarComment": {
+      "title": "Car Listing Discussion Comment",
+      "description": "Comments or queries written on a specific car listing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userDisplayName": { "type": "string" },
+        "userPhotoURL": { "type": "string" },
+        "commentText": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["carId", "userId", "userDisplayName", "commentText"]
+    },
+    "CarReport": {
+      "title": "Car Report flag",
+      "description": "Spam or scam reporting flag for moderation checking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reporterEmail": { "type": "string" },
+        "reason": { "type": "string", "enum": ["spam", "fraud", "incorrect_info", "offensive", "sold", "other"] },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "investigating", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["carId", "reporterId", "reporterEmail", "reason", "status"]
+    },
+    "Subscription": {
+      "title": "User Subscription Plan",
+      "description": "Active subscription plan details for dealers and premium users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "planId": { "type": "string", "enum": ["free", "dealer_pro", "dealer_premium"] },
+        "planName": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "cancelled", "past_due", "trialing"] },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "cancelAtPeriodEnd": { "type": "boolean" },
+        "currentPeriodStart": { "type": "string", "format": "date-time" },
+        "currentPeriodEnd": { "type": "string", "format": "date-time" },
+        "stripeSubscriptionId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "planId", "planName", "status", "price", "currency", "cancelAtPeriodEnd", "currentPeriodStart", "currentPeriodEnd"]
+    },
+    "Payment": {
+      "title": "Payment Transaction Record",
+      "description": "Logs of Stripe checkouts, PromptPay payments, and posting boosts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "success", "failed", "verified"] },
+        "paymentMethod": { "type": "string", "enum": ["stripe", "promptpay"] },
+        "description": { "type": "string" },
+        "paymentIntentId": { "type": "string" },
+        "referenceNo": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "currency", "status", "paymentMethod", "description", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Subscription Invoice",
+      "description": "Bill and receipt invoices issued monthly or upon premium feature billing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "invoiceNo": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["paid", "unpaid", "voided"] },
+        "billingDate": { "type": "string", "format": "date-time" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "items": { "type": "array" },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "invoiceNo", "amount", "status", "billingDate", "dueDate", "items", "createdAt"]
+    },
+    "PremiumFeatures": {
+      "title": "Premium Feature Set",
+      "description": "Granular feature entitlements, including post boosts and advanced AI capabilities.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "aiPostGenerationEnabled": { "type": "boolean" },
+        "aiCaptionsEnabled": { "type": "boolean" },
+        "analyticsEnabled": { "type": "boolean" },
+        "showroomEnabled": { "type": "boolean" },
+        "aiAutoReplyEnabled": { "type": "boolean" },
+        "aiSalesAssistantEnabled": { "type": "boolean" },
+        "seoBoostEnabled": { "type": "boolean" },
+        "priorityListingEnabled": { "type": "boolean" },
+        "boostTokens": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "aiPostGenerationEnabled", "aiCaptionsEnabled", "analyticsEnabled", "showroomEnabled", "aiAutoReplyEnabled", "aiSalesAssistantEnabled", "seoBoostEnabled", "priorityListingEnabled", "boostTokens"]
+    },
+    "Boost": {
+      "title": "Active Post Boost",
+      "description": "Active promotional boost configuration on a specific car listing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "userId": { "type": "string" },
+        "planId": { "type": "string", "enum": ["7_days", "30_days", "homepage_spotlight", "ai_trending"] },
+        "planName": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "expired"] },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "autoRenew": { "type": "boolean" },
+        "features": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["carId", "userId", "planId", "planName", "status", "startTime", "endTime", "autoRenew", "features", "createdAt"]
+    },
+    "BoostHistory": {
+      "title": "Post Boost Historical Log",
+      "description": "Audit trail log of all applied, renewed, or expired post promotional boosts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "userId": { "type": "string" },
+        "planId": { "type": "string" },
+        "planName": { "type": "string" },
+        "action": { "type": "string", "enum": ["purchase", "auto_renew", "expire", "cancel"] },
+        "tokensUsed": { "type": "integer" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["carId", "userId", "planId", "planName", "action", "tokensUsed", "timestamp"]
+    },
+    "FeaturedCar": {
+      "title": "Featured Car Priority Catalog",
+      "description": "Index of highly-ranked highlighted cars for rendering on recommendation queues.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "number" },
+        "coverImage": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "boostEndTime": { "type": "string", "format": "date-time" },
+        "score": { "type": "number" }
+      },
+      "required": ["carId", "userId", "title", "price", "coverImage", "brand", "model", "boostEndTime"]
+    },
+    "AiUsage": {
+      "title": "AI Feature Usage Tracker",
+      "description": "Tracks usage of individual AI features for limits and quota management.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "featureId": { "type": "string" },
+        "usedCount": { "type": "integer" },
+        "limitCount": { "type": "integer" },
+        "resetAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "featureId", "usedCount", "limitCount"]
+    },
+    "AiLimit": {
+      "title": "AI Quota and Limits Configuration",
+      "description": "Defining systemic configurations and threshold counts for different membership tiers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tier": { "type": "string" },
+        "postGenerationLimit": { "type": "integer" },
+        "analysisLimit": { "type": "integer" },
+        "unlockedFeatures": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tier", "postGenerationLimit", "analysisLimit", "unlockedFeatures"]
+    },
+    "AiSubscription": {
+      "title": "AI Premium Features Subscription",
+      "description": "Active subscription plan and features unlock for the Premium AI Nong A workspace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "expired", "cancelled", "past_due"] },
+        "tier": { "type": "string" },
+        "tokens": { "type": "integer" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "status", "tier", "tokens"]
+    },
+    "Lead": {
+      "title": "Buyer Interest Lead Information",
+      "description": "A buyer interest inquiry, tracking contacting sellers, chats, finance applications, and overall purchase workflow.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "carId": { "type": "string" },
+        "carTitle": { "type": "string" },
+        "carPrice": { "type": "number" },
+        "buyerId": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "buyerEmail": { "type": "string" },
+        "buyerPhone": { "type": "string" },
+        "dealerId": { "type": "string" },
+        "dealerName": { "type": "string" },
+        "source": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["view_car", "favorite_car", "contact_seller", "chat_inquiry", "finance_inquiry", "share_listing"] },
+        "status": { "type": "string", "enum": ["new", "contacted", "negotiating", "sold", "lost"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "carId", "carTitle", "buyerName", "eventType", "status", "createdAt"]
+    },
+    "TrafficEvent": {
+      "title": "Click and Interaction Traffic Tracking Event",
+      "description": "A single raw buyer engagement logging action like click, view, favorite, share, and seller inquiry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "carId": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["view_car", "favorite_car", "contact_seller", "chat_inquiry", "finance_inquiry", "share_listing"] },
+        "dealerId": { "type": "string" },
+        "referrer": { "type": "string" },
+        "device": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "carId", "eventType", "timestamp"]
+    },
+    "AiLeadScore": {
+      "title": "AI Computed Lead Scoring and Analytics Predictor",
+      "description": "AI-synthesized score evaluating purchase intent, recommended customer outreach patterns, and interest categories.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "leadId": { "type": "string" },
+        "carId": { "type": "string" },
+        "userId": { "type": "string" },
+        "score": { "type": "number" },
+        "tier": { "type": "string", "enum": ["hot", "warm", "cold"] },
+        "segment": { "type": "string" },
+        "conversionProbability": { "type": "number" },
+        "suggestedAction": { "type": "string" },
+        "predictedValue": { "type": "number" },
+        "confidenceScore": { "type": "number" },
+        "analysisSummary": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "leadId", "score", "tier", "segment", "conversionProbability", "createdAt"]
+    },
+    "AnalyticsSummary": {
+      "title": "Aggregated Showroom Analytics Performance",
+      "description": "Consolidated metric counters for counting views, favorites, chats, and conversions of listings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dealerId": { "type": "string" },
+        "period": { "type": "string" },
+        "viewsCount": { "type": "integer" },
+        "favoritesCount": { "type": "integer" },
+        "contactsCount": { "type": "integer" },
+        "chatsCount": { "type": "integer" },
+        "financeCount": { "type": "integer" },
+        "sharesCount": { "type": "integer" },
+        "conversionRate": { "type": "number" },
+        "totalLeadsCount": { "type": "integer" },
+        "averageCloseTimeDays": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "period", "viewsCount", "favoritesCount", "totalLeadsCount", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Primary user profile collection containing identity and subscription details."
+    },
+    "user_settings/{userId}": {
+      "schema": "UserSettings",
+      "description": "Preference-level document corresponding to each user configuration."
+    },
+    "user_sessions/{sessionId}": {
+      "schema": "UserSession",
+      "description": "Individual login session logger files."
+    },
+    "ai_preferences/{userId}": {
+      "schema": "AiPreferences",
+      "description": "Custom fine-tune directives for smart report generations by Nong A."
+    },
+    "cars/{carId}": {
+      "schema": "CarListing",
+      "description": "Unified database for all marketplace listings with active filters."
+    },
+    "car_images/{imageId}": {
+      "schema": "CarImage",
+      "description": "Explicit logging collection for files and gallery uploads."
+    },
+    "car_brands/{brandId}": {
+      "schema": "CarBrand",
+      "description": "Database of supported automotive manufacturers."
+    },
+    "car_models/{modelId}": {
+      "schema": "CarModel",
+      "description": "Database of vehicle models of specific brands."
+    },
+    "car_views/{viewId}": {
+      "schema": "CarView",
+      "description": "Aggregated tracker documents of listing views."
+    },
+    "car_favorites/{favoriteId}": {
+      "schema": "CarFavorite",
+      "description": "User bookmarked car listings for unified storage access."
+    },
+    "dealers/{dealerId}": {
+      "schema": "Dealer",
+      "description": "Dealer profiles and directories."
+    },
+    "showroom_reviews/{reviewId}": {
+      "schema": "ShowroomReview",
+      "description": "Feedback reviews logged on dealer showroom pages."
+    },
+    "car_comments/{commentId}": {
+      "schema": "CarComment",
+      "description": "Subcollection/independent collection representing discussions on vehicle listings."
+    },
+    "car_reports/{reportId}": {
+      "schema": "CarReport",
+      "description": "Moderator flagged issue reports for fraudulent or sold posts."
+    },
+    "subscriptions/{userId}": {
+      "schema": "Subscription",
+      "description": "A user's sub plan subscription metadata."
+    },
+    "payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment transactions for subscriptions, post boosts, and premium features."
+    },
+    "invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Subscription billing invoices and receipts."
+    },
+    "premium_features/{userId}": {
+      "schema": "PremiumFeatures",
+      "description": "Granular entitlements and tokens configured for premium accounts."
+    },
+    "boosts/{boostId}": {
+      "schema": "Boost",
+      "description": "Active promotional boosts on car postings."
+    },
+    "boost_history/{historyId}": {
+      "schema": "BoostHistory",
+      "description": "Logs of applied boost transitions, renewals, and actions."
+    },
+    "featured_cars/{carId}": {
+      "schema": "FeaturedCar",
+      "description": "Quick flattened index of boosted cars featured on recommendations & home highlights."
+    },
+    "ai_usage/{usageId}": {
+      "schema": "AiUsage",
+      "description": "Track count-based consumption logs for specific AI features per user."
+    },
+    "ai_limits/{limitId}": {
+      "schema": "AiLimit",
+      "description": "Static tiers metadata describing maximum operations limits and entitlement flags."
+    },
+    "ai_subscriptions/{subscriptionId}": {
+      "schema": "AiSubscription",
+      "description": "Individual premium unlock entries, enabling future-proof tokens and infinite operations."
+    },
+    "leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Information tracking purchase-interest leads."
+    },
+    "analytics/{analyticsId}": {
+      "schema": "AnalyticsSummary",
+      "description": "Showroom summary and analytical history statistics."
+    },
+    "traffic_events/{eventId}": {
+      "schema": "TrafficEvent",
+      "description": "Buyer click streams, sharing metrics, and user behaviors."
+    },
+    "ai_lead_scores/{scoreId}": {
+      "schema": "AiLeadScore",
+      "description": "AI-calculated lead probability values, segmentation keywords, and recommended salesperson action plans."
+    }
+  }
+}

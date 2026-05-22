@@ -1,0 +1,13 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+data/marketplace-inventory.json
+data/dealer-draft-inventory.json
+data/dealer-profiles.json
+data/listing-images/**
+!data/listing-images/.gitkeep

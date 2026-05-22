@@ -1,0 +1,6 @@
+{
+  "name": "Nong A",
+  "description": "AI-powered car marketplace platform featuring smart professional assistant with emotional interaction, AI sale post generator, and premium orange branding theme.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
