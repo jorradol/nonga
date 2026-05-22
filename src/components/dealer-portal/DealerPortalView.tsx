@@ -27,6 +27,7 @@ export default function DealerPortalView() {
   );
 
   useEffect(() => {
+    setTab(dealerTabFromPath(window.location.pathname));
     const onPop = () => setTab(dealerTabFromPath(window.location.pathname));
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);

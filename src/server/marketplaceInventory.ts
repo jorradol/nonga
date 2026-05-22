@@ -3,6 +3,7 @@ import path from "path";
 import type { DuplicateMeta } from "../utils/duplicateDetection/types";
 import { shouldHideFromMarketplace } from "../utils/duplicateDetection/duplicateEngine";
 import { normalizeDealerId } from "../utils/dealerIdentity";
+import { withSanitizedListingImages } from "../utils/listingImages";
 
 /** บันทึกรถตลาด — source of truth เดียวกับ GET/POST /api/cars */
 export interface MarketplaceCarRecord {
@@ -16,6 +17,8 @@ export interface MarketplaceCarRecord {
   condition: string;
   mileage: number;
   fuelType: string;
+  transmission?: string;
+  color?: string;
   images: string[];
   description: string;
   ownerId: string;
@@ -108,16 +111,29 @@ export function loadMarketplaceInventory(): MarketplaceCarRecord[] {
   return memoryCache;
 }
 
+function decorateCar(car: MarketplaceCarRecord): MarketplaceCarRecord {
+  return withSanitizedListingImages(car);
+}
+
 export function getMarketplaceInventorySorted(): MarketplaceCarRecord[] {
-  return [...loadMarketplaceInventory()].sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  return loadMarketplaceInventory()
+    .map(decorateCar)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 }
 
 /** รถที่แสดงในตลาดเท่านั้น — published, ไม่ซ่อน, ไม่ขายแล้ว */
 export function getPublishedMarketplaceCars(): MarketplaceCarRecord[] {
   return getMarketplaceInventorySorted().filter(isVisibleOnMarketplace);
+}
+
+/** ประกาศทั้งหมดของเจ้าของ (รวม hidden) — หน้า "ประกาศของฉัน" */
+export function getOwnerMarketplaceCars(ownerId: string): MarketplaceCarRecord[] {
+  const oid = String(ownerId ?? "").trim();
+  if (!oid) return [];
+  return getMarketplaceInventorySorted().filter((c) => c.ownerId === oid);
 }
 
 export function getDealerInventoryCars(dealerId: string): MarketplaceCarRecord[] {
@@ -129,7 +145,8 @@ export function getDealerInventoryCars(dealerId: string): MarketplaceCarRecord[]
 export function getMarketplaceCarById(
   id: string
 ): MarketplaceCarRecord | null {
-  return loadMarketplaceInventory().find((c) => c.id === id) ?? null;
+  const car = loadMarketplaceInventory().find((c) => c.id === id);
+  return car ? decorateCar(car) : null;
 }
 
 export function updateMarketplaceCar(
@@ -139,7 +156,8 @@ export function updateMarketplaceCar(
   const list = loadMarketplaceInventory();
   const idx = list.findIndex((c) => c.id === id);
   if (idx < 0) return null;
-  const updated = { ...list[idx], ...patch, id: list[idx].id };
+  const merged = { ...list[idx], ...patch, id: list[idx].id };
+  const updated = decorateCar(merged);
   const next = [...list];
   next[idx] = updated;
   persistMarketplaceInventory(next);
@@ -162,15 +180,16 @@ export function persistMarketplaceInventory(cars: MarketplaceCarRecord[]): void 
 export function addMarketplaceCar(
   car: MarketplaceCarRecord
 ): MarketplaceCarRecord {
+  const safe = decorateCar(car);
   const list = loadMarketplaceInventory();
-  const next = [car, ...list];
+  const next = [safe, ...list];
   persistMarketplaceInventory(next);
   devMarketplaceLog("publish-success", {
     id: car.id,
     title: car.title,
     total: next.length,
   });
-  return car;
+  return safe;
 }
 
 /** Bulk import — prepend รถใหม่ทั้งชุด (inventory import Phase 4) */
@@ -178,14 +197,15 @@ export function bulkAddMarketplaceCars(
   cars: MarketplaceCarRecord[]
 ): MarketplaceCarRecord[] {
   if (cars.length === 0) return [];
+  const safeCars = cars.map(decorateCar);
   const list = loadMarketplaceInventory();
-  const next = [...cars, ...list];
+  const next = [...safeCars, ...list];
   persistMarketplaceInventory(next);
   devMarketplaceLog("bulk-import", {
     added: cars.length,
     total: next.length,
   });
-  return cars;
+  return safeCars;
 }
 
 export function removeMarketplaceCar(id: string): boolean {

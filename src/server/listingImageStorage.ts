@@ -2,14 +2,17 @@ import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
 import { devMarketplaceLog } from "./marketplaceInventory";
+import {
+  LISTING_PLACEHOLDER_IMAGE,
+  sanitizeListingImagesForId,
+} from "../utils/listingImages";
 
 const LISTING_IMAGES_ROOT = path.resolve(process.cwd(), "data/listing-images");
 const MAX_IMAGES_PER_CAR = 12;
 const DOWNLOAD_TIMEOUT_MS = 25_000;
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 3 * 1024 * 1024;
 
-const PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
+const PLACEHOLDER_IMAGE = LISTING_PLACEHOLDER_IMAGE;
 
 export interface ImageDownloadItemResult {
   sourceUrl: string;
@@ -44,6 +47,69 @@ export function getListingImagesRoot(): string {
 
 export function isLocalListingImageUrl(url: string): boolean {
   return url.startsWith("/storage/listings/");
+}
+
+const ALLOWED_UPLOAD_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const SAFE_LISTING_ID = /^[a-zA-Z0-9_-]+$/;
+
+function extFromMime(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m.includes("png")) return ".png";
+  if (m.includes("webp")) return ".webp";
+  if (m.includes("gif")) return ".gif";
+  return ".jpg";
+}
+
+function nextImageIndex(carId: string): number {
+  const carDir = path.join(LISTING_IMAGES_ROOT, carId);
+  if (!fs.existsSync(carDir)) return 0;
+  const files = fs.readdirSync(carDir).filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f));
+  return files.length;
+}
+
+/** บันทึกรูปจาก upload (edit listing) → /storage/listings/{carId}/ */
+export function saveListingImageUpload(
+  carId: string,
+  buffer: Buffer,
+  mimeType: string,
+  seed?: string
+): { ok: true; storedUrl: string } | { ok: false; error: string } {
+  if (!SAFE_LISTING_ID.test(carId)) {
+    return { ok: false, error: "รหัสประกาศไม่ถูกต้อง" };
+  }
+  const mime = mimeType.toLowerCase().split(";")[0].trim();
+  if (!ALLOWED_UPLOAD_MIME.has(mime)) {
+    return { ok: false, error: `ชนิดไฟล์ไม่รองรับ (${mimeType})` };
+  }
+  if (buffer.length === 0) return { ok: false, error: "ไฟล์ว่าง" };
+  if (buffer.length > MAX_BYTES) return { ok: false, error: "ไฟล์ใหญ่เกิน 8MB" };
+
+  const carDir = path.join(LISTING_IMAGES_ROOT, carId);
+  ensureDir(carDir);
+
+  const index = nextImageIndex(carId);
+  const ext = extFromMime(mime);
+  const slug = hashSlug(seed ?? `${Date.now()}-${index}`);
+  const filename = `${String(index + 1).padStart(2, "0")}-${slug}${ext}`;
+  const fullPath = path.join(carDir, filename);
+
+  const resolved = path.resolve(fullPath);
+  if (!resolved.startsWith(path.resolve(carDir))) {
+    return { ok: false, error: "ชื่อไฟล์ไม่ปลอดภัย" };
+  }
+
+  fs.writeFileSync(resolved, buffer);
+  const storedUrl = `/storage/listings/${carId}/${filename}`;
+
+  devMarketplaceLog("image-upload-save", { carId, storedUrl, bytes: buffer.length });
+
+  return { ok: true, storedUrl };
 }
 
 function ensureDir(dir: string): void {
@@ -197,9 +263,47 @@ export function resolveStoredImagesForListing(
   const warnings = [...report.warnings];
 
   if (report.storedUrls.length > 0) {
-    return { images: report.storedUrls, warnings };
+    return {
+      images: sanitizeListingImagesForId(report.storedUrls, report.carId),
+      warnings,
+    };
   }
 
   warnings.push("ใช้รูป placeholder — ไม่มีรูปที่ดาวน์โหลดสำเร็จ");
   return { images: [PLACEHOLDER_IMAGE], warnings };
+}
+
+/** คัดลอกรูปจากโฟลเดอร์ draft/import เก่า → car id ใหม่ตอน publish */
+export function migrateListingImagesToCarId(
+  fromListingId: string,
+  toListingId: string,
+  images: string[]
+): string[] {
+  const root = LISTING_IMAGES_ROOT;
+  const destDir = path.join(root, toListingId);
+  const migrated: string[] = [];
+
+  for (const url of images) {
+    if (/^https?:\/\//i.test(url)) {
+      migrated.push(url);
+      continue;
+    }
+    if (!url.startsWith("/storage/listings/")) continue;
+
+    const filename = url.split("/").pop();
+    if (!filename) continue;
+
+    const fromDir = path.join(root, fromListingId);
+    const src = path.join(fromDir, filename);
+    if (!fs.existsSync(src)) continue;
+
+    ensureDir(destDir);
+    const dest = path.join(destDir, filename);
+    if (!fs.existsSync(dest)) {
+      fs.copyFileSync(src, dest);
+    }
+    migrated.push(`/storage/listings/${toListingId}/${filename}`);
+  }
+
+  return sanitizeListingImagesForId(migrated, toListingId);
 }

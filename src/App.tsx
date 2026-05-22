@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useAppStore } from "./store";
+import { getListingPrimaryImage } from "./utils/listingImages";
 import { useRole } from "./hooks/auth/useRole";
 import { motion, AnimatePresence } from "motion/react";
 
 import Header from "./components/Header";
+import AppNotifyHost from "./components/notify/AppNotifyHost";
 import MarketplaceView from "./components/MarketplaceView";
 import MyListingsView from "./components/MyListingsView";
 import AIChatView from "./components/AIChatView";
@@ -124,7 +126,8 @@ export default function App() {
                 <div>
                   <div className="aspect-video relative bg-slate-900 overflow-hidden">
                     <img 
-                      src={car.images[0]} 
+                      key={`${car.id}-cover`}
+                      src={getListingPrimaryImage(car)} 
                       alt={car.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       referrerPolicy="no-referrer"
@@ -226,7 +229,7 @@ export default function App() {
       case "dealer-draft-inventory":
         return isAdmin ? <DealerDraftInventoryView /> : <HomeView />;
       case "dealer-portal":
-        return isDealer || isAdmin ? <DealerPortalView /> : <HomeView />;
+        return <DealerPortalView />;
       case "search":
         return <SearchPageView />;
       case "car-vision":
@@ -386,6 +389,7 @@ export default function App() {
         </div>
       </footer>
 
+      <AppNotifyHost />
     </div>
   );
 }

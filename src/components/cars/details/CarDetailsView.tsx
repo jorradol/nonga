@@ -13,6 +13,11 @@ import CommentsSection from "./CommentsSection";
 import ShareModal from "./ShareModal";
 import InquireModal from "./InquireModal";
 import { Car, CarComment } from "../../../types";
+import {
+  getListingGalleryImages,
+  getListingPrimaryImage,
+} from "../../../utils/listingImages";
+import ListingDescription from "../../listings/ListingDescription";
 
 export default function CarDetailsView() {
   const { 
@@ -238,7 +243,7 @@ export default function CarDetailsView() {
       {/* 2. Hero Interactive Media Showcase */}
       <section className="w-full">
         <HeroGallery 
-          images={car.images && car.images.length > 0 ? car.images : ["https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=1200"]} 
+          images={getListingGalleryImages(car.images, car.id)} 
           title={car.title} 
           brand={car.brand} 
           isEv={car.type === "ev" || car.fuelType?.includes("electric")}
@@ -281,10 +286,24 @@ export default function CarDetailsView() {
               </div>
             </div>
 
-            {/* Custom static description snippet */}
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/80 pt-4 font-sans">
-              {car.description || "รถยนต์คัดสภาพพิเศษผ่านการตรวจเช็คสภาพเครื่องยนต์ ตัวถัง ช่วงล่าง อะไหล่ และระบบประจุไฟฟ้ารวมกว่า 200 รายการพร้อมใช้งานทันใจ เล่มทะเบียนครบบริบูรณ์ มั่นใจร้อยเปอร์เซ็นต์คร้าบ!"}
-            </p>
+            <div className="border-t border-slate-800/80 pt-4 sm:pt-5">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+                รายละเอียดประกาศ
+              </h2>
+              <ListingDescription
+                text={car.description}
+                variant="full"
+                tone="dark"
+                fallback={
+                  <p
+                    className="text-sm text-slate-300 leading-[1.75]"
+                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                  >
+                    รถยนต์คัดสภาพพิเศษผ่านการตรวจเช็คสภาพเครื่องยนต์ ตัวถัง ช่วงล่าง อะไหล่ และระบบประจุไฟฟ้ารวมกว่า 200 รายการพร้อมใช้งานทันใจ เล่มทะเบียนครบบริบูรณ์ มั่นใจร้อยเปอร์เซ็นต์คร้าบ!
+                  </p>
+                }
+              />
+            </div>
           </div>
 
           {/* AI Car insights panel */}
@@ -385,7 +404,7 @@ export default function CarDetailsView() {
                 {/* Image */}
                 <div className="aspect-video relative overflow-hidden bg-slate-950">
                   <img
-                    src={sim.images && sim.images[0] ? sim.images[0] : "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=400"}
+                    src={getListingPrimaryImage(sim)}
                     alt={sim.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103"
                     referrerPolicy="no-referrer"

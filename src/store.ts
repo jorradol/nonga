@@ -133,7 +133,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else if (view === "dealer-draft-inventory") {
         window.history.replaceState(null, "", "/admin/draft-inventory");
       } else if (view === "dealer-portal") {
-        window.history.replaceState(null, "", "/dealer");
+        const currentPath = window.location.pathname;
+        const nextPath = currentPath.startsWith("/dealer")
+          ? currentPath
+          : "/dealer";
+        window.history.replaceState(null, "", nextPath);
       } else if (
         window.location.pathname.startsWith("/admin/") ||
         window.location.pathname.startsWith("/dealer")

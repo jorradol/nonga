@@ -34,7 +34,7 @@ function adminToken(): string {
   );
 }
 
-function extractBearer(req: Request): string | null {
+export function extractBearer(req: Request): string | null {
   const auth = req.headers.authorization;
   if (typeof auth === "string" && auth.startsWith("Bearer ")) {
     return auth.slice(7).trim();

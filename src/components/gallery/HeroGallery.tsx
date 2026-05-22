@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { motion } from "motion/react";
 import { Maximize2, Sparkles, Image as ImageIcon } from "lucide-react";
 import FullscreenImageViewer from "./FullscreenImageViewer";
@@ -13,6 +13,7 @@ interface HeroGalleryProps {
 export default function HeroGallery({ images, title, brand, isEv = false }: HeroGalleryProps) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollYRef = useRef(0);
 
   // Absolute fallback in case images is empty
   const galleryList = images && images.length > 0 
@@ -20,9 +21,18 @@ export default function HeroGallery({ images, title, brand, isEv = false }: Hero
     : ["https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=1200"];
 
   const handleOpenFullscreen = (index: number) => {
+    scrollYRef.current = window.scrollY;
     setCurrentIndex(index);
     setFullscreenOpen(true);
   };
+
+  const handleCloseFullscreen = useCallback(() => {
+    setFullscreenOpen(false);
+    const y = scrollYRef.current;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
+    });
+  }, []);
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? galleryList.length - 1 : prev - 1));
@@ -150,7 +160,8 @@ export default function HeroGallery({ images, title, brand, isEv = false }: Hero
         isOpen={fullscreenOpen}
         images={galleryList}
         currentIndex={currentIndex}
-        onClose={() => setFullscreenOpen(false)}
+        onClose={handleCloseFullscreen}
+        closeLabel="กลับไปหน้ารายละเอียดรถ"
         onPrev={handlePrev}
         onNext={handleNext}
         onSelectIndex={setCurrentIndex}

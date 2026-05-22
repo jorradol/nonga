@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle2, AlertTriangle, ShieldCheck, Sparkles, Phone, Eye, Car, MapPin, Layers, Coins } from "lucide-react";
+import ListingDescription from "../../listings/ListingDescription";
 
 interface PreviewPublishStepProps {
   formData: any;
@@ -180,10 +181,23 @@ export default function PreviewPublishStep({
                 <span className="font-mono text-base text-orange-500 font-extrabold">฿{(formData.price).toLocaleString()}</span>
               </div>
 
-              {/* Inline description review box */}
-              <div className="p-3.5 rounded-xl border border-white/5 bg-slate-900/40 text-[11px] leading-relaxed text-slate-400">
-                <span className="font-bold text-slate-300 block mb-1">จุดเด่นขายโดดเด่น:</span>
-                <p className="line-clamp-4 leading-relaxed font-sans">{formData.description || "ความคุ้มค่าครบถ้วน พร้อมจดโอนเล่มทะเบียนทันที!"}</p>
+              <div className="p-3.5 rounded-xl border border-white/5 bg-slate-900/40">
+                <span className="font-bold text-slate-300 block mb-2 text-[11px]">
+                  รายละเอียดประกาศ (ตัวอย่าง)
+                </span>
+                <ListingDescription
+                  text={formData.description}
+                  variant="preview"
+                  tone="dark"
+                  fallback={
+                    <p
+                      className="text-sm text-slate-400 leading-[1.75]"
+                      style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                    >
+                      ความคุ้มค่าครบถ้วน พร้อมจดโอนเล่มทะเบียนทันที!
+                    </p>
+                  }
+                />
               </div>
 
               {/* Verified Badge placeholder */}

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppStore } from "../store";
 import { Car } from "../types";
+import { getListingPrimaryImage } from "../utils/listingImages";
 import { BoostFrame } from "./boost/BoostBadge";
 import { Search, SlidersHorizontal, Sparkles, Heart, Fuel, Gauge, Calendar, MessageSquare, ArrowUpDown, ChevronRight, X, Car as CarIcon } from "lucide-react";
 
@@ -354,6 +355,8 @@ export default function MarketplaceView() {
                   ? "ราคาดี ผ่อนคุ้ม 🌟" 
                   : "คัดเกรดเช็คประวัติ ด่วน 🔥";
 
+                const openCarDetails = () => setView("car-details", car.id);
+
                 return (
                   <BoostFrame
                     key={car.id}
@@ -369,39 +372,53 @@ export default function MarketplaceView() {
                       }`}
                     >
                       
-                      {/* Top image layout */}
+                      {/* Top image — แตะรูปเข้าหน้ารายละเอียดรถ */}
                       <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
-                        <img
-                          src={car.images[0]}
-                          alt={car.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          referrerPolicy="no-referrer"
-                        />
-                        
-                        {/* Premium type flag overlay */}
-                        <span className="absolute top-3.5 left-3.5 bg-slate-950/80 backdrop-blur-md text-[10px] sm:text-[11px] text-orange-500 font-semibold px-2.5 py-1 rounded-lg border border-orange-500/25">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={openCarDetails}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openCarDetails();
+                            }
+                          }}
+                          className="absolute inset-0 z-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-inset"
+                          aria-label={`ดูรายละเอียดรถคันนี้: ${car.title}`}
+                        >
+                          <img
+                            key={`${car.id}-cover`}
+                            src={getListingPrimaryImage(car)}
+                            alt=""
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+
+                        <span className="absolute top-3.5 left-3.5 z-10 pointer-events-none bg-slate-950/80 backdrop-blur-md text-[10px] sm:text-[11px] text-orange-500 font-semibold px-2.5 py-1 rounded-lg border border-orange-500/25">
                           {smartBadge}
                         </span>
 
-                        {/* Favorite trigger */}
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleFavorite(car.id);
                           }}
-                          className={`absolute top-3 left-auto right-3 p-2 rounded-full backdrop-blur-md border transition-all ${
+                          className={`absolute top-3 left-auto right-3 z-20 p-2 rounded-full backdrop-blur-md border transition-all ${
                             isFav 
                               ? "bg-red-500 border-red-500 text-white scale-110" 
                               : "bg-black/40 border-white/10 text-white hover:bg-black/60"
                           }`}
                           title="บันทึกคันนี้"
+                          aria-label="บันทึกรถคันนี้ในรายการโปรด"
                         >
                           <Heart className={`w-4 h-4 ${isFav ? "fill-current animate-pulse" : ""}`} />
                         </button>
 
-                        {/* Sold cover tag */}
                         {car.isSold && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <div className="absolute inset-0 z-10 pointer-events-none bg-black/60 flex items-center justify-center">
                             <span className="text-white bg-red-600/90 font-display font-black text-xl tracking-widest uppercase border-2 border-white px-4 py-1 rotate-[-12deg]">
                               SOLD OUT / ขายแล้ว
                             </span>
@@ -422,7 +439,7 @@ export default function MarketplaceView() {
                             </span>
                           </div>
                           <h3 
-                            onClick={() => setView("car-details", car.id)}
+                            onClick={openCarDetails}
                             className="font-display font-bold text-[15px] sm:text-[16px] leading-tight tracking-tight hover:text-orange-500 cursor-pointer min-h-[44px] line-clamp-2"
                           >
                             {car.title}
@@ -476,7 +493,8 @@ export default function MarketplaceView() {
                       {/* Button interactions footer */}
                       <div className="grid grid-cols-2 gap-2 p-3 pt-0 border-t border-orange-500/5 bg-slate-900/5 dark:bg-slate-950/20">
                         <button 
-                          onClick={() => setView("car-details", car.id)}
+                          type="button"
+                          onClick={openCarDetails}
                           className={`flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-sans font-medium transition-all duration-150 ${
                             isDarkMode 
                               ? "bg-slate-800 hover:bg-slate-750 text-white" 

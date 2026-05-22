@@ -281,8 +281,8 @@ class SeoService {
           "@type": "WebSite",
           "@id": "https://nonga-car.com/#website",
           "url": "https://nonga-car.com/",
-          "name": "Nong A Luxury & Green Auto Marketplace Room",
-          "description": "ตลาดซื้อขายรถยนต์นำเข้าและครอบครัวอันพรีเมียมอันดับ 1 ของไทย"
+          "name": "Nong A",
+          "description": "ตลาดรถอัจฉริยะสำหรับเต็นท์รถและผู้ขายรถ ใช้งานง่ายด้วย AI Smart Import และระบบจัดการรถครบวงจร"
         },
         {
           "@type": "BreadcrumbList",

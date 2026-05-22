@@ -278,11 +278,14 @@ cp .env.example backup/v4-YYYYMMDD/
 - ทั้ง repo (ยกเว้น `node_modules`)
 - หรือ zip: `data/`, `public/samples/`, `src/server/`, `dist/` (หลัง build)
 
-### Git tag (ถ้ามี git repo)
+### Git tag
 
 ```bash
-git tag -a Nong-A-Version-4 -m "Nong A Version 4 checkpoint"
+git tag -l Nong-A-Version-4
+# checkout: git checkout Nong-A-Version-4
 ```
+
+Tag: **Nong-A-Version-4** (commit หลัง freeze v4)
 
 ---
 

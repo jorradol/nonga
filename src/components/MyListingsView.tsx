@@ -1,32 +1,138 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppStore } from "../store";
 import type { Car } from "../types";
-import { ClipboardList, RefreshCw, CarFront, PlusCircle } from "lucide-react";
+import {
+  ClipboardList,
+  RefreshCw,
+  CarFront,
+  PlusCircle,
+  Pencil,
+  Eye,
+  EyeOff,
+  Trash2,
+  ExternalLink,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { devClientMarketplaceLog } from "../utils/marketplaceCarMapper";
+import { getListingPrimaryImage } from "../utils/listingImages";
+import { useNotifyStore } from "../stores/notifyStore";
+import EditListingModal from "./listings/EditListingModal";
+import {
+  fetchMyListings,
+  patchMyListing,
+  setMyListingVisibility,
+  deleteMyListing,
+} from "../services/listings/myListingsApi";
 
 export default function MyListingsView() {
-  const { user, cars, isLoadingCars, fetchCars, setView, isDarkMode } =
-    useAppStore();
+  const { user, fetchCars, setView, setFilters, isDarkMode } = useAppStore();
+  const notifyFriendlyError = useNotifyStore((s) => s.notifyFriendlyError);
+  const notifySuccess = useNotifyStore((s) => s.notifySuccess);
 
   const ownerId = user?.uid ?? "";
+  const [myCars, setMyCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [friendlyHint, setFriendlyHint] = useState<string | null>(null);
+  const [editingCar, setEditingCar] = useState<Car | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!ownerId) {
+      setMyCars([]);
+      setLoading(false);
+      setLoadFailed(false);
+      setFriendlyHint(null);
+      return;
+    }
+    setLoading(true);
+    setLoadFailed(false);
+    setFriendlyHint(null);
+    try {
+      const data = await fetchMyListings(ownerId);
+      setMyCars(data);
+      devClientMarketplaceLog("my-listings", {
+        ownerId,
+        mine: data.length,
+        source: "GET /api/my/listings",
+      });
+    } catch (e) {
+      const friendly = notifyFriendlyError(e, "/api/my/listings");
+      setLoadFailed(true);
+      setFriendlyHint(friendly.friendlyMessage.split("\n")[0]);
+      setMyCars([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [ownerId, notifyFriendlyError]);
 
   useEffect(() => {
-    fetchCars();
-  }, [fetchCars]);
+    load();
+  }, [load]);
 
-  const myCars = useMemo(
-    () => cars.filter((c) => c.ownerId === ownerId),
-    [cars, ownerId]
-  );
+  const refreshMarketplace = async () => {
+    await fetchCars();
+    await load();
+  };
 
-  useEffect(() => {
-    devClientMarketplaceLog("my-listings", {
-      ownerId,
-      totalInStore: cars.length,
-      mine: myCars.length,
-      source: "zustand store ← GET /api/cars",
-    });
-  }, [cars.length, myCars.length, ownerId]);
+  const handleVisibility = async (car: Car) => {
+    const hidden = car.listingStatus !== "hidden";
+    const msg = hidden
+      ? "ซ่อนประกาศนี้จากตลาด?"
+      : "แสดงประกาศนี้ในตลาดอีกครั้ง?";
+    if (!confirm(msg)) return;
+
+    setActionId(car.id);
+    try {
+      const updated = await setMyListingVisibility(ownerId, car.id, hidden);
+      setMyCars((list) =>
+        list.map((c) => (c.id === updated.id ? updated : c))
+      );
+      await fetchCars();
+      notifySuccess(
+        hidden ? "ซ่อนประกาศแล้วค่ะ" : "แสดงประกาศในตลาดแล้วค่ะ",
+        hidden
+          ? "รายการนี้จะไม่โผล่ในตลาดรถจนกว่าจะกดแสดงอีกครั้ง"
+          : "ลูกค้าสามารถเห็นในตลาดได้แล้วนะคะ"
+      );
+    } catch (e) {
+      notifyFriendlyError(e, "เปลี่ยนสถานะประกาศ");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDelete = async (car: Car) => {
+    if (
+      !confirm(
+        `ลบประกาศ "${car.title}" ถาวร?\n\nการลบไม่สามารถย้อนกลับได้ — ถ้าต้องการซ่อนชั่วคราว ให้ใช้ปุ่ม "ซ่อน" แทน`
+      )
+    ) {
+      return;
+    }
+
+    setActionId(car.id);
+    try {
+      await deleteMyListing(ownerId, car.id, true);
+      setMyCars((list) => list.filter((c) => c.id !== car.id));
+      await fetchCars();
+      notifySuccess("ลบประกาศแล้วค่ะ", "รายการนี้ถูกลบออกจากระบบแล้วนะคะ");
+    } catch (e) {
+      notifyFriendlyError(e, "ลบประกาศ");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const openInMarketplace = (car: Car) => {
+    setFilters({ search: car.title });
+    setView("marketplace", car.id);
+  };
+
+  const panel = isDarkMode
+    ? "border-slate-800 bg-slate-900/50"
+    : "border-slate-200 bg-white";
 
   return (
     <div className="space-y-6 pb-16">
@@ -34,23 +140,26 @@ export default function MyListingsView() {
         <div>
           <div className="inline-flex items-center gap-2 text-orange-500 text-xs font-semibold uppercase tracking-wider mb-2">
             <ClipboardList className="w-4 h-4" />
-            ตรวจสอบประกาศ
+            จัดการประกาศ
           </div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold">
             ประกาศของฉัน
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            แหล่งข้อมูลเดียวกับตลาดรถยนต์ (GET /api/cars) — รหัสผู้ขาย:{" "}
+            แก้ไข ซ่อน หรือลบประกาศได้จากหน้านี้ — รหัสผู้ขาย:{" "}
             <span className="font-mono text-orange-400">{ownerId || "—"}</span>
           </p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => fetchCars()}
+            onClick={() => refreshMarketplace()}
+            disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-xs hover:bg-slate-800 transition"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw
+              className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+            />
             โหลดใหม่
           </button>
           <button
@@ -64,16 +173,37 @@ export default function MyListingsView() {
         </div>
       </div>
 
-      {isLoadingCars ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2].map((i) => (
-            <div
-              key={i}
-              className={`h-32 rounded-2xl animate-pulse ${isDarkMode ? "bg-slate-900" : "bg-slate-100"}`}
-            />
-          ))}
+      {loadFailed && (
+        <div
+          className={`p-6 rounded-2xl border flex gap-4 ${
+            isDarkMode
+              ? "bg-slate-900/50 border-amber-500/25"
+              : "bg-amber-50 border-amber-200"
+          }`}
+        >
+          <AlertCircle className="w-8 h-8 text-amber-400 shrink-0" />
+          <div className="text-left space-y-2">
+            <h2 className="font-bold text-sm">น้องเอโหลดรายการไม่สำเร็จค่ะ</h2>
+            <p className="text-sm text-slate-400 whitespace-pre-line">
+              {friendlyHint ??
+                "ลองกดโหลดใหม่ หรือรีเฟรชหน้าเว็บนะคะ\nถ้ายังไม่หาย อาจต้อง restart npm run dev ค่ะ"}
+            </p>
+            <button
+              type="button"
+              onClick={() => load()}
+              className="px-4 py-2 rounded-lg bg-orange-600 text-white text-xs font-bold"
+            >
+              ลองโหลดอีกครั้ง
+            </button>
+          </div>
         </div>
-      ) : myCars.length === 0 ? (
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        </div>
+      ) : !loadFailed && myCars.length === 0 ? (
         <div
           className={`p-12 text-center rounded-2xl border space-y-4 ${
             isDarkMode
@@ -84,8 +214,7 @@ export default function MyListingsView() {
           <CarFront className="w-12 h-12 mx-auto text-slate-500" />
           <h2 className="font-bold text-lg">ยังไม่มีประกาศของคุณในระบบ</h2>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
-            ถ้าเพิ่งลงประกาศแล้วไม่เห็น ให้กดโหลดใหม่ หรือตรวจว่า publish สำเร็จ
-            (POST /api/cars) และ ownerId ตรงกับบัญชีที่ล็อกอิน
+            ลงประกาศใหม่หรือตรวจว่า ownerId ตรงกับบัญชีที่ล็อกอิน
           </p>
           <button
             type="button"
@@ -95,44 +224,126 @@ export default function MyListingsView() {
             ลงประกาศแรก
           </button>
         </div>
-      ) : (
+      ) : !loadFailed ? (
         <div className="space-y-3">
-          {myCars.map((car: Car) => (
-            <article
-              key={car.id}
-              className={`p-4 rounded-2xl border flex flex-col sm:flex-row gap-4 ${
-                isDarkMode
-                  ? "border-slate-800 bg-slate-900/50"
-                  : "border-slate-200 bg-white"
-              }`}
-            >
-              <img
-                src={car.images[0]}
-                alt={car.title}
-                className="w-full sm:w-40 h-28 object-cover rounded-xl bg-slate-800"
-              />
-              <div className="flex-1 space-y-1 text-left">
-                <h3 className="font-bold text-sm">{car.title}</h3>
-                <p className="text-xs text-slate-400 font-mono">ID: {car.id}</p>
-                <p className="text-xs text-orange-400 font-semibold">
-                  ฿{car.price.toLocaleString("th-TH")} · {car.year} ·{" "}
-                  {car.mileage.toLocaleString()} กม.
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  ลงเมื่อ{" "}
-                  {new Date(car.createdAt).toLocaleString("th-TH")}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setView("marketplace")}
-                className="self-start sm:self-center px-4 py-2 text-xs font-semibold rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+          {myCars.map((car) => {
+            const busy = actionId === car.id;
+            const hidden = car.listingStatus === "hidden";
+
+            return (
+              <article
+                key={car.id}
+                className={`p-4 rounded-2xl border flex flex-col lg:flex-row gap-4 ${panel}`}
               >
-                ดูในตลาด →
-              </button>
-            </article>
-          ))}
+                <img
+                  key={`${car.id}-cover`}
+                  src={getListingPrimaryImage(car)}
+                  alt={car.title}
+                  className="w-full lg:w-44 h-28 object-cover rounded-xl bg-slate-800 shrink-0"
+                />
+                <div className="flex-1 space-y-2 text-left min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold text-sm truncate">{car.title}</h3>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        hidden
+                          ? "bg-slate-700 text-slate-300"
+                          : "bg-green-500/15 text-green-400"
+                      }`}
+                    >
+                      {hidden ? "ซ่อนอยู่" : "แสดงในตลาด"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono truncate">
+                    ID: {car.id}
+                  </p>
+                  <p className="text-xs text-orange-400 font-semibold">
+                    ฿{car.price.toLocaleString("th-TH")} · {car.year} ·{" "}
+                    {car.mileage.toLocaleString()} กม.
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    ลงเมื่อ{" "}
+                    {new Date(car.createdAt).toLocaleString("th-TH")}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 shrink-0 lg:flex-col lg:items-stretch">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setEditingCar(car)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    แก้ไข
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => handleVisibility(car)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {hidden ? (
+                      <>
+                        <Eye className="w-3.5 h-3.5" /> แสดงอีกครั้ง
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5" /> ซ่อนประกาศ
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || hidden}
+                    onClick={() => openInMarketplace(car)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 disabled:opacity-40"
+                    title={hidden ? "ต้องแสดงประกาศก่อนจึงจะเห็นในตลาด" : ""}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    ดูในตลาด
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => handleDelete(car)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    ลบ
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
+      ) : null}
+
+      {editingCar && (
+        <EditListingModal
+          car={editingCar}
+          ownerId={ownerId}
+          isDarkMode={isDarkMode}
+          onClose={() => setEditingCar(null)}
+          onSave={async (patch) => {
+            try {
+              const updated = await patchMyListing(
+                ownerId,
+                editingCar.id,
+                patch
+              );
+              setMyCars((list) =>
+                list.map((c) => (c.id === updated.id ? updated : c))
+              );
+              await fetchCars();
+              notifySuccess("บันทึกการแก้ไขแล้วค่ะ", updated.title);
+              setEditingCar(null);
+            } catch (e) {
+              notifyFriendlyError(e, "บันทึกประกาศ");
+              throw e;
+            }
+          }}
+        />
       )}
     </div>
   );

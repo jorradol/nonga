@@ -1,4 +1,5 @@
 import type { Car } from "../types";
+import { sanitizeListingImagesForId } from "./listingImages";
 
 const VALID_TYPES = new Set<Car["type"]>([
   "new",
@@ -54,9 +55,7 @@ export function inferMarketplaceCategoryType(input: {
 }
 
 export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
-  const images = Array.isArray(raw.images)
-    ? (raw.images as string[]).filter((u) => typeof u === "string" && u.length > 0)
-    : [];
+  const id = String(raw.id ?? `car-${Date.now()}`);
 
   const fuelType = normalizeFuelType(raw.fuelType);
   const categoryType = inferMarketplaceCategoryType({
@@ -67,8 +66,10 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
     price: Number(raw.price) || 0,
   });
 
+  const images = sanitizeListingImagesForId(raw.images, id);
+
   return {
-    id: String(raw.id ?? `car-${Date.now()}`),
+    id,
     title: String(raw.title ?? "ประกาศขายรถ"),
     brand: String(raw.brand ?? ""),
     model: String(raw.model ?? ""),
@@ -78,18 +79,15 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
     condition: String(raw.condition ?? ""),
     mileage: Number(raw.mileage) || 0,
     fuelType,
-    images:
-      images.length > 0
-        ? images
-        : [
-            "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600",
-          ],
+    images,
     description: String(raw.description ?? ""),
     ownerId: String(raw.ownerId ?? ""),
     ownerName: String(raw.ownerName ?? ""),
     ownerPhone: String(raw.ownerPhone ?? ""),
     showroomName: raw.showroomName ? String(raw.showroomName) : undefined,
     isSold: Boolean(raw.isSold),
+    listingStatus:
+      raw.listingStatus === "hidden" ? "hidden" : "published",
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
     boosted: Boolean(raw.boosted),
     featured: Boolean(raw.featured),

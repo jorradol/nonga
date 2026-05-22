@@ -5,6 +5,7 @@ import { useAppStore } from "../../store";
 import { useSearch } from "../../hooks/search/useSearch";
 import { CarSearchService } from "../../services/search/searchService";
 import FilterPanel from "./FilterPanel";
+import { getListingPrimaryImage } from "../../utils/listingImages";
 import { 
   Search, SlidersHorizontal, Sparkles, AlertCircle, RefreshCw, X, ArrowUpDown, ChevronDown, 
   MapPin, Settings, Fuel, Calendar, Gauge, Heart, MessageSquare, ChevronRight, BookmarkCheck,
@@ -428,7 +429,7 @@ export default function SearchPageView() {
                     {/* Upper gallery display */}
                     <div className="aspect-video relative overflow-hidden bg-slate-900 shrink-0">
                       <img
-                        src={car.images && car.images[0] ? car.images[0] : "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=400"}
+                        src={getListingPrimaryImage(car)}
                         alt={car.title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-104"
                         referrerPolicy="no-referrer"

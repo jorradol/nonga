@@ -27,6 +27,7 @@ export default function Header() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const navScrollRef = useRef<HTMLElement>(null);
 
   // Global shortcut 'Slash' or 'Ctrl/Command + K' to focus search
   useEffect(() => {
@@ -39,6 +40,25 @@ export default function Header() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement !== el) return;
+      const step = 120;
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        el.scrollBy({ left: step, behavior: "smooth" });
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        el.scrollBy({ left: -step, behavior: "smooth" });
+      }
+    };
+    el.addEventListener("keydown", onKeyDown);
+    return () => el.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const navItems = [
@@ -75,46 +95,47 @@ export default function Header() {
           ? "bg-[#0d0d0d]/85 border-white/[0.08]" 
           : "bg-white/90 border-slate-200/50"
       } border-b backdrop-blur-xl`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 gap-4">
-            
-            {/* Logo Brand Segment */}
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0 py-1.5 sm:py-2">
+          {/* Header ชั้น 1: โลโก้ + ค้นหา + actions */}
+          <div className="grid grid-cols-[auto_1fr_auto] gap-x-2 sm:gap-x-3 gap-y-1.5 items-center">
             <div 
               onClick={() => {
                 setView("home");
                 setIsMobileDrawerOpen(false);
               }} 
-              className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0"
+              className="col-start-1 row-start-1 flex items-center gap-2 cursor-pointer group flex-shrink-0 self-center min-w-0"
               id="header-branding-logo"
             >
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-600/20 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-350">
-                <Sparkles className="w-5 h-5 animate-pulse" />
-                <div className="absolute -inset-0.5 bg-orange-400 rounded-xl blur-md opacity-20 group-hover:opacity-40 transition-opacity"></div>
+              <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-md shadow-orange-600/20 group-hover:scale-105 transition-transform duration-300">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
               </div>
               
-              <div className="flex flex-col">
-                <span className="font-display font-black text-xl sm:text-2xl leading-none tracking-tight flex items-center gap-1">
+              <div className="flex flex-col min-w-0 leading-tight">
+                <span className="font-display font-black text-lg sm:text-xl lg:text-2xl tracking-tight flex items-center gap-1">
                   Nong <span className="text-orange-500">A</span>
-                  <span className="hidden xs:inline-flex items-center text-[9px] font-mono font-extrabold px-1.5 py-0.5 ml-1 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-widest">
+                  <span className="hidden sm:inline-flex items-center text-[8px] font-mono font-extrabold px-1 py-0.5 ml-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-widest">
                     NongBot
                   </span>
                 </span>
-                <span className="text-[9px] text-slate-500 font-medium tracking-wide">Premium AI Auto Platform</span>
+                <span className="hidden sm:block text-[8px] sm:text-[9px] text-slate-500 font-medium tracking-wide truncate">
+                  Premium AI Auto Platform
+                </span>
               </div>
             </div>
 
-            {/* Central Unified Interactive Search Bar */}
-            <div className="hidden md:flex items-center flex-1 max-w-sm relative group">
-              <span className="absolute left-3.5 text-slate-500 group-focus-within:text-orange-500 transition-colors">
-                <Search className="w-4 h-4" />
+            {/* ค้นหา — แสดงทุกขนาดจอ; มือถือเต็มแถว, desktop อยู่กลางแถวโลโก้ */}
+            <div className="col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 flex items-center min-w-0 w-full lg:max-w-sm relative group">
+              <span className="absolute left-3 sm:left-3.5 text-slate-500 group-focus-within:text-orange-500 transition-colors pointer-events-none">
+                <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </span>
               <input
                 ref={searchInputRef}
-                type="text"
+                type="search"
                 value={filters.search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="ค้นหารุ่นรถยนต์ ยี่ห้อ หรือสเป็กไฟฟ้า... (⌘K)"
-                className={`w-full text-xs font-sans pl-10 pr-8 py-2 rounded-xl transition-all outline-none border ${
+                aria-label="ค้นหารถในตลาด"
+                className={`w-full min-w-[10rem] max-w-full text-[11px] sm:text-xs font-sans pl-9 sm:pl-10 pr-7 sm:pr-8 py-1.5 sm:py-2 rounded-lg sm:rounded-xl transition-all outline-none border ${
                   isDarkMode 
                     ? "bg-[#141416]/90 border-white/[0.08] text-slate-200 placeholder-slate-500 focus:border-orange-500/40 focus:bg-black/40" 
                     : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-orange-500/40 focus:bg-white"
@@ -122,13 +143,15 @@ export default function Header() {
               />
               {filters.search ? (
                 <button 
+                  type="button"
                   onClick={clearSearch}
-                  className="absolute right-2.5 p-1 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800/10"
+                  className="absolute right-2 sm:right-2.5 p-1.5 sm:p-1 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800/10 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  aria-label="ล้างคำค้นหา"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
               ) : (
-                <span className={`absolute right-3 font-mono text-[9px] px-1.5 py-0.5 rounded ${
+                <span className={`absolute right-2.5 sm:right-3 font-mono text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded hidden xs:inline ${
                   isDarkMode ? "bg-slate-900 border-white/5 text-slate-500" : "bg-slate-200/50 text-slate-400"
                 } pointer-events-none`}>
                   ⌘K
@@ -136,50 +159,12 @@ export default function Header() {
               )}
             </div>
 
-            {/* Desktop Navigation Link Tabs */}
-            <nav className="hidden lg:flex items-center gap-1 pb-0 pt-0">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setView(item.id)}
-                    className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-sans text-[13px] font-semibold transition-all duration-200 select-none ${
-                      isActive
-                        ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white shadow-md shadow-orange-600/15"
-                        : isDarkMode
-                        ? "text-slate-300 hover:bg-slate-900/60 hover:text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-orange-600"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                    
-                    {/* Badge counts (Favorites) */}
-                    {"count" in item && item.count > 0 && (
-                      <span className="flex-shrink-0 ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center leading-none">
-                        {item.count}
-                      </span>
-                    )}
-
-                    {/* Dynamic highlight labels */}
-                    {"badge" in item && (
-                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[8px] font-mono tracking-wider font-black px-1.5 py-0.5 rounded-full uppercase leading-none scale-90">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Right Action Widgets Container */}
-            <div className="flex items-center gap-2">
+            <div className="col-start-3 row-start-1 flex items-center gap-1.5 sm:gap-2 flex-shrink-0 justify-self-end self-center">
               {/* Theme Toggle Button */}
               <button
+                type="button"
                 onClick={toggleDarkMode}
-                className={`p-2.5 rounded-xl border transition-all duration-200 flex-shrink-0 ${
+                className={`p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border transition-all duration-200 flex-shrink-0 ${
                   isDarkMode 
                     ? "border-white/[0.08] bg-[#121214]/60 text-slate-300 hover:text-white hover:bg-[#18181b]" 
                     : "border-slate-200 bg-slate-50 text-slate-600 hover:text-orange-500 hover:bg-slate-100"
@@ -371,52 +356,84 @@ export default function Header() {
 
               {/* Mobile Burger Menu Button */}
               <button
+                type="button"
                 onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-                className={`lg:hidden p-2.5 rounded-xl border transition-all ${
+                className={`md:hidden p-2.5 rounded-xl border transition-all min-h-[40px] min-w-[40px] flex items-center justify-center ${
                   isDarkMode 
                     ? "border-white/[0.08] bg-[#141416] text-slate-300 hover:text-white" 
                     : "border-slate-200 bg-slate-50 text-slate-600 hover:text-orange-500 focus:bg-slate-100"
                 }`}
+                aria-label={isMobileDrawerOpen ? "ปิดเมนูเพิ่มเติม" : "เปิดเมนูเพิ่มเติม"}
               >
                 {isMobileDrawerOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
               </button>
             </div>
-
           </div>
-        </div>
 
-        {/* Mobile quick action bar when viewing on tablets/iphones - lightweight */}
-        <div className={`flex lg:hidden overflow-x-auto border-t py-2 px-3 gap-1.5 ${
-          isDarkMode ? "border-white/[0.05] bg-[#0d0d0d]/90" : "border-slate-200/50 bg-slate-50/80"
-        } no-scrollbar`}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setView(item.id);
-                  setIsMobileDrawerOpen(false);
-                }}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                  isActive
-                    ? "bg-orange-600 text-white shadow-sm shadow-orange-600/10"
-                    : isDarkMode
-                    ? "text-slate-400 bg-white/5 hover:text-white"
-                    : "text-slate-600 bg-white border border-slate-100 hover:text-orange-600"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.label}</span>
-                {"count" in item && item.count > 0 && (
-                  <span className="ml-1 bg-red-500 text-white text-[10px] px-1 rounded-full font-extrabold leading-none">
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {/* Header ชั้น 2: เมนูหลัก (รวมใน Header เดียว) */}
+          <div
+            className={`relative mt-1 pt-1 border-t ${
+              isDarkMode ? "border-white/[0.06]" : "border-slate-200/40"
+            }`}
+          >
+            <p className="sr-only">
+              เมนูหลัก — เลื่อนซ้ายขวาหรือใช้ลูกศรเมื่อโฟกัสที่แถบเมนู
+            </p>
+            <div
+              className={`pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 sm:w-12 bg-gradient-to-l to-transparent ${
+                isDarkMode ? "from-[#0d0d0d]/95" : "from-white/95"
+              }`}
+              aria-hidden
+            />
+            <div
+              className={`pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-4 bg-gradient-to-r to-transparent sm:hidden ${
+                isDarkMode ? "from-[#0d0d0d]/90" : "from-white/90"
+              }`}
+              aria-hidden
+            />
+            <nav
+              ref={navScrollRef}
+              role="navigation"
+              aria-label="เมนูหลัก"
+              tabIndex={0}
+              className="header-nav-scroll flex w-full min-w-0 flex-nowrap items-center gap-1 sm:gap-1.5 py-1 px-0.5 min-h-[36px] sm:min-h-[40px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth touch-pan-x focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
+            >
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setView(item.id);
+                      setIsMobileDrawerOpen(false);
+                    }}
+                    className={`relative shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1.5 min-h-[36px] sm:min-h-[40px] rounded-lg sm:rounded-xl font-sans text-[11px] sm:text-xs lg:text-[13px] font-semibold transition-all duration-200 select-none whitespace-nowrap ${
+                      isActive
+                        ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white shadow-md shadow-orange-600/15"
+                        : isDarkMode
+                        ? "text-slate-300 hover:bg-slate-900/60 hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-orange-600"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="whitespace-nowrap">{item.label}</span>
+                    {"count" in item && item.count > 0 && (
+                      <span className="flex-shrink-0 ml-0.5 sm:ml-1 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center leading-none">
+                        {item.count}
+                      </span>
+                    )}
+                    {"badge" in item && (
+                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[8px] font-mono tracking-wider font-black px-1.5 py-0.5 rounded-full uppercase leading-none scale-90 whitespace-nowrap">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </div>
       </header>
 

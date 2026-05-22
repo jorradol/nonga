@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Nong A
 
-# Run and deploy your AI Studio app
+**Nong A : ช่วยขายรถง่ายขึ้น ด้วย AI**
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/df2e9016-f963-4530-946b-f16b208cd267
+ตลาดรถอัจฉริยะสำหรับเต็นท์รถและผู้ขายรถ ใช้งานง่ายด้วย AI Smart Import และระบบจัดการรถครบวงจร
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+   ```bash
+   npm install
+   ```
+2. Copy environment:
+   ```bash
+   cp .env.example .env
+   ```
+   Set `GEMINI_API_KEY` and API tokens as needed.
 3. Run the app:
-   `npm run dev`
+   ```bash
+   npm run dev
+   ```
+4. Open **http://localhost:3000**
+
+## Tests
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+## Documentation
+
+See [VERSION-4-NOTES.md](./VERSION-4-NOTES.md) for architecture, API, backup, and flows.

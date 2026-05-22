@@ -12,8 +12,8 @@ import {
 } from "./src/services/ai/chatMockFallback";
 import {
   getPublishedMarketplaceCars,
+  getOwnerMarketplaceCars,
   addMarketplaceCar,
-  removeMarketplaceCar,
   buildAIInventoryContext,
   devMarketplaceLog,
   type MarketplaceCarRecord,
@@ -33,23 +33,12 @@ import { registerDuplicateRoutes } from "./src/server/duplicateRoutes";
 import { dealerApiAuth, adminApiAuth } from "./src/server/apiAuth";
 import { getListingImagesRoot } from "./src/server/listingImageStorage";
 import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
-
-const API_IMAGE_PLACEHOLDERS = [
-  "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=600",
-];
-
-function sanitizeApiCarImages(images: unknown): string[] {
-  if (!Array.isArray(images) || images.length === 0) {
-    return [API_IMAGE_PLACEHOLDERS[0]];
-  }
-  return images.slice(0, 12).map((raw, i) => {
-    const url = String(raw ?? "");
-    if (/^https?:\/\//i.test(url)) return url;
-    if (url.startsWith("/storage/listings/")) return url;
-    return API_IMAGE_PLACEHOLDERS[i % API_IMAGE_PLACEHOLDERS.length];
-  });
-}
+import { sanitizeListingImagesForId } from "./src/utils/listingImages";
+import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
+import {
+  registerJsonBodyParsers,
+  registerPayloadTooLargeHandler,
+} from "./src/server/httpBodyLimits";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
   return getPublishedMarketplaceCars();
@@ -80,7 +69,7 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "512kb" }));
+registerJsonBodyParsers(app);
 
 // รูปรถที่ import ดาวน์โหลดจาก CSV (ไม่ hotlink)
 app.use(
@@ -117,7 +106,7 @@ app.get("/api/cars", (req, res) => {
   const dealerId =
     typeof req.query.dealerId === "string" ? req.query.dealerId : undefined;
   if (ownerId) {
-    data = data.filter((c) => c.ownerId === ownerId);
+    data = getOwnerMarketplaceCars(ownerId);
   }
   if (dealerId) {
     data = data.filter(
@@ -135,7 +124,8 @@ app.get("/api/cars", (req, res) => {
 // 2. API: Create car sale post (saves in-memory)
 app.post("/api/cars", (req, res) => {
   const body = req.body ?? {};
-  const safeImages = sanitizeApiCarImages(body.images);
+  const carId = `car-${Date.now()}`;
+  const safeImages = sanitizeListingImagesForId(body.images, carId);
   const safeDescription = String(body.description ?? "").slice(0, 4000);
 
   const categoryType = inferMarketplaceCategoryType({
@@ -147,7 +137,7 @@ app.post("/api/cars", (req, res) => {
   });
 
   const newCar: MarketplaceCarRecord = {
-    id: `car-${Date.now()}`,
+    id: carId,
     title: String(body.title ?? ""),
     brand: String(body.brand ?? ""),
     model: String(body.model ?? ""),
@@ -297,13 +287,8 @@ app.delete("/api/admin/draft-inventory/:id", (req, res) => {
 
 registerDealerPortalRoutes(app);
 registerDuplicateRoutes(app);
-
-// 3. API: Delete car
-app.delete("/api/cars/:id", (req, res) => {
-  const { id } = req.params;
-  removeMarketplaceCar(id);
-  res.json({ success: true, message: "Car removed successfully" });
-});
+registerOwnerListingRoutes(app);
+registerPayloadTooLargeHandler(app);
 
 // 4. API: AI Smart Chat Assistant (Nong A)
 app.post("/api/gemini/chat", async (req, res) => {
@@ -1562,7 +1547,11 @@ async function initServer() {
       server: { middlewareMode: true },
       appType: "spa",
     });
-    app.use(vite.middlewares);
+    // อย่าให้ Vite SPA ดัก /api/* — ไม่งั้นได้ HTML แทน JSON
+    app.use((req, res, next) => {
+      if (req.path.startsWith("/api/")) return next();
+      vite.middlewares(req, res, next);
+    });
   } else {
     console.log("Serving build outputs in Production Mode...");
     const distPath = path.join(process.cwd(), "dist");

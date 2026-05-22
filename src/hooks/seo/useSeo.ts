@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { APP_DESCRIPTION, APP_TITLE } from "../../utils/appBranding";
 import { useAppStore } from "../../store";
 import { seoService } from "../../services/seo/seoService";
 import { SeoLandingPage, SearchRankingInsight, DynamicSeoMeta } from "../../types/seo";
@@ -27,8 +28,21 @@ export function useSeo() {
   // Dynamic Metadata and HTML tags updater inside the DOM (Next.js Metadata mimicking)
   useEffect(() => {
     if (!activePage) {
-      // Revert to main branding title if no active page is chosen
-      document.title = "Nong A Luxury & Green Auto Marketplace Room | ตลาดซื้อขายรถบ้านพรีเมียม";
+      document.title = APP_TITLE;
+      const setDefault = (attr: string, val: string, content: string) => {
+        let el = document.querySelector(`meta[${attr}="${val}"]`);
+        if (!el) {
+          el = document.createElement("meta");
+          el.setAttribute(attr, val);
+          document.head.appendChild(el);
+        }
+        el.setAttribute("content", content);
+      };
+      setDefault("name", "description", APP_DESCRIPTION);
+      setDefault("property", "og:title", APP_TITLE);
+      setDefault("property", "og:description", APP_DESCRIPTION);
+      setDefault("name", "twitter:title", APP_TITLE);
+      setDefault("name", "twitter:description", APP_DESCRIPTION);
       return;
     }
 

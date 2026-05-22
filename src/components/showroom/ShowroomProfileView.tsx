@@ -8,6 +8,7 @@ import {
   User, MessageSquare, ExternalLink, RefreshCw, Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { getListingPrimaryImage } from "../../utils/listingImages";
 
 export function ShowroomProfileView() {
   const {
@@ -287,7 +288,8 @@ export function ShowroomProfileView() {
               <div className="grid grid-cols-1 md:grid-cols-5 gap-5 items-stretch">
                 <div className="md:col-span-3 aspect-video rounded-xl bg-slate-950 overflow-hidden relative group border border-slate-850">
                   <img 
-                    src={featuredCar.images[0]} 
+                    key={`${featuredCar.id}-cover`}
+                    src={getListingPrimaryImage(featuredCar)} 
                     alt={featuredCar.title}
                     className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.01]"
                     referrerPolicy="no-referrer"
@@ -371,7 +373,8 @@ export function ShowroomProfileView() {
                     >
                       <div className="relative aspect-video bg-slate-950 overflow-hidden">
                         <img 
-                          src={car.images[0]} 
+                          key={`${car.id}-cover`}
+                          src={getListingPrimaryImage(car)} 
                           alt={car.title}
                           className="w-full h-full object-cover transition duration-300 hover:scale-[1.01]"
                           referrerPolicy="no-referrer"

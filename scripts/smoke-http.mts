@@ -21,6 +21,48 @@ async function main() {
   const cars = carsBody.data ?? carsBody;
   ok("GET /api/cars", carsRes.ok && Array.isArray(cars), `count=${cars?.length}`);
 
+  const myRes = await fetch(`${BASE}/api/my/listings`, {
+    headers: { "X-Owner-Id": "guest-user-100" },
+  });
+  const myJson = await myRes.json();
+  const myCt = myRes.headers.get("content-type") ?? "";
+  ok(
+    "GET /api/my/listings JSON",
+    myRes.ok && myCt.includes("application/json"),
+    `type=${myCt.slice(0, 30)}`
+  );
+
+  const pngB64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const sample = (myJson.data as { id: string; ownerId?: string }[])?.find(
+    (c) => c.ownerId === "guest-user-100"
+  );
+  if (sample) {
+    const up = await fetch(`${BASE}/api/cars/${sample.id}/images`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Owner-Id": "guest-user-100",
+      },
+      body: JSON.stringify({
+        files: [{ mimeType: "image/png", dataBase64: pngB64, name: "t.png" }],
+      }),
+    });
+    const upCt = up.headers.get("content-type") ?? "";
+    const upJson = upCt.includes("json") ? await up.json() : {};
+    const urls = upJson.data?.storedUrls as string[] | undefined;
+    ok(
+      "POST /api/cars/:id/images",
+      up.ok &&
+        upCt.includes("json") &&
+        Array.isArray(urls) &&
+        urls[0]?.includes("/storage/listings/"),
+      urls?.[0]?.slice(0, 40) ?? upCt.slice(0, 20)
+    );
+  } else {
+    ok("POST /api/cars/:id/images", true, "skip-no-guest-listing");
+  }
+
   const bad = (cars as { listingStatus?: string; duplicateStatus?: string; id?: string; duplicateCanonicalId?: string }[]).filter(
     (c) =>
       c.listingStatus === "hidden" ||

@@ -10,6 +10,7 @@ import {
   Sparkle, ShieldAlert, Heart, Languages, BellRing, Eye, Users, FileCheck2
 } from "lucide-react";
 
+import { getListingPrimaryImage } from "../utils/listingImages";
 import { useUserProfile } from "../hooks/profile/useUserProfile";
 import { useSettings } from "../hooks/settings/useSettings";
 import SettingsSidebar, { SettingsTabId } from "./settings/SettingsSidebar";
@@ -488,7 +489,7 @@ export default function UserProfileView() {
                       >
                         <div className="w-20 h-20 rounded-lg bg-slate-900 overflow-hidden shrink-0 border border-white/5">
                           <img 
-                            src={car.images?.[0] || "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600"} 
+                            src={getListingPrimaryImage(car)} 
                             alt={car.title} 
                             className="w-full h-full object-cover group-hover:scale-105 transition"
                             referrerPolicy="no-referrer"

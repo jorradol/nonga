@@ -12,6 +12,7 @@ import {
   scanCarAgainstCorpus,
   duplicateFieldsFromMeta,
 } from "./duplicateDetectionService";
+import { migrateListingImagesToCarId } from "./listingImageStorage";
 
 export async function publishDealerDraftToMarketplace(
   draftId: string
@@ -33,8 +34,15 @@ export async function publishDealerDraftToMarketplace(
     return { error: "ต้องมีราคาก่อนเผยแพร่" };
   }
 
+  const carId = `car-${Date.now()}`;
+  const images = migrateListingImagesToCarId(
+    draftId,
+    carId,
+    draft.images ?? []
+  );
+
   const car: MarketplaceCarRecord = {
-    id: `car-${Date.now()}`,
+    id: carId,
     title: draft.title || `${brand} ${model} ปี ${year}`,
     brand,
     model,
@@ -48,12 +56,7 @@ export async function publishDealerDraftToMarketplace(
     condition: draft.condition || "มือสอง",
     mileage: draft.mileage || 0,
     fuelType: draft.fuelType || "petrol",
-    images:
-      draft.images?.length > 0
-        ? draft.images
-        : [
-            "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600",
-          ],
+    images,
     description: draft.description || draft.title,
     dealerId: normalizeDealerId(draft.dealerId),
     ownerId: `owner-${normalizeDealerId(draft.dealerId)}`,

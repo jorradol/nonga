@@ -12,9 +12,19 @@
     "test:import-sample": "tsx scripts/test-thor-sample-import.mts",
     "test:smart-import": "tsx scripts/test-smart-import.mts",
     "test:dealer-portal": "tsx scripts/test-dealer-portal.mts",
+    "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
+    "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
+    "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
+    "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
+    "test:my-listings": "tsx scripts/test-my-listings.mts",
+    "test:friendly-errors": "tsx scripts/test-friendly-api-errors.mts",
+    "test:payload-too-large": "tsx scripts/test-payload-too-large.mts",
+    "test:listing-description-format": "tsx scripts/test-listing-description-format.mts",
+    "test:edit-listing-images": "tsx scripts/test-edit-listing-images.mts",
+    "test:marketplace-image-priority": "tsx scripts/test-marketplace-image-priority.mts",
     "test:smoke-http": "tsx scripts/smoke-http.mts",
-    "test": "npm run test:smart-import && npm run test:dealer-portal && npm run test:duplicate-detection && npm run test:import-sample"
+    "test": "npm run test:listing-images && npm run test:marketplace-image-priority && npm run test:friendly-errors && npm run test:payload-too-large && npm run test:listing-description-format && npm run test:edit-listing-images && npm run test:my-listings && npm run test:smart-import && npm run test:dealer-portal && npm run test:duplicate-detection && npm run test:import-sample"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

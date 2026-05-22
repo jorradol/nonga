@@ -27,6 +27,10 @@ import {
   type BulkImageDownloadSummary,
   type RowImageDownloadReport,
 } from "./listingImageStorage";
+import {
+  extractStorageListingId,
+  sanitizeListingImagesForId,
+} from "../utils/listingImages";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
@@ -275,11 +279,18 @@ async function resolveImagesForRow(
   warnings: string[];
   report: RowImageDownloadReport | null;
 }> {
-  const existingLocal = (row.images ?? []).filter((u) =>
-    isLocalListingImageUrl(String(u))
-  );
+  const existingLocal = (row.images ?? []).filter((u) => {
+    const url = String(u);
+    return (
+      isLocalListingImageUrl(url) && extractStorageListingId(url) === carId
+    );
+  });
   if (existingLocal.length > 0) {
-    return { images: existingLocal, warnings: [], report: null };
+    return {
+      images: sanitizeListingImagesForId(existingLocal, carId),
+      warnings: [],
+      report: null,
+    };
   }
 
   const sourceUrls = row.sourceImageUrls ?? row.images ?? [];
@@ -290,7 +301,7 @@ async function resolveImagesForRow(
   );
   const resolved = resolveStoredImagesForListing(report);
   return {
-    images: resolved.images,
+    images: sanitizeListingImagesForId(resolved.images, carId),
     warnings: resolved.warnings,
     report,
   };

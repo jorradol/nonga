@@ -3,15 +3,16 @@
  */
 
 const MAX_API_PAYLOAD_BYTES = 480_000;
+/** POST /api/cars/:id/images — ต่อคำขอ (หลัง compress + batch) */
+export const MAX_LISTING_IMAGE_UPLOAD_REQUEST_BYTES = 3_500_000;
+export const LISTING_IMAGE_UPLOAD_BATCH_SIZE = 2;
 const MAX_GALLERY_IMAGES = 12;
 const MAX_API_DESCRIPTION_CHARS = 4000;
 
-const PLACEHOLDER_POOL = [
-  "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&q=80&w=600",
-];
+import {
+  LISTING_PLACEHOLDER_IMAGE,
+  sanitizeListingImagesForId,
+} from "./listingImages";
 
 export function isRemoteImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
@@ -22,22 +23,28 @@ export function isDataImageUrl(url: string): boolean {
 }
 
 /** URL สำหรับ API / localStorage listing — ไม่มี data: เด็ดขาด */
-export function toListingStorageImageUrl(url: string, index = 0): string {
-  if (!url?.trim()) return PLACEHOLDER_POOL[0];
+export function toListingStorageImageUrl(url: string): string {
+  if (!url?.trim()) return LISTING_PLACEHOLDER_IMAGE;
   if (isRemoteImageUrl(url)) return url;
-  return PLACEHOLDER_POOL[index % PLACEHOLDER_POOL.length];
+  return LISTING_PLACEHOLDER_IMAGE;
 }
 
 export function sanitizeGalleryForStorage(
   images: string[] | undefined,
-  coverImage?: string
+  coverImage?: string,
+  listingId = "draft-form"
 ): { coverImage: string; gallery: string[] } {
   const raw = (images ?? []).slice(0, MAX_GALLERY_IMAGES);
-  const gallery = raw.map((url, i) => toListingStorageImageUrl(url, i));
-  const cover = coverImage
-    ? toListingStorageImageUrl(coverImage, 0)
-    : gallery[0] ?? PLACEHOLDER_POOL[0];
-  return { coverImage: cover, gallery: gallery.length > 0 ? gallery : [cover] };
+  const httpGallery = raw.filter(isRemoteImageUrl);
+  const cover = coverImage && isRemoteImageUrl(coverImage) ? coverImage : "";
+  const merged = cover
+    ? [cover, ...httpGallery.filter((u) => u !== cover)]
+    : httpGallery;
+  const gallery = sanitizeListingImagesForId(merged, listingId);
+  return {
+    coverImage: gallery[0] ?? LISTING_PLACEHOLDER_IMAGE,
+    gallery,
+  };
 }
 
 export interface MarketplaceApiCarPayload {
@@ -119,6 +126,29 @@ export function assertApiPayloadWithinLimit(
     };
   }
   return { ok: true };
+}
+
+export interface ListingImageUploadFilePayload {
+  mimeType: string;
+  dataBase64: string;
+  name: string;
+}
+
+/** body สำหรับ POST /api/cars/:id/images — ห้ามมี data: ใน field อื่น */
+export function buildListingImageUploadBody(
+  files: ListingImageUploadFilePayload[]
+): { files: ListingImageUploadFilePayload[] } {
+  const safe = files.map((f) => ({
+    mimeType: f.mimeType || "image/jpeg",
+    dataBase64: String(f.dataBase64).replace(/^data:image\/[^;]+;base64,/, ""),
+    name: f.name || "upload.jpg",
+  }));
+  for (const f of safe) {
+    if (f.dataBase64.startsWith("data:") || f.dataBase64.startsWith("blob:")) {
+      throw new Error("invalid image payload");
+    }
+  }
+  return { files: safe };
 }
 
 export function logDevPayloadSize(label: string, payload: unknown): void {

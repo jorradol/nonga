@@ -109,8 +109,8 @@ export function DealerSidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: De
           กลับสู่ตลาดรถยนต์
         </button>
         <p className="text-[9px] text-slate-500 text-center leading-relaxed">
-          Nong A Dealer CRM v2.4<br />
-          Licensed space by Google AI Studio
+          Nong A — ช่วยขายรถง่ายขึ้น ด้วย AI<br />
+          Dealer Portal
         </p>
       </div>
     </div>
