@@ -87,6 +87,26 @@ export function suggestMappingForColumn(
   return bestScore > 0 ? bestField : "ignore";
 }
 
+/** คะแนนเมื่อชื่อคอลัมน์ตรง alias ทั้งคำ (ป้องกัน value inference แย่ง field) */
+export function getExactHeaderMatchScore(
+  columnName: string,
+  field?: InventoryImportFieldKey
+): number {
+  const normalized = normalizeColumnKey(columnName);
+  if (!normalized) return 0;
+
+  let best = 0;
+  for (const rule of COLUMN_MAPPING_RULES) {
+    if (field && rule.field !== field) continue;
+    for (const alias of rule.aliases) {
+      if (normalizeColumnKey(alias) === normalized) {
+        best = Math.max(best, 100 + (rule.priority ?? 5));
+      }
+    }
+  }
+  return best;
+}
+
 /** Auto-map ทุกคอลัมน์ — ถ้า field ซ้ำ คอลัมน์หลังจะได้ ignore */
 export function buildAutoColumnMappings(
   columns: string[],

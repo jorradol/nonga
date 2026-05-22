@@ -2,6 +2,7 @@ import type { InventoryImportFieldKey } from "./inventoryImportSchema";
 import { COLUMN_MAPPING_RULES } from "./columnMappingRules";
 import {
   buildAutoColumnMappings,
+  getExactHeaderMatchScore,
   normalizeColumnKey,
   suggestMappingForColumn,
   type ColumnMappingEntry,
@@ -149,8 +150,14 @@ export function detectFieldFromColumnValues(
   values: string[]
 ): { field: InventoryImportFieldKey; score: number } {
   const headerGuess = suggestMappingForColumn(columnName);
+  const exactHeaderScore = getExactHeaderMatchScore(columnName, headerGuess);
   let bestField: InventoryImportFieldKey = headerGuess !== "ignore" ? headerGuess : "ignore";
-  let bestScore = headerGuess !== "ignore" ? 45 : 0;
+  let bestScore =
+    exactHeaderScore > 0
+      ? exactHeaderScore
+      : headerGuess !== "ignore"
+        ? 45
+        : 0;
 
   const candidates: InventoryImportFieldKey[] = [
     "brand",
@@ -195,10 +202,16 @@ export function buildSmartColumnMappings(
     );
 
     let finalMapping = entry.finalMapping;
+    const exactHeaderScore = getExactHeaderMatchScore(
+      entry.originalColumn,
+      entry.suggestedMapping
+    );
+    const headerLocked = exactHeaderScore >= 100;
 
     if (
       valueScore >= 35 &&
-      (finalMapping === "ignore" || valueScore > 50)
+      (finalMapping === "ignore" || valueScore > 50) &&
+      !(headerLocked && valueField !== finalMapping)
     ) {
       finalMapping = valueField;
     }
@@ -207,7 +220,11 @@ export function buildSmartColumnMappings(
       finalMapping !== "ignore" &&
       usedFields.has(finalMapping)
     ) {
-      if (valueScore >= 40 && valueField !== finalMapping && !usedFields.has(valueField)) {
+      if (
+        valueScore >= 40 &&
+        valueField !== finalMapping &&
+        !usedFields.has(valueField)
+      ) {
         finalMapping = valueField;
       } else {
         finalMapping = "ignore";

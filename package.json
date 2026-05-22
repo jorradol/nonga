@@ -15,6 +15,7 @@
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
     "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",
+    "test:dealer-import-smoke": "tsx scripts/test-dealer-import-smoke.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
     "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
     "test:my-listings": "tsx scripts/test-my-listings.mts",
