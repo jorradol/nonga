@@ -141,35 +141,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUserProfile = async (updates: Partial<UserSession>) => {
-    if (!user) return;
+    if (!user) {
+      throw new Error("ไม่พบบัญชีผู้ใช้ — กรุณาเข้าสู่ระบบก่อน");
+    }
     const uid = user.uid;
-    const isSimulated = isMockConfig || !!user.isSimulated || uid.startsWith("sim-") || uid === "guest-user-100";
+    const isSimulated =
+      isMockConfig ||
+      !!user.isSimulated ||
+      uid.startsWith("sim-") ||
+      uid === "guest-user-100";
 
     const updatedUserSession = { ...user, ...updates };
 
     if (isSimulated) {
       try {
-        const savedUsers = localStorage.getItem("nonga_simulated_users") 
-          ? JSON.parse(localStorage.getItem("nonga_simulated_users")!) 
+        const savedUsers = localStorage.getItem("nonga_simulated_users")
+          ? JSON.parse(localStorage.getItem("nonga_simulated_users")!)
           : {};
         const profile = savedUsers[uid] || {};
         const updatedProfile = { ...profile, ...updates };
         savedUsers[uid] = updatedProfile;
-        localStorage.setItem("nonga_simulated_users", JSON.stringify(savedUsers));
+        localStorage.setItem(
+          "nonga_simulated_users",
+          JSON.stringify(savedUsers)
+        );
+        authService.persistSession(updatedUserSession);
         syncUser(updatedUserSession);
       } catch (simErr) {
-        console.warn("Storage limits exceeded inside simulated profile updates:", simErr);
+        console.warn(
+          "Storage limits exceeded inside simulated profile updates:",
+          simErr
+        );
+        authService.persistSession(updatedUserSession);
         syncUser(updatedUserSession);
       }
       return;
     }
 
-    if (!db) return;
+    if (!db) {
+      authService.persistSession(updatedUserSession);
+      syncUser(updatedUserSession);
+      return;
+    }
     const userDocRef = doc(db, "users", uid);
     try {
       await updateDoc(userDocRef, updates);
+      authService.persistSession(updatedUserSession);
       syncUser(updatedUserSession);
     } catch (err) {
+      console.error("Firestore profile update failed:", err);
       handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
     }
   };
@@ -357,7 +377,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithFacebook,
         loginWithLINE,
         logout,
-        isSimulatedState: isMockConfig || !!user?.isSimulated
+        updateUserProfile,
+        completeOnboarding,
+        isSimulatedState:
+          isMockConfig ||
+          !!user?.isSimulated ||
+          user?.uid === "guest-user-100" ||
+          !!user?.uid?.startsWith("sim-")
       }}
     >
       {children}

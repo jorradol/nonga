@@ -11,6 +11,8 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, isMockConfig } from "../../lib/firebase";
 
+import type { DealerOwnerContext } from "../../utils/dealerIdentity";
+
 export interface UserSession {
   uid: string;
   email: string;
@@ -27,6 +29,10 @@ export interface UserSession {
   favoriteCars?: string[];
   aiPersona?: string;
   premiumExpireDate?: string | null;
+  /** ผูก Dealer Portal / import */
+  dealerId?: string;
+  showroomName?: string;
+  dealerProfile?: Partial<DealerOwnerContext>;
 }
 
 // LocalStorage key for session persistence

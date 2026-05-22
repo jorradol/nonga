@@ -11,6 +11,15 @@ import {
 } from "lucide-react";
 
 import { getListingPrimaryImage } from "../utils/listingImages";
+import {
+  buildThorAutoDemoProfileUpdates,
+  isDealerDemoToolsEnabled,
+} from "../utils/dealerDemoSession";
+import {
+  consumeDealerEntryHint,
+  dealerEntryHintMessage,
+} from "../utils/dealerEntryNavigation";
+import { THOR_AUTO_DEALER_ID } from "../utils/dealerIdentity";
 import { useUserProfile } from "../hooks/profile/useUserProfile";
 import { useSettings } from "../hooks/settings/useSettings";
 import SettingsSidebar, { SettingsTabId } from "./settings/SettingsSidebar";
@@ -92,19 +101,85 @@ export default function UserProfileView() {
   const [showroomPhone, setShowroomPhone] = useState("081-234-5678");
   const [showroomAddress, setShowroomAddress] = useState("20 Thai SaaS Avenue, Huai Khwang, Bangkok");
   const [showroomBanner, setShowroomBanner] = useState("https://images.unsplash.com/photo-1562575214-da9fcf59b907?auto=format&fit=crop&q=80&w=800");
+  const [dealerEntryHint, setDealerEntryHint] = useState<string | null>(() =>
+    dealerEntryHintMessage(consumeDealerEntryHint())
+  );
+  const [demoLoginBusy, setDemoLoginBusy] = useState(false);
 
-  // Manual sandbox role switcher
+  const demoToolsEnabled = isDealerDemoToolsEnabled();
+
+  // Manual sandbox role switcher (dev / mock / guest session only)
   const handleSandboxRoleChange = async (targetRole: string) => {
+    if (!updateUserProfile) {
+      showToast("ระบบโปรไฟล์ยังไม่พร้อม — โหลดหน้าใหม่แล้วลองอีกครั้ง", "error");
+      return;
+    }
+    if (
+      !demoToolsEnabled &&
+      !isSimulatedState &&
+      user?.uid !== "guest-user-100"
+    ) {
+      showToast(
+        "สลับสิทธิ์จำลองใช้ได้เฉพาะโหมดพัฒนา (DEV) หรือบัญชีจำลองเท่านั้น",
+        "error"
+      );
+      return;
+    }
     try {
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         role: targetRole,
-        membershipType: targetRole === "premium" ? "pro" : targetRole === "dealer" ? "dealer" : targetRole === "admin" || targetRole === "superadmin" ? "enterprise" : "free",
-        postLimit: ["member", "guest"].includes(targetRole) ? 5 : 999999
+        membershipType:
+          targetRole === "premium"
+            ? "pro"
+            : targetRole === "dealer"
+              ? "dealer"
+              : targetRole === "admin" || targetRole === "superadmin"
+                ? "enterprise"
+                : "free",
+        postLimit: ["member", "guest"].includes(targetRole) ? 5 : 999999,
       };
-      await updateUserProfile(updates);
-      showToast(`เปลี่ยนระดับสิทธิ์ตรวจสอบ Sandbox เป็น ${targetRole.toUpperCase()} แล้วครับ!`, "info");
-    } catch (e: any) {
-      showToast("ไม่สามารถสลับสิทธิ์โปรไฟล์จำลองได้ครับ", "error");
+      if (targetRole === "dealer") {
+        Object.assign(updates, buildThorAutoDemoProfileUpdates(user));
+      } else if (targetRole === "member" || targetRole === "guest") {
+        updates.dealerId = undefined;
+        updates.dealerProfile = undefined;
+      }
+      await updateUserProfile(updates as Parameters<typeof updateUserProfile>[0]);
+      showToast(
+        `เปลี่ยนระดับสิทธิ์ตรวจสอบ Sandbox เป็น ${targetRole.toUpperCase()} แล้วครับ!`,
+        "info"
+      );
+      if (targetRole === "dealer") {
+        showToast(
+          `Dealer ID: ${THOR_AUTO_DEALER_ID} — ไปที่เมนู Dealer Portal หรือ /dealer`,
+          "info"
+        );
+      }
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : "ไม่สามารถสลับสิทธิ์โปรไฟล์จำลองได้ครับ";
+      console.warn("Sandbox role change failed:", e);
+      showToast(msg.slice(0, 120), "error");
+    }
+  };
+
+  const handleDemoDealerLogin = async () => {
+    if (!updateUserProfile) return;
+    setDemoLoginBusy(true);
+    try {
+      await updateUserProfile(buildThorAutoDemoProfileUpdates(user));
+      showToast("เข้าสู่ระบบทดลองดีลเลอร์ Thor Auto แล้ว — กำลังไป Dealer Portal", "info");
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", "/dealer");
+      }
+      setView("dealer-portal");
+    } catch (e: unknown) {
+      showToast(
+        e instanceof Error ? e.message : "เข้าสู่ระบบทดลองดีลเลอร์ไม่สำเร็จ",
+        "error"
+      );
+    } finally {
+      setDemoLoginBusy(false);
     }
   };
 
@@ -251,14 +326,36 @@ export default function UserProfileView() {
             isDealerOrAdmin={isDealer || isAdmin}
           />
 
-          {/* Sandbox Switcher for RBAC Demos */}
+          {dealerEntryHint && (
+            <div className="p-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 text-left">
+              <p className="text-xs text-orange-200 leading-relaxed flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                {dealerEntryHint}
+              </p>
+            </div>
+          )}
+
+          {demoToolsEnabled && (
           <div className="p-5 rounded-2xl border border-white/[0.06] bg-black/25 text-left space-y-3.5">
             <div className="flex items-center gap-1.5 text-amber-500 font-bold text-xs">
               <Key className="w-4 h-4 text-amber-500 shrink-0" />
               <span>เครื่องมือจำลองสิทธิ์ความพรีเมียม (Role Switcher)</span>
             </div>
             <p className="text-[10.5px] text-slate-400 leading-relaxed">
-              สำหรับโหมด Sandbox คุณสามารถสลับบทบาทสิทธิ์ผู้ใช้งานได้ทันที เพื่อทดสอบคุณสมบัติลิมิตและการเข้าถึงเมนูต่างๆ ครับ:
+              โหมดพัฒนา (DEV/Mock) — สลับบทบาททดสอบ Dealer Portal, Import และ Paste Import โดยไม่กระทบ production auth
+            </p>
+
+            <button
+              type="button"
+              disabled={demoLoginBusy}
+              onClick={handleDemoDealerLogin}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 text-white text-xs font-bold disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              <Store className="w-4 h-4" />
+              {demoLoginBusy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบทดลองดีลเลอร์ (Thor Auto Demo)"}
+            </button>
+            <p className="text-[10px] text-slate-500 font-mono">
+              dealerId: {THOR_AUTO_DEALER_ID} · showroom: Thor Auto Demo
             </p>
 
             <div className="grid grid-cols-2 gap-2">
@@ -272,6 +369,7 @@ export default function UserProfileView() {
                 return (
                   <button
                     key={b.id}
+                    type="button"
                     onClick={() => handleSandboxRoleChange(b.id)}
                     className={`p-2 rounded-lg border text-center transition-all text-[11px] font-bold cursor-pointer active:scale-95 leading-none ${
                       isCurrent 
@@ -285,6 +383,7 @@ export default function UserProfileView() {
               })}
             </div>
           </div>
+          )}
 
         </div>
 

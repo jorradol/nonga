@@ -2,6 +2,10 @@ import { useEffect } from "react";
 import { useAppStore } from "./store";
 import { getListingPrimaryImage } from "./utils/listingImages";
 import { useRole } from "./hooks/auth/useRole";
+import {
+  navigateDealerSignupEntry,
+  navigateDealerSystemEntry,
+} from "./utils/dealerEntryNavigation";
 import { motion, AnimatePresence } from "motion/react";
 
 import Header from "./components/Header";
@@ -55,10 +59,11 @@ export default function App() {
     favorites, 
     toggleFavorite, 
     createChatSession, 
-    sendChatMessage 
+    sendChatMessage,
+    user,
   } = useAppStore();
 
-  const { isAdmin, isDealer } = useRole();
+  const { isAdmin, isDealer, role } = useRole();
 
   // Load cars directory from fullstack server immediately on startup
   useEffect(() => {
@@ -347,7 +352,28 @@ export default function App() {
                 <LineChart className="w-3.5 h-3.5 text-orange-500" /> ศูนย์พริวิเลจ
               </h5>
               <div className="flex flex-col gap-2.5 text-xs">
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">สมัครดีลเลอร์พันธมิตร NongBot</a>
+                <button
+                  type="button"
+                  onClick={() => navigateDealerSignupEntry(setView)}
+                  className="hover:text-orange-500 transition-colors text-left"
+                  title="เปิดสิทธิ์ดีลเลอร์จำลองในโปรไฟล์ (โหมดพัฒนา)"
+                >
+                  สมัครดีลเลอร์พันธมิตร Nong A
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigateDealerSystemEntry(setView, user, role)
+                  }
+                  className="hover:text-orange-500 transition-colors text-left font-medium"
+                  title={
+                    isDealer || isAdmin
+                      ? "เข้าระบบหลังบ้านเต็นท์รถ"
+                      : "ตั้งค่าสิทธิ์ดีลเลอร์ในโปรไฟล์ก่อนเข้าใช้งาน"
+                  }
+                >
+                  ระบบดีลเลอร์พันธมิตร Nong A
+                </button>
                 <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">ติดต่อความปลอดภัยไอที</a>
                 <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">ข้อตกลงและนโยบายส่วนบุคคล</a>
                 <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">ช่วยเหลือสนับสนุน API</a>
