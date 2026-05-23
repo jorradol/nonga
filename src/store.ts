@@ -9,6 +9,7 @@ import {
   normalizeMarketplaceCar,
   devClientMarketplaceLog,
 } from "./utils/marketplaceCarMapper";
+import { addRecentlyViewedCarId } from "./utils/chatCarContext";
 
 interface MarketplaceFilters {
   search: string;
@@ -123,6 +124,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedCarId: null,
   selectedDealerId: null,
   setView: (view, carId = null, dealerId = null) => {
+    if (view === "car-details" && carId) {
+      addRecentlyViewedCarId(carId);
+    }
     set({ 
       currentView: view, 
       selectedCarId: carId, 

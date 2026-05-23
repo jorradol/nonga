@@ -11,6 +11,8 @@ import {
   saveChatCarContext,
   saveChatSearchContext,
   loadChatSearchContext,
+  loadLastSelectedCarId,
+  loadRecentlyViewedCarIds
 } from "../../../utils/chatCarContext";
 import { buildFollowUpReplyCopy, buildCompareReplyCopy, buildSelectedCarReplyCopy } from "./chatSearchReplyCopy";
 import { buildChatCarFacts, CHAT_FACTS_ONLY_PROMPT } from "./chatSearchFacts";
@@ -39,45 +41,68 @@ export function tryOrchestrateChatReply(
   if (isFollowUpCarQuestion(message) && contextCars.length > 0) {
     const isCompare = isCompareIntent(message);
     const isSelected = isSelectedCarIntent(message);
-    const selectedId = extractSelectedCarId(message);
+    let selectedId = extractSelectedCarId(message);
+    
+    if (isSelected && !selectedId) {
+      selectedId = loadLastSelectedCarId();
+      if (!selectedId) {
+        const viewed = loadRecentlyViewedCarIds();
+        if (viewed.length > 0) {
+          selectedId = viewed[0];
+        }
+      }
+    }
 
-    if (isSelected && selectedId) {
-      // Find the specific car from context or inventory
-      let picked = contextCars.find(c => c.id === selectedId);
+    if (isSelected) {
+      if (!selectedId && contextCars.length > 0) {
+        selectedId = contextCars[0].id;
+      }
       
-      // If not in context, try to find it in inventory and convert to ChatCarCardData
-      if (!picked) {
-        const invCar = inventory.find(c => c.id === selectedId);
-        if (invCar) {
-          const summary = toChatCarSummary(invCar);
-          picked = {
-            id: summary.id,
-            brand: summary.brand,
-            model: summary.model,
-            year: summary.year,
-            price: summary.price,
-            mileage: summary.mileage,
-            color: summary.color,
-            fuelType: summary.fuelType,
-            condition: summary.condition,
-            bodyClass: summary.bodyClass,
-            bodyClassLabel: summary.bodyClassLabel,
-            showroomName: summary.showroomName,
-            imageUrl: summary.hasImage ? summary.image : undefined,
-            hasImage: summary.hasImage,
-            detailPath: `/cars/${summary.id}`,
-            matchKind: "exact"
+      if (selectedId) {
+        // Find the specific car from context or inventory
+        let picked = contextCars.find(c => c.id === selectedId);
+        
+        // If not in context, try to find it in inventory and convert to ChatCarCardData
+        if (!picked) {
+          const invCar = inventory.find(c => c.id === selectedId);
+          if (invCar) {
+            const summary = toChatCarSummary(invCar);
+            picked = {
+              id: summary.id,
+              brand: summary.brand,
+              model: summary.model,
+              year: summary.year,
+              price: summary.price,
+              mileage: summary.mileage,
+              color: summary.color,
+              fuelType: summary.fuelType,
+              condition: summary.condition,
+              bodyClass: summary.bodyClass,
+              bodyClassLabel: summary.bodyClassLabel,
+              showroomName: summary.showroomName,
+              imageUrl: summary.hasImage ? summary.image : undefined,
+              hasImage: summary.hasImage,
+              detailPath: `/cars/${summary.id}`,
+              matchKind: "exact"
+            };
+          }
+        }
+
+        if (picked) {
+          return {
+            text: buildSelectedCarReplyCopy(picked),
+            carCards: [picked],
+            skipGemini: true,
           };
         }
       }
-
-      if (picked) {
-        return {
-          text: buildSelectedCarReplyCopy(picked),
-          carCards: [picked],
-          skipGemini: true,
-        };
-      }
+      
+      // If we couldn't find the car by ID, ask the user
+      return {
+        text: "ลุงหมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
+        carCards: [],
+        skipGemini: true,
+      };
     }
 
     const picked = resolveCarsFromContextHint(message, contextCars);
@@ -112,7 +137,24 @@ export function tryOrchestrateChatReply(
   }
 
   if (isSelectedCarIntent(message)) {
-    const selectedId = extractSelectedCarId(message);
+    let selectedId = extractSelectedCarId(message);
+    if (!selectedId) {
+      selectedId = loadLastSelectedCarId();
+      if (!selectedId) {
+        const viewed = loadRecentlyViewedCarIds();
+        if (viewed.length > 0) {
+          selectedId = viewed[0];
+        }
+      }
+    }
+    
+    if (!selectedId) {
+      const contextCars = loadChatCarContext();
+      if (contextCars.length > 0) {
+        selectedId = contextCars[0].id;
+      }
+    }
+    
     if (selectedId) {
       const invCar = inventory.find(c => c.id === selectedId);
       if (invCar) {
@@ -142,6 +184,12 @@ export function tryOrchestrateChatReply(
         };
       }
     }
+    
+    return {
+      text: "ลุงหมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
+      carCards: [],
+      skipGemini: true,
+    };
   }
 
   const isShowMore = /ดูเพิ่ม|ขอดูเพิ่ม|ดูต่อ|ขออีก|มีอีกไหม/.test(message);

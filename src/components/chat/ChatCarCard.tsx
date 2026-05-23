@@ -3,6 +3,7 @@ import { Car, MessageCircle, ExternalLink, ImageOff } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { useAppStore } from "../../store";
 import { useChatContext } from "../../contexts/chat/ChatContext";
+import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
 
 interface ChatCarCardProps {
   car: ChatCarCardData;
@@ -19,10 +20,13 @@ export function ChatCarCard({ car, onAskAbout }: ChatCarCardProps) {
     car.mileage > 0 ? `${car.mileage.toLocaleString("th-TH")} กม.` : "—";
 
   const handleDetail = () => {
+    saveLastSelectedCarId(car.id);
+    addRecentlyViewedCarId(car.id);
     setView("car-details", car.id);
   };
 
   const handleAsk = () => {
+    saveLastSelectedCarId(car.id);
     if (onAskAbout) {
       onAskAbout(car);
       return;

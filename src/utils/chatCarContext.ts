@@ -30,6 +30,56 @@ export function loadChatSearchContext(): ChatSearchContextData | null {
 }
 
 const STORAGE_KEY = "nonga_chat_last_car_results";
+const LAST_SELECTED_CAR_KEY = "nonga_chat_last_selected_car";
+const RECENTLY_VIEWED_CARS_KEY = "nonga_chat_recently_viewed_cars";
+
+export function saveLastSelectedCarId(carId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(LAST_SELECTED_CAR_KEY, carId);
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadLastSelectedCarId(): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    return sessionStorage.getItem(LAST_SELECTED_CAR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function addRecentlyViewedCarId(carId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    const raw = sessionStorage.getItem(RECENTLY_VIEWED_CARS_KEY);
+    let viewed: string[] = [];
+    if (raw) {
+      viewed = JSON.parse(raw);
+    }
+    // Remove if exists to move to top
+    viewed = viewed.filter(id => id !== carId);
+    viewed.unshift(carId);
+    // Keep only last 10
+    if (viewed.length > 10) viewed = viewed.slice(0, 10);
+    sessionStorage.setItem(RECENTLY_VIEWED_CARS_KEY, JSON.stringify(viewed));
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadRecentlyViewedCarIds(): string[] {
+  if (typeof sessionStorage === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(RECENTLY_VIEWED_CARS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
 
 export function saveChatCarContext(cars: ChatCarCardData[]): void {
   if (typeof sessionStorage === "undefined") return;

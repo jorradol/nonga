@@ -354,7 +354,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 className="mt-3 flex flex-wrap gap-3"
                 data-testid="chat-car-cards-row"
               >
-                {message.carCards.map((car) => (
+                {Array.from(new Map(message.carCards.map(c => [c.id, c])).values()).map((car) => (
                   <div key={car.id} className="contents">
                     <ChatCarCard car={car} />
                   </div>

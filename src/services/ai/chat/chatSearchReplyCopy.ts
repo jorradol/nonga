@@ -232,7 +232,7 @@ function buildFoundIntro(
     if (criteria.suvOnly) {
       typeHint = "SUV/Crossover";
     } else if (isMultiType) {
-      typeHint = "รถหลายประเภท";
+      typeHint = "หลายแนว";
     } else if (uniqueBodyTypes.length === 1) {
       typeHint = uniqueBodyTypes[0];
     } else {
@@ -242,55 +242,41 @@ function buildFoundIntro(
 
   let opener = "";
   const budgetPart = budget ? `ใน${budget}` : "";
-  const budgetPart2 = budget ? ` อยู่ใน${budget}` : "";
 
   if (cars.length === 1) {
     const singleOpeners = [
-      `เจอแล้วครับ ในตลาด Nong A มี ${carLabel(cars[0])}`,
-      `มีรถที่ตรงใจ 1 คันครับ เป็น ${carLabel(cars[0])}`,
-      `ค้นเจอ 1 คันที่ตรงสเปกครับ ${carLabel(cars[0])}`,
+      `เจอแล้วครับ ในตลาด Nong A มี ${carLabel(cars[0])} ${budgetPart}`,
+      `มีรถที่ตรงใจ 1 คันครับ เป็น ${carLabel(cars[0])} ${budgetPart}`,
+      `ค้นเจอ 1 คันที่ตรงสเปกครับ ${carLabel(cars[0])} ${budgetPart}`,
     ];
-    opener = getRandomItem(singleOpeners) + `${budgetPart2}.`;
+    opener = getRandomItem(singleOpeners);
+    return `${opener}\n\nน้องเอแสดงการ์ดรถไว้ด้านล่างให้ดูง่าย ๆ แล้ว ถ้าสนใจกดดูรายละเอียดหรือถามน้องเอเกี่ยวกับคันนี้ได้เลยครับ ปังปุริเย่!`;
+  } 
+  
+  if (isMultiType && !criteria.suvOnly) {
+    const multiTypeOpeners = [
+      `เจอรถ${budgetPart}ทั้งหมด ${cars.length} คันครับ มีให้ดูหลายแนว ทั้ง ${uniqueBodyTypes.join(", ")}`,
+      `${budgetPart} มีตัวเลือกให้ดูหลายแนวครับ ค้นเจอทั้งหมด ${cars.length} คัน`,
+      `มีตัวเลือก${budgetPart}ทั้งหมด ${cars.length} คันครับ มีหลายประเภทเลย`,
+    ];
+    opener = getRandomItem(multiTypeOpeners);
   } else {
-    if (isMultiType && !criteria.suvOnly) {
-      const multiTypeOpeners = [
-        `เจอรถ${budgetPart}ทั้งหมด ${cars.length} คันครับ มีทั้ง ${uniqueBodyTypes.join(", ")}`,
-        `${budgetPart} มีตัวเลือกให้ดูหลายแนวครับ ค้นเจอทั้งหมด ${cars.length} คัน`,
-        `มีตัวเลือก${budgetPart}ทั้งหมด ${cars.length} คันครับ มีหลายประเภทเลย`,
-      ];
-      opener = getRandomItem(multiTypeOpeners) + ".";
-    } else {
-      const singleTypeOpeners = [
-        `เจอทั้งหมด ${cars.length} คันครับ ในตลาด Nong A มี ${typeHint} ที่ตรงเงื่อนไข${budgetPart2}`,
-        `ค้นเจอ ${cars.length} คันที่ตรงสเปกครับ สำหรับ ${typeHint}${budgetPart2}`,
-        `มี ${typeHint} เข้าตา ${cars.length} คันครับ${budgetPart2}`,
-      ];
-      opener = getRandomItem(singleTypeOpeners) + ".";
-    }
+    const singleTypeOpeners = [
+      `เจอทั้งหมด ${cars.length} คันครับ ในตลาด Nong A มี ${typeHint} ที่ตรงเงื่อนไข${budgetPart}`,
+      `ค้นเจอ ${cars.length} คันที่ตรงสเปกครับ สำหรับ ${typeHint}${budgetPart}`,
+      `มี ${typeHint} เข้าตา ${cars.length} คันครับ${budgetPart}`,
+    ];
+    opener = getRandomItem(singleTypeOpeners);
   }
 
-  const lines: string[] = [opener];
-  const shownCars = cars.slice(0, 3);
-
-  if (cars.length === 1) {
-    const c = cars[0];
-    const mileage =
-      c.mileage > 0 ? ` ราคา ${formatPrice(c.price)} บาท ไมล์ ${formatPrice(c.mileage)} กม.` : ` ราคา ${formatPrice(c.price)} บาท`;
-    lines.push(
-      `${c.brand} ${c.model} ปี ${c.year}${mileage} เป็น ${safeBodyClass(c.bodyClassLabel)} — ลองดูว่าตรงใจไหมครับ`
-    );
-  } else {
-    const preSummaryOpeners = [
-      `ผมคัด ${shownCars.length} คันแรกมาให้ดูคนละมุมครับ:`,
-      `รอบแรกผมขอหยิบ ${shownCars.length} คันที่น่าสนใจมาให้ดูก่อน:`,
-      `ลองดู ${shownCars.length} คันแรกที่ผมคัดมาให้ก่อนนะครับ:`,
-    ];
-    lines.push(getRandomItem(preSummaryOpeners));
-    lines.push(buildCarRolesSummary(shownCars));
+  const shownCount = Math.min(cars.length, 3);
+  const showMoreText = cars.length > 3 ? ` ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' เพื่อดูคันอื่นได้ครับ` : "";
+  
+  if (cars.length <= 3) {
+    return `${opener}\n\nน้องเอแสดงการ์ดรถไว้ด้านล่างให้ดูง่าย ๆ แล้ว ถ้าสนใจคันไหน กดดูรายละเอียดหรือกดถามน้องเอเกี่ยวกับคันนั้นได้เลยครับ ปังปุริเย่!`;
   }
-
-  lines.push("\n" + cardCta(cars.length > 3, cars.length >= 2));
-  return lines.join("\n");
+  
+  return `${opener}\n\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรูป ราคา ไมล์ และรายละเอียดจากการ์ดได้เลย${showMoreText} ปังปุริเย่!`;
 }
 
 function buildAlternativeIntro(
@@ -305,27 +291,22 @@ function buildAlternativeIntro(
     `ค้นดูแล้วยังไม่พบ SUV แท้ที่ตรงกับ${budget ? ` ${budget}` : "เงื่อนไข"}ครับ`,
   ];
 
-  const lines: string[] = [
-    getRandomItem(altOpeners),
-    `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ:`,
-  ];
+  const shownCount = Math.min(alternatives.length, 3);
+  const showMoreText = alternatives.length > 3 ? ` ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' เพื่อดูคันอื่นได้ครับ` : "";
 
-  const shownCars = alternatives.slice(0, 3);
-
-  if (alternatives.length === 1) {
-    lines.push(summarizeOneLine(alternatives[0]));
-    lines.push(
-      `เหมาะกับคนที่ต้องการพื้นที่และคุมงบ — ข้อมูลจากรายการจริงในระบบเท่านั้นครับ`
-    );
-  } else {
-    lines.push(buildCarRolesSummary(shownCars));
+  if (alternatives.length <= 3) {
+    return [
+      getRandomItem(altOpeners),
+      `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
+      `\nน้องเอแสดงการ์ดรถไว้ด้านล่างให้ดูง่าย ๆ แล้ว ถ้าสนใจคันไหน กดดูรายละเอียดหรือกดถามน้องเอเกี่ยวกับคันนั้นได้เลยครับ ปังปุริเย่!`
+    ].join("\n");
   }
 
-  lines.push(
-    `\nถ้าต้องการ SUV แท้จริง ลองปรับงบหรือยี่ห้อ/รุ่น แล้วถามน้องเอใหม่ได้ครับ`
-  );
-  lines.push(cardCta(alternatives.length > 3, true));
-  return lines.join("\n");
+  return [
+    getRandomItem(altOpeners),
+    `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
+    `\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรายละเอียดจากการ์ดได้เลย${showMoreText} ปังปุริเย่!`
+  ].join("\n");
 }
 
 function buildEmptyIntro(criteria: ChatSearchCriteria): string {
@@ -435,8 +416,8 @@ export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {
 
   return [
     `คันนี้คือ ${car.brand} ${car.model} ปี ${car.year} ราคา ${formatPrice(car.price)} บาท${mileage}${color} เป็น ${car.bodyClassLabel} จากข้อมูลในระบบ`,
-    `${traitText} มีข้อมูลพร้อมให้กดดูรายละเอียดต่อครับ`,
-    `ถ้าต้องการ น้องเอช่วยเปรียบเทียบคันนี้กับคันอื่นให้ได้ครับ`
+    `${traitText} ถ้าสนใจคันนี้ กดดูรายละเอียดได้เลยครับ`,
+    `ถ้าต้องการ น้องเอช่วยเทียบคันนี้กับคันอื่นให้ได้ครับ`
   ].join("\n\n");
 }
 export function buildFollowUpReplyCopy(
@@ -456,18 +437,8 @@ export function buildFollowUpReplyCopy(
       ? "\n\nหมายเหตุ: คันนี้เป็นทางเลือกใกล้เคียง ไม่ใช่ SUV แท้ตามที่ถามก่อนหน้า"
       : "";
 
-  const bullets = [
-    `ราคา ${formatPrice(c.price)} บาท`,
-    c.mileage > 0 ? `ไมล์ ${formatPrice(c.mileage)} กม.` : null,
-    c.color ? `สี${c.color}` : null,
-    `ประเภท ${c.bodyClassLabel}`,
-    c.fuelType ? `เชื้อเพลิง ${c.fuelType}` : null,
-    c.showroomName ? `โชว์รูม ${c.showroomName}` : null,
-  ].filter(Boolean);
-
   return [
     `สำหรับ ${c.brand} ${c.model} ปี ${c.year} จากข้อมูลในระบบตอนนี้:`,
-    bullets.map((b) => `• ${b}`).join("\n"),
     `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้นนะครับ — ดูรูปและรายละเอียดเพิ่มจากการ์ดด้านล่างได้เลย`,
     cardCta(),
     altNote,
