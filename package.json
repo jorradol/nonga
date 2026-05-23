@@ -20,6 +20,7 @@
     "test:dealer-paste-image-preview": "tsx scripts/test-dealer-paste-image-preview.mts",
     "test:dealer-paste-upload-images": "tsx scripts/test-dealer-paste-upload-images.mts",
     "test:dealer-paste-save-redirect": "tsx scripts/test-dealer-paste-save-redirect.mts",
+    "test:dealer-draft-edit-publish": "tsx scripts/test-dealer-draft-edit-publish.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",
     "test:dealer-draft-publish-guard": "tsx scripts/test-dealer-draft-publish-guard.mts",
