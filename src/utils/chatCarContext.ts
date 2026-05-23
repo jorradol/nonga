@@ -1,0 +1,114 @@
+import type { ChatCarCardData } from "../types";
+
+export interface ChatSearchContextData {
+  allCars: ChatCarCardData[];
+  offset: number;
+}
+
+export function saveChatSearchContext(data: ChatSearchContextData): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem("nonga_chat_search_context", JSON.stringify(data));
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadChatSearchContext(): ChatSearchContextData | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem("nonga_chat_search_context");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChatSearchContextData;
+    if (Array.isArray(parsed.allCars) && typeof parsed.offset === "number") {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const STORAGE_KEY = "nonga_chat_last_car_results";
+
+export function saveChatCarContext(cars: ChatCarCardData[]): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ savedAt: Date.now(), cars })
+    );
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadChatCarContext(): ChatCarCardData[] {
+  if (typeof sessionStorage === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { cars?: ChatCarCardData[] };
+    return Array.isArray(parsed.cars) ? parsed.cars : [];
+  } catch {
+    return [];
+  }
+}
+
+export function resolveCarsFromContextHint(
+  hint: string,
+  contextCars: ChatCarCardData[]
+): ChatCarCardData[] {
+  const text = hint.toLowerCase();
+  if (contextCars.length === 0) return [];
+
+  // Dedupe logic
+  const dedupe = (cars: ChatCarCardData[]) => {
+    const seen = new Set<string>();
+    return cars.filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
+  };
+
+  const uniqueContextCars = dedupe(contextCars);
+
+  if (/2\s*คันแรก|สองคันแรก|เทียบคันแรกกับคันที่สอง/.test(text)) {
+    return uniqueContextCars.slice(0, 2);
+  }
+  if (/คันแรก|คันที่\s*1/.test(text)) {
+    return uniqueContextCars.slice(0, 1);
+  }
+
+  const byBrandModel = uniqueContextCars.filter((c) => {
+    const blob = `${c.brand} ${c.model}`.toLowerCase();
+    return text.includes(c.brand.toLowerCase()) && text.includes(c.model.toLowerCase());
+  });
+  if (byBrandModel.length > 0) return byBrandModel;
+
+  if (/คันนี้|คันนั้น|คันแรก/.test(text)) {
+    return uniqueContextCars.slice(0, 1);
+  }
+
+  return uniqueContextCars;
+}
+
+export function isFollowUpCarQuestion(message: string): boolean {
+  return /คันนี้|คันนั้น|คันแรก|2\s*คันแรก|สองคันแรก|เปรียบเทียบ|ดีไหม|น่าสนใจไหม|สรุป|เหมาะกับใคร/i.test(
+    message
+  );
+}
+
+export function isCompareIntent(message: string): boolean {
+  return /เปรียบเทียบ|เทียบ|คันไหนดีกว่า|คันไหนน่าสนใจกว่า|คันไหนไมล์น้อยกว่า/i.test(message);
+}
+
+export function isSelectedCarIntent(message: string): boolean {
+  return /\[SELECTED_CAR_ID:([^\]]+)\]/.test(message) || /คันนี้|คันนั้น|สรุปรถคันนี้|รถคันนี้เหมาะกับใคร/i.test(message);
+}
+
+export function extractSelectedCarId(message: string): string | null {
+  const match = message.match(/\[SELECTED_CAR_ID:([^\]]+)\]/);
+  return match ? match[1] : null;
+}

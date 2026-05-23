@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatSession, ChatMessage } from "../../types";
+import { ChatSession, ChatMessage, ChatCarCardData } from "../../types";
 import { db, isMockConfig } from "../../lib/firebase";
 import { AIPersonality, PersonalityPresetId } from "../../types/ai";
 import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from "../../services/ai/personality/personalityConfig";
@@ -30,6 +30,8 @@ interface ChatState {
   messages: Record<string, ChatMessage[]>;
   isGenerating: boolean;
   streamedReply: string;
+  streamedCarCards: ChatCarCardData[];
+  streamedHasMoreCars: boolean;
   userPreferences: AIUserProfile | null;
   isAnalyzingMemory: boolean;
   
@@ -43,10 +45,20 @@ interface ChatState {
   createSession: (userId: string, title?: string) => Promise<string>;
   deleteSession: (userId: string, sessionId: string) => Promise<void>;
   selectSession: (sessionId: string) => void;
-  addMessage: (sessionId: string, sender: ChatMessage["sender"], text: string) => Promise<ChatMessage>;
+  addMessage: (
+    sessionId: string,
+    sender: ChatMessage["sender"],
+    text: string,
+    carCards?: ChatCarCardData[],
+    hasMoreCars?: boolean
+  ) => Promise<ChatMessage>;
   editMessage: (sessionId: string, messageId: string, text: string) => Promise<void>;
-  updateStreamedReply: (text: string) => void;
-  finalizeStreamedReply: (sessionId: string) => Promise<void>;
+  updateStreamedReply: (text: string, carCards?: ChatCarCardData[], hasMoreCars?: boolean) => void;
+  finalizeStreamedReply: (
+    sessionId: string,
+    carCards?: ChatCarCardData[],
+    hasMoreCars?: boolean
+  ) => Promise<void>;
   setGenerating: (generating: boolean) => void;
   analyzeUserPreferences: (messages: ChatMessage[]) => Promise<void>;
   loadUserPreferences: (userId: string) => Promise<void>;
@@ -68,6 +80,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: {},
   isGenerating: false,
   streamedReply: "",
+  streamedCarCards: [],
+  streamedHasMoreCars: false,
   userPreferences: null,
   isAnalyzingMemory: false,
   
@@ -154,7 +168,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             id: mSnapshot.id,
             sender: mData.sender || "ai",
             text: mData.text || "",
-            createdAt: mData.createdAt || new Date().toISOString()
+            createdAt: mData.createdAt || new Date().toISOString(),
+            ...(Array.isArray(mData.carCards) && mData.carCards.length > 0
+              ? { carCards: mData.carCards }
+              : {}),
+            ...(mData.hasMoreCars ? { hasMoreCars: mData.hasMoreCars } : {}),
           });
         });
 
@@ -254,7 +272,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ activeSessionId: sessionId });
   },
 
-  addMessage: async (sessionId, sender, text) => {
+  addMessage: async (sessionId, sender, text, carCards, hasMoreCars) => {
     const newMsg: ChatMessage = {
       id:
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -262,7 +280,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       sender,
       text,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...(carCards && carCards.length > 0 ? { carCards } : {}),
+      ...(hasMoreCars ? { hasMoreCars } : {}),
     };
 
     set((state) => ({
@@ -281,7 +301,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         await setDoc(doc(db, "chats", sessionId, "messages", newMsg.id), {
           sender,
           text,
-          createdAt: newMsg.createdAt
+          createdAt: newMsg.createdAt,
+          ...(carCards && carCards.length > 0 ? { carCards } : {}),
+          ...(hasMoreCars ? { hasMoreCars } : {}),
         });
 
         // Trigger session title generation on first user prompt
@@ -340,19 +362,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  updateStreamedReply: (text) => {
-    set({ streamedReply: text });
+  updateStreamedReply: (text, carCards, hasMoreCars) => {
+    set({
+      streamedReply: text,
+      ...(carCards !== undefined ? { streamedCarCards: carCards } : {}),
+      ...(hasMoreCars !== undefined ? { streamedHasMoreCars: hasMoreCars } : {}),
+    });
   },
 
-  finalizeStreamedReply: async (sessionId) => {
+  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars) => {
     const totalReply = get().streamedReply;
     if (!totalReply) return;
 
-    // Clear streamed reply
-    set({ streamedReply: "" });
+    const cards =
+      carCards && carCards.length > 0
+        ? carCards
+        : get().streamedCarCards.length > 0
+          ? get().streamedCarCards
+          : undefined;
 
-    // Save as full message
-    const msg = await get().addMessage(sessionId, "ai", totalReply);
+    const more = hasMoreCars ?? get().streamedHasMoreCars;
+
+    set({ streamedReply: "", streamedCarCards: [], streamedHasMoreCars: false });
+
+    const msg = await get().addMessage(sessionId, "ai", totalReply, cards, more);
     
     // Core AI memory loop: Trigger preference extraction in background for memory
     const history = get().messages[sessionId] || [];

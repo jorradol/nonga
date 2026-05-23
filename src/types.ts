@@ -48,6 +48,30 @@ export interface ChatMessage {
   sender: "user" | "ai" | "assistant" | "system" | "ai-analysis";
   text: string;
   createdAt: string;
+  /** การ์ดรถจากผลค้นหา Marketplace จริง */
+  carCards?: ChatCarCardData[];
+  /** มีรถอีกหรือไม่ (สำหรับปุ่มดูเพิ่ม) */
+  hasMoreCars?: boolean;
+}
+
+/** ข้อมูลการ์ดรถในแชท — จาก database เท่านั้น */
+export interface ChatCarCardData {
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+  price: number;
+  mileage: number;
+  color?: string;
+  fuelType?: string;
+  condition?: string;
+  bodyClass: string;
+  bodyClassLabel: string;
+  showroomName?: string;
+  imageUrl?: string;
+  hasImage: boolean;
+  detailPath: string;
+  matchKind: "exact" | "alternative";
 }
 
 export interface DealerReview {

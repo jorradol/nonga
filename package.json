@@ -26,6 +26,8 @@
     "test:dealer-draft-publish-guard": "tsx scripts/test-dealer-draft-publish-guard.mts",
     "test:dealer-draft-image-edit": "tsx scripts/test-dealer-draft-image-edit.mts",
     "test:dealer-image-resize-upload": "tsx scripts/test-dealer-image-resize-upload.mts",
+    "test:nonga-chat-first-phase1": "tsx scripts/test-nonga-chat-first-phase1.mts",
+    "test:nonga-chat-car-cards": "tsx scripts/test-nonga-chat-car-cards.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
     "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
     "test:my-listings": "tsx scripts/test-my-listings.mts",

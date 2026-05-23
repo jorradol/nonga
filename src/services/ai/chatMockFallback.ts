@@ -1,5 +1,15 @@
 /** Mock ตอบแชทเมื่อไม่มี Gemini — อ่านรายการรถจาก inventory */
 
+import {
+  isMarketplaceSearchIntent,
+  runMarketplaceChatSearch,
+} from "./chat/marketplaceChatSearch";
+import {
+  buildListingDescriptionReply,
+  isListingDescriptionIntent,
+  looksLikeRawSpecText,
+} from "./chat/listingDescriptionHelper";
+
 export interface MockCarListing {
   id?: string;
   title?: string;
@@ -8,30 +18,81 @@ export interface MockCarListing {
   year?: number;
   price?: number;
   mileage?: number;
+  color?: string;
+  fuelType?: string;
+  type?: string;
   isSold?: boolean;
+  listingStatus?: string;
   createdAt?: string;
+  images?: string[];
+  showroomName?: string;
+  ownerName?: string;
 }
 
 const NEW_CAR_PATTERNS =
-  /รถใหม่|เข้ามา|ตลาด|ล่าสุด|มีอะไรบ้าง|มีรถอะไร|วันนี้มี/i;
+  /รถใหม่|เข้ามา|ตลาด|ล่าสุด|มีอะไรบ้าง|มีรถอะไร|วันนี้มี|น่าสนใจ/i;
+
+function toRecord(c: MockCarListing) {
+  return {
+    id: c.id ?? "unknown",
+    title: c.title ?? "",
+    brand: c.brand ?? "",
+    model: c.model ?? "",
+    year: c.year ?? 0,
+    price: c.price ?? 0,
+    mileage: c.mileage ?? 0,
+    color: c.color,
+    fuelType: c.fuelType,
+    type: (c.type as "used") ?? "used",
+    condition: "used",
+    images: c.images ?? [],
+    description: "",
+    ownerId: "",
+    ownerName: c.ownerName ?? "",
+    ownerPhone: "",
+    isSold: Boolean(c.isSold),
+    listingStatus: c.listingStatus as "published" | undefined,
+    createdAt: c.createdAt ?? new Date().toISOString(),
+    showroomName: c.showroomName,
+  };
+}
+
+function activeCars(cars: MockCarListing[]): MockCarListing[] {
+  return cars.filter(
+    (c) =>
+      !c.isSold &&
+      (!c.listingStatus || c.listingStatus === "published")
+  );
+}
 
 export function buildMockChatReply(
   message: string,
   cars: MockCarListing[] = []
 ): string {
-  const active = cars.filter((c) => !c.isSold);
-  const sorted = [...active].sort((a, b) => {
+  const text = message.trim();
+  const inventory = activeCars(cars).map(toRecord);
+
+  if (isListingDescriptionIntent(text) || looksLikeRawSpecText(text)) {
+    return buildListingDescriptionReply({ rawSpecs: text });
+  }
+
+  if (isMarketplaceSearchIntent(text)) {
+    const result = runMarketplaceChatSearch(text, inventory);
+    if (result) return result.introText;
+  }
+
+  const sorted = [...activeCars(cars)].sort((a, b) => {
     const ta = new Date(a.createdAt ?? 0).getTime();
     const tb = new Date(b.createdAt ?? 0).getTime();
     return tb - ta;
   });
 
-  if (NEW_CAR_PATTERNS.test(message)) {
+  if (NEW_CAR_PATTERNS.test(text)) {
     const recent = sorted.slice(0, 5);
     if (recent.length === 0) {
       return (
-        "ปังปุริเย่! ตอนนี้ยังไม่พบรถใหม่ในตลาดครับ 🙏\n\n" +
-        "ลองกลับมาดูอีกครั้งในภายหลัง หรือค้นหาตามยี่ห้อ/รุ่นที่สนใจได้เลยครับ — น้องเอพร้อมช่วยเสมอครับ! 🔥"
+        "ตอนนี้ยังไม่พบรถใหม่ในตลาดครับ 🙏\n\n" +
+        "น้องเอตรวจจากข้อมูลจริงในระบบแล้ว — ลองกลับมาดูอีกครั้ง หรือค้นหาตามยี่ห้อ/รุ่นที่สนใจได้เลยครับ"
       );
     }
 
@@ -47,30 +108,31 @@ export function buildMockChatReply(
         c.price && c.price > 0
           ? ` — ฿${c.price.toLocaleString("th-TH")} บาท`
           : "";
-      return `${i + 1}. ${title}${year}${mileage}${price}`;
+      const link = c.id ? `\n   ดูรายละเอียด: /cars/${c.id}` : "";
+      return `${i + 1}. ${title}${year}${mileage}${price}${link}`;
     });
 
     return (
-      "ปังปุริเย่! 🎉 จากข้อมูลจริงในตลาด Nong A ตอนนี้มีรถดังนี้ครับ:\n\n" +
+      "จากข้อมูลจริงในตลาด Nong A ตอนนี้มีรถล่าสุดดังนี้ครับ:\n\n" +
       lines.join("\n") +
       "\n\n(สรุปจากระบบจริงเท่านั้น — ไม่มีรถนอกรายการนี้)\n" +
-      "ทักถามรุ่นที่ชอบได้เลยครับ คันไหนสนใจน้องเอช่วยสรุปสเปกให้เพิ่มได้ครับ! 🔥"
+      "ทักถามรุ่นที่ชอบได้เลยครับ ปังปุริเย่!"
     );
   }
 
   const count = sorted.length;
   if (count === 0) {
     return (
-      "ปังปุริเย่! ตอนนี้ยังไม่มีรถในตลาดครับ 🙏\n\n" +
+      "ตอนนี้ยังไม่มีรถในตลาดครับ 🙏\n\n" +
       "น้องเอตรวจจากข้อมูลจริงในระบบแล้ว — ยังไม่พบประกาศขาย\n" +
       "ลองกลับมาดูอีกครั้งหลังมีผู้ลงประกาศ หรือไปลงขายรถคันแรกได้เลยครับ!"
     );
   }
 
   return (
-    `ปังปุริเย่! น้องเอพร้อมช่วยครับ 😊\n\n` +
+    `น้องเอพร้อมช่วยครับ 😊\n\n` +
     `ตอนนี้ในตลาดมีรถจริง ${count} คัน (จากข้อมูลระบบเท่านั้น)\n` +
-    `ลองถามเช่น "วันนี้มีรถใหม่เข้ามาในตลาดไหมครับ" เพื่อดูรายการล่าสุดครับ!\n\n` +
+    `ลองถามเช่น "มี Honda CR-V ไหม" หรือ "มีรถ SUV ไม่เกิน 700,000" เพื่อค้นจาก Marketplace จริงครับ\n\n` +
     `*(โหมดสำรอง: อ่านจาก /api/cars — ห้ามอ้างรถที่ไม่มีในระบบ)*`
   );
 }

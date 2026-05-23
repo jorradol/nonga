@@ -5,6 +5,10 @@ import dns from "dns";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { DEFAULT_PERSONALITIES } from "./src/services/ai/personality/personalityConfig";
+import {
+  appendChatPhase1Rules,
+  buildChatAugmentedContext,
+} from "./src/services/ai/chat/chatPhase1Rules";
 import { buildNongASystemInstruction } from "./src/services/ai/prompts/promptTemplates";
 import {
   buildMockChatReply,
@@ -42,6 +46,29 @@ import {
 
 function getLiveInventory(): MarketplaceCarRecord[] {
   return getPublishedMarketplaceCars();
+}
+
+function buildChatSystemInstruction(
+  activePersonality: Record<string, unknown>,
+  chatSentiment: "happy" | "neutral" | "skeptical" | "frustrated",
+  turnCount: number,
+  userPreferences: Record<string, unknown> | undefined,
+  userMessage: string
+): string {
+  const liveInv = getLiveInventory();
+  let systemInstruction = appendChatPhase1Rules(
+    buildNongASystemInstruction({
+      personality: activePersonality as unknown as Parameters<
+        typeof buildNongASystemInstruction
+      >[0]["personality"],
+      sentiment: chatSentiment,
+      convoCount: turnCount,
+      ...(userPreferences ?? {}),
+    })
+  );
+  systemInstruction += `\n\n${buildAIInventoryContext(liveInv)}`;
+  systemInstruction += buildChatAugmentedContext(userMessage, liveInv);
+  return systemInstruction;
 }
 
 async function streamMockChatSSE(
@@ -344,15 +371,13 @@ app.post("/api/gemini/chat", async (req, res) => {
     const chatSentiment = sentiment || "neutral";
     const turnCount = convoCount || 0;
 
-    let systemInstruction = buildNongASystemInstruction({
-      personality: activePersonality,
-      sentiment: chatSentiment,
-      convoCount: turnCount,
-      ...userPreferences
-    });
-
-    // Append marketplace context for recommendations
-    systemInstruction += `\n\n${buildAIInventoryContext(getLiveInventory())}`;
+    const systemInstruction = buildChatSystemInstruction(
+      activePersonality,
+      chatSentiment,
+      turnCount,
+      userPreferences,
+      message
+    );
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
@@ -554,15 +579,13 @@ app.post("/api/gemini/chat-stream", async (req, res) => {
     const chatSentiment = sentiment || "neutral";
     const turnCount = convoCount || 0;
 
-    let systemInstruction = buildNongASystemInstruction({
-      personality: activePersonality,
-      sentiment: chatSentiment,
-      convoCount: turnCount,
-      ...userPreferences
-    });
-
-    // Append marketplace context for recommendations
-    systemInstruction += `\n\n${buildAIInventoryContext(getLiveInventory())}`;
+    const systemInstruction = buildChatSystemInstruction(
+      activePersonality,
+      chatSentiment,
+      turnCount,
+      userPreferences,
+      message
+    );
 
     const responseStream = await ai.models.generateContentStream({
       model: "gemini-3.5-flash",

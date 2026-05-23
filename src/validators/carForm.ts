@@ -13,7 +13,7 @@ export const carSellingFormSchema = z.object({
   condition: z.enum(["new", "used", "excellent", "good", "fair"]),
   price: z.coerce.number().positive("ราคาขายต้องมากกว่า 0 บาท"),
   negotiable: z.boolean().default(false),
-  description: z.string().min(10, "คำอธิบายกระชับเกินไป (ระบุอย่างน้อย 10 ตัวอักษร)"),
+  description: z.string().default(""),
   features: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
   images: z.array(z.string()).min(1, "กรุณาอัปโหลดรูปภาพรถประกอบคันจริงอย่างน้อย 1 รูป"),
@@ -26,3 +26,18 @@ export const carSellingFormSchema = z.object({
 });
 
 export type CarSellingFormInput = z.infer<typeof carSellingFormSchema>;
+
+export const DESCRIPTION_PUBLISH_MIN = 10;
+
+export function isDescriptionReadyForPublish(description: string): boolean {
+  return description.trim().length >= DESCRIPTION_PUBLISH_MIN;
+}
+
+export const carSellingPublishSchema = carSellingFormSchema.refine(
+  (data) => isDescriptionReadyForPublish(data.description),
+  {
+    message:
+      "ยังไม่มีคำอธิบาย — น้องเอสามารถช่วยเขียนจากข้อมูลรถและสเปกที่มีได้",
+    path: ["description"],
+  }
+);

@@ -278,5 +278,57 @@ export const PRESET_AI_SKILLS: AISkill[] = [
     },
     lastUpdated: new Date().toISOString(),
     icon: "Sliders"
-  }
+  },
+  {
+    id: "nonga-listing-description-writer",
+    name: "Nong A Listing Description Writer (ช่วยเขียนประกาศขายรถ)",
+    category: "content_creation",
+    description: "แปลงสเปกดิบเป็นคำอธิบายขายรถภาษาไทยแบบมืออาชีพ",
+    systemInstruction: `[SKILL: LISTING DESCRIPTION WRITER]
+เมื่อผู้ใช้ขอช่วยเขียนประกาศ/โพสต์/คำอธิบายขายรถ:
+- แปลงสเปกดิบเป็นภาษาขาย อ่านง่าย ดึงจุดเด่น ไม่โอเวอร์ ไม่ใส่ข้อมูลที่ไม่มี
+- ห้ามวางสเปกดิบต่อกันอย่างเดียว
+- บอกให้ผู้ใช้ตรวจสอบก่อนลงประกาศ
+- ใส่ "ปังปุริเย่!" เมื่อสรุปงานเขียนเสร็จเท่านั้น`,
+    priority: 92,
+    isEnabled: true,
+    activationRules: [
+      {
+        type: "keyword",
+        value:
+          "ช่วยเขียน,แต่งคำอธิบาย,ประกาศ,โพสต์,แต่งโพสต์,สรุปจุดเด่น,facebook,เฟซบุ๊ก,ขายรถ",
+      },
+    ],
+    conditions: {},
+    dependencies: [],
+    chainOutput: true,
+    config: {},
+    lastUpdated: new Date().toISOString(),
+    icon: "PenLine",
+  },
+  {
+    id: "nonga-marketplace-search",
+    name: "Nong A Marketplace Search (ค้นรถจริง)",
+    category: "sales_enablement",
+    description: "ค้นหารถจาก Marketplace จริงเท่านั้น ห้ามแต่งรายการ",
+    systemInstruction: `[SKILL: MARKETPLACE SEARCH]
+เมื่อผู้ใช้ถามหารถในตลาด:
+- ใช้เฉพาะข้อมูล inventory/ผลค้นหาจริง
+- ถ้าไม่พบ ตอบว่าไม่พบ ห้ามเดา
+- แสดงลิงก์ /cars/{id} และชวนถามต่อเกี่ยวกับคันที่สนใจ`,
+    priority: 95,
+    isEnabled: true,
+    activationRules: [
+      {
+        type: "keyword",
+        value: "มีรถ,มีไหม,หา,ค้นหา,marketplace,ตลาด,cr-v,fortuner,city,civic,ไม่เกิน,งบ",
+      },
+    ],
+    conditions: {},
+    dependencies: [],
+    chainOutput: true,
+    config: {},
+    lastUpdated: new Date().toISOString(),
+    icon: "Search",
+  },
 ];

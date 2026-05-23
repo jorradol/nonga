@@ -10,6 +10,7 @@ import { useClipboard } from "../../hooks/chat/useClipboard";
 import { useFavorites } from "../../hooks/chat/useFavorites";
 import { useEditableMessage } from "../../hooks/chat/useEditableMessage";
 import { useChat } from "../../hooks/chat/useChat";
+import { ChatCarCard } from "./ChatCarCard";
 
 interface ChatMessageBubbleProps {
   key?: string;
@@ -18,7 +19,7 @@ interface ChatMessageBubbleProps {
 
 export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const isUser = message.sender === "user";
-  const { activeSessionId, editMessage } = useChat();
+  const { activeSessionId, editMessage, sendMessage } = useChat();
   
   // Custom hooks
   const { isSpeaking, toggleSpeak } = useSpeech();
@@ -343,7 +344,38 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             {isUser ? (
               <p className="whitespace-pre-wrap leading-relaxed select-text font-medium text-slate-100">{message.text}</p>
             ) : (
-              <div className="space-y-1.5 selection:bg-orange-500/30 break-words">{parseMarkdown(message.text)}</div>
+              <div className="space-y-1.5 selection:bg-orange-500/30 break-words">
+                {parseMarkdown(message.text)}
+              </div>
+            )}
+
+            {!isUser && message.carCards && message.carCards.length > 0 && (
+              <div
+                className="mt-3 flex flex-wrap gap-3"
+                data-testid="chat-car-cards-row"
+              >
+                {message.carCards.map((car) => (
+                  <div key={car.id} className="contents">
+                    <ChatCarCard car={car} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {message.hasMoreCars && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage("ดูเพิ่ม");
+                    }
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  ดูเพิ่มอีก 3 คัน
+                </button>
+              </div>
             )}
 
             {/* Glowing active speak state indicator bar */}

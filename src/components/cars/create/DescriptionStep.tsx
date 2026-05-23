@@ -13,6 +13,7 @@ interface DescriptionStepProps {
   mileage: number;
   fuelType: string;
   onChange: (desc: string) => void;
+  onNongAHelpWrite?: () => void;
   generateAIDescription: (details: any) => Promise<string>;
   isDarkMode: boolean;
 }
@@ -28,6 +29,7 @@ export default function DescriptionStep({
   mileage,
   fuelType,
   onChange,
+  onNongAHelpWrite,
   generateAIDescription,
   isDarkMode,
 }: DescriptionStepProps) {
@@ -170,6 +172,23 @@ export default function DescriptionStep({
               className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-100 font-bold text-[10px] disabled:opacity-50"
             >
               ลองสร้างโพสต์อีกครั้ง
+            </button>
+          </div>
+        )}
+
+        {description.trim().length < 10 && onNongAHelpWrite && (
+          <div className="p-4 rounded-xl border border-orange-500/20 bg-orange-500/5 space-y-2">
+            <p className="text-xs text-slate-300 leading-relaxed">
+              ยังไม่มีคำอธิบายหรือสั้นอยู่ — น้องเอสามารถช่วยเขียนคำอธิบายประกาศจากข้อมูลรถและสเปกที่มีได้
+              (ข้อมูลที่ระบบตีความเบื้องต้น — กรุณาตรวจสอบอีกครั้งก่อนประกาศ)
+            </p>
+            <button
+              type="button"
+              onClick={onNongAHelpWrite}
+              className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <Sparkles className="w-4 h-4" />
+              ให้น้องเอช่วยเขียนคำอธิบาย
             </button>
           </div>
         )}

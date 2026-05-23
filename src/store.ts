@@ -4,6 +4,7 @@ import {
   fetchWithTimeout,
   sanitizeAiText,
 } from "./services/ai/post-generator/apiHelpers";
+import { queuePendingChatMessage } from "./utils/pendingChatMessage";
 import {
   normalizeMarketplaceCar,
   devClientMarketplaceLog,
@@ -312,6 +313,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   sendChatMessage: async (message) => {
+    queuePendingChatMessage(message);
     const sessionId = get().activeSessionId;
     if (!sessionId) return;
 

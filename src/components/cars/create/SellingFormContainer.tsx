@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "../../../store";
 import { CarsService } from "../../../services/cars";
-import { carSellingFormSchema } from "../../../validators/carForm";
+import { carSellingFormSchema, carSellingPublishSchema } from "../../../validators/carForm";
+import { buildListingDescriptionFromSpecs } from "../../../services/ai/chat/listingDescriptionHelper";
 import ImageUploadStep from "./ImageUploadStep";
 import BasicInfoStep from "./BasicInfoStep";
 import SpecsStep from "./SpecsStep";
@@ -185,6 +186,23 @@ export default function SellingFormContainer({
     return true;
   };
 
+  const handleNongAHelpDescription = () => {
+    const text = buildListingDescriptionFromSpecs({
+      brand: formData.brand,
+      model: formData.model,
+      year: formData.year,
+      price: formData.price,
+      mileage: formData.mileage,
+      color: formData.color,
+      fuelType: formData.fuelType,
+      condition: formData.condition,
+      features: formData.features,
+      rawSpecs: formData.description,
+    });
+    updateFields({ description: text });
+    showToast("น้องเอช่วยร่างคำอธิบายให้แล้ว — แก้ไขได้เต็มที่ก่อนประกาศครับ ปังปุริเย่!");
+  };
+
   // Continuous background checker to warn users of specs incomplete
   useEffect(() => {
     runValidation();
@@ -205,12 +223,26 @@ export default function SellingFormContainer({
   };
 
   const handlePublishListing = async () => {
-    const isValid = runValidation();
-    if (!isValid) {
+    const publishCheck = carSellingPublishSchema.safeParse(formData);
+    if (!publishCheck.success) {
+      const issues = publishCheck.error.issues;
+      const descOnly =
+        issues.length === 1 && issues[0].path[0] === "description";
+      if (descOnly) {
+        showToast(
+          "ยังไม่มีคำอธิบาย — กด \"ให้น้องเอช่วยเขียนคำอธิบาย\" ในขั้นตอนบรรยายจุดขายได้เลยครับ"
+        );
+        setCurrentStep(4);
+        return;
+      }
+      const formattedErrors = issues.map((err) => `${err.message}`);
+      setValidationErrors(formattedErrors);
       showToast("❌ ข้อมูลไม่ครบเกณฑ์มาตรฐาน คลี่ลงแผงพรีวิวเพื่อตรวจเช็คจุดผิดพลาดสีแดงด้านล่างสุดได้เลยครับ!");
-      setCurrentStep(6); // Forward immediately to review errors
+      setCurrentStep(6);
       return;
     }
+
+    setValidationErrors([]);
 
     setIsSubmitting(true);
     try {
@@ -656,6 +688,7 @@ export default function SellingFormContainer({
                     mileage={formData.mileage}
                     fuelType={formData.fuelType}
                     onChange={(desc) => updateFields({ description: desc })}
+                    onNongAHelpWrite={handleNongAHelpDescription}
                     generateAIDescription={(details) =>
                       generateAIDescriptionWithStyle(details, null)
                     }

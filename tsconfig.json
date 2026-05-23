@@ -22,5 +22,21 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "src/**/*",
+    "server.ts",
+    "scripts/**/*.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts/test-dealer-deeplink.mts",
+    "scripts/test-dealer-entry-flow.mts",
+    "scripts/test-dealer-portal-browser.mts",
+    "scripts/test-dealer-profile-browser.mts",
+    "scripts/test-dealer-import-smoke.mts",
+    "scripts/test-dealer-e2e-v418.mts",
+    "scripts/test-dealer-draft-required-fields.mts"
+  ]
 }
