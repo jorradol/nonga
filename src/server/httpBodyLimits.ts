@@ -6,7 +6,8 @@ export const LISTING_IMAGE_JSON_LIMIT = "4mb";
 export function isListingImageUploadPath(path: string): boolean {
   return (
     /^\/api\/cars\/[^/]+\/images$/i.test(path) ||
-    /^\/api\/dealer\/paste-import\/upload-images$/i.test(path)
+    /^\/api\/dealer\/paste-import\/upload-images$/i.test(path) ||
+    /^\/api\/dealer\/drafts\/[^/]+\/upload-images$/i.test(path)
   );
 }
 

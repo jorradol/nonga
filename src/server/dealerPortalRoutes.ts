@@ -201,13 +201,35 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (has("fuelType")) patch.fuelType = String(body.fuelType ?? "");
     if (has("title")) patch.title = String(body.title ?? "");
     if (has("description")) patch.description = String(body.description ?? "");
-    if (has("images")) patch.images = body.images as string[];
+    if (has("images")) {
+      const imgs = Array.isArray(body.images) ? (body.images as string[]) : [];
+      patch.images = imgs;
+      normalized.imageUrls = imgs.join(",");
+    }
     if (has("sourceImageUrls")) {
       patch.sourceImageUrls = body.sourceImageUrls as string[];
     }
 
     const updated = updateDealerDraft(req.params.id, patch);
     res.json({ success: true, data: updated });
+  });
+
+  app.post("/api/dealer/drafts/:id/upload-images", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const draft = getDealerDraftById(req.params.id);
+    if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
+      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+    }
+
+    const result = persistPasteUploadedImages(req.params.id, req.body?.files);
+    if (result.ok === false) {
+      return res.status(result.status).json({
+        success: false,
+        message: result.message,
+      });
+    }
+    res.json({ success: true, data: result });
   });
 
   app.post("/api/dealer/drafts/:id/publish", async (req, res) => {
