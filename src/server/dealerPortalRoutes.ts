@@ -53,6 +53,48 @@ function scopeOr403(req: Request, res: Response) {
 }
 
 export function registerDealerPortalRoutes(app: Express): void {
+  app.post("/api/admin/draft-inventory/new", (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const body = req.body ?? {};
+    const id = `draft-${Date.now()}`;
+    const profile = getDealerProfile(ctx.dealerId);
+    
+    const newDraft = {
+      id,
+      dealerId: ctx.dealerId,
+      dealerName: profile?.ownerName || "Unknown Dealer",
+      ownerName: profile?.ownerName || "Unknown Owner",
+      phone: profile?.phone || "",
+      showroomName: profile?.showroomName || "",
+      rawRow: {},
+      normalizedData: createEmptyNormalizedRow(),
+      missingFields: [],
+      warnings: [],
+      confidenceScore: 100,
+      status: "draft" as const,
+      images: [],
+      sourceImageUrls: [],
+      title: body.title || "",
+      brand: body.brand || "",
+      model: body.model || "",
+      year: body.year ? Number(body.year) : new Date().getFullYear(),
+      price: body.price ? Number(body.price) : 0,
+      mileage: body.mileage ? Number(body.mileage) : 0,
+      fuelType: body.fuelType || "",
+      condition: body.condition || "",
+      description: body.description || "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // We need to import bulkAddDealerDrafts
+    const { bulkAddDealerDrafts } = require("./dealerDraftInventory");
+    bulkAddDealerDrafts([newDraft]);
+    
+    res.json({ success: true, data: newDraft });
+  });
+
   app.get("/api/dealer/dashboard", (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;

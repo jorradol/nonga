@@ -24,18 +24,69 @@ import {
   type ChatInventoryCar,
 } from "./marketplaceChatSearch";
 
+import { isSellIntent, extractCarFieldsFromMessage, buildDraftPreviewCopy, type ExtractedCarFields } from "./sellIntentParser";
+
 export interface OrchestratedChatReply {
   text: string;
   carCards: ChatCarCardData[];
   /** ใช้ข้อความจากระบบค้นหาโดยตรง ไม่เรียก Gemini */
   skipGemini: boolean;
   hasMoreCars?: boolean;
+  isDraftPreview?: boolean;
+  draftFields?: ExtractedCarFields;
 }
 
 export function tryOrchestrateChatReply(
   message: string,
   inventory: ChatInventoryCar[]
 ): OrchestratedChatReply | null {
+  if (isSellIntent(message)) {
+    const fields = extractCarFieldsFromMessage(message);
+    return {
+      text: buildDraftPreviewCopy(fields),
+      carCards: [],
+      skipGemini: true,
+      isDraftPreview: true,
+      draftFields: fields
+    };
+  }
+
+  const isSaveDraft = message.trim() === "บันทึกเป็น Draft";
+  if (isSaveDraft) {
+    return {
+      text: "กำลังสร้าง Draft ให้ครับ... (รอเชื่อมต่อ API)",
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
+  const isEditDraft = message.trim() === "แก้ไขข้อมูล";
+  if (isEditDraft) {
+    return {
+      text: "ลุงพิมพ์ข้อมูลที่ต้องการแก้ไขมาได้เลยครับ เช่น 'เปลี่ยนราคาเป็น 400000' หรือ 'เพิ่มจุดเด่น: ยางใหม่'",
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
+  const isAddPhoto = message.trim() === "เพิ่มรูปภาพ";
+  if (isAddPhoto) {
+    return {
+      text: "ลุงสามารถอัปโหลดรูปภาพในแชทนี้ได้เลยครับ (ระบบกำลังพัฒนาการอัปโหลดในแชท ตอนนี้รบกวนบันทึกเป็น Draft แล้วไปเพิ่มรูปในหน้าจัดการนะครับ)",
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
+  const isRestartDraft = message.trim() === "เริ่มใหม่";
+  if (isRestartDraft) {
+    return {
+      text: "ยกเลิกข้อมูลเดิมแล้วครับ ลุงพิมพ์ข้อมูลรถคันใหม่ที่ต้องการลงขายได้เลยครับ",
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
   const contextCars = loadChatCarContext();
 
   if (isFollowUpCarQuestion(message) && contextCars.length > 0) {

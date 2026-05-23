@@ -78,14 +78,72 @@ export function useChat() {
 
       const orchestrated = tryOrchestrateChatReply(text, inventory);
       if (orchestrated?.skipGemini) {
-        updateStreamedReply("", orchestrated.carCards, orchestrated.hasMoreCars);
+        // Handle Draft Creation API call if it's the "บันทึกเป็น Draft" action
+        if (text.trim() === "บันทึกเป็น Draft") {
+          // Find the last draft fields from history
+          const lastDraftMsg = currentHistory.slice().reverse().find(m => m.isDraftPreview && m.draftFields);
+          if (lastDraftMsg && lastDraftMsg.draftFields) {
+            try {
+              const draftData = lastDraftMsg.draftFields;
+              
+              // Call the dealer draft API
+              const res = await fetch("/api/admin/draft-inventory/new", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  brand: draftData.brand,
+                  model: draftData.model,
+                  year: draftData.year,
+                  price: draftData.price,
+                  mileage: draftData.mileage,
+                  color: draftData.color,
+                  description: draftData.description,
+                  title: `${draftData.brand || ""} ${draftData.model || ""} ${draftData.year || ""}`.trim(),
+                  dealerId: user?.uid || "dealer-123" // Fallback for testing
+                })
+              });
+              
+              if (res.ok) {
+                const result = await res.json();
+                orchestrated.text = `บันทึก Draft สำเร็จเรียบร้อยแล้วครับ! ลุงสามารถไปดูและแก้ไขต่อได้ที่หน้าจัดการรถครับ\n(Draft ID: ${result.data?.id || 'N/A'})`;
+              } else {
+                orchestrated.text = "เกิดข้อผิดพลาดในการบันทึก Draft ครับ รบกวนลองใหม่อีกครั้ง";
+              }
+            } catch (e) {
+              console.error("Failed to save draft:", e);
+              orchestrated.text = "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึก Draft ครับ";
+            }
+          } else {
+            orchestrated.text = "ไม่พบข้อมูลรถที่กำลังจะลงขายครับ รบกวนพิมพ์รายละเอียดรถใหม่อีกครั้งนะครับ";
+          }
+        }
+
+        updateStreamedReply(
+          "",
+          orchestrated.carCards,
+          orchestrated.hasMoreCars,
+          orchestrated.isDraftPreview,
+          orchestrated.draftFields
+        );
         let acc = "";
         for (const chunk of chunkTextForStream(orchestrated.text, 18)) {
           acc += chunk;
-          updateStreamedReply(acc, orchestrated.carCards, orchestrated.hasMoreCars);
+          updateStreamedReply(
+            acc,
+            orchestrated.carCards,
+            orchestrated.hasMoreCars,
+            orchestrated.isDraftPreview,
+            orchestrated.draftFields
+          );
           await new Promise((r) => setTimeout(r, 12));
         }
-        await finalizeStreamedReply(activeSessionId, orchestrated.carCards, orchestrated.hasMoreCars);
+        await finalizeStreamedReply(
+          activeSessionId,
+          orchestrated.carCards,
+          orchestrated.hasMoreCars,
+          orchestrated.isDraftPreview,
+          orchestrated.draftFields
+        );
         setGenerating(false);
         return;
       }
@@ -147,11 +205,19 @@ export function useChat() {
               const mockReply = await fetchMockChatReply(text);
               const mockOrchestrated = tryOrchestrateChatReply(text, inventory);
               if (mockOrchestrated) {
-                updateStreamedReply(mockOrchestrated.text, mockOrchestrated.carCards, mockOrchestrated.hasMoreCars);
+                updateStreamedReply(
+                  mockOrchestrated.text,
+                  mockOrchestrated.carCards,
+                  mockOrchestrated.hasMoreCars,
+                  mockOrchestrated.isDraftPreview,
+                  mockOrchestrated.draftFields
+                );
                 await finalizeStreamedReply(
                   activeSessionId,
                   mockOrchestrated.carCards,
-                  mockOrchestrated.hasMoreCars
+                  mockOrchestrated.hasMoreCars,
+                  mockOrchestrated.isDraftPreview,
+                  mockOrchestrated.draftFields
                 );
               } else {
                 updateStreamedReply(mockReply);

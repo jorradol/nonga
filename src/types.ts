@@ -52,6 +52,10 @@ export interface ChatMessage {
   carCards?: ChatCarCardData[];
   /** มีรถอีกหรือไม่ (สำหรับปุ่มดูเพิ่ม) */
   hasMoreCars?: boolean;
+  /** ข้อมูลที่แยกได้จากการคุยเพื่อสร้าง Draft */
+  draftFields?: any;
+  /** เป็นข้อความแสดง Draft Preview หรือไม่ */
+  isDraftPreview?: boolean;
 }
 
 /** ข้อมูลการ์ดรถในแชท — จาก database เท่านั้น */

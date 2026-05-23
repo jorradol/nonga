@@ -50,14 +50,18 @@ interface ChatState {
     sender: ChatMessage["sender"],
     text: string,
     carCards?: ChatCarCardData[],
-    hasMoreCars?: boolean
+    hasMoreCars?: boolean,
+    isDraftPreview?: boolean,
+    draftFields?: any
   ) => Promise<ChatMessage>;
   editMessage: (sessionId: string, messageId: string, text: string) => Promise<void>;
-  updateStreamedReply: (text: string, carCards?: ChatCarCardData[], hasMoreCars?: boolean) => void;
+  updateStreamedReply: (text: string, carCards?: ChatCarCardData[], hasMoreCars?: boolean, isDraftPreview?: boolean, draftFields?: any) => void;
   finalizeStreamedReply: (
     sessionId: string,
     carCards?: ChatCarCardData[],
-    hasMoreCars?: boolean
+    hasMoreCars?: boolean,
+    isDraftPreview?: boolean,
+    draftFields?: any
   ) => Promise<void>;
   setGenerating: (generating: boolean) => void;
   analyzeUserPreferences: (messages: ChatMessage[]) => Promise<void>;
@@ -173,6 +177,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ? { carCards: mData.carCards }
               : {}),
             ...(mData.hasMoreCars ? { hasMoreCars: mData.hasMoreCars } : {}),
+            ...(mData.isDraftPreview ? { isDraftPreview: mData.isDraftPreview } : {}),
+            ...(mData.draftFields ? { draftFields: mData.draftFields } : {}),
           });
         });
 
@@ -272,7 +278,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ activeSessionId: sessionId });
   },
 
-  addMessage: async (sessionId, sender, text, carCards, hasMoreCars) => {
+  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields) => {
     const newMsg: ChatMessage = {
       id:
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -283,6 +289,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       createdAt: new Date().toISOString(),
       ...(carCards && carCards.length > 0 ? { carCards } : {}),
       ...(hasMoreCars ? { hasMoreCars } : {}),
+      ...(isDraftPreview ? { isDraftPreview } : {}),
+      ...(draftFields ? { draftFields } : {}),
     };
 
     set((state) => ({
@@ -304,6 +312,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           createdAt: newMsg.createdAt,
           ...(carCards && carCards.length > 0 ? { carCards } : {}),
           ...(hasMoreCars ? { hasMoreCars } : {}),
+          ...(isDraftPreview ? { isDraftPreview } : {}),
+          ...(draftFields ? { draftFields } : {}),
         });
 
         // Trigger session title generation on first user prompt
@@ -362,7 +372,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  updateStreamedReply: (text, carCards, hasMoreCars) => {
+  updateStreamedReply: (text, carCards, hasMoreCars, isDraftPreview, draftFields) => {
     set({
       streamedReply: text,
       ...(carCards !== undefined ? { streamedCarCards: carCards } : {}),
@@ -370,7 +380,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars) => {
+  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields) => {
     const totalReply = get().streamedReply;
     if (!totalReply) return;
 
@@ -385,7 +395,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ streamedReply: "", streamedCarCards: [], streamedHasMoreCars: false });
 
-    const msg = await get().addMessage(sessionId, "ai", totalReply, cards, more);
+    const msg = await get().addMessage(sessionId, "ai", totalReply, cards, more, isDraftPreview, draftFields);
     
     // Core AI memory loop: Trigger preference extraction in background for memory
     const history = get().messages[sessionId] || [];

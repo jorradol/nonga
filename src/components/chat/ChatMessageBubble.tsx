@@ -378,6 +378,55 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
+            {message.isDraftPreview && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage("บันทึกเป็น Draft");
+                    }
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  บันทึกเป็น Draft
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage("แก้ไขข้อมูล");
+                    }
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  แก้ไขข้อมูล
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage("เพิ่มรูปภาพ");
+                    }
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  เพิ่มรูปภาพ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage("เริ่มใหม่");
+                    }
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  เริ่มใหม่
+                </button>
+              </div>
+            )}
+
             {/* Glowing active speak state indicator bar */}
             {speaking && (
               <div className="absolute left-0 bottom-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500 animate-pulse" />
