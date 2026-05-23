@@ -13,6 +13,7 @@ import {
   createQueuedUpload,
   fileToPasteUploadPayload,
   isAllowedPasteUploadFile,
+  PASTE_UPLOAD_HELP_TEXT,
   revokeQueuedUploadPreview,
   type PasteQueuedUpload,
 } from "../../utils/inventoryImport/pasteUploadedImageQueue";
@@ -224,9 +225,11 @@ export function DealerDraftImageSection({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h4 className="text-xs font-bold text-slate-200">รูปภาพประกาศ</h4>
         <span className="text-[10px] text-slate-500">
-          {total}/{DRAFT_MAX_IMAGES} รูป · JPG/PNG/WEBP
+          {total}/{DRAFT_MAX_IMAGES} รูป
         </span>
       </div>
+
+      <p className="text-[10px] text-slate-500">{PASTE_UPLOAD_HELP_TEXT}</p>
 
       {!hasImages && (
         <p className="text-[11px] text-amber-300/95 flex items-start gap-1.5">

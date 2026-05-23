@@ -195,6 +195,11 @@ async function main() {
   ok("1-guard-missing-image", guardBefore.missingFields.includes("image"), "");
 
   const up1 = await uploadDraftImages(c1Id, 1);
+  ok(
+    "1-resized-webp",
+    up1.length >= 1 && /\.webp$/i.test(up1[0] ?? ""),
+    up1[0] ?? ""
+  );
   c1 = await patchDraft(c1Id, {
     brand: "Toyota",
     model: "ImgEditTest",

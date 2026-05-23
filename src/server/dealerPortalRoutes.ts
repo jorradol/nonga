@@ -222,7 +222,7 @@ export function registerDealerPortalRoutes(app: Express): void {
       return res.status(404).json({ success: false, message: "ไม่พบ draft" });
     }
 
-    const result = persistPasteUploadedImages(req.params.id, req.body?.files);
+    const result = await persistPasteUploadedImages(req.params.id, req.body?.files);
     if (result.ok === false) {
       return res.status(result.status).json({
         success: false,
@@ -434,7 +434,7 @@ export function registerDealerPortalRoutes(app: Express): void {
       return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
     }
 
-    const result = persistPasteUploadedImages(listingId, files);
+    const result = await persistPasteUploadedImages(listingId, files);
     if (result.ok === false) {
       return res.status(result.status).json({
         success: false,

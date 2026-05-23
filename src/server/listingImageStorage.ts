@@ -112,6 +112,58 @@ export function saveListingImageUpload(
   return { ok: true, storedUrl };
 }
 
+/** บันทึกคู่ main + thumbnail หลังแปลงด้วย sharp (Paste Import / Draft upload) */
+export function saveProcessedListingImagePair(
+  carId: string,
+  mainBuffer: Buffer,
+  thumbBuffer: Buffer,
+  ext: ".webp" | ".jpg",
+  seed?: string
+):
+  | { ok: true; storedUrl: string; thumbnailUrl: string }
+  | { ok: false; error: string } {
+  if (!SAFE_LISTING_ID.test(carId)) {
+    return { ok: false, error: "รหัสประกาศไม่ถูกต้อง" };
+  }
+  if (mainBuffer.length === 0 || thumbBuffer.length === 0) {
+    return { ok: false, error: "ไฟล์ว่าง" };
+  }
+
+  const carDir = path.join(LISTING_IMAGES_ROOT, carId);
+  ensureDir(carDir);
+
+  const index = nextImageIndex(carId);
+  const slug = hashSlug(seed ?? `${Date.now()}-${index}`);
+  const filename = `${String(index + 1).padStart(2, "0")}-${slug}${ext}`;
+  const thumbFilename = `thumb-${filename}`;
+  const mainPath = path.join(carDir, filename);
+  const thumbPath = path.join(carDir, thumbFilename);
+
+  const resolvedMain = path.resolve(mainPath);
+  const resolvedThumb = path.resolve(thumbPath);
+  if (
+    !resolvedMain.startsWith(path.resolve(carDir)) ||
+    !resolvedThumb.startsWith(path.resolve(carDir))
+  ) {
+    return { ok: false, error: "ชื่อไฟล์ไม่ปลอดภัย" };
+  }
+
+  fs.writeFileSync(resolvedMain, mainBuffer);
+  fs.writeFileSync(resolvedThumb, thumbBuffer);
+
+  const storedUrl = `/storage/listings/${carId}/${filename}`;
+  const thumbnailUrl = `/storage/listings/${carId}/${thumbFilename}`;
+
+  devMarketplaceLog("image-upload-save", {
+    carId,
+    storedUrl,
+    bytes: mainBuffer.length,
+    thumbBytes: thumbBuffer.length,
+  });
+
+  return { ok: true, storedUrl, thumbnailUrl };
+}
+
 function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }

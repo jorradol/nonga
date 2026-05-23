@@ -56,6 +56,13 @@ async function main() {
     ""
   );
   ok(
+    "2b-accept-10mb",
+    isAllowedPasteUploadFile(
+      mockFile("big.jpg", "image/jpeg", 10 * 1024 * 1024)
+    ) === null,
+    ""
+  );
+  ok(
     "3-max-selection",
     !canSelectMore(PASTE_MAX_IMAGES_TOTAL, 0),
     ""
@@ -78,7 +85,12 @@ async function main() {
     ok("5-upload-one", false, up1.message);
     return;
   }
-  ok("5-upload-one", up1.storedUrls.length === 1, "");
+  ok(
+    "5-upload-one",
+    up1.storedUrls.length === 1 &&
+      /\.(webp|jpe?g|png)$/i.test(up1.storedUrls[0] ?? ""),
+    up1.storedUrls[0] ?? ""
+  );
 
   const up2 = await persistPasteUploadedImages(listingId, [
     { mimeType: "image/png", dataBase64: TINY_PNG_B64, name: "two.png" },
@@ -166,7 +178,7 @@ async function main() {
     dataBase64: TINY_PNG_B64,
     name: `f${i}.png`,
   }));
-  const over = persistPasteUploadedImages(
+  const over = await persistPasteUploadedImages(
     `draft-import-${Date.now()}-d0`,
     tooMany
   );

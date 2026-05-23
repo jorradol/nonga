@@ -266,6 +266,12 @@ export function DealerPasteImportSection({
           payloads
         );
         uploadStored = up.storedUrls;
+        if (up.warnings.length) imageImportWarnings.push(...up.warnings);
+        if (up.failed.length > 0) {
+          imageImportWarnings.push(
+            `อัปโหลดจากเครื่องไม่สำเร็จ ${up.failed.length} รูป — รูปที่สำเร็จยังถูกบันทึก`
+          );
+        }
         selectedUploads.forEach((u, i) => {
           if (up.storedUrls[i]) uploadIdToUrl.set(u.id, up.storedUrls[i]);
         });

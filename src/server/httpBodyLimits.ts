@@ -1,7 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 
 export const DEFAULT_JSON_LIMIT = "512kb";
-export const LISTING_IMAGE_JSON_LIMIT = "4mb";
+export const LISTING_IMAGE_JSON_LIMIT = "22mb";
 
 export function isListingImageUploadPath(path: string): boolean {
   return (

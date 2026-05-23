@@ -39,6 +39,8 @@ import {
   createQueuedUpload,
   isAllowedPasteUploadFile,
   PASTE_MAX_IMAGES_TOTAL,
+  PASTE_UPLOAD_HELP_TEXT,
+  PASTE_UPLOAD_STATUS_LABEL,
   revokeQueuedUploadPreview,
   type PasteQueuedUpload,
 } from "../../../utils/inventoryImport/pasteUploadedImageQueue";
@@ -524,7 +526,7 @@ export function PasteImagePreviewSection({
           อัปโหลดรูปภาพเพิ่มเติม
         </h5>
         <p className="text-[10px] text-slate-500">
-          รองรับ .jpg .jpeg .png .webp — สูงสุด 5MB ต่อไฟล์
+          {PASTE_UPLOAD_HELP_TEXT}
         </p>
         <div
           className={dropCls}
@@ -600,8 +602,18 @@ export function PasteImagePreviewSection({
                       <p className="text-[10px] text-slate-500 truncate">
                         {u.name}
                       </p>
-                      <p className="text-[10px] text-emerald-400 font-medium">
-                        แสดงตัวอย่างได้
+                      <p
+                        className={`text-[10px] font-medium ${
+                          saveDraftLaterLoading && selected
+                            ? "text-amber-300"
+                            : u.clientStatus === "pending"
+                              ? "text-emerald-400"
+                              : "text-slate-400"
+                        }`}
+                      >
+                        {saveDraftLaterLoading && selected
+                          ? PASTE_UPLOAD_STATUS_LABEL.preparing
+                          : u.statusMessage}
                       </p>
                       <div className="flex flex-wrap gap-1">
                         <label className="flex items-center gap-1 text-[10px] cursor-pointer">
