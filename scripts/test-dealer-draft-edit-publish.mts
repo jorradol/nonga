@@ -165,6 +165,24 @@ async function main() {
   let target = (await fetchDrafts(thorHdrs())).find((d) => d.id === smokeDraftId);
   ok("setup-draft-found", !!target, smokeDraftId);
 
+  // 2a. PATCH price only (no images field) — รูปต้องไม่หาย (regression bug #1)
+  const priceOnly = await patchDraft(smokeDraftId, { price: 555001 });
+  ok("2a-patch-price-only", priceOnly.price === 555001, String(priceOnly.price));
+  const afterPriceOnly = (await fetchDrafts(thorHdrs())).find(
+    (d) => d.id === smokeDraftId
+  );
+  ok(
+    "2a-images-kept-after-price-patch",
+    (afterPriceOnly?.images?.length ?? 0) >= 1 &&
+      afterPriceOnly!.images[0].includes("/storage/listings/"),
+    afterPriceOnly?.images?.[0] ?? ""
+  );
+  ok(
+    "2a-primary-image-order",
+    afterPriceOnly?.images?.[0] === storedUrl,
+    afterPriceOnly?.images?.[0] ?? ""
+  );
+
   // 2. Edit draft via API (UI supports brand/model/year/price/mileage; API also description/images)
   const edited = await patchDraft(smokeDraftId, {
     brand: "HondaSmoke",

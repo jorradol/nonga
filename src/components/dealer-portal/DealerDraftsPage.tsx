@@ -198,7 +198,13 @@ export function DealerDraftsPage({ apiHeaders, onPublished }: Props) {
                     <button
                       type="button"
                       onClick={() =>
-                        patchDealerDraft(apiHeaders, d.id, form).then(() => {
+                        patchDealerDraft(apiHeaders, d.id, {
+                          brand: String(form.brand ?? d.brand),
+                          model: String(form.model ?? d.model),
+                          year: Number(form.year ?? d.year),
+                          price: Number(form.price ?? d.price),
+                          mileage: Number(form.mileage ?? d.mileage),
+                        }).then(() => {
                           setEditingId(null);
                           load();
                         })

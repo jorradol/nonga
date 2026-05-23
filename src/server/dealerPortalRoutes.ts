@@ -169,36 +169,44 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบ draft" });
     }
-    const body = req.body ?? {};
-    const normalized = {
-      ...draft.normalizedData,
-      brand: body.brand ?? draft.normalizedData.brand,
-      model: body.model ?? draft.normalizedData.model,
-      year: body.year != null ? String(body.year) : draft.normalizedData.year,
-      price: body.price != null ? String(body.price) : draft.normalizedData.price,
-      mileage:
-        body.mileage != null
-          ? String(body.mileage)
-          : draft.normalizedData.mileage,
-      imageUrls: body.sourceImageUrls
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const has = (key: string) =>
+      Object.prototype.hasOwnProperty.call(body, key);
+
+    const normalized = { ...draft.normalizedData };
+    if (has("brand")) normalized.brand = String(body.brand ?? "");
+    if (has("model")) normalized.model = String(body.model ?? "");
+    if (has("year") && body.year != null) normalized.year = String(body.year);
+    if (has("price") && body.price != null) normalized.price = String(body.price);
+    if (has("mileage") && body.mileage != null) {
+      normalized.mileage = String(body.mileage);
+    }
+    if (has("sourceImageUrls")) {
+      normalized.imageUrls = Array.isArray(body.sourceImageUrls)
         ? (body.sourceImageUrls as string[]).join(",")
-        : draft.normalizedData.imageUrls,
-    };
-    const missingFields = getMissingPublishFields(normalized);
-    const updated = updateDealerDraft(req.params.id, {
-      brand: body.brand,
-      model: body.model,
-      year: body.year != null ? Number(body.year) : undefined,
-      price: body.price != null ? Number(body.price) : undefined,
-      mileage: body.mileage != null ? Number(body.mileage) : undefined,
-      fuelType: body.fuelType,
-      title: body.title,
-      description: body.description,
-      images: body.images,
-      sourceImageUrls: body.sourceImageUrls,
+        : draft.normalizedData.imageUrls;
+    }
+
+    const patch: Parameters<typeof updateDealerDraft>[1] = {
       normalizedData: normalized,
-      missingFields,
-    });
+      missingFields: getMissingPublishFields(normalized),
+    };
+    if (has("brand")) patch.brand = String(body.brand ?? "");
+    if (has("model")) patch.model = String(body.model ?? "");
+    if (has("year") && body.year != null) patch.year = Number(body.year);
+    if (has("price") && body.price != null) patch.price = Number(body.price);
+    if (has("mileage") && body.mileage != null) {
+      patch.mileage = Number(body.mileage);
+    }
+    if (has("fuelType")) patch.fuelType = String(body.fuelType ?? "");
+    if (has("title")) patch.title = String(body.title ?? "");
+    if (has("description")) patch.description = String(body.description ?? "");
+    if (has("images")) patch.images = body.images as string[];
+    if (has("sourceImageUrls")) {
+      patch.sourceImageUrls = body.sourceImageUrls as string[];
+    }
+
+    const updated = updateDealerDraft(req.params.id, patch);
     res.json({ success: true, data: updated });
   });
 
