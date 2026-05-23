@@ -13,7 +13,7 @@ export default function AIChatView() {
   return (
     <ChatProvider>
       <div 
-        className="flex w-full overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-950/20 shadow-2xl relative h-[78vh] min-h-[600px]"
+        className="flex w-full flex-1 overflow-hidden bg-slate-950 relative"
         id="ai-chat-root-viewport"
       >
         <ChatSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

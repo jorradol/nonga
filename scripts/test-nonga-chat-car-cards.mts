@@ -284,6 +284,47 @@ async function main() {
     ok("show-more-exhausted-text", /แสดงครบแล้ว/.test(orchShowMoreExhausted.text), orchShowMoreExhausted.text.slice(0, 60));
   }
 
+  // Case 10: Thai unit parsing (แสน, ล้าน)
+  const qSan1 = "ช่วยหารถราคาไม่เกิน 7 แสนให้หน่อยครับ";
+  const criteriaSan1 = parseMarketplaceSearchQuery(qSan1);
+  ok("parse-budget-san-1", criteriaSan1?.maxPrice === 700000, `Expected 700000, got ${criteriaSan1?.maxPrice}`);
+
+  const qSan2 = "มีรถไม่เกิน 7 แสนไหม";
+  const criteriaSan2 = parseMarketplaceSearchQuery(qSan2);
+  ok("parse-budget-san-2", criteriaSan2?.maxPrice === 700000, `Expected 700000, got ${criteriaSan2?.maxPrice}`);
+
+  const qSan3 = "งบ 5 แสน";
+  const criteriaSan3 = parseMarketplaceSearchQuery(qSan3);
+  ok("parse-budget-san-3", criteriaSan3?.maxPrice === 500000, `Expected 500000, got ${criteriaSan3?.maxPrice}`);
+
+  const qLan1 = "รถไม่เกิน 1 ล้าน";
+  const criteriaLan1 = parseMarketplaceSearchQuery(qLan1);
+  ok("parse-budget-lan-1", criteriaLan1?.maxPrice === 1000000, `Expected 1000000, got ${criteriaLan1?.maxPrice}`);
+
+  const qLan2 = "รถไม่เกิน 1.2 ล้าน";
+  const criteriaLan2 = parseMarketplaceSearchQuery(qLan2);
+  ok("parse-budget-lan-2", criteriaLan2?.maxPrice === 1200000, `Expected 1200000, got ${criteriaLan2?.maxPrice}`);
+
+  const qNum = "รถไม่เกิน 700,000";
+  const criteriaNum = parseMarketplaceSearchQuery(qNum);
+  ok("parse-budget-num", criteriaNum?.maxPrice === 700000, `Expected 700000, got ${criteriaNum?.maxPrice}`);
+
+  const qThaiWord = "ไม่เกินเจ็ดแสน";
+  const criteriaThaiWord = parseMarketplaceSearchQuery(qThaiWord);
+  ok("parse-budget-thai-word", criteriaThaiWord?.maxPrice === 700000, `Expected 700000, got ${criteriaThaiWord?.maxPrice}`);
+
+  const qThaiWord2 = "เจ็ดแสน";
+  const criteriaThaiWord2 = parseMarketplaceSearchQuery(qThaiWord2);
+  ok("parse-budget-thai-word-2", criteriaThaiWord2?.maxPrice === 700000, `Expected 700000, got ${criteriaThaiWord2?.maxPrice}`);
+
+  const qLow = "ต่ำกว่า 7 แสน";
+  const criteriaLow = parseMarketplaceSearchQuery(qLow);
+  ok("parse-budget-low", criteriaLow?.maxPrice === 700000, `Expected 700000, got ${criteriaLow?.maxPrice}`);
+
+  const qLanNid = "ล้านนิด ๆ";
+  const criteriaLanNid = parseMarketplaceSearchQuery(qLanNid);
+  ok("parse-budget-lan-nid", criteriaLanNid?.maxPrice === 1000000, `Expected 1000000, got ${criteriaLanNid?.maxPrice}`);
+
   console.log("\nDone.");
 }
 

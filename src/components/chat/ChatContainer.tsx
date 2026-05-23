@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown } from "lucide-react";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft } from "lucide-react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
+import { useAppStore } from "../../store";
 import { ChatMessageBubble } from "./ChatMessageBubble";
 import { SuggestionsGrid } from "./SuggestionsGrid";
 import { MemoryPanel } from "./MemoryPanel";
@@ -22,6 +23,8 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     streamedHasMoreCars,
     sendMessage,
   } = useChatContext();
+  
+  const { setView } = useAppStore();
 
   const [inputText, setInputText] = useState("");
   const [showMobileProps, setShowMobileProps] = useState(false);
@@ -119,25 +122,37 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     <div className="flex-1 flex bg-slate-950 text-slate-100 h-full relative" id="chat-container">
       <div className="flex-1 flex flex-col h-full overflow-hidden" id="chat-central-panel">
         <div
-          className="h-16 border-b border-slate-800/80 bg-slate-900/10 backdrop-blur-md px-4 flex items-center justify-between"
+          className="h-16 border-b border-slate-800/80 bg-slate-900/10 backdrop-blur-md px-4 flex items-center justify-between shrink-0"
           id="chat-navbar"
         >
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setView("home")}
+              className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+              title="กลับหน้าแรก"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="hidden sm:inline text-sm font-semibold">กลับหน้าแรก</span>
+            </button>
+            <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block"></div>
+            <button
               onClick={onToggleSidebar}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-850 transition-colors"
-              title="สลับเมนูข้าง"
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              title="สลับเมนูประวัติแชท"
               id="sidebar-toggle-trigger"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="overflow-hidden">
-              <h3 className="text-xs font-semibold text-slate-100 truncate">
-                {activeSession ? activeSession.title : "ระบบแนะนำอัจฉริยะ ของน้องเอ"}
+            <div className="overflow-hidden ml-1">
+              <h3 className="text-sm font-bold text-slate-100 truncate flex items-center gap-2">
+                คุยกับน้องเอ AI
+                <span className="hidden sm:inline-flex text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-medium">
+                  คู่หูอัจฉริยะด้านซื้อขายรถยนต์
+                </span>
               </h3>
-              <p className="text-[10px] text-orange-400 font-medium flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-3 h-3 animate-pulse text-orange-500" />
-                ออนไลน์อยู่ครับ • ปรึกษาซื้อขายวิเคราะห์สับๆ
+              <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+                {activeSession ? activeSession.title : "พร้อมให้คำปรึกษา"}
               </p>
             </div>
           </div>
@@ -145,16 +160,12 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowMobileProps(!showMobileProps)}
-              className="xl:hidden text-xs bg-slate-800 border border-slate-705 text-orange-400 px-3 py-1.5 rounded-xl flex items-center gap-1 hover:bg-slate-700/80 transition cursor-pointer"
+              className="xl:hidden text-xs bg-slate-800 border border-slate-700 text-orange-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:bg-slate-700/80 transition cursor-pointer"
               title="ตั้งค่าสมรรถนะบอท"
             >
               <Sliders className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">ปรับบอท/เช็คสเป็ค</span>
+              <span className="hidden sm:inline">ตั้งค่าบอท</span>
             </button>
-            <span className="text-[9px] bg-slate-850 text-slate-400 border border-slate-800 px-2 py-1.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping inline-block" />
-              Nong A Chat Phase 2
-            </span>
           </div>
         </div>
 
@@ -167,27 +178,29 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           >
             {currentMessages.length === 0 ? (
               <div
-                className="flex-1 flex flex-col items-center justify-center text-center max-w-xl mx-auto my-auto py-12 px-4 space-y-4"
+                className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto my-auto py-12 px-4 space-y-6"
                 id="chat-hero-frame"
               >
                 <div
-                  className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-xl shadow-orange-500/20"
+                  className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-xl shadow-orange-500/20"
                   id="chat-hero-icon"
                 >
-                  <Sparkles className="w-7 h-7" />
+                  <Sparkles className="w-8 h-8" />
                 </div>
                 <div>
-                  <h1 className="text-lg md:text-xl font-extrabold text-slate-100 flex items-center justify-center gap-1.5 leading-tight">
+                  <h1 className="text-2xl md:text-3xl font-extrabold text-slate-100 flex items-center justify-center gap-2 leading-tight">
                     คุยรถยนต์สับๆ กับ <span className="text-orange-400">น้องเอ</span>
                   </h1>
-                  <p className="text-xs text-slate-400 mt-2 max-w-sm leading-relaxed">
-                    แนะนำรถจากข้อมูลจริงใน Marketplace พร้อมการ์ดรถและรูปจากระบบ
+                  <p className="text-sm text-slate-400 mt-3 max-w-md mx-auto leading-relaxed">
+                    ผู้ช่วยส่วนตัวของคุณ แนะนำรถจากข้อมูลจริงใน Marketplace พร้อมเปรียบเทียบและวิเคราะห์สเป็ก
                   </p>
                 </div>
-                <SuggestionsGrid onSelectSuggestion={handleSuggestionSelect} />
+                <div className="w-full mt-4">
+                  <SuggestionsGrid onSelectSuggestion={handleSuggestionSelect} />
+                </div>
               </div>
             ) : (
-              <div className="space-y-4 max-w-3xl mx-auto w-full pb-8 flex-1" id="messages-list">
+              <div className="space-y-4 max-w-4xl mx-auto w-full pb-8 flex-1" id="messages-list">
                 {currentMessages.map((msg) => (
                   <ChatMessageBubble key={msg.id} message={msg} />
                 ))}
@@ -237,9 +250,9 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-800/85 bg-slate-900/20 backdrop-blur-md" id="chat-input-toolbar">
-          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative flex flex-col" id="chat-form">
-            <div className="relative rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-xl hover:border-slate-700/80 focus-within:border-orange-500/50 transition-all duration-300 overflow-hidden flex items-center pr-3 pl-1">
+        <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
+          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
+            <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 overflow-hidden flex items-center pr-3 pl-2 shadow-lg">
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
@@ -251,20 +264,20 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 }
                 rows={1}
                 disabled={isGenerating}
-                className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-3.5 px-3 max-h-36 resize-none text-xs text-slate-200 placeholder-slate-500 scrollbar-none"
+                className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-4 px-3 max-h-40 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-none"
                 id="chat-textarea-elt"
               />
               <button
                 type="submit"
                 disabled={isGenerating || !inputText.trim()}
-                className="w-8 h-8 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600 disabled:opacity-30 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
+                className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer ml-2"
                 id="send-message-btn"
                 title="ส่งข้อความ"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4 ml-0.5" />
               </button>
             </div>
-            <p className="text-[9px] text-slate-500 text-center mt-2 leading-relaxed">
+            <p className="text-[10px] text-slate-500 text-center mt-3 leading-relaxed">
               * ข้อมูลรถจาก Marketplace จริง — การ์ดแสดงเฉพาะ field ที่มีในระบบ
             </p>
           </form>
@@ -272,7 +285,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
       </div>
 
       <div
-        className="hidden xl:flex p-4 flex-col gap-4 border-l border-slate-800/80 bg-slate-950/20 overflow-y-auto max-h-[78vh] w-80 relative"
+        className="hidden xl:flex p-4 flex-col gap-4 border-l border-slate-800/80 bg-slate-950/20 overflow-y-auto h-full w-80 relative shrink-0"
         id="memory-rail"
       >
         <PersonalityPanel />

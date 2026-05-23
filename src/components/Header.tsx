@@ -63,15 +63,15 @@ export default function Header() {
 
   const navItems = [
     { id: "home", label: "หน้าแรก", icon: Home },
+    { id: "chat", label: "คุยกับน้องเอ AI", icon: MessageSquare },
     { id: "marketplace", label: "ตลาดรถยนต์", icon: Car },
+    { id: "sell", label: "ลงขายด่วน 🪄", icon: PlusCircle },
     { id: "my-listings", label: "ประกาศของฉัน", icon: ClipboardList },
     { id: "search", label: "ค้นหาละเอียด 🔍", icon: Search, badge: "แนะนำ" },
     { id: "car-vision", label: "วิเคราะห์รูปรถ 📸", icon: Camera, badge: "AI" },
     { id: "car-post-generator", label: "แต่งโพสต์ขายรถ 🪄", icon: Sparkles, badge: "ฮิต" },
     { id: "viral-captions", label: "เขียนแคปชั่น 👑", icon: Sparkle, badge: "ใหม่" },
     { id: "seo-landing", label: "SEO หน้าพิเศษ 🔎", icon: Globe, badge: "ใหม่" },
-    { id: "chat", label: "คุยกับน้องเอ AI", icon: MessageSquare },
-    { id: "sell", label: "ลงขายด่วน 🪄", icon: PlusCircle },
     { id: "dealers", label: "ดีลเลอร์และศูนย์บริการ", icon: Store },
     { id: "saved", label: "ที่บันทึกไว้", icon: Heart, count: favorites.length },
   ] as const;

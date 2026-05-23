@@ -7,30 +7,43 @@ interface SuggestionsGridProps {
 export function SuggestionsGrid({ onSelectSuggestion }: SuggestionsGridProps) {
   const suggestions = [
     {
-      title: "ช่วยเขียนประกาศขายรถ",
-      desc: "วางสเปกดิบแล้วให้น้องเอแปลงเป็นภาษาขาย",
-      icon: PenLine,
-      color: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-      query:
-        "ช่วยเขียนคำอธิบายขายรถจากสเปกนี้: บ.หนังปรับไฟฟ้า + จอทัชสกรีน + พวงมalaiมัลติฟังก์ชั่น + ฝาท้ายไฟฟ้า + บลูทูธ + ไฟหน้าLED + ไฟท้ายLED + ล้อแม็ก",
-    },
-    {
-      title: "ค้นรถใน Marketplace",
-      desc: "ถามรุ่น งบประมาณ หรือปีรถจากข้อมูลจริง",
+      title: "หารถให้หน่อย",
+      desc: "บอกงบและสเปกที่อยากได้",
       icon: Search,
       color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-      query: "มี Honda CR-V ในตลาดไหมครับ",
+      query: "ช่วยหารถในตลาดให้หน่อยครับ",
     },
     {
-      title: "รถ SUV ในงบที่กำหนด",
-      desc: "ค้นจากข้อมูลจริง ไม่แต่งรายการ",
+      title: "ช่วยลงขายรถ",
+      desc: "แนะนำขั้นตอนการลงขาย",
       icon: Car,
       color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-      query: "มีรถ SUV ไม่เกิน 700,000 บาทในตลาดไหม",
+      query: "อยากลงขายรถ ต้องทำยังไงบ้างครับ",
+    },
+    {
+      title: "ช่วยเขียนประกาศขายรถ",
+      desc: "แปลงสเปกดิบเป็นภาษาขาย",
+      icon: PenLine,
+      color: "text-orange-400 bg-orange-500/10 border-orange-500/20",
+      query: "ช่วยเขียนคำอธิบายขายรถจากสเปกนี้: บ.หนังปรับไฟฟ้า + จอทัชสกรีน + พวงมalaiมัลติฟังก์ชั่น + ฝาท้ายไฟฟ้า + บลูทูธ + ไฟหน้าLED + ไฟท้ายLED + ล้อแม็ก",
+    },
+    {
+      title: "ช่วยเปรียบเทียบรถ",
+      desc: "เทียบสเปกและราคาให้เห็นชัดๆ",
+      icon: Sparkles,
+      color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+      query: "ช่วยเปรียบเทียบรถ 2 คันแรกให้หน่อยครับ",
+    },
+    {
+      title: "ช่วยดูรถในงบที่มี",
+      desc: "ค้นหารถตามงบประมาณ",
+      icon: Car,
+      color: "text-teal-400 bg-teal-500/10 border-teal-500/20",
+      query: "มีรถไม่เกิน 700,000 ไหม",
     },
     {
       title: "แต่งโพสต์ Facebook",
-      desc: "ช่วยสรุปจุดเด่นและปรับข้อความให้ขายดีขึ้น",
+      desc: "สรุปจุดเด่นให้น่าสนใจ",
       icon: HeartHandshake,
       color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
       query: "ช่วยแต่งโพสต์ Facebook ขายรถมือสองให้น่าสนใจหน่อยครับ",

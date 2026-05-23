@@ -61,7 +61,7 @@ export interface MarketplaceSearchResult {
 }
 
 const SEARCH_INTENT =
-  /(?:มี|หา|ค้นหา|แนะนำ|ใน(?:ตลาด|ระบบ)|marketplace|inventory|รถ(?:ใน)?ตลาด|น่าสนใจ|budget|งบ)/i;
+  /(?:มี|หา|ค้นหา|แนะนำ|ใน(?:ตลาด|ระบบ)|marketplace|inventory|รถ(?:ใน)?ตลาด|น่าสนใจ|budget|งบ|ราคา|ไม่เกิน|ต่ำกว่า|แสน|ล้าน)/i;
 
 const BRAND_ALIASES: Record<string, string> = {
   honda: "Honda",
@@ -158,13 +158,98 @@ export function parseMarketplaceSearchQuery(
     if (soloModel) criteria.model = soloModel[1].replace("CRV", "CR-V");
   }
 
-  const priceUnder = text.match(
-    /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|งบ|ราคา)\s*([\d,]+(?:\.\d+)?)\s*(?:ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
+  // Parse budget/price queries
+  let parsedPrice = 0;
+
+  // 0. Pre-process text to convert Thai word numbers to digits to simplify regex
+  let processedText = text;
+  const thaiWordToDigit: Record<string, string> = {
+    'หนึ่ง': '1', 'สอง': '2', 'สาม': '3', 'สี่': '4', 'ห้า': '5', 'หก': '6', 'เจ็ด': '7', 'แปด': '8', 'เก้า': '9'
+  };
+  for (const [word, digit] of Object.entries(thaiWordToDigit)) {
+    processedText = processedText.replace(new RegExp(word, 'g'), digit);
+  }
+
+  // 1. Match explicit "ไม่เกิน", "งบ", "ราคา" with number and optional unit
+  const priceUnder = processedText.match(
+    /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|งบ|ราคา|ต่ำกว่า)\s*([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
   );
+  
   if (priceUnder) {
-    let n = parseThaiNumber(priceUnder[1]);
-    if (/ล้าน|ล\.|million/i.test(priceUnder[0])) n *= 1_000_000;
-    if (n > 0) criteria.maxPrice = n;
+    parsedPrice = parseThaiNumber(priceUnder[1]);
+    if (priceUnder[2]) {
+      if (/แสน/i.test(priceUnder[2])) parsedPrice *= 100_000;
+      else if (/ล้าน|ล\.|million/i.test(priceUnder[2])) parsedPrice *= 1_000_000;
+    } else {
+      const remainder = processedText.substring(priceUnder.index! + priceUnder[0].length);
+      if (remainder.match(/^\s*(ล้าน|ล\.|million)/i)) parsedPrice *= 1_000_000;
+      else if (remainder.match(/^\s*แสน/i)) parsedPrice *= 100_000;
+      else if (processedText.match(/ล้าน|ล\.|million/i)) parsedPrice *= 1_000_000;
+      else if (processedText.match(/แสน/i)) parsedPrice *= 100_000;
+    }
+  }
+
+  // 2. Match implicit "ไม่เกิน" like "รถไม่เกิน 1 ล้าน" where the regex above might fail if "ราคา" or "งบ" isn't there
+  if (parsedPrice === 0) {
+    const implicitUnder = processedText.match(
+      /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|ต่ำกว่า)\s*([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
+    );
+    if (implicitUnder) {
+      parsedPrice = parseThaiNumber(implicitUnder[1]);
+      if (implicitUnder[2]) {
+        if (/แสน/i.test(implicitUnder[2])) parsedPrice *= 100_000;
+        else if (/ล้าน|ล\.|million/i.test(implicitUnder[2])) parsedPrice *= 1_000_000;
+      } else {
+        const remainder = processedText.substring(implicitUnder.index! + implicitUnder[0].length);
+        if (remainder.match(/^\s*(ล้าน|ล\.|million)/i)) parsedPrice *= 1_000_000;
+        else if (remainder.match(/^\s*แสน/i)) parsedPrice *= 100_000;
+        else if (processedText.match(/ล้าน|ล\.|million/i)) parsedPrice *= 1_000_000;
+        else if (processedText.match(/แสน/i)) parsedPrice *= 100_000;
+      }
+    }
+  }
+
+  // 3. Match direct mentions like "7 แสน" without "ไม่เกิน"
+  if (parsedPrice === 0) {
+    const directPrice = processedText.match(/([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)\s*(?:บาท|฿)?/i);
+    if (directPrice) {
+      parsedPrice = parseThaiNumber(directPrice[1]);
+      if (/แสน/i.test(directPrice[2])) parsedPrice *= 100_000;
+      else if (/ล้าน|ล\.|million/i.test(directPrice[2])) parsedPrice *= 1_000_000;
+    }
+  }
+
+  // 4. Very aggressive fallback for "1 ล้าน" or "1.2 ล้าน" anywhere in the text if we still don't have a price
+  if (parsedPrice === 0) {
+    const aggressiveMatch = processedText.match(/([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)/i);
+    if (aggressiveMatch) {
+      parsedPrice = parseThaiNumber(aggressiveMatch[1]);
+      if (/แสน/i.test(aggressiveMatch[2])) parsedPrice *= 100_000;
+      else if (/ล้าน|ล\.|million/i.test(aggressiveMatch[2])) parsedPrice *= 1_000_000;
+    }
+  }
+
+  // 5. Check if they wrote the number out in Thai words (e.g. เจ็ดแสน)
+  if (parsedPrice === 0) {
+    const thaiWordsMatch = text.match(/(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|งบ|ราคา|ต่ำกว่า)?\s*(หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า)\s*(แสน|ล้าน)/i);
+    if (thaiWordsMatch) {
+      const wordToNum: Record<string, number> = {
+        'หนึ่ง': 1, 'สอง': 2, 'สาม': 3, 'สี่': 4, 'ห้า': 5, 'หก': 6, 'เจ็ด': 7, 'แปด': 8, 'เก้า': 9
+      };
+      parsedPrice = wordToNum[thaiWordsMatch[1]];
+      if (/แสน/i.test(thaiWordsMatch[2])) parsedPrice *= 100_000;
+      else if (/ล้าน/i.test(thaiWordsMatch[2])) parsedPrice *= 1_000_000;
+    }
+  }
+  
+  // 6. Final fallback for "ล้านนิดๆ"
+  if (parsedPrice === 0 && processedText.match(/ล้านนิด\s*ๆ?/i)) {
+      // Just set to 1 million if they say "ล้านนิดๆ" to get some results around that price
+      parsedPrice = 1_000_000;
+  }
+
+  if (parsedPrice > 0) {
+    criteria.maxPrice = parsedPrice;
   }
 
   const yearMatch = text.match(/(?:ปี|year)\s*(\d{4})/i);

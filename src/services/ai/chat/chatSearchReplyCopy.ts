@@ -192,7 +192,7 @@ function buildCarRolesSummary(shownCars: ChatCarSummary[]): string {
     } else if (isLowestMileage) {
       traits.push("เด่นเรื่องเลขไมล์น้อยกว่าในชุดนี้");
     } else if (isNewest) {
-      traits.push("เด่นเรื่องปีใหม่กว่า ได้รถสภาพสดใหม่");
+      traits.push("เด่นเรื่องปีใหม่กว่า");
     }
     
     if (traits.length === 0) {

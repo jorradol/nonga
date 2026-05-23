@@ -259,7 +259,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col justify-between transition-colors duration-300 ${
+    <div className={`${currentView === "chat" ? "h-[100dvh] overflow-hidden" : "min-h-screen"} flex flex-col justify-between transition-colors duration-300 ${
       isDarkMode 
         ? "bg-[#0a0a0a] text-slate-100 selection:bg-orange-500/30 font-sans" 
         : "bg-slate-50 text-slate-900 selection:bg-orange-500/20 font-sans"
@@ -268,31 +268,49 @@ export default function App() {
       {/* Atmosphere glow backdrop lines */}
       <GradientBackground />
 
-      <div className="w-full">
-        {/* Navigation bar */}
-        <Header />
+      <div className="w-full flex-1 flex flex-col h-full">
+        {/* Navigation bar - hidden in chat mode */}
+        {currentView !== "chat" && <Header />}
 
         {/* Major Screen Content Port */}
-        <Container className="pt-6 sm:pt-10 pb-16 relative z-10">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {renderActiveView()}
-            </motion.div>
-          </AnimatePresence>
-        </Container>
+        {currentView === "chat" ? (
+          <div className="flex-1 flex flex-col w-full h-full relative z-10">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentView}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 flex flex-col w-full h-full"
+              >
+                {renderActiveView()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        ) : (
+          <Container className="pt-6 sm:pt-10 pb-16 relative z-10">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentView}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {renderActiveView()}
+              </motion.div>
+            </AnimatePresence>
+          </Container>
+        )}
       </div>
 
       {/* Premium Multi-column Layout Footer with AI Disclaimers & Brand links */}
-      <footer className={`relative z-10 border-t transition-colors ${
-        isDarkMode ? "border-white/[0.06] bg-[#0c0c0e]/95 text-slate-400" : "border-slate-200/65 bg-white text-slate-500"
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {currentView !== "chat" && (
+        <footer className={`relative z-10 border-t transition-colors ${
+          isDarkMode ? "border-white/[0.06] bg-[#0c0c0e]/95 text-slate-400" : "border-slate-200/65 bg-white text-slate-500"
+        }`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-orange-500/5">
             
@@ -414,6 +432,7 @@ export default function App() {
 
         </div>
       </footer>
+      )}
 
       <AppNotifyHost />
     </div>
