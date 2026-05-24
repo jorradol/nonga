@@ -336,46 +336,56 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 }
                 rows={1}
                 disabled={isGenerating}
-                className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-3 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] min-h-[44px]"
+                className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px]"
+                style={{ minHeight: 38, maxHeight: 82 }}
                 id="chat-textarea-elt"
               />
 
-              <ChatComposerAttachmentPreview
-                pending={pendingAttachments}
-                onRemoveAt={handleRemoveAttachment}
-              />
+              <div
+                className="composer-bottom-row flex items-center gap-1.5 px-1 pb-1 pt-0 shrink-0 min-h-[44px]"
+                id="chat-composer-bottom-row"
+              >
+                <div
+                  className="attachment-preview-area flex-1 min-w-0 flex items-center"
+                  data-empty={pendingAttachments.length === 0}
+                >
+                  <ChatComposerAttachmentPreview
+                    pending={pendingAttachments}
+                    onRemoveAt={handleRemoveAttachment}
+                  />
+                </div>
 
-              <div className="flex items-center gap-1 px-1 pb-1 pt-0.5 shrink-0">
-                <ChatAttachmentInput
-                  ref={attachmentInputRef}
-                  onAppend={handleAppendAttachments}
-                  onError={(msg) => setAttachError(msg)}
-                  disabled={isGenerating}
-                />
-                <button
-                  type="button"
-                  onClick={() => attachmentInputRef.current?.openPicker()}
-                  disabled={isGenerating}
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
-                  title="แนบไฟล์"
-                  id="chat-attach-file-btn"
-                  aria-label="แนบไฟล์"
-                >
-                  <Paperclip className="w-4.5 h-4.5" />
-                </button>
-                <div className="flex-1 min-w-0" aria-hidden />
-                <button
-                  type="submit"
-                  disabled={
-                    isGenerating ||
-                    (!inputText.trim() && pendingAttachments.length === 0)
-                  }
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
-                  id="send-message-btn"
-                  title="ส่งข้อความ"
-                >
-                  <Send className="w-4 h-4 ml-0.5" />
-                </button>
+                <div className="composer-actions flex shrink-0 items-center gap-1">
+                  <ChatAttachmentInput
+                    ref={attachmentInputRef}
+                    onAppend={handleAppendAttachments}
+                    onError={(msg) => setAttachError(msg)}
+                    disabled={isGenerating}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => attachmentInputRef.current?.openPicker()}
+                    disabled={isGenerating}
+                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
+                    title="แนบไฟล์"
+                    id="chat-attach-file-btn"
+                    aria-label="แนบไฟล์"
+                  >
+                    <Paperclip className="w-4.5 h-4.5" />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      isGenerating ||
+                      (!inputText.trim() && pendingAttachments.length === 0)
+                    }
+                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
+                    id="send-message-btn"
+                    title="ส่งข้อความ"
+                  >
+                    <Send className="w-4 h-4 ml-0.5" />
+                  </button>
+                </div>
               </div>
             </div>
             {attachError && (

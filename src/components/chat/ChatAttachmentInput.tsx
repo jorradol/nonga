@@ -2,9 +2,6 @@ import React, { useImperativeHandle, useRef, forwardRef } from "react";
 import { X, FileSpreadsheet, FileText } from "lucide-react";
 import {
   CHAT_FILE_ACCEPT,
-  CHAT_MAX_FILES,
-  formatFileSize,
-  MSG_TOO_MANY_FILES,
   validateChatAttachmentFile,
   buildAttachmentMeta,
 } from "../../utils/chat/chatAttachments";
@@ -48,96 +45,84 @@ function logAttachmentPickDev(files: File[]): void {
   }
 }
 
-/** Preview ภายในกล่อง composer — ใต้ข้อความ เหนือปุ่มแนบ/ส่ง */
-export const ChatComposerAttachmentPreview = ({
+const THUMB_PX = "w-12 h-12";
+
+/** Preview ในแถวล่าง composer — ฝั่งซ้าย (inline กับปุ่มแนบ/ส่ง) */
+export function ChatComposerAttachmentPreview({
   pending,
   onRemoveAt,
 }: {
   pending: PendingChatFile[];
   onRemoveAt: (index: number) => void;
-}) => {
+}) {
   if (pending.length === 0) return null;
-
-  const images = pending.filter((p) => p.meta.kind === "image");
-  const files = pending.filter((p) => p.meta.kind !== "image");
 
   return (
     <div
-      className="px-3 pt-1 pb-2 border-t border-slate-800/60"
+      className="flex items-center gap-1.5 overflow-x-auto overflow-y-hidden max-w-full scrollbar-thin scrollbar-thumb-slate-700 py-0.5"
       id="chat-attachment-preview-row"
       data-testid="chat-attachment-preview"
     >
-      <div className="flex flex-wrap gap-2 max-h-[88px] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-700">
-        {pending.map((item, idx) => {
-          if (item.meta.kind === "image") {
-            const src = item.previewUrl ?? item.meta.previewDataUrl;
-            return (
-              <div
-                key={item.meta.id}
-                className="relative shrink-0 w-16 h-16 rounded-lg border border-slate-600 bg-slate-800 overflow-hidden"
-              >
-                {src ? (
-                  <img
-                    src={src}
-                    alt={item.meta.name}
-                    className="w-full h-full object-cover block"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[9px] text-slate-500">
-                    รูป
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onRemoveAt(idx)}
-                  className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/75 text-white hover:bg-black cursor-pointer z-10"
-                  title="เอารูปออก"
-                  aria-label="เอารูปออก"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            );
-          }
-
+      {pending.map((item, idx) => {
+        if (item.meta.kind === "image") {
+          const src = item.previewUrl ?? item.meta.previewDataUrl;
           return (
             <div
               key={item.meta.id}
-              className="relative flex items-center gap-1.5 shrink-0 max-w-[min(100%,220px)] rounded-full border border-slate-600 bg-slate-800/90 pl-2 pr-7 py-1"
+              className={`relative shrink-0 ${THUMB_PX} rounded-md border border-slate-600 bg-slate-800 overflow-hidden`}
             >
-              {item.meta.kind === "spreadsheet" ? (
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              {src ? (
+                <img
+                  src={src}
+                  alt={item.meta.name}
+                  className="w-full h-full object-cover block"
+                />
               ) : (
-                <FileText className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-500">
+                  รูป
+                </div>
               )}
-              <span className="text-[10px] text-slate-200 truncate max-w-[140px]">
-                {item.meta.name}
-              </span>
-              <span className="text-[9px] text-slate-500 shrink-0">
-                {formatFileSize(item.meta.size)}
-              </span>
               <button
                 type="button"
                 onClick={() => onRemoveAt(idx)}
-                className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"
-                title="เอาไฟล์ออก"
-                aria-label="เอาไฟล์ออก"
+                className="absolute top-0 right-0 p-0.5 rounded-bl-md bg-black/75 text-white hover:bg-black cursor-pointer"
+                title="เอารูปออก"
+                aria-label="เอารูปออก"
               >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </button>
             </div>
           );
-        })}
-      </div>
-      {images.length > 0 && (
-        <p className="text-[9px] text-slate-500 mt-1.5 px-0.5">
-          รูป {images.length} รูป
-          {files.length > 0 ? ` · ไฟล์ ${files.length} รายการ` : ""}
-        </p>
-      )}
+        }
+
+        return (
+          <div
+            key={item.meta.id}
+            className="relative flex items-center gap-1 shrink-0 max-w-[160px] rounded-full border border-slate-600 bg-slate-800/90 pl-2 pr-6 py-0.5"
+          >
+            {item.meta.kind === "spreadsheet" ? (
+              <FileSpreadsheet className="w-3 h-3 text-emerald-400 shrink-0" />
+            ) : (
+              <FileText className="w-3 h-3 text-rose-400 shrink-0" />
+            )}
+            <span className="text-[9px] text-slate-200 truncate">
+              {item.meta.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => onRemoveAt(idx)}
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"
+              title="เอาไฟล์ออก"
+              aria-label="เอาไฟล์ออก"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
-};
+}
 
 /** @deprecated use ChatComposerAttachmentPreview */
 export const ChatAttachmentPreviewStrip = ChatComposerAttachmentPreview;
