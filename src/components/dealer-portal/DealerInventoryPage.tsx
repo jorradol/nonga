@@ -372,63 +372,65 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                       setImageEditDirty(true);
                     }}
                   />
-                  <div className="sm:col-span-2 flex flex-col gap-3 pt-1">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={saving || deleting || uploadingImages}
-                        onClick={() => void saveCar(c)}
-                        className="min-h-[44px] px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50"
-                      >
-                        {saving
-                          ? uploadingImages
-                            ? "กำลังอัปโหลดรูป…"
-                            : "กำลังบันทึก…"
-                          : "บันทึกประกาศ"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={saving || deleting}
-                        onClick={closeEdit}
-                        className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-600 text-slate-300 text-xs disabled:opacity-50"
-                      >
-                        ยกเลิก
-                      </button>
-                      <button
-                        type="button"
-                        disabled={saving || deleting}
-                        onClick={() => void toggleVisibility(c)}
-                        className="min-h-[44px] px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-200 text-xs font-semibold disabled:opacity-50"
-                      >
-                        {c.listingStatus === "hidden"
-                          ? "แสดงในตลาด"
-                          : "ปิดประกาศ"}
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFilters({ search: c.title });
-                          setView("marketplace");
-                        }}
-                        className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-600 text-slate-400 text-xs hover:text-orange-300"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        ดูในตลาดรถ
-                      </button>
-                      <button
-                        type="button"
-                        disabled={saving || deleting}
-                        onClick={() => {
-                          setDeleteError(null);
-                          setDeleteConfirmId(c.id);
-                        }}
-                        className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-red-500/50 bg-red-950/40 text-red-300 hover:bg-red-900/50 text-xs font-bold disabled:opacity-50"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        ลบประกาศ
-                      </button>
+                  <div className="sm:col-span-2 pt-2 mt-1 border-t border-slate-800">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center order-2 sm:order-1">
+                        <button
+                          type="button"
+                          disabled={saving || deleting}
+                          onClick={() => void toggleVisibility(c)}
+                          className="min-h-[44px] w-full sm:w-auto px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-200 text-xs font-semibold hover:bg-amber-500/10 disabled:opacity-50"
+                        >
+                          {c.listingStatus === "hidden"
+                            ? "แสดงในตลาด"
+                            : "ปิดประกาศ"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilters({ search: c.title });
+                            setView("marketplace");
+                          }}
+                          className="min-h-[44px] w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-600 text-slate-400 text-xs hover:bg-slate-800/60 hover:text-orange-300"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                          ดูในตลาดรถ
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving || deleting}
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeleteConfirmId(c.id);
+                          }}
+                          className="min-h-[44px] w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-red-500/50 bg-red-950/40 text-red-300 hover:bg-red-900/50 text-xs font-bold disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                          ลบประกาศ
+                        </button>
+                      </div>
+                      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:items-center order-1 sm:order-2 w-full sm:w-auto shrink-0">
+                        <button
+                          type="button"
+                          disabled={saving || deleting}
+                          onClick={closeEdit}
+                          className="min-h-[44px] w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-600 text-slate-300 text-xs font-semibold hover:bg-slate-800/60 disabled:opacity-50"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving || deleting || uploadingImages}
+                          onClick={() => void saveCar(c)}
+                          className="min-h-[44px] w-full sm:w-auto px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50 shadow-sm"
+                        >
+                          {saving
+                            ? uploadingImages
+                              ? "กำลังอัปโหลดรูป…"
+                              : "กำลังบันทึก…"
+                            : "บันทึกประกาศ"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
