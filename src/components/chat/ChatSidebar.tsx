@@ -28,6 +28,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   };
 
   const handleSelectSession = (id: string) => {
+    if (id === activeSessionId) return;
     selectSession(id);
     if (window.innerWidth < 768) {
       onClose();

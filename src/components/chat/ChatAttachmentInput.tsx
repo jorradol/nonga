@@ -7,51 +7,32 @@ import {
   MSG_TOO_MANY_FILES,
   validateChatAttachmentFile,
   buildAttachmentMeta,
-  createChatImageThumbnail,
 } from "../../utils/chat/chatAttachments";
 import type { ChatMessageAttachment } from "../../types";
 
 export interface PendingChatFile {
   file: File;
   meta: ChatMessageAttachment;
-  /** blob: หรือ data URL สำหรับ preview ก่อนส่ง */
+  /** blob: URL สำหรับ preview ก่อนส่ง */
   previewUrl?: string;
 }
 
 export interface ChatAttachmentInputHandle {
   openPicker: () => void;
-  openCamera: () => void;
 }
 
 interface ChatAttachmentInputProps {
-  pending: PendingChatFile[];
   onAppend: (items: PendingChatFile[]) => void;
-  onRemoveAt: (index: number) => void;
   onError: (message: string) => void;
   disabled?: boolean;
+  slotsUsed: number;
 }
 
-export async function buildPendingChatFile(file: File): Promise<PendingChatFile> {
+export function buildPendingChatFileSync(file: File): PendingChatFile {
   const kind = validateChatAttachmentFile(file);
-  let previewUrl: string | undefined;
-  let previewDataUrl: string | undefined;
-
-  if (kind === "image") {
-    previewUrl = URL.createObjectURL(file);
-    previewDataUrl = await createChatImageThumbnail(file);
-  }
-
-  const meta = buildAttachmentMeta(
-    file,
-    kind,
-    previewDataUrl ?? previewUrl
-  );
-
-  return {
-    file,
-    meta,
-    previewUrl: previewUrl ?? previewDataUrl,
-  };
+  const previewUrl = kind === "image" ? URL.createObjectURL(file) : undefined;
+  const meta = buildAttachmentMeta(file, kind);
+  return { file, meta, previewUrl };
 }
 
 export const ChatAttachmentPreviewStrip = ({
@@ -67,26 +48,31 @@ export const ChatAttachmentPreviewStrip = ({
 
   return (
     <div
-      className="px-3 pt-3 pb-2 border-b border-slate-800/80 space-y-2"
+      className="px-3 pt-3 pb-2 border-b border-slate-800/80 space-y-2 bg-slate-950/40"
       id="chat-attachment-preview-row"
       data-testid="chat-attachment-preview"
     >
       {imageCount > 0 && (
+        <p className="text-[10px] font-semibold text-slate-300 px-0.5">
+          รูปที่เลือก {imageCount} รูป — กดส่งเมื่อพร้อม
+        </p>
+      )}
+      {pending.length > imageCount && (
         <p className="text-[10px] font-semibold text-slate-400 px-0.5">
-          รูปที่เลือก {imageCount} รูป
+          ไฟล์แนบ {pending.length - imageCount} รายการ
         </p>
       )}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
         {pending.map((item, idx) => (
           <div
             key={item.meta.id}
-            className="relative shrink-0 w-[72px] rounded-xl border border-slate-700 bg-slate-950/90 overflow-hidden"
+            className="relative shrink-0 w-[72px] rounded-xl border border-slate-600 bg-slate-950 overflow-hidden shadow-md"
           >
             {item.meta.kind === "image" ? (
               <img
                 src={item.previewUrl ?? item.meta.previewDataUrl}
                 alt={item.meta.name}
-                className="w-[72px] h-[72px] object-cover"
+                className="w-[72px] h-[72px] object-cover bg-slate-800"
               />
             ) : (
               <div className="w-[72px] h-[72px] flex flex-col items-center justify-center gap-1 p-1">
@@ -105,14 +91,14 @@ export const ChatAttachmentPreviewStrip = ({
             <button
               type="button"
               onClick={() => onRemoveAt(idx)}
-              className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+              className="absolute top-1 right-1 p-0.5 rounded-full bg-black/70 text-white hover:bg-black cursor-pointer z-10"
               title="เอาไฟล์ออก"
               aria-label="เอาไฟล์ออก"
             >
               <X className="w-3 h-3" />
             </button>
-            <div className="absolute bottom-0 inset-x-0 bg-black/55 px-1 py-0.5">
-              <p className="text-[8px] text-slate-200 truncate">{item.meta.name}</p>
+            <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
+              <p className="text-[8px] text-slate-100 truncate">{item.meta.name}</p>
               <p className="text-[7px] text-slate-400">{formatFileSize(item.meta.size)}</p>
             </div>
           </div>
@@ -126,27 +112,26 @@ export const ChatAttachmentInput = forwardRef<
   ChatAttachmentInputHandle,
   ChatAttachmentInputProps
 >(function ChatAttachmentInput(
-  { pending, onAppend, onRemoveAt, onError, disabled },
+  { onAppend, onError, disabled, slotsUsed },
   ref
 ) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useImperativeHandle(ref, () => ({
     openPicker: () => {
-      if (!disabled && pending.length < CHAT_MAX_FILES) {
+      if (!disabled && slotsUsed < CHAT_MAX_FILES) {
         fileInputRef.current?.click();
-      }
-    },
-    openCamera: () => {
-      if (!disabled && pending.length < CHAT_MAX_FILES) {
-        cameraInputRef.current?.click();
       }
     },
   }));
 
-  const ingestFiles = async (selected: File[]) => {
-    const slotsLeft = CHAT_MAX_FILES - pending.length;
+  const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    e.target.value = "";
+    if (!list?.length) return;
+
+    const selected = Array.from(list) as File[];
+    const slotsLeft = CHAT_MAX_FILES - slotsUsed;
     if (slotsLeft <= 0) {
       onError(MSG_TOO_MANY_FILES);
       return;
@@ -159,7 +144,7 @@ export const ChatAttachmentInput = forwardRef<
 
     for (const file of toAdd) {
       try {
-        built.push(await buildPendingChatFile(file));
+        built.push(buildPendingChatFileSync(file));
       } catch (err) {
         onError(
           err instanceof Error ? err.message : "ไฟล์ชนิดนี้ยังไม่รองรับครับ"
@@ -172,37 +157,17 @@ export const ChatAttachmentInput = forwardRef<
     }
   };
 
-  const handlePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files;
-    e.target.value = "";
-    if (!list?.length) return;
-    await ingestFiles(Array.from(list) as File[]);
-  };
-
   return (
-    <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept={CHAT_FILE_ACCEPT}
-        className="hidden"
-        id="chat-attachment-file-input"
-        onChange={handlePick}
-        disabled={disabled}
-      />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        id="chat-camera-file-input"
-        onChange={handlePick}
-        disabled={disabled}
-      />
-      <ChatAttachmentPreviewStrip pending={pending} onRemoveAt={onRemoveAt} />
-    </>
+    <input
+      ref={fileInputRef}
+      type="file"
+      multiple
+      accept={CHAT_FILE_ACCEPT}
+      className="hidden"
+      id="chat-attachment-file-input"
+      onChange={handlePick}
+      disabled={disabled}
+    />
   );
 });
 

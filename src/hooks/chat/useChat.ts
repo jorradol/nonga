@@ -31,10 +31,14 @@ import {
   collectSessionImageFilesForDraft,
   clearPendingDraftImages,
 } from "../../services/chat/chatAttachmentFileStore";
-import { shouldQueueImagesForDraft } from "../../utils/chat/chatDraftAttachmentContext";
+import {
+  shouldQueueImagesForDraft,
+  shouldAttachSessionImagesOnDraftSave,
+} from "../../utils/chat/chatDraftAttachmentContext";
 import { buildAttachmentAckReply } from "../../services/chat/chatAttachmentSideEffects";
 import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
 import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
+import { createChatImageThumbnail } from "../../utils/chat/chatAttachments";
 
 async function fetchInventoryForChat(): Promise<ChatInventoryCar[]> {
   try {
@@ -125,8 +129,19 @@ export function useChat() {
       const hasAttachments = Boolean(pendingFiles?.length);
       if ((!trimmed && !hasAttachments) || !activeSessionId || isGenerating) return;
 
-      const attachmentMeta: ChatMessageAttachment[] =
-        pendingFiles?.map((p) => p.meta) ?? [];
+      const attachmentMeta: ChatMessageAttachment[] = pendingFiles
+        ? await Promise.all(
+            pendingFiles.map(async (p) => {
+              if (p.meta.kind !== "image" || p.meta.previewDataUrl) {
+                return p.meta;
+              }
+              const thumb = await createChatImageThumbnail(p.file);
+              return thumb
+                ? { ...p.meta, previewDataUrl: thumb }
+                : p.meta;
+            })
+          )
+        : [];
       const displayText =
         trimmed ||
         (attachmentMeta.length > 0 ? "(แนบไฟล์)" : "");
@@ -261,11 +276,16 @@ export function useChat() {
 
                   const sessionMessages =
                     useChatStore.getState().messages[activeSessionId] || [];
-                  const imagesToUpload = collectSessionImageFilesForDraft(
-                    storageScopeKey,
-                    activeSessionId,
+                  const imagesToUpload = shouldAttachSessionImagesOnDraftSave(
+                    chatScope,
                     sessionMessages
-                  );
+                  )
+                    ? collectSessionImageFilesForDraft(
+                        storageScopeKey,
+                        activeSessionId,
+                        sessionMessages
+                      )
+                    : [];
 
                   if (newDraftId && imagesToUpload.length > 0) {
                     try {

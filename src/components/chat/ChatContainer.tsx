@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip, Camera } from "lucide-react";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip } from "lucide-react";
 import {
   ChatAttachmentInput,
+  ChatAttachmentPreviewStrip,
   revokePendingPreviews,
   type PendingChatFile,
   type ChatAttachmentInputHandle,
@@ -40,7 +41,14 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const [showMobileProps, setShowMobileProps] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle>(null);
+  const pendingAttachmentsRef = useRef(pendingAttachments);
+  pendingAttachmentsRef.current = pendingAttachments;
   const { ref: textareaRef, reset: resetTextareaHeight } = useChatTextareaAutosize(inputText);
+
+  useEffect(
+    () => () => revokePendingPreviews(pendingAttachmentsRef.current),
+    []
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
@@ -296,29 +304,21 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
         <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
-            <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 overflow-hidden flex flex-col shadow-lg">
+            <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg">
+              <ChatAttachmentPreviewStrip
+                pending={pendingAttachments}
+                onRemoveAt={handleRemoveAttachment}
+              />
               <ChatAttachmentInput
                 ref={attachmentInputRef}
-                pending={pendingAttachments}
+                slotsUsed={pendingAttachments.length}
                 onAppend={(items) =>
                   setPendingAttachments((prev) => [...prev, ...items])
                 }
-                onRemoveAt={handleRemoveAttachment}
                 onError={(msg) => setAttachError(msg)}
                 disabled={isGenerating}
               />
               <div className="flex items-end pr-3 pl-1 pb-1 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => attachmentInputRef.current?.openCamera()}
-                  disabled={isGenerating}
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
-                  title="ถ่ายรูปรถ"
-                  id="chat-camera-btn"
-                  aria-label="ถ่ายรูปรถ"
-                >
-                  <Camera className="w-4.5 h-4.5" />
-                </button>
                 <button
                   type="button"
                   onClick={() => attachmentInputRef.current?.openPicker()}

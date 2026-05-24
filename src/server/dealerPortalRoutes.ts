@@ -388,6 +388,15 @@ export function registerDealerPortalRoutes(app: Express): void {
         message: result.message,
       });
     }
+
+    if (result.storedUrls.length > 0) {
+      const merged = [...(draft.images ?? []), ...result.storedUrls];
+      updateDealerDraft(req.params.id, {
+        images: merged,
+        sourceImageUrls: merged,
+      });
+    }
+
     res.json({ success: true, data: result });
   });
 

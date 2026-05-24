@@ -170,4 +170,4 @@ export async function createChatImageThumbnail(file: File): Promise<string | und
 }
 
 export const CHAT_FILE_ACCEPT =
-  ".jpg,.jpeg,.png,.webp,.csv,.xlsx,.pdf,image/jpeg,image/png,image/webp,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.csv,.xlsx,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

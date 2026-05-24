@@ -333,6 +333,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectSession: (sessionId) => {
+    const exists = get().sessions.some((s) => s.id === sessionId);
+    if (!exists) return;
     set({ activeSessionId: sessionId });
   },
 
