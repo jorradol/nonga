@@ -1,13 +1,33 @@
 import React from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import type { ChatMessageAttachment } from "../../types";
-import { formatAttachmentsSummary, formatFileSize } from "../../utils/chat/chatAttachments";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatAttachmentsSummary(attachments: ChatMessageAttachment[]): string {
+  const images = attachments.filter((a) => a.kind === "image");
+  const lines: string[] = [];
+  if (images.length > 0) {
+    lines.push(`รูปรถ ${images.length} รูป`);
+  }
+  for (const a of attachments) {
+    if (a.kind !== "image") {
+      lines.push(`ไฟล์ ${a.name}`);
+    }
+  }
+  return lines.join("\n");
+}
 
 interface ChatMessageAttachmentsProps {
   attachments: ChatMessageAttachment[];
   isUser?: boolean;
 }
 
+/** แสดงไฟล์แนบในประวัติแชทเก่า (ฟีเจอร์แนบใน composer ปิดชั่วคราวก่อน beta) */
 export function ChatMessageAttachments({
   attachments,
   isUser,
@@ -24,23 +44,24 @@ export function ChatMessageAttachments({
       data-testid="chat-message-attachments"
     >
       {images.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 mt-1">
           {images.map((img) => (
             <div
               key={img.id}
-              className={`rounded-lg overflow-hidden border ${
-                isUser ? "border-white/20" : "border-slate-700"
+              className={`rounded-lg overflow-hidden border shrink-0 ${
+                isUser ? "border-white/30" : "border-slate-700"
               }`}
             >
               {img.previewDataUrl ? (
                 <img
                   src={img.previewDataUrl}
                   alt={img.name}
-                  className="w-16 h-16 object-cover"
+                  className="w-14 h-14 sm:w-16 sm:h-16 object-cover block"
+                  draggable={false}
                 />
               ) : (
-                <div className="w-16 h-16 bg-slate-800/80 flex items-center justify-center text-[9px] px-1 text-center">
-                  รูป
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-800/80 flex items-center justify-center text-[9px] px-1 text-center">
+                  {img.name}
                 </div>
               )}
             </div>

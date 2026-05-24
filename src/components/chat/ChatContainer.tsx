@@ -1,13 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip } from "lucide-react";
-import {
-  ChatAttachmentInput,
-  ChatComposerAttachmentPreview,
-  revokePendingPreviews,
-  type PendingChatFile,
-  type ChatAttachmentInputHandle,
-} from "./ChatAttachmentInput";
-import { CHAT_MAX_FILES, MSG_TOO_MANY_FILES } from "../../utils/chat/chatAttachments";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft } from "lucide-react";
 import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
@@ -33,23 +25,13 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     streamedHasMoreCars,
     sendMessage,
   } = useChatContext();
-  
+
   const { setView } = useAppStore();
 
   const [inputText, setInputText] = useState("");
-  const [pendingAttachments, setPendingAttachments] = useState<PendingChatFile[]>([]);
-  const [attachError, setAttachError] = useState<string | null>(null);
   const [showMobileProps, setShowMobileProps] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
-  const attachmentInputRef = useRef<ChatAttachmentInputHandle>(null);
-  const pendingAttachmentsRef = useRef(pendingAttachments);
-  pendingAttachmentsRef.current = pendingAttachments;
   const { ref: textareaRef, reset: resetTextareaHeight } = useChatTextareaAutosize(inputText);
-
-  useEffect(
-    () => () => revokePendingPreviews(pendingAttachmentsRef.current),
-    []
-  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
@@ -83,7 +65,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     setShowJumpToBottom(!near && (isGenerating || currentMessages.length > 0));
   }, [isNearBottom, isGenerating, currentMessages.length]);
 
-  // เมื่อเริ่มตอบใหม่ → เลื่อนไปต้นคำตอบ (ไม่ใช่ท้ายสุด)
   useEffect(() => {
     if (isGenerating && !prevGeneratingRef.current) {
       userScrolledAwayRef.current = false;
@@ -94,7 +75,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     prevGeneratingRef.current = isGenerating;
   }, [isGenerating, scrollToStreamingStart]);
 
-  // สลับ session จาก sidebar → โหลดข้อความและเลื่อนไปท้าย
   useEffect(() => {
     if (!activeSessionId) return;
     messageCountRef.current = 0;
@@ -104,7 +84,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     });
   }, [activeSessionId]);
 
-  // เมื่อผู้ใช้ส่งข้อความใหม่ → เลื่อนให้เห็นข้อความล่าสุดของผู้ใช้
   useEffect(() => {
     if (currentMessages.length > messageCountRef.current) {
       const last = currentMessages[currentMessages.length - 1];
@@ -120,7 +99,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     messageCountRef.current = currentMessages.length;
   }, [currentMessages]);
 
-  // ระหว่าง streaming: เลื่อนตามเฉพาะเมื่อผู้ใช้อยู่ใกล้ท้าย
   useEffect(() => {
     if (!isGenerating || !streamedReply) return;
     if (!userScrolledAwayRef.current && isNearBottom()) {
@@ -128,50 +106,14 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     }
   }, [streamedReply, isGenerating, isNearBottom]);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const canSend =
-      (inputText.trim().length > 0 || pendingAttachments.length > 0) &&
-      !isGenerating;
-    if (!canSend) return;
+    if (!inputText.trim() || isGenerating) return;
 
     const textToSend = inputText;
-    const filesToSend = [...pendingAttachments];
-    revokePendingPreviews(filesToSend);
     setInputText("");
-    setPendingAttachments([]);
-    setAttachError(null);
     resetTextareaHeight();
-    void sendMessage(textToSend, filesToSend.length > 0 ? filesToSend : undefined);
-  };
-
-  const handleAppendAttachments = useCallback((items: PendingChatFile[]) => {
-    setAttachError(null);
-    setPendingAttachments((prev) => {
-      const slotsLeft = CHAT_MAX_FILES - prev.length;
-      if (slotsLeft <= 0) {
-        setAttachError(MSG_TOO_MANY_FILES);
-        return prev;
-      }
-      if (items.length > slotsLeft) {
-        setAttachError(MSG_TOO_MANY_FILES);
-      }
-      return [...prev, ...items.slice(0, slotsLeft)];
-    });
-  }, []);
-
-  const handleRemoveAttachment = (index: number) => {
-    setPendingAttachments((prev) => {
-      const item = prev[index];
-      if (item?.previewUrl?.startsWith("blob:")) {
-        try {
-          URL.revokeObjectURL(item.previewUrl);
-        } catch {
-          /* ignore */
-        }
-      }
-      return prev.filter((_, i) => i !== index);
-    });
+    await sendMessage(textToSend);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -321,7 +263,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
             <div
-              className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
+              className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex items-end shadow-lg overflow-hidden"
               id="chat-composer-box"
             >
               <textarea
@@ -336,66 +278,20 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 }
                 rows={1}
                 disabled={isGenerating}
-                className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px]"
+                className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2.5 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px]"
                 style={{ minHeight: 38, maxHeight: 82 }}
                 id="chat-textarea-elt"
               />
-
-              <div
-                className="composer-bottom-row flex items-center gap-1.5 px-1 pb-1 pt-0 shrink-0 min-h-[44px]"
-                id="chat-composer-bottom-row"
+              <button
+                type="submit"
+                disabled={isGenerating || !inputText.trim()}
+                className="min-w-[44px] min-h-[44px] w-11 h-11 m-1 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
+                id="send-message-btn"
+                title="ส่งข้อความ"
               >
-                <div
-                  className="attachment-preview-area flex-1 min-w-0 flex items-center"
-                  data-empty={pendingAttachments.length === 0}
-                >
-                  <ChatComposerAttachmentPreview
-                    pending={pendingAttachments}
-                    onRemoveAt={handleRemoveAttachment}
-                  />
-                </div>
-
-                <div className="composer-actions flex shrink-0 items-center gap-1">
-                  <ChatAttachmentInput
-                    ref={attachmentInputRef}
-                    onAppend={handleAppendAttachments}
-                    onError={(msg) => setAttachError(msg)}
-                    disabled={isGenerating}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => attachmentInputRef.current?.openPicker()}
-                    disabled={isGenerating}
-                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
-                    title="แนบไฟล์"
-                    id="chat-attach-file-btn"
-                    aria-label="แนบไฟล์"
-                  >
-                    <Paperclip className="w-4.5 h-4.5" />
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={
-                      isGenerating ||
-                      (!inputText.trim() && pendingAttachments.length === 0)
-                    }
-                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
-                    id="send-message-btn"
-                    title="ส่งข้อความ"
-                  >
-                    <Send className="w-4 h-4 ml-0.5" />
-                  </button>
-                </div>
-              </div>
+                <Send className="w-4 h-4 ml-0.5" />
+              </button>
             </div>
-            {attachError && (
-              <p className="text-[11px] text-rose-400 text-center mt-2" role="alert">
-                {attachError}
-              </p>
-            )}
-            <p className="text-[10px] text-slate-500 text-center mt-3 leading-relaxed">
-              * แนบรูป JPG/PNG/WebP, CSV/XLSX หรือ PDF ได้สูงสุด 10 ไฟล์ต่อครั้ง
-            </p>
           </form>
         </div>
       </div>

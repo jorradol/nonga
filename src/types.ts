@@ -54,6 +54,9 @@ export interface ChatMessageAttachment {
   mimeType: string;
   /** thumbnail เล็กสำหรับแสดงใน bubble (ไม่บังคับหลัง reload) */
   previewDataUrl?: string;
+  /** ขนาดต้นฉบับ (จาก client ตอนแนบ) */
+  width?: number;
+  height?: number;
 }
 
 export interface ChatMessage {
