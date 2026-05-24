@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatSession, ChatMessage, ChatCarCardData } from "../../types";
+import { ChatSession, ChatMessage, ChatCarCardData, ChatMessageAttachment } from "../../types";
 import { db, isMockConfig } from "../../lib/firebase";
 import { AIPersonality, PersonalityPresetId } from "../../types/ai";
 import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from "../../services/ai/personality/personalityConfig";
@@ -59,7 +59,8 @@ interface ChatState {
     hasMoreCars?: boolean,
     isDraftPreview?: boolean,
     draftFields?: any,
-    savedDraftId?: string
+    savedDraftId?: string,
+    attachments?: ChatMessageAttachment[]
   ) => Promise<ChatMessage>;
   editMessage: (sessionId: string, messageId: string, text: string) => Promise<void>;
   updateStreamedReply: (text: string, carCards?: ChatCarCardData[], hasMoreCars?: boolean, isDraftPreview?: boolean, draftFields?: any) => void;
@@ -208,6 +209,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...(mData.isDraftPreview ? { isDraftPreview: mData.isDraftPreview } : {}),
             ...(mData.draftFields ? { draftFields: mData.draftFields } : {}),
             ...(mData.savedDraftId ? { savedDraftId: mData.savedDraftId } : {}),
+            ...(Array.isArray(mData.attachments) && mData.attachments.length > 0
+              ? { attachments: mData.attachments }
+              : {}),
           });
         });
 
@@ -322,7 +326,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ activeSessionId: sessionId });
   },
 
-  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId) => {
+  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments) => {
     const newMsg: ChatMessage = {
       id:
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -336,6 +340,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(isDraftPreview ? { isDraftPreview } : {}),
       ...(draftFields ? { draftFields } : {}),
       ...(savedDraftId ? { savedDraftId } : {}),
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
     };
 
     set((state) => ({
@@ -360,6 +365,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...(isDraftPreview ? { isDraftPreview } : {}),
           ...(draftFields ? { draftFields } : {}),
           ...(savedDraftId ? { savedDraftId } : {}),
+          ...(attachments && attachments.length > 0 ? { attachments } : {}),
         });
 
         // Trigger session title generation on first user prompt

@@ -1,5 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft } from "lucide-react";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip } from "lucide-react";
+import {
+  ChatAttachmentInput,
+  revokePendingPreviews,
+  type PendingChatFile,
+  type ChatAttachmentInputHandle,
+} from "./ChatAttachmentInput";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
 import { ChatMessageBubble } from "./ChatMessageBubble";
@@ -27,8 +33,11 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const { setView } = useAppStore();
 
   const [inputText, setInputText] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<PendingChatFile[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const [showMobileProps, setShowMobileProps] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const attachmentInputRef = useRef<ChatAttachmentInputHandle>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
@@ -99,11 +108,18 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || isGenerating) return;
+    const canSend =
+      (inputText.trim().length > 0 || pendingAttachments.length > 0) &&
+      !isGenerating;
+    if (!canSend) return;
 
     const textToSend = inputText;
+    const filesToSend = [...pendingAttachments];
+    revokePendingPreviews(filesToSend);
     setInputText("");
-    sendMessage(textToSend);
+    setPendingAttachments([]);
+    setAttachError(null);
+    void sendMessage(textToSend, filesToSend.length > 0 ? filesToSend : undefined);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -252,33 +268,61 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
         <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
-            <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 overflow-hidden flex items-center pr-3 pl-2 shadow-lg">
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isGenerating
-                    ? "น้องเอกำลังพิมพ์คำตอบให้คุณอยู่ครับ..."
-                    : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
-                }
-                rows={1}
+            <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 overflow-hidden flex flex-col shadow-lg">
+              <ChatAttachmentInput
+                ref={attachmentInputRef}
+                pending={pendingAttachments}
+                onChange={setPendingAttachments}
+                onError={(msg) => setAttachError(msg)}
                 disabled={isGenerating}
-                className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-4 px-3 max-h-40 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-none"
-                id="chat-textarea-elt"
               />
-              <button
-                type="submit"
-                disabled={isGenerating || !inputText.trim()}
-                className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer ml-2"
-                id="send-message-btn"
-                title="ส่งข้อความ"
-              >
-                <Send className="w-4 h-4 ml-0.5" />
-              </button>
+              <div className="flex items-center pr-3 pl-1 pb-1">
+                <button
+                  type="button"
+                  onClick={() => attachmentInputRef.current?.openPicker()}
+                  disabled={isGenerating}
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
+                  title="แนบไฟล์"
+                  id="chat-attach-file-btn"
+                  aria-label="แนบไฟล์"
+                >
+                  <Paperclip className="w-4.5 h-4.5" />
+                </button>
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isGenerating
+                      ? "น้องเอกำลังพิมพ์คำตอบให้คุณอยู่ครับ..."
+                      : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
+                  }
+                  rows={1}
+                  disabled={isGenerating}
+                  className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-4 px-2 max-h-40 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-none"
+                  id="chat-textarea-elt"
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    isGenerating ||
+                    (!inputText.trim() && pendingAttachments.length === 0)
+                  }
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer ml-1"
+                  id="send-message-btn"
+                  title="ส่งข้อความ"
+                >
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              </div>
             </div>
+            {attachError && (
+              <p className="text-[11px] text-rose-400 text-center mt-2" role="alert">
+                {attachError}
+              </p>
+            )}
             <p className="text-[10px] text-slate-500 text-center mt-3 leading-relaxed">
-              * ข้อมูลรถจาก Marketplace จริง — การ์ดแสดงเฉพาะ field ที่มีในระบบ
+              * แนบรูป JPG/PNG/WebP, CSV/XLSX หรือ PDF ได้สูงสุด 10 ไฟล์ต่อครั้ง
             </p>
           </form>
         </div>

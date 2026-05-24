@@ -22,6 +22,18 @@ import {
   buildDealerDraftPayloadFromChat,
   logChatDraftSave,
 } from "../../services/ai/chat/chatDraftActions";
+import type { ChatMessageAttachment } from "../../types";
+import type { PendingChatFile } from "../../components/chat/ChatAttachmentInput";
+import {
+  appendPendingDraftImages,
+  registerMessageAttachmentFiles,
+  takePendingDraftImages,
+  clearChatAttachmentScope,
+} from "../../services/chat/chatAttachmentFileStore";
+import { isChatDraftSellContext } from "../../utils/chat/chatDraftAttachmentContext";
+import { buildAttachmentAckReply } from "../../services/chat/chatAttachmentSideEffects";
+import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
+import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
 
 async function fetchInventoryForChat(): Promise<ChatInventoryCar[]> {
   try {
@@ -77,6 +89,9 @@ export function useChat() {
 
   const hydrateChatForScope = useCallback(async () => {
     if (loadedScopeRef.current !== storageScopeKey) {
+      if (loadedScopeRef.current) {
+        clearChatAttachmentScope(loadedScopeRef.current);
+      }
       resetChatState();
       loadedScopeRef.current = storageScopeKey;
     }
@@ -104,21 +119,69 @@ export function useChat() {
   }, [hydrateChatForScope]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || !activeSessionId || isGenerating) return;
+    async (text: string, pendingFiles?: PendingChatFile[]) => {
+      const trimmed = text.trim();
+      const hasAttachments = Boolean(pendingFiles?.length);
+      if ((!trimmed && !hasAttachments) || !activeSessionId || isGenerating) return;
 
-      await addMessage(activeSessionId, "user", text);
+      const attachmentMeta: ChatMessageAttachment[] =
+        pendingFiles?.map((p) => p.meta) ?? [];
+      const displayText =
+        trimmed ||
+        (attachmentMeta.length > 0 ? "(แนบไฟล์)" : "");
+
+      const userMsg = await addMessage(
+        activeSessionId,
+        "user",
+        displayText,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        attachmentMeta.length > 0 ? attachmentMeta : undefined
+      );
+
+      const imageFiles =
+        pendingFiles
+          ?.filter((p) => p.meta.kind === "image")
+          .map((p) => p.file) ?? [];
+      if (imageFiles.length > 0) {
+        registerMessageAttachmentFiles(
+          storageScopeKey,
+          userMsg.id,
+          imageFiles
+        );
+      }
 
       setGenerating(true);
       updateStreamedReply("", []);
 
       const historyAfterUser =
         useChatStore.getState().messages[activeSessionId] || [];
+
+      if (
+        imageFiles.length > 0 &&
+        isChatDraftSellContext(historyAfterUser)
+      ) {
+        appendPendingDraftImages(
+          storageScopeKey,
+          activeSessionId,
+          imageFiles
+        );
+      }
+
+      const attachmentAck = hasAttachments
+        ? buildAttachmentAckReply(attachmentMeta, Boolean(trimmed))
+        : null;
+
       const inventory = await fetchInventoryForChat();
 
-      const orchestrated = tryOrchestrateChatReply(text, inventory);
+      const orchestrated = trimmed
+        ? tryOrchestrateChatReply(trimmed, inventory)
+        : null;
       if (orchestrated?.skipGemini) {
-        if (isSaveListingChatAction(text)) {
+        if (isSaveListingChatAction(trimmed)) {
           const lastDraftMsg = historyAfterUser
             .slice()
             .reverse()
@@ -191,8 +254,42 @@ export function useChat() {
                     draftDealerId,
                     latestDraftId: newDraftId ?? null,
                   });
-                  orchestrated.text =
+
+                  let saveText =
                     "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
+
+                  const pendingImages = takePendingDraftImages(
+                    storageScopeKey,
+                    activeSessionId
+                  );
+                  if (newDraftId && pendingImages.length > 0) {
+                    try {
+                      const payloads = await Promise.all(
+                        pendingImages.map(fileToPasteUploadPayload)
+                      );
+                      await uploadListingImagesApi(
+                        { dealerId: draftDealerId, role: apiRole },
+                        newDraftId,
+                        "draft",
+                        payloads
+                      );
+                      saveText +=
+                        "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                    } catch (uploadErr) {
+                      console.error("[chat-draft-image-upload]", {
+                        draftId: newDraftId,
+                        dealerId: draftDealerId,
+                        error:
+                          uploadErr instanceof Error
+                            ? uploadErr.message
+                            : String(uploadErr),
+                      });
+                      saveText +=
+                        "\n\n(บันทึกประกาศแล้ว แต่อัปโหลดรูปจากแชทไม่สำเร็จ — เพิ่มรูปในหน้าจัดการได้ครับ)";
+                    }
+                  }
+
+                  orchestrated.text = saveText;
                   orchestrated.savedDraftId = newDraftId;
                 } else {
                   logChatDraftSave("error", {
@@ -258,19 +355,41 @@ export function useChat() {
         return;
       }
 
+      if (attachmentAck && !trimmed) {
+        updateStreamedReply(attachmentAck);
+        let acc = "";
+        for (const chunk of chunkTextForStream(attachmentAck, 18)) {
+          acc += chunk;
+          updateStreamedReply(acc);
+          await new Promise((r) => setTimeout(r, 12));
+        }
+        await finalizeStreamedReply(activeSessionId);
+        setGenerating(false);
+        return;
+      }
+
+      if (!trimmed) {
+        setGenerating(false);
+        return;
+      }
+
+      if (attachmentAck) {
+        await addMessage(activeSessionId, "ai", attachmentAck);
+      }
+
       let accumulatedString = "";
 
       const { analyzeSentiment } = await import(
         "../../services/ai/moods/emotionalEngine"
       );
-      const sentiment = analyzeSentiment(text);
+      const sentiment = analyzeSentiment(trimmed);
       const activePersonality = personalities[activePresetId];
 
       const { aiSkillService } = await import(
         "../../services/ai/skills/aiSkillService"
       );
       const { chainedPrompt } = await aiSkillService.evaluateAndChainSkills(
-        text,
+        trimmed,
         {
           userRole: (user as { role?: string })?.role || "client",
           sentiment,
@@ -286,7 +405,7 @@ export function useChat() {
       };
 
       await aiService.streamChat(
-        text,
+        trimmed,
         historyAfterUser,
         {
           presetId: activePresetId,
@@ -312,8 +431,8 @@ export function useChat() {
 
           if (useMock) {
             try {
-              const mockReply = await fetchMockChatReply(text);
-              const mockOrchestrated = tryOrchestrateChatReply(text, inventory);
+              const mockReply = await fetchMockChatReply(trimmed);
+              const mockOrchestrated = tryOrchestrateChatReply(trimmed, inventory);
               if (mockOrchestrated) {
                 updateStreamedReply(
                   mockOrchestrated.text,
@@ -360,6 +479,7 @@ export function useChat() {
       userPreferences,
       user,
       chatScope,
+      storageScopeKey,
       isDealer,
       isAdmin,
       role,

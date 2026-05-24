@@ -43,6 +43,19 @@ export interface ChatSession {
   createdAt: string;
 }
 
+export type ChatMessageAttachmentKind = "image" | "spreadsheet" | "pdf";
+
+/** ไฟล์แนบในแชท (metadata ใน message; ไฟล์จริงเก็บ in-memory ตาม storage scope) */
+export interface ChatMessageAttachment {
+  id: string;
+  name: string;
+  size: number;
+  kind: ChatMessageAttachmentKind;
+  mimeType: string;
+  /** thumbnail เล็กสำหรับแสดงใน bubble (ไม่บังคับหลัง reload) */
+  previewDataUrl?: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: "user" | "ai" | "assistant" | "system" | "ai-analysis";
@@ -58,6 +71,8 @@ export interface ChatMessage {
   isDraftPreview?: boolean;
   /** หลังบันทึกประกาศจากแชท — ใช้ปุ่มไปหน้า Draft */
   savedDraftId?: string;
+  /** ไฟล์แนบจากผู้ใช้ */
+  attachments?: ChatMessageAttachment[];
 }
 
 /** ข้อมูลการ์ดรถในแชท — จาก database เท่านั้น */

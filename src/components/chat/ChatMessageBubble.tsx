@@ -12,6 +12,7 @@ import { useEditableMessage } from "../../hooks/chat/useEditableMessage";
 import { useChat } from "../../hooks/chat/useChat";
 import { CHAT_SAVE_LISTING_ACTION } from "../../services/ai/chat/chatDraftActions";
 import { ChatCarCard } from "./ChatCarCard";
+import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useAppStore } from "../../store";
 import { navigateToSavedDealerDraft } from "../../utils/dealer/dealerDraftNavigation";
 import { ExternalLink } from "lucide-react";
@@ -350,7 +351,19 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             id={`content-bubble-${message.id}`}
           >
             {isUser ? (
-              <p className="whitespace-pre-wrap leading-relaxed select-text font-medium text-slate-100">{message.text}</p>
+              <>
+                {message.text && message.text !== "(แนบไฟล์)" && (
+                  <p className="whitespace-pre-wrap leading-relaxed select-text font-medium text-slate-100">
+                    {message.text}
+                  </p>
+                )}
+                {message.attachments && message.attachments.length > 0 && (
+                  <ChatMessageAttachments
+                    attachments={message.attachments}
+                    isUser
+                  />
+                )}
+              </>
             ) : (
               <div className="space-y-1.5 selection:bg-orange-500/30 break-words">
                 {parseMarkdown(message.text)}
