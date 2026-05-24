@@ -156,10 +156,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           );
         }
 
+        const currentActive = get().activeSessionId;
+        const keepActive =
+          currentActive && sessions.some((s) => s.id === currentActive)
+            ? currentActive
+            : sessions[0]?.id || null;
         set({
           sessions,
           messages,
-          activeSessionId: sessions[0]?.id || null,
+          activeSessionId: keepActive,
         });
       } catch (err) {
         console.warn("Local chat history load err:", err);
@@ -232,10 +237,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           "สวัสดีครับคุณพี่สุดคนดี! น้องเอสแตนด์บายพร้อมบริการค้นหารถสเป็คเด็ดในดวงใจให้แล้วคร้าบ 🎉 พิมพ์งบประมาณหรือแบรนด์รถที่อยากปรึกษามาได้เลยนะคร้าบ!"
         );
       } else {
-        set({ 
-          sessions, 
-          messages, 
-          activeSessionId: sessions[0].id 
+        const currentActive = get().activeSessionId;
+        const keepActive =
+          currentActive && sessions.some((s) => s.id === currentActive)
+            ? currentActive
+            : sessions[0].id;
+        set({
+          sessions,
+          messages,
+          activeSessionId: keepActive,
         });
       }
     } catch (err) {

@@ -43,6 +43,13 @@ export function appendPendingDraftImages(
   pendingDraftImages.set(key, [...prev, ...imageFiles]);
 }
 
+export function peekPendingDraftImages(
+  storageScopeKey: string,
+  sessionId: string
+): File[] {
+  return pendingDraftImages.get(scopeSessionKey(storageScopeKey, sessionId)) ?? [];
+}
+
 export function takePendingDraftImages(
   storageScopeKey: string,
   sessionId: string
@@ -51,6 +58,48 @@ export function takePendingDraftImages(
   const files = pendingDraftImages.get(key) ?? [];
   pendingDraftImages.delete(key);
   return files;
+}
+
+function fileDedupeKey(file: File): string {
+  return `${file.name}|${file.size}|${file.lastModified}`;
+}
+
+/** รวมรูปจาก in-memory store ตาม message id + คิว pending (ก่อนบันทึกประกาศ) */
+export function collectSessionImageFilesForDraft(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: Array<{ id: string; sender: string; attachments?: Array<{ kind: string }> }>
+): File[] {
+  const seen = new Set<string>();
+  const out: File[] = [];
+
+  const pushUnique = (file: File) => {
+    const key = fileDedupeKey(file);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(file);
+  };
+
+  for (const msg of messages) {
+    if (msg.sender !== "user") continue;
+    if (!msg.attachments?.some((a) => a.kind === "image")) continue;
+    for (const f of getMessageAttachmentFiles(storageScopeKey, msg.id)) {
+      pushUnique(f);
+    }
+  }
+
+  for (const f of peekPendingDraftImages(storageScopeKey, sessionId)) {
+    pushUnique(f);
+  }
+
+  return out;
+}
+
+export function clearPendingDraftImages(
+  storageScopeKey: string,
+  sessionId: string
+): void {
+  pendingDraftImages.delete(scopeSessionKey(storageScopeKey, sessionId));
 }
 
 export function clearChatAttachmentScope(storageScopeKey: string): void {

@@ -43,10 +43,24 @@ export function getFileExtension(name: string): string {
   return dot >= 0 ? lower.slice(dot) : "";
 }
 
+function isImageMime(mime: string): boolean {
+  const lower = mime.toLowerCase();
+  if (IMAGE_MIME.has(lower)) return true;
+  if (lower.startsWith("image/") && !HEIC_MIME.test(lower)) return true;
+  return false;
+}
+
+const HEIC_MIME = /image\/(heic|heif)/i;
+
 export function classifyChatAttachment(file: File): ChatMessageAttachmentKind | null {
   const ext = getFileExtension(file.name);
   if (BLOCKED_EXT.has(ext)) return null;
-  if (IMAGE_EXT.has(ext) && (!file.type || IMAGE_MIME.has(file.type.toLowerCase()))) {
+
+  if (file.type && isImageMime(file.type) && !HEIC_MIME.test(file.type)) {
+    return "image";
+  }
+
+  if (IMAGE_EXT.has(ext) && (!file.type || isImageMime(file.type))) {
     return "image";
   }
   if (SPREADSHEET_EXT.has(ext)) {

@@ -27,10 +27,11 @@ import type { PendingChatFile } from "../../components/chat/ChatAttachmentInput"
 import {
   appendPendingDraftImages,
   registerMessageAttachmentFiles,
-  takePendingDraftImages,
   clearChatAttachmentScope,
+  collectSessionImageFilesForDraft,
+  clearPendingDraftImages,
 } from "../../services/chat/chatAttachmentFileStore";
-import { isChatDraftSellContext } from "../../utils/chat/chatDraftAttachmentContext";
+import { shouldQueueImagesForDraft } from "../../utils/chat/chatDraftAttachmentContext";
 import { buildAttachmentAckReply } from "../../services/chat/chatAttachmentSideEffects";
 import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
 import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
@@ -162,7 +163,7 @@ export function useChat() {
 
       if (
         imageFiles.length > 0 &&
-        isChatDraftSellContext(historyAfterUser)
+        shouldQueueImagesForDraft(chatScope, historyAfterUser, trimmed)
       ) {
         appendPendingDraftImages(
           storageScopeKey,
@@ -258,23 +259,37 @@ export function useChat() {
                   let saveText =
                     "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
 
-                  const pendingImages = takePendingDraftImages(
+                  const sessionMessages =
+                    useChatStore.getState().messages[activeSessionId] || [];
+                  const imagesToUpload = collectSessionImageFilesForDraft(
                     storageScopeKey,
-                    activeSessionId
+                    activeSessionId,
+                    sessionMessages
                   );
-                  if (newDraftId && pendingImages.length > 0) {
+
+                  if (newDraftId && imagesToUpload.length > 0) {
                     try {
                       const payloads = await Promise.all(
-                        pendingImages.map(fileToPasteUploadPayload)
+                        imagesToUpload.map(fileToPasteUploadPayload)
                       );
-                      await uploadListingImagesApi(
+                      const uploadResult = await uploadListingImagesApi(
                         { dealerId: draftDealerId, role: apiRole },
                         newDraftId,
                         "draft",
                         payloads
                       );
-                      saveText +=
-                        "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                      clearPendingDraftImages(
+                        storageScopeKey,
+                        activeSessionId
+                      );
+                      const failedCount = uploadResult.failed?.length ?? 0;
+                      if (failedCount > 0) {
+                        saveText =
+                          "บันทึกประกาศสำเร็จแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+                      } else if (uploadResult.storedUrls.length > 0) {
+                        saveText +=
+                          "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                      }
                     } catch (uploadErr) {
                       console.error("[chat-draft-image-upload]", {
                         draftId: newDraftId,
@@ -284,8 +299,8 @@ export function useChat() {
                             ? uploadErr.message
                             : String(uploadErr),
                       });
-                      saveText +=
-                        "\n\n(บันทึกประกาศแล้ว แต่อัปโหลดรูปจากแชทไม่สำเร็จ — เพิ่มรูปในหน้าจัดการได้ครับ)";
+                      saveText =
+                        "บันทึกประกาศสำเร็จแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
                     }
                   }
 
@@ -343,6 +358,14 @@ export function useChat() {
           );
           await new Promise((r) => setTimeout(r, 12));
         }
+        if (orchestrated.isDraftPreview && imageFiles.length > 0) {
+          appendPendingDraftImages(
+            storageScopeKey,
+            activeSessionId,
+            imageFiles
+          );
+        }
+
         await finalizeStreamedReply(
           activeSessionId,
           orchestrated.carCards,

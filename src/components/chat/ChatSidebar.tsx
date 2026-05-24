@@ -116,13 +116,14 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               return (
-                <motion.div
+                <motion.button
+                  type="button"
                   key={session.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className={`group relative flex items-center justify-between rounded-xl p-3 transition-all duration-200 cursor-pointer text-xs before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-1 before:rounded-r-lg ${
+                  className={`group relative flex w-full items-center justify-between rounded-xl p-3 transition-all duration-200 cursor-pointer text-xs text-left before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-1 before:rounded-r-lg ${
                     isActive
                       ? "bg-slate-800/60 border border-slate-700/60 text-slate-100 before:bg-orange-500"
                       : "hover:bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent before:bg-transparent"
@@ -157,7 +158,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </motion.div>
+                </motion.button>
               );
             })}
           </AnimatePresence>

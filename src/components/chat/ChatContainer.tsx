@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip } from "lucide-react";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip, Camera } from "lucide-react";
 import {
   ChatAttachmentInput,
   revokePendingPreviews,
   type PendingChatFile,
   type ChatAttachmentInputHandle,
 } from "./ChatAttachmentInput";
+import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
 import { ChatMessageBubble } from "./ChatMessageBubble";
@@ -22,6 +23,7 @@ const NEAR_BOTTOM_PX = 140;
 export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const {
     activeSession,
+    activeSessionId,
     currentMessages,
     isGenerating,
     streamedReply,
@@ -38,6 +40,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const [showMobileProps, setShowMobileProps] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle>(null);
+  const { ref: textareaRef, reset: resetTextareaHeight } = useChatTextareaAutosize(inputText);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
@@ -82,6 +85,16 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     prevGeneratingRef.current = isGenerating;
   }, [isGenerating, scrollToStreamingStart]);
 
+  // สลับ session จาก sidebar → โหลดข้อความและเลื่อนไปท้าย
+  useEffect(() => {
+    if (!activeSessionId) return;
+    messageCountRef.current = 0;
+    userScrolledAwayRef.current = false;
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+    });
+  }, [activeSessionId]);
+
   // เมื่อผู้ใช้ส่งข้อความใหม่ → เลื่อนให้เห็นข้อความล่าสุดของผู้ใช้
   useEffect(() => {
     if (currentMessages.length > messageCountRef.current) {
@@ -119,7 +132,22 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     setInputText("");
     setPendingAttachments([]);
     setAttachError(null);
+    resetTextareaHeight();
     void sendMessage(textToSend, filesToSend.length > 0 ? filesToSend : undefined);
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setPendingAttachments((prev) => {
+      const item = prev[index];
+      if (item?.previewUrl?.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(item.previewUrl);
+        } catch {
+          /* ignore */
+        }
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -272,11 +300,25 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
               <ChatAttachmentInput
                 ref={attachmentInputRef}
                 pending={pendingAttachments}
-                onChange={setPendingAttachments}
+                onAppend={(items) =>
+                  setPendingAttachments((prev) => [...prev, ...items])
+                }
+                onRemoveAt={handleRemoveAttachment}
                 onError={(msg) => setAttachError(msg)}
                 disabled={isGenerating}
               />
-              <div className="flex items-center pr-3 pl-1 pb-1">
+              <div className="flex items-end pr-3 pl-1 pb-1 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => attachmentInputRef.current?.openCamera()}
+                  disabled={isGenerating}
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
+                  title="ถ่ายรูปรถ"
+                  id="chat-camera-btn"
+                  aria-label="ถ่ายรูปรถ"
+                >
+                  <Camera className="w-4.5 h-4.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => attachmentInputRef.current?.openPicker()}
@@ -289,6 +331,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   <Paperclip className="w-4.5 h-4.5" />
                 </button>
                 <textarea
+                  ref={textareaRef}
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -299,7 +342,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   }
                   rows={1}
                   disabled={isGenerating}
-                  className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-4 px-2 max-h-40 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-none"
+                  className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-3 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] min-h-[44px]"
                   id="chat-textarea-elt"
                 />
                 <button
