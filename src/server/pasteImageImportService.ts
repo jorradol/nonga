@@ -17,7 +17,7 @@ import {
 import type { ParsedPasteVehicle } from "../utils/inventoryImport/pasteRawVehicleTypes";
 
 const PREVIEW_PROXY_TIMEOUT_MS = 12_000;
-const SAFE_LISTING_ID = /^draft(?:-import-[0-9]+-d\d+|-[0-9]+)$/;
+const SAFE_LISTING_ID = /^(?:draft(?:-import-[0-9]+-d\d+|-[0-9]+)|car-[0-9]+)$/;
 
 export interface SelectedImageImportResult {
   storedUrls: string[];

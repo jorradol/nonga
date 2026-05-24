@@ -17,7 +17,10 @@ import {
   revokeQueuedUploadPreview,
   type PasteQueuedUpload,
 } from "../../utils/inventoryImport/pasteUploadedImageQueue";
-import { uploadDraftImagesApi } from "../../services/dealer/dealerDraftImageApi";
+import {
+  uploadListingImagesApi,
+  type DealerListingImageTarget,
+} from "../../services/dealer/dealerListingImageApi";
 
 export type DraftImagePrimaryKey = `stored:${string}` | `pending:${string}`;
 
@@ -41,9 +44,10 @@ export function revokeDraftImageEditState(state: DraftImageEditState): void {
   for (const p of state.pendingUploads) revokeQueuedUploadPreview(p);
 }
 
-export async function buildDraftImagesForSave(
+export async function buildListingImagesForSave(
   apiHeaders: DealerApiHeaders,
-  draftId: string,
+  listingId: string,
+  target: DealerListingImageTarget,
   state: DraftImageEditState
 ): Promise<string[]> {
   let storedUrls = [...state.storedUrls];
@@ -53,7 +57,12 @@ export async function buildDraftImagesForSave(
     const payloads = await Promise.all(
       state.pendingUploads.map((p) => fileToPasteUploadPayload(p.file))
     );
-    const result = await uploadDraftImagesApi(apiHeaders, draftId, payloads);
+    const result = await uploadListingImagesApi(
+      apiHeaders,
+      listingId,
+      target,
+      payloads
+    );
     const merged = mergeUploadedPendingUrls(
       storedUrls,
       state.pendingUploads,
@@ -80,12 +89,22 @@ export async function buildDraftImagesForSave(
   return orderDraftImagesWithPrimary(storedUrls, primaryUrl);
 }
 
+/** @deprecated use buildListingImagesForSave */
+export const buildDraftImagesForSave = (
+  apiHeaders: DealerApiHeaders,
+  draftId: string,
+  state: DraftImageEditState
+) => buildListingImagesForSave(apiHeaders, draftId, "draft", state);
+
 interface Props {
   draftId: string;
   apiHeaders: DealerApiHeaders;
   state: DraftImageEditState;
   onChange: (state: DraftImageEditState) => void;
   sectionRef?: React.RefObject<HTMLDivElement | null>;
+  /** draft = ก่อนลงขาย, inventory = ลงขายแล้ว */
+  imageTarget?: DealerListingImageTarget;
+  uploading?: boolean;
 }
 
 function isPrimary(
@@ -132,7 +151,10 @@ export function DealerDraftImageSection({
   state,
   onChange,
   sectionRef,
+  imageTarget = "draft",
+  uploading = false,
 }: Props) {
+  const isPublished = imageTarget === "inventory";
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -219,7 +241,7 @@ export function DealerDraftImageSection({
     <div
       ref={sectionRef}
       tabIndex={-1}
-      id="draft-images-section"
+      id={isPublished ? "listing-images-section" : "draft-images-section"}
       className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-3 outline-none"
     >
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -231,16 +253,22 @@ export function DealerDraftImageSection({
 
       <p className="text-[10px] text-slate-500">{PASTE_UPLOAD_HELP_TEXT}</p>
 
-      {!hasImages && (
+      {!hasImages && !isPublished && (
         <p className="text-[11px] text-amber-300/95 flex items-start gap-1.5">
           <Upload className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          ยังไม่มีรูปภาพสินค้า กรุณาเพิ่มรูปอย่างน้อย 1 รูปก่อนเผยแพร่
+          ยังไม่มีรูปภาพสินค้า กรุณาเพิ่มรูปอย่างน้อย 1 รูปก่อนลงขาย
         </p>
       )}
 
       <p className="text-[10px] text-slate-500">
-        เพิ่มรูปภาพรถอย่างน้อย 1 รูป เพื่อให้ประกาศพร้อมเผยแพร่
+        {isPublished
+          ? "รูปที่บันทึกจะแสดงในตลาดรถทันทีหลังกดบันทึกประกาศ"
+          : "เพิ่มรูปภาพรถอย่างน้อย 1 รูป เพื่อให้ประกาศพร้อมลงขาย"}
       </p>
+
+      {uploading && (
+        <p className="text-[11px] text-orange-300">กำลังอัปโหลดรูป…</p>
+      )}
 
       {(localError || toast) && (
         <p
@@ -366,7 +394,7 @@ export function DealerDraftImageSection({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        disabled={total >= DRAFT_MAX_IMAGES}
+        disabled={total >= DRAFT_MAX_IMAGES || uploading}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 text-[11px] text-slate-200 hover:bg-slate-800 disabled:opacity-40"
       >
         <Upload className="w-3.5 h-3.5" />
@@ -382,3 +410,6 @@ export function focusDraftImageSection(
   ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   ref.current?.focus();
 }
+
+/** ชื่อที่ใช้ร่วมกับรายการลงขายแล้ว */
+export { DealerDraftImageSection as DealerListingImageSection };

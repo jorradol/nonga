@@ -8,7 +8,8 @@ import { saveProcessedListingImagePair } from "./listingImageStorage";
 export { PASTE_SOURCE_MAX_BYTES as PASTE_UPLOAD_MAX_DECODED_BYTES };
 
 const PASTE_MAX_FILES = 12;
-const SAFE_LISTING_ID = /^draft(?:-import-[0-9]+-d\d+|-[0-9]+)$/;
+/** draft-* และ car-* (published listing) */
+const SAFE_LISTING_ID = /^(?:draft(?:-import-[0-9]+-d\d+|-[0-9]+)|car-[0-9]+)$/;
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",

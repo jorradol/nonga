@@ -199,6 +199,70 @@ async function apiPhaseAfterBrowser(draftId: string) {
     );
   }
 
+  const invUpRes = await fetch(
+    `${BASE}/api/dealer/inventory/${carId}/upload-images`,
+    {
+      method: "POST",
+      headers: thorHdrs(),
+      body: JSON.stringify({
+        files: [
+          {
+            mimeType: "image/png",
+            dataBase64: TINY_PNG,
+            name: "published-edit.png",
+          },
+        ],
+      }),
+    }
+  );
+  const invUpBody = await invUpRes.json();
+  ok(
+    "8b-inventory-upload",
+    invUpRes.ok && invUpBody.data?.storedUrls?.length >= 1,
+    invUpBody.message ?? String(invUpRes.status)
+  );
+  const invNewUrl = invUpBody.data?.storedUrls?.[0] as string;
+
+  const invPatchRes = await fetch(`${BASE}/api/dealer/inventory/${carId}`, {
+    method: "PATCH",
+    headers: thorHdrs(),
+    body: JSON.stringify({
+      brand: "Toyota",
+      model: "ViosEdited",
+      year: 2018,
+      price: 280000,
+      mileage: 86000,
+      images: [invNewUrl, imgUrl].filter(Boolean),
+    }),
+  });
+  ok("8b-inventory-patch", invPatchRes.ok, String(invPatchRes.status));
+
+  const carsRes2 = await fetch(`${BASE}/api/cars`);
+  const carsBody2 = await carsRes2.json();
+  const cars2 = (carsBody2.data ?? carsBody2) as Array<{
+    id: string;
+    model: string;
+    price: number;
+    images: string[];
+  }>;
+  const editedCar = cars2.find((c) => c.id === carId);
+  ok(
+    "8b-marketplace-after-edit",
+    editedCar?.model === "ViosEdited" && editedCar?.price === 280000,
+    `${editedCar?.model} ${editedCar?.price}`
+  );
+  ok(
+    "8b-marketplace-image-after-edit",
+    (editedCar?.images?.[0] ?? "") === invNewUrl,
+    editedCar?.images?.[0] ?? ""
+  );
+
+  const otherInvUp = await fetch(
+    `${BASE}/api/dealer/inventory/${carId}/upload-images`,
+    { method: "POST", headers: otherHdrs(), body: JSON.stringify({ files: [] }) }
+  );
+  ok("8b-other-cannot-upload", otherInvUp.status === 404, String(otherInvUp.status));
+
   const noImgId = `draft-smoke-noimg-${Date.now()}`;
   await fetch(`${BASE}/api/dealer/import/commit`, {
     method: "POST",
@@ -372,6 +436,29 @@ async function browserPhase(focusDraftId?: string) {
       "portal"
     );
     ok(`13-ui-portal-${label}`, forbiddenPortal.length === 0, forbiddenPortal.join("; "));
+
+    await page.goto(`${BASE}/dealer/inventory`, { waitUntil: "networkidle" });
+    const invText = await page.locator("main").innerText();
+    ok(
+      `2-inventory-page-${label}`,
+      invText.includes("รถที่ลงขายแล้ว"),
+      invText.slice(0, 60)
+    );
+    const editInv = page.getByRole("button", { name: /^แก้ไข$/ }).first();
+    if (await editInv.isVisible().catch(() => false)) {
+      await editInv.click();
+      await page.waitForTimeout(400);
+      const hasImages = await page
+        .locator("#listing-images-section, #draft-images-section")
+        .isVisible()
+        .catch(() => false);
+      ok(`2-inventory-edit-images-${label}`, hasImages);
+      const saveBtn = page.getByRole("button", { name: "บันทึกประกาศ" });
+      ok(
+        `2-inventory-save-btn-${label}`,
+        await saveBtn.isVisible().catch(() => false)
+      );
+    }
 
     await page.goto(`${BASE}/dealer/drafts`, { waitUntil: "networkidle" });
     const draftsText = await page.locator("main").innerText();

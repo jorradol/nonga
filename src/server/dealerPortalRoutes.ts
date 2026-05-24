@@ -211,6 +211,31 @@ export function registerDealerPortalRoutes(app: Express): void {
     res.json({ success: true, data: updated });
   });
 
+  app.post("/api/dealer/inventory/:id/upload-images", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const car = getMarketplaceCarById(req.params.id);
+    if (!car || !carBelongsToDealer(car, ctx.dealerId)) {
+      return res.status(404).json({ success: false, message: "ไม่พบรถ" });
+    }
+
+    const result = await persistPasteUploadedImages(req.params.id, req.body?.files);
+    if (result.ok === false) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[POST /api/dealer/inventory/:id/upload-images]", {
+          carId: req.params.id,
+          dealerId: ctx.dealerId,
+          message: result.message,
+        });
+      }
+      return res.status(result.status).json({
+        success: false,
+        message: result.message,
+      });
+    }
+    res.json({ success: true, data: result });
+  });
+
   app.patch("/api/dealer/inventory/:id/visibility", (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
