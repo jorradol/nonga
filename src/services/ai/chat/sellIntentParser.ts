@@ -32,11 +32,11 @@ export function extractCarFieldsFromMessage(message: string): ExtractedCarFields
     fields.brand = brandMatch[1];
     fields.model = brandMatch[2].replace(/^CRV$/i, "CR-V");
   } else {
-    const soloModel = text.match(/\b(CR-V|CRV|Fortuner|City|Civic|Camry|Yaris|CX-5|MU-X|D-Max|Ertiga|XL7|Xpander)\b/i);
+    const soloModel = text.match(/\b(CR-V|CRV|Fortuner|City|Civic|Camry|Yaris|Vios|Altis|CX-5|MU-X|D-Max|Ertiga|XL7|Xpander)\b/i);
     if (soloModel) {
       fields.model = soloModel[1].replace("CRV", "CR-V");
       if (fields.model === "CR-V" || fields.model === "City" || fields.model === "Civic") fields.brand = "Honda";
-      else if (fields.model === "Fortuner" || fields.model === "Camry" || fields.model === "Yaris") fields.brand = "Toyota";
+      else if (fields.model === "Fortuner" || fields.model === "Camry" || fields.model === "Yaris" || fields.model === "Vios" || fields.model === "Altis") fields.brand = "Toyota";
       else if (fields.model === "CX-5") fields.brand = "Mazda";
       else if (fields.model === "MU-X" || fields.model === "D-Max") fields.brand = "Isuzu";
       else if (fields.model === "Ertiga" || fields.model === "XL7") fields.brand = "Suzuki";
@@ -95,10 +95,28 @@ export function extractCarFieldsFromMessage(message: string): ExtractedCarFields
   const mileageMatch = text.match(/(?:ไมล์|วิ่ง|เลขไมล์)\s*([\d,]+)/i);
   if (mileageMatch) fields.mileage = parseThaiNumber(mileageMatch[1]);
 
+  // 5b. Transmission
+  const transMatch = text.match(/(?:เกียร์)\s*(ออโต้|อัตโนมัติ|auto|AT|manual|ธรรมดา|CVT)/i);
+  if (transMatch) {
+    const t = transMatch[1].toLowerCase();
+    fields.transmission =
+      /ออโต้|อัตโนมัติ|auto|cvt/i.test(t) ? "เกียร์ออโต้" : "เกียร์ธรรมดา";
+  }
+
   // 6. Description / Features
   const featuresMatch = text.match(/(?:มี|พร้อม|ออปชัน|จุดเด่น)\s*(.+)/i);
   if (featuresMatch) {
     fields.description = featuresMatch[1].trim().replace(/\s+/g, ", ");
+  } else if (/รถบ้าน|มือเดียว|สภาพดี|ปล่อย|ลงประกาศ/i.test(text)) {
+    const sellingMatch = text.match(
+      /(รถบ้าน[^.。\n]*|มือเดียว[^.。\n]*|สภาพดี[^.。\n]*)/i
+    );
+    if (sellingMatch) {
+      fields.description = sellingMatch[0]
+        .replace(/\s*ลงประกาศ.*$/i, "")
+        .trim()
+        .replace(/\s+/g, " ");
+    }
   } else {
     // Check if the user just listed features with spaces/pluses
     const keywords = ["เบาะหนัง", "จอ", "กล้อง", "เซนเซอร์", "ซันรูฟ", "แม็ก", "แต่ง", "ฝาท้าย"];

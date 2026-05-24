@@ -14,6 +14,7 @@ import { DealerProfilePage } from "./DealerProfilePage";
 import InventoryImportView from "../admin/inventory-import/InventoryImportView";
 import { commitDealerImport } from "../../services/dealer/dealerApi";
 import { navigateToDealerDraftsAfterPasteSave } from "../../utils/dealer/dealerPasteSaveRedirect";
+import { parseDealerDraftFocusFromLocation } from "../../utils/dealer/dealerDraftNavigation";
 import { AlertCircle } from "lucide-react";
 import { DuplicateReviewSection } from "../duplicate/DuplicateReviewSection";
 
@@ -26,12 +27,20 @@ export default function DealerPortalView() {
       ? dealerTabFromPath(window.location.pathname)
       : "home"
   );
+  const [draftFocusId, setDraftFocusId] = useState<string | null>(() =>
+    typeof window !== "undefined"
+      ? parseDealerDraftFocusFromLocation(window.location)
+      : null
+  );
 
   useEffect(() => {
-    setTab(dealerTabFromPath(window.location.pathname));
-    const onPop = () => setTab(dealerTabFromPath(window.location.pathname));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    const syncFromUrl = () => {
+      setTab(dealerTabFromPath(window.location.pathname));
+      setDraftFocusId(parseDealerDraftFocusFromLocation(window.location));
+    };
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
   }, []);
 
   if (!canAccessPortal) {
@@ -63,6 +72,8 @@ export default function DealerPortalView() {
       content = (
         <DealerDraftsPage
           apiHeaders={apiHeaders}
+          initialFocusDraftId={draftFocusId}
+          onFocusDraftConsumed={() => setDraftFocusId(null)}
           onPublished={() => fetchCars()}
         />
       );

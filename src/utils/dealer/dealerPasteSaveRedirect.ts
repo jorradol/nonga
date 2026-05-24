@@ -1,6 +1,8 @@
 /** นำทางหลังบันทึก Dealer Paste Import เป็น Draft สำเร็จ */
 
-export const DEALER_DRAFTS_PATH = "/dealer/drafts";
+import { DEALER_DRAFTS_PATH } from "./dealerDraftNavigation";
+
+export { DEALER_DRAFTS_PATH };
 
 /** redirect เฉพาะเมื่อ save สำเร็จ */
 export function shouldRedirectAfterPasteDraftSave(success: boolean): boolean {

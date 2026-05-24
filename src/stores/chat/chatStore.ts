@@ -14,6 +14,11 @@ import {
   orderBy,
   getDoc
 } from "firebase/firestore";
+import {
+  chatMessagesLocalKey,
+  chatPrefsLocalKey,
+  chatSessionsLocalKey,
+} from "../../utils/chatStorageScope";
 
 export interface AIUserProfile {
   userName: string | null;
@@ -40,10 +45,11 @@ interface ChatState {
   personalities: Record<PersonalityPresetId, AIPersonality>;
   isLoadingPersonalities: boolean;
 
-  // Actions
-  loadSessions: (userId: string) => Promise<void>;
-  createSession: (userId: string, title?: string) => Promise<string>;
-  deleteSession: (userId: string, sessionId: string) => Promise<void>;
+  // Actions — storageScopeKey partitions chat per dealer/user (see chatStorageScope.ts)
+  resetChatState: () => void;
+  loadSessions: (storageScopeKey: string) => Promise<void>;
+  createSession: (storageScopeKey: string, title?: string) => Promise<string>;
+  deleteSession: (storageScopeKey: string, sessionId: string) => Promise<void>;
   selectSession: (sessionId: string) => void;
   addMessage: (
     sessionId: string,
@@ -52,7 +58,8 @@ interface ChatState {
     carCards?: ChatCarCardData[],
     hasMoreCars?: boolean,
     isDraftPreview?: boolean,
-    draftFields?: any
+    draftFields?: any,
+    savedDraftId?: string
   ) => Promise<ChatMessage>;
   editMessage: (sessionId: string, messageId: string, text: string) => Promise<void>;
   updateStreamedReply: (text: string, carCards?: ChatCarCardData[], hasMoreCars?: boolean, isDraftPreview?: boolean, draftFields?: any) => void;
@@ -61,11 +68,12 @@ interface ChatState {
     carCards?: ChatCarCardData[],
     hasMoreCars?: boolean,
     isDraftPreview?: boolean,
-    draftFields?: any
+    draftFields?: any,
+    savedDraftId?: string
   ) => Promise<void>;
   setGenerating: (generating: boolean) => void;
   analyzeUserPreferences: (messages: ChatMessage[]) => Promise<void>;
-  loadUserPreferences: (userId: string) => Promise<void>;
+  loadUserPreferences: (storageScopeKey: string) => Promise<void>;
   syncPreferencesOffline: (profile: AIUserProfile) => void;
   
   // Personality actions
@@ -73,10 +81,6 @@ interface ChatState {
   loadPersonalitiesList: () => Promise<void>;
   updatePersonalityInstruction: (presetId: PersonalityPresetId, fields: Partial<AIPersonality>) => Promise<void>;
 }
-
-const LOCAL_SESSIONS_KEY = "nonga_chat_sessions";
-const LOCAL_MESSAGES_KEY = "nonga_chat_messages";
-const LOCAL_PREFS_KEY = "nonga_ai_preferences";
 
 export const useChatStore = create<ChatState>((set, get) => ({
   sessions: [],
@@ -94,12 +98,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
   personalities: DEFAULT_PERSONALITIES,
   isLoadingPersonalities: false,
 
-  loadSessions: async (userId) => {
+  resetChatState: () => {
+    set({
+      sessions: [],
+      activeSessionId: null,
+      messages: {},
+      isGenerating: false,
+      streamedReply: "",
+      streamedCarCards: [],
+      streamedHasMoreCars: false,
+      userPreferences: null,
+      isAnalyzingMemory: false,
+    });
+  },
+
+  loadSessions: async (storageScopeKey) => {
     // 1. If mock config or firebase error, fallback to LocalStorage
     if (isMockConfig || !db) {
       try {
-        const storedSessions = localStorage.getItem(`${LOCAL_SESSIONS_KEY}_${userId}`);
-        const storedMessages = localStorage.getItem(`${LOCAL_MESSAGES_KEY}_${userId}`);
+        const storedSessions = localStorage.getItem(
+          chatSessionsLocalKey(storageScopeKey)
+        );
+        const storedMessages = localStorage.getItem(
+          chatMessagesLocalKey(storageScopeKey)
+        );
         
         const sessions: ChatSession[] = storedSessions ? JSON.parse(storedSessions) : [];
         const messages: Record<string, ChatMessage[]> = storedMessages ? JSON.parse(storedMessages) : {};
@@ -109,7 +131,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const defaultSessionId = `session-welcome-${Date.now()}`;
           const defaultSession: ChatSession = {
             id: defaultSessionId,
-            userId,
+            userId: storageScopeKey,
             title: "ยินดีต้อนรับสู่สต๊อกสตาร์ ⚡",
             createdAt: new Date().toISOString()
           };
@@ -123,14 +145,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
           sessions.push(defaultSession);
           messages[defaultSessionId] = [welcomeMsg];
           
-          localStorage.setItem(`${LOCAL_SESSIONS_KEY}_${userId}`, JSON.stringify(sessions));
-          localStorage.setItem(`${LOCAL_MESSAGES_KEY}_${userId}`, JSON.stringify(messages));
+          localStorage.setItem(
+            chatSessionsLocalKey(storageScopeKey),
+            JSON.stringify(sessions)
+          );
+          localStorage.setItem(
+            chatMessagesLocalKey(storageScopeKey),
+            JSON.stringify(messages)
+          );
         }
 
-        set({ 
-          sessions, 
-          messages, 
-          activeSessionId: sessions[0]?.id || null 
+        set({
+          sessions,
+          messages,
+          activeSessionId: sessions[0]?.id || null,
         });
       } catch (err) {
         console.warn("Local chat history load err:", err);
@@ -141,8 +169,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // 2. Load from Firebase Firestore
     try {
       const q = query(
-        collection(db, "chats"), 
-        where("userId", "==", userId), 
+        collection(db, "chats"),
+        where("userId", "==", storageScopeKey),
         orderBy("createdAt", "desc")
       );
       const querySnapshot = await getDocs(q);
@@ -153,7 +181,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const data = docSnapshot.data();
         const s: ChatSession = {
           id: docSnapshot.id,
-          userId: data.userId || userId,
+          userId: data.userId || storageScopeKey,
           title: data.title || "บทสนทนาไร้ชื่อ",
           createdAt: data.createdAt || new Date().toISOString()
         };
@@ -179,6 +207,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...(mData.hasMoreCars ? { hasMoreCars: mData.hasMoreCars } : {}),
             ...(mData.isDraftPreview ? { isDraftPreview: mData.isDraftPreview } : {}),
             ...(mData.draftFields ? { draftFields: mData.draftFields } : {}),
+            ...(mData.savedDraftId ? { savedDraftId: mData.savedDraftId } : {}),
           });
         });
 
@@ -188,7 +217,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Automatically create a default session if there are none in Firestore
       if (sessions.length === 0) {
         set({ sessions: [], messages: {}, activeSessionId: null });
-        const newSessionId = await get().createSession(userId, "สอบถามรถยนต์ครั้งแรก 🚗");
+        const newSessionId = await get().createSession(
+          storageScopeKey,
+          "สอบถามรถยนต์ครั้งแรก 🚗"
+        );
         // Add default message
         await get().addMessage(
           newSessionId, 
@@ -209,11 +241,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  createSession: async (userId, title) => {
+  createSession: async (storageScopeKey, title) => {
     const newSessionId = `chat-${Date.now()}`;
     const newSession: ChatSession = {
       id: newSessionId,
-      userId,
+      userId: storageScopeKey,
       title: title || `ปรึกษาซื้อขาย #${get().sessions.length + 1}`,
       createdAt: new Date().toISOString()
     };
@@ -230,22 +262,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!isMockConfig && db) {
       try {
         await setDoc(doc(db, "chats", newSessionId), {
-          userId,
+          userId: storageScopeKey,
           title: newSession.title,
-          createdAt: newSession.createdAt
+          createdAt: newSession.createdAt,
         });
       } catch (err) {
         console.warn("Firestore error saving chat session:", err);
       }
     } else {
-      localStorage.setItem(`${LOCAL_SESSIONS_KEY}_${userId}`, JSON.stringify(get().sessions));
-      localStorage.setItem(`${LOCAL_MESSAGES_KEY}_${userId}`, JSON.stringify(get().messages));
+      localStorage.setItem(
+        chatSessionsLocalKey(storageScopeKey),
+        JSON.stringify(get().sessions)
+      );
+      localStorage.setItem(
+        chatMessagesLocalKey(storageScopeKey),
+        JSON.stringify(get().messages)
+      );
     }
 
     return newSessionId;
   },
 
-  deleteSession: async (userId, sessionId) => {
+  deleteSession: async (storageScopeKey, sessionId) => {
     const nextSessions = get().sessions.filter((s) => s.id !== sessionId);
     const nextMessages = { ...get().messages };
     delete nextMessages[sessionId];
@@ -269,8 +307,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         console.warn("Firestore error deleting chat:", err);
       }
     } else {
-      localStorage.setItem(`${LOCAL_SESSIONS_KEY}_${userId}`, JSON.stringify(nextSessions));
-      localStorage.setItem(`${LOCAL_MESSAGES_KEY}_${userId}`, JSON.stringify(nextMessages));
+      localStorage.setItem(
+        chatSessionsLocalKey(storageScopeKey),
+        JSON.stringify(nextSessions)
+      );
+      localStorage.setItem(
+        chatMessagesLocalKey(storageScopeKey),
+        JSON.stringify(nextMessages)
+      );
     }
   },
 
@@ -278,7 +322,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ activeSessionId: sessionId });
   },
 
-  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields) => {
+  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId) => {
     const newMsg: ChatMessage = {
       id:
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -291,6 +335,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(hasMoreCars ? { hasMoreCars } : {}),
       ...(isDraftPreview ? { isDraftPreview } : {}),
       ...(draftFields ? { draftFields } : {}),
+      ...(savedDraftId ? { savedDraftId } : {}),
     };
 
     set((state) => ({
@@ -301,8 +346,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
 
     // Save
-    const activeSession = get().sessions.find(s => s.id === sessionId);
-    const userId = activeSession?.userId || "guest";
+    const activeSession = get().sessions.find((s) => s.id === sessionId);
+    const storageScopeKey = activeSession?.userId || "guest";
 
     if (!isMockConfig && db) {
       try {
@@ -314,6 +359,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...(hasMoreCars ? { hasMoreCars } : {}),
           ...(isDraftPreview ? { isDraftPreview } : {}),
           ...(draftFields ? { draftFields } : {}),
+          ...(savedDraftId ? { savedDraftId } : {}),
         });
 
         // Trigger session title generation on first user prompt
@@ -328,14 +374,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
         console.warn("Firestore message save error:", e);
       }
     } else {
-      localStorage.setItem(`${LOCAL_MESSAGES_KEY}_${userId}`, JSON.stringify(get().messages));
-      
+      localStorage.setItem(
+        chatMessagesLocalKey(storageScopeKey),
+        JSON.stringify(get().messages)
+      );
+
       // Update local storage title as well
-      if (sender === "user" && activeSession && activeSession.title.startsWith("ปรึกษาซื้อขาย")) {
-        const newTitle = text.length > 20 ? `${text.substring(0, 18)}...` : text;
-        const updatedSessions = get().sessions.map((s) => s.id === sessionId ? { ...s, title: newTitle } : s);
+      if (
+        sender === "user" &&
+        activeSession &&
+        activeSession.title.startsWith("ปรึกษาซื้อขาย")
+      ) {
+        const newTitle =
+          text.length > 20 ? `${text.substring(0, 18)}...` : text;
+        const updatedSessions = get().sessions.map((s) =>
+          s.id === sessionId ? { ...s, title: newTitle } : s
+        );
         set({ sessions: updatedSessions });
-        localStorage.setItem(`${LOCAL_SESSIONS_KEY}_${userId}`, JSON.stringify(updatedSessions));
+        localStorage.setItem(
+          chatSessionsLocalKey(storageScopeKey),
+          JSON.stringify(updatedSessions)
+        );
       }
     }
 
@@ -356,8 +415,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     });
 
-    const activeSession = get().sessions.find(s => s.id === sessionId);
-    const userId = activeSession?.userId || "guest";
+    const activeSession = get().sessions.find((s) => s.id === sessionId);
+    const storageScopeKey = activeSession?.userId || "guest";
 
     if (!isMockConfig && db) {
       try {
@@ -368,7 +427,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         console.warn("Firestore error editing message:", err);
       }
     } else {
-      localStorage.setItem(`${LOCAL_MESSAGES_KEY}_${userId}`, JSON.stringify(get().messages));
+      localStorage.setItem(
+        chatMessagesLocalKey(storageScopeKey),
+        JSON.stringify(get().messages)
+      );
     }
   },
 
@@ -380,7 +442,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields) => {
+  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId) => {
     const totalReply = get().streamedReply;
     if (!totalReply) return;
 
@@ -395,7 +457,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ streamedReply: "", streamedCarCards: [], streamedHasMoreCars: false });
 
-    const msg = await get().addMessage(sessionId, "ai", totalReply, cards, more, isDraftPreview, draftFields);
+    const msg = await get().addMessage(
+      sessionId,
+      "ai",
+      totalReply,
+      cards,
+      more,
+      isDraftPreview,
+      draftFields,
+      savedDraftId
+    );
     
     // Core AI memory loop: Trigger preference extraction in background for memory
     const history = get().messages[sessionId] || [];
@@ -422,12 +493,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Persist to DB
         const sessionId = get().activeSessionId;
-        const activeSession = get().sessions.find(s => s.id === sessionId);
-        const userId = activeSession?.userId || "guest";
+        const activeSession = get().sessions.find((s) => s.id === sessionId);
+        const storageScopeKey = activeSession?.userId || "guest";
 
         if (!isMockConfig && db) {
-          await setDoc(doc(db, "ai_preferences", userId), {
-            userId,
+          await setDoc(doc(db, "ai_preferences", storageScopeKey), {
+            userId: storageScopeKey,
             preferredBrands: p.preferredBrands || [],
             focusArea: p.focusArea || "general",
             aiResponseLength: "conversational",
@@ -438,7 +509,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             updatedAt: new Date().toISOString()
           }, { merge: true });
         } else {
-          localStorage.setItem(`${LOCAL_PREFS_KEY}_${userId}`, JSON.stringify(p));
+          localStorage.setItem(
+            chatPrefsLocalKey(storageScopeKey),
+            JSON.stringify(p)
+          );
         }
       }
     } catch (e) {
@@ -448,10 +522,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  loadUserPreferences: async (userId) => {
+  loadUserPreferences: async (storageScopeKey) => {
     if (isMockConfig || !db) {
       try {
-        const stored = localStorage.getItem(`${LOCAL_PREFS_KEY}_${userId}`);
+        const stored = localStorage.getItem(chatPrefsLocalKey(storageScopeKey));
         if (stored) {
           const profile = JSON.parse(stored);
           set({ userPreferences: profile });
@@ -474,7 +548,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     try {
-      const docSnap = await getDoc(doc(db, "ai_preferences", userId));
+      const docSnap = await getDoc(doc(db, "ai_preferences", storageScopeKey));
       if (docSnap.exists()) {
         const d = docSnap.data();
         set({

@@ -10,7 +10,11 @@ import { useClipboard } from "../../hooks/chat/useClipboard";
 import { useFavorites } from "../../hooks/chat/useFavorites";
 import { useEditableMessage } from "../../hooks/chat/useEditableMessage";
 import { useChat } from "../../hooks/chat/useChat";
+import { CHAT_SAVE_LISTING_ACTION } from "../../services/ai/chat/chatDraftActions";
 import { ChatCarCard } from "./ChatCarCard";
+import { useAppStore } from "../../store";
+import { navigateToSavedDealerDraft } from "../../utils/dealer/dealerDraftNavigation";
+import { ExternalLink } from "lucide-react";
 
 interface ChatMessageBubbleProps {
   key?: string;
@@ -20,6 +24,10 @@ interface ChatMessageBubbleProps {
 export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const isUser = message.sender === "user";
   const { activeSessionId, editMessage, sendMessage } = useChat();
+  const setView = useAppStore((s) => s.setView);
+  const showDraftIdDebug =
+    typeof import.meta !== "undefined" &&
+    Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
   
   // Custom hooks
   const { isSpeaking, toggleSpeak } = useSpeech();
@@ -378,13 +386,33 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
+            {message.savedDraftId && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigateToSavedDealerDraft(message.savedDraftId!, setView)
+                  }
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  ดูประกาศที่บันทึกไว้
+                </button>
+                {showDraftIdDebug && (
+                  <p className="text-[9px] text-slate-600 font-mono">
+                    Draft ID: {message.savedDraftId}
+                  </p>
+                )}
+              </div>
+            )}
+
             {message.isDraftPreview && (
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 <button
                   type="button"
                   onClick={() => {
                     if (activeSessionId) {
-                      void sendMessage("บันทึกเป็น Draft");
+                      void sendMessage(CHAT_SAVE_LISTING_ACTION);
                     }
                   }}
                   className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"

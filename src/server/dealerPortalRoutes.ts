@@ -10,6 +10,8 @@ import {
   getDealerDraftById,
   getDealerDraftsSorted,
   updateDealerDraft,
+  bulkAddDealerDrafts,
+  removeDealerDraft,
 } from "./dealerDraftInventory";
 import { publishDealerDraftToMarketplace } from "./publishDraftListing";
 import { getDealerProfile, upsertDealerProfile } from "./dealerProfile";
@@ -59,19 +61,38 @@ export function registerDealerPortalRoutes(app: Express): void {
     const body = req.body ?? {};
     const id = `draft-${Date.now()}`;
     const profile = getDealerProfile(ctx.dealerId);
-    
-    // Validate required fields for draft creation
-    if (!body.brand || !body.model || !body.year || !body.price || !body.mileage) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "ข้อมูลไม่ครบถ้วน กรุณาระบุ ยี่ห้อ, รุ่น, ปี, ราคา, และเลขไมล์" 
+
+    const brand = String(body.brand ?? "").trim();
+    const model = String(body.model ?? "").trim();
+    const year = Number(body.year);
+    const price = Number(body.price);
+    const mileage = Number(body.mileage);
+    const missing: string[] = [];
+    if (!brand) missing.push("brand");
+    if (!model) missing.push("model");
+    if (!Number.isFinite(year) || year < 1900) missing.push("year");
+    if (!Number.isFinite(price) || price <= 0) missing.push("price");
+    if (!Number.isFinite(mileage) || mileage < 0) missing.push("mileage");
+
+    if (missing.length > 0) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[POST /api/dealer/drafts/new] validation failed", {
+          dealerId: ctx.dealerId,
+          missing,
+          body: { brand, model, year, price, mileage },
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: "ข้อมูลไม่ครบถ้วน กรุณาระบุ ยี่ห้อ, รุ่น, ปี, ราคา, และเลขไมล์",
+        missing,
       });
     }
 
     const newDraft = {
       id,
       dealerId: ctx.dealerId,
-      dealerName: profile?.ownerName || "Unknown Dealer",
+      dealerName: profile?.ownerName || profile?.showroomName || "Unknown Dealer",
       ownerName: profile?.ownerName || "Unknown Owner",
       phone: profile?.phone || "",
       showroomName: profile?.showroomName || "",
@@ -83,26 +104,33 @@ export function registerDealerPortalRoutes(app: Express): void {
       status: "draft" as const,
       images: [],
       sourceImageUrls: [],
-      title: body.title || "",
-      brand: body.brand || "",
-      model: body.model || "",
-      year: body.year ? Number(body.year) : new Date().getFullYear(),
-      price: body.price ? Number(body.price) : 0,
-      mileage: body.mileage ? Number(body.mileage) : 0,
-      fuelType: body.fuelType || "",
-      condition: body.condition || "",
-      description: body.description || "",
+      title: String(body.title ?? "").trim() || `${brand} ${model} ${year}`.trim(),
+      brand,
+      model,
+      year,
+      price,
+      mileage,
+      fuelType: String(body.fuelType ?? "").trim(),
+      condition: String(body.condition ?? "").trim(),
+      description: String(body.description ?? "").trim(),
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
-    
+
     try {
-      const { bulkAddDealerDrafts } = require("./dealerDraftInventory");
       bulkAddDealerDrafts([newDraft]);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[POST /api/dealer/drafts/new] created", {
+          id: newDraft.id,
+          dealerId: ctx.dealerId,
+          brand,
+          model,
+        });
+      }
       res.json({ success: true, data: newDraft });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create draft";
-      console.error("[draft-inventory/new] Error:", err);
+      console.error("[POST /api/dealer/drafts/new] Error:", err);
       res.status(500).json({ success: false, message });
     }
   });
@@ -266,6 +294,58 @@ export function registerDealerPortalRoutes(app: Express): void {
 
     const updated = updateDealerDraft(req.params.id, patch);
     res.json({ success: true, data: updated });
+  });
+
+  app.delete("/api/dealer/drafts/:id", (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+
+    const draftId = String(req.params.id ?? "").trim();
+    if (!draftId) {
+      return res.status(400).json({ success: false, message: "ไม่พบ draft id" });
+    }
+
+    const draft = getDealerDraftById(draftId);
+    if (!draft) {
+      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+    }
+    if (!draftBelongsToDealer(draft, ctx.dealerId)) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[DELETE /api/dealer/drafts/:id] forbidden", {
+          draftId,
+          draftDealerId: draft.dealerId,
+          ctxDealerId: ctx.dealerId,
+        });
+      }
+      return res.status(403).json({
+        success: false,
+        message: "ไม่มีสิทธิ์ลบประกาศของเต็นท์อื่น",
+      });
+    }
+
+    const removed = removeDealerDraft(draftId);
+    if (!removed) {
+      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[DELETE /api/dealer/drafts/:id] removed", {
+        draftId,
+        dealerId: ctx.dealerId,
+      });
+      if (draft.images?.length) {
+        console.log(
+          "[DELETE /api/dealer/drafts/:id] TODO: cleanup draft image files",
+          { count: draft.images.length }
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "ลบประกาศเรียบร้อยแล้ว",
+      data: { id: draftId },
+    });
   });
 
   app.post("/api/dealer/drafts/:id/upload-images", async (req, res) => {

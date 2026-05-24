@@ -1,6 +1,7 @@
 import { MessageSquare, Plus, Trash2, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
+import { ChatActorStatus } from "./ChatActorStatus";
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -92,8 +93,10 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           </button>
         </div>
 
+        <ChatActorStatus />
+
         {/* Create New Chat Trigger */}
-        <div className="p-4" id="sidebar-action">
+        <div className="px-4 pb-4 pt-0" id="sidebar-action">
           <button
             id="new-chat-btn"
             onClick={handleCreateNewChat}

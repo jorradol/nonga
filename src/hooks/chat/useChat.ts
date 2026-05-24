@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useChatStore } from "../../stores/chat/chatStore";
 import { useAppStore } from "../../store";
 import { aiService } from "../../services/ai/aiService";
@@ -8,6 +8,20 @@ import {
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
+import {
+  getChatStorageScope,
+  logChatStorageDebug,
+  resolveChatActorDisplay,
+} from "../../utils/chatStorageScope";
+import { logDealerDraftEditUrl } from "../../utils/dealer/dealerDraftNavigation";
+import { resolveDealerIdFromUser } from "../../utils/dealerIdentity";
+import { dealerAuthHeaders } from "../../utils/apiAuthHeaders";
+import { useRole } from "../auth/useRole";
+import {
+  isSaveListingChatAction,
+  buildDealerDraftPayloadFromChat,
+  logChatDraftSave,
+} from "../../services/ai/chat/chatDraftActions";
 
 async function fetchInventoryForChat(): Promise<ChatInventoryCar[]> {
   try {
@@ -38,6 +52,7 @@ export function useChat() {
     activePresetId,
     personalities,
     isLoadingPersonalities,
+    resetChatState,
     loadSessions,
     createSession,
     deleteSession,
@@ -54,15 +69,39 @@ export function useChat() {
   } = useChatStore();
 
   const { user } = useAppStore();
-  const userId = user?.uid || "guest-user-100";
+  const { isDealer, isAdmin, role } = useRole();
+
+  const chatScope = useMemo(() => getChatStorageScope(user), [user]);
+  const storageScopeKey = chatScope.storageKey;
+  const loadedScopeRef = useRef<string | null>(null);
+
+  const hydrateChatForScope = useCallback(async () => {
+    if (loadedScopeRef.current !== storageScopeKey) {
+      resetChatState();
+      loadedScopeRef.current = storageScopeKey;
+    }
+    await loadSessions(storageScopeKey);
+    await loadUserPreferences(storageScopeKey);
+    await loadPersonalitiesList();
+    logChatStorageDebug(chatScope, {
+      draftDealerId: chatScope.dealerId,
+    });
+  }, [
+    storageScopeKey,
+    chatScope,
+    resetChatState,
+    loadSessions,
+    loadUserPreferences,
+    loadPersonalitiesList,
+  ]);
+
+  useEffect(() => {
+    void hydrateChatForScope();
+  }, [hydrateChatForScope]);
 
   const initializeChat = useCallback(async () => {
-    if (userId) {
-      await loadSessions(userId);
-      await loadUserPreferences(userId);
-      await loadPersonalitiesList();
-    }
-  }, [userId, loadSessions, loadUserPreferences, loadPersonalitiesList]);
+    await hydrateChatForScope();
+  }, [hydrateChatForScope]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -73,55 +112,118 @@ export function useChat() {
       setGenerating(true);
       updateStreamedReply("", []);
 
-      const currentHistory = messages[activeSessionId] || [];
+      const historyAfterUser =
+        useChatStore.getState().messages[activeSessionId] || [];
       const inventory = await fetchInventoryForChat();
 
       const orchestrated = tryOrchestrateChatReply(text, inventory);
       if (orchestrated?.skipGemini) {
-        // Handle Draft Creation API call if it's the "บันทึกเป็น Draft" action
-        if (text.trim() === "บันทึกเป็น Draft") {
-          // Find the last draft fields from history
-          const lastDraftMsg = currentHistory.slice().reverse().find(m => m.isDraftPreview && m.draftFields);
-          if (lastDraftMsg && lastDraftMsg.draftFields) {
-            try {
-              const draftData = lastDraftMsg.draftFields;
-              
-              // Call the dealer draft API
-              const res = await fetch("/api/dealer/drafts/new", {
-                method: "POST",
-                headers: { 
-                  "Content-Type": "application/json",
-                  // Use the proper Firebase token if available, but for now we rely on the backend's scopeOr403
-                  // which checks the Authorization header or cookies depending on implementation.
-                  // We remove the hardcoded mock-token to avoid Unauthorized errors if the backend expects a real token.
-                },
-                body: JSON.stringify({
-                  brand: draftData.brand,
-                  model: draftData.model,
-                  year: draftData.year,
-                  price: draftData.price,
-                  mileage: draftData.mileage,
-                  color: draftData.color,
-                  description: draftData.description,
-                  title: `${draftData.brand || ""} ${draftData.model || ""} ${draftData.year || ""}`.trim(),
-                  dealerId: user?.uid || "dealer-123" // Fallback for testing
-                })
+        if (isSaveListingChatAction(text)) {
+          const lastDraftMsg = historyAfterUser
+            .slice()
+            .reverse()
+            .find((m) => m.isDraftPreview && m.draftFields);
+          if (lastDraftMsg?.draftFields) {
+            const { payload, missing } = buildDealerDraftPayloadFromChat(
+              lastDraftMsg.draftFields
+            );
+            const canSaveDealerDraft =
+              chatScope.mode === "dealer" || isDealer || isAdmin;
+
+            if (!canSaveDealerDraft) {
+              orchestrated.text =
+                "ต้องเข้าใช้งานในนามดีลเลอร์ก่อนจึงจะบันทึกประกาศได้ครับ — เปิดสิทธิ์ดีลเลอร์จากโปรไฟล์แล้วลองใหม่";
+            } else if (!payload) {
+              orchestrated.text = `ข้อมูลยังไม่ครบ (${missing.join(", ")}) ครับ รบกวนพิมพ์รายละเอียดเพิ่มแล้วกดบันทึกประกาศอีกครั้ง`;
+              logChatDraftSave("error", {
+                reason: "incomplete-fields",
+                missing,
+                draftFields: lastDraftMsg.draftFields,
+                chatScope: chatScope.storageKey,
               });
-              
-              if (res.ok) {
-                const result = await res.json();
-                orchestrated.text = `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! ลุงสามารถไปดูและแก้ไขต่อได้ที่หน้าจัดการประกาศครับ\n(Draft ID: ${result.data?.id || 'N/A'})`;
-              } else {
-                const errorData = await res.json().catch(() => ({}));
-                console.error("Draft API Error:", errorData);
-                orchestrated.text = `เกิดข้อผิดพลาดในการบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง`;
+            } else {
+              const draftDealerId = resolveDealerIdFromUser(user);
+              const apiRole = isAdmin ? "admin" : "dealer";
+              const headers = dealerAuthHeaders(draftDealerId, apiRole);
+              const endpoint = "/api/dealer/drafts/new";
+
+              logChatStorageDebug(chatScope, { draftDealerId });
+              logChatDraftSave("request", {
+                endpoint,
+                method: "POST",
+                dealerId: draftDealerId,
+                userId: chatScope.userId,
+                chatStorageKey: chatScope.storageKey,
+                headers: {
+                  "X-Dealer-Id": draftDealerId,
+                  "X-User-Role": apiRole,
+                  Authorization: "(Bearer dealer token)",
+                },
+                payload,
+              });
+
+              try {
+                const res = await fetch(endpoint, {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify(payload),
+                });
+                const responseText = await res.text();
+                let result: { data?: { id?: string }; message?: string; missing?: string[] } =
+                  {};
+                try {
+                  result = JSON.parse(responseText) as typeof result;
+                } catch {
+                  result = { message: responseText.slice(0, 200) };
+                }
+
+                if (res.ok) {
+                  const newDraftId = result.data?.id;
+                  if (newDraftId) {
+                    logDealerDraftEditUrl(newDraftId);
+                  }
+                  logChatDraftSave("response", {
+                    status: res.status,
+                    draftId: newDraftId,
+                    dealerId: draftDealerId,
+                  });
+                  logChatStorageDebug(chatScope, {
+                    draftDealerId,
+                    latestDraftId: newDraftId ?? null,
+                  });
+                  orchestrated.text =
+                    "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
+                  orchestrated.savedDraftId = newDraftId;
+                } else {
+                  logChatDraftSave("error", {
+                    status: res.status,
+                    statusText: res.statusText,
+                    endpoint,
+                    dealerId: draftDealerId,
+                    body: result,
+                    raw: responseText.slice(0, 500),
+                  });
+                  orchestrated.text =
+                    "เกิดข้อผิดพลาดในการบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง";
+                }
+              } catch (e) {
+                logChatDraftSave("error", {
+                  endpoint,
+                  dealerId: draftDealerId,
+                  error: e instanceof Error ? e.message : String(e),
+                });
+                orchestrated.text =
+                  "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง";
               }
-            } catch (e) {
-              console.error("Failed to save draft:", e);
-              orchestrated.text = "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง";
             }
           } else {
-            orchestrated.text = "ไม่พบข้อมูลรถที่กำลังจะลงขายครับ รบกวนพิมพ์รายละเอียดรถใหม่อีกครั้งนะครับ";
+            logChatDraftSave("error", {
+              reason: "no-draft-preview-in-history",
+              chatStorageKey: chatScope.storageKey,
+              messageCount: historyAfterUser.length,
+            });
+            orchestrated.text =
+              "ไม่พบข้อมูลรถที่กำลังจะลงขายครับ รบกวนพิมพ์รายละเอียดรถใหม่อีกครั้งนะครับ";
           }
         }
 
@@ -149,7 +251,8 @@ export function useChat() {
           orchestrated.carCards,
           orchestrated.hasMoreCars,
           orchestrated.isDraftPreview,
-          orchestrated.draftFields
+          orchestrated.draftFields,
+          orchestrated.savedDraftId
         );
         setGenerating(false);
         return;
@@ -184,12 +287,12 @@ export function useChat() {
 
       await aiService.streamChat(
         text,
-        currentHistory,
+        historyAfterUser,
         {
           presetId: activePresetId,
           customInstructionOverrides: modifiedPersonality,
           sentiment,
-          convoCount: currentHistory.length,
+          convoCount: historyAfterUser.length,
           userPreferences,
         },
         (chunk) => {
@@ -256,6 +359,10 @@ export function useChat() {
       messages,
       userPreferences,
       user,
+      chatScope,
+      isDealer,
+      isAdmin,
+      role,
       addMessage,
       setGenerating,
       updateStreamedReply,
@@ -265,16 +372,21 @@ export function useChat() {
 
   const createNewChat = useCallback(
     async (title?: string) => {
-      return await createSession(userId, title);
+      return await createSession(storageScopeKey, title);
     },
-    [userId, createSession]
+    [storageScopeKey, createSession]
   );
 
   const removeChat = useCallback(
     async (sessionId: string) => {
-      await deleteSession(userId, sessionId);
+      await deleteSession(storageScopeKey, sessionId);
     },
-    [userId, deleteSession]
+    [storageScopeKey, deleteSession]
+  );
+
+  const chatActor = useMemo(
+    () => resolveChatActorDisplay(user, chatScope),
+    [user, chatScope]
   );
 
   return {
@@ -282,6 +394,8 @@ export function useChat() {
     activeSessionId,
     activeSession: sessions.find((s) => s.id === activeSessionId) || null,
     currentMessages: activeSessionId ? messages[activeSessionId] || [] : [],
+    chatScope,
+    chatActor,
     isGenerating,
     streamedReply,
     streamedCarCards,

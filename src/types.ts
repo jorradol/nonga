@@ -56,6 +56,8 @@ export interface ChatMessage {
   draftFields?: any;
   /** เป็นข้อความแสดง Draft Preview หรือไม่ */
   isDraftPreview?: boolean;
+  /** หลังบันทึกประกาศจากแชท — ใช้ปุ่มไปหน้า Draft */
+  savedDraftId?: string;
 }
 
 /** ข้อมูลการ์ดรถในแชท — จาก database เท่านั้น */

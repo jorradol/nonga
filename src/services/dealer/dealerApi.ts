@@ -149,6 +149,24 @@ export async function fetchDealerDrafts(
   return body.data;
 }
 
+export async function deleteDealerDraft(
+  h: DealerApiHeaders,
+  id: string
+): Promise<void> {
+  const res = await fetch(`/api/dealer/drafts/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: headers(h),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg =
+      typeof body.message === "string"
+        ? body.message
+        : "ลบประกาศไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง";
+    throw new Error(msg);
+  }
+}
+
 export async function patchDealerDraft(
   h: DealerApiHeaders,
   id: string,

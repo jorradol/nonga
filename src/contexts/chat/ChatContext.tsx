@@ -12,13 +12,10 @@ const ChatContext = createContext<ChatContextType | null>(null);
  */
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const chat = useChat();
-  const { initializeChat, sendMessage, activeSessionId, isGenerating } = chat;
+  const { sendMessage, activeSessionId, isGenerating } = chat;
   const pendingHandled = useRef(false);
 
-  // Hydrate chat sessions on startup
-  useEffect(() => {
-    initializeChat();
-  }, [initializeChat]);
+  // Chat hydration runs in useChat when dealer/user storage scope changes
 
   // Bridge CTAs from Marketplace / car details → modern chat
   useEffect(() => {

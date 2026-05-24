@@ -25,6 +25,7 @@ import {
 } from "./marketplaceChatSearch";
 
 import { isSellIntent, extractCarFieldsFromMessage, buildDraftPreviewCopy, type ExtractedCarFields } from "./sellIntentParser";
+import { isSaveListingChatAction } from "./chatDraftActions";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -34,6 +35,7 @@ export interface OrchestratedChatReply {
   hasMoreCars?: boolean;
   isDraftPreview?: boolean;
   draftFields?: ExtractedCarFields;
+  savedDraftId?: string;
 }
 
 export function tryOrchestrateChatReply(
@@ -51,10 +53,9 @@ export function tryOrchestrateChatReply(
     };
   }
 
-  const isSaveDraft = message.trim() === "บันทึกเป็น Draft";
-  if (isSaveDraft) {
+  if (isSaveListingChatAction(message)) {
     return {
-      text: "กำลังสร้างประกาศให้ครับ... (รอเชื่อมต่อ API)",
+      text: "กำลังบันทึกประกาศให้ครับ...",
       carCards: [],
       skipGemini: true,
     };
