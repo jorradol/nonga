@@ -47,6 +47,10 @@ export function buildDealerDraftPayloadFromChat(
   }
 
   const descParts: string[] = [];
+  if (fields.licensePlate?.trim()) {
+    descParts.push(`ทะเบียน ${fields.licensePlate.trim()}`);
+  }
+  if (fields.trimSubModel?.trim()) descParts.push(fields.trimSubModel.trim());
   if (fields.transmission?.trim()) descParts.push(fields.transmission.trim());
   if (fields.description?.trim()) descParts.push(fields.description.trim());
 
