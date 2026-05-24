@@ -53,7 +53,7 @@ function scopeOr403(req: Request, res: Response) {
 }
 
 export function registerDealerPortalRoutes(app: Express): void {
-  app.post("/api/admin/draft-inventory/new", (req, res) => {
+  app.post("/api/dealer/drafts/new", (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
     const body = req.body ?? {};

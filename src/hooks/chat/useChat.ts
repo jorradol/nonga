@@ -87,12 +87,13 @@ export function useChat() {
               const draftData = lastDraftMsg.draftFields;
               
               // Call the dealer draft API
-              const res = await fetch("/api/admin/draft-inventory/new", {
+              const res = await fetch("/api/dealer/drafts/new", {
                 method: "POST",
                 headers: { 
                   "Content-Type": "application/json",
-                  // Add a mock authorization header for testing if needed
-                  "Authorization": `Bearer mock-token-${user?.uid || "dealer-123"}`
+                  // Use the proper Firebase token if available, but for now we rely on the backend's scopeOr403
+                  // which checks the Authorization header or cookies depending on implementation.
+                  // We remove the hardcoded mock-token to avoid Unauthorized errors if the backend expects a real token.
                 },
                 body: JSON.stringify({
                   brand: draftData.brand,
@@ -109,15 +110,15 @@ export function useChat() {
               
               if (res.ok) {
                 const result = await res.json();
-                orchestrated.text = `บันทึก Draft สำเร็จเรียบร้อยแล้วครับ! ลุงสามารถไปดูและแก้ไขต่อได้ที่หน้าจัดการประกาศครับ\n(Draft ID: ${result.data?.id || 'N/A'})`;
+                orchestrated.text = `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! ลุงสามารถไปดูและแก้ไขต่อได้ที่หน้าจัดการประกาศครับ\n(Draft ID: ${result.data?.id || 'N/A'})`;
               } else {
                 const errorData = await res.json().catch(() => ({}));
                 console.error("Draft API Error:", errorData);
-                orchestrated.text = `เกิดข้อผิดพลาดในการบันทึก Draft ครับ (${errorData.message || res.statusText}) รบกวนลองใหม่อีกครั้ง`;
+                orchestrated.text = `เกิดข้อผิดพลาดในการบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง`;
               }
             } catch (e) {
               console.error("Failed to save draft:", e);
-              orchestrated.text = "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึก Draft ครับ";
+              orchestrated.text = "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง";
             }
           } else {
             orchestrated.text = "ไม่พบข้อมูลรถที่กำลังจะลงขายครับ รบกวนพิมพ์รายละเอียดรถใหม่อีกครั้งนะครับ";

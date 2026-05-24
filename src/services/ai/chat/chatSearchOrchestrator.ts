@@ -54,7 +54,7 @@ export function tryOrchestrateChatReply(
   const isSaveDraft = message.trim() === "บันทึกเป็น Draft";
   if (isSaveDraft) {
     return {
-      text: "กำลังสร้าง Draft ให้ครับ... (รอเชื่อมต่อ API)",
+      text: "กำลังสร้างประกาศให้ครับ... (รอเชื่อมต่อ API)",
       carCards: [],
       skipGemini: true,
     };
@@ -72,7 +72,7 @@ export function tryOrchestrateChatReply(
   const isAddPhoto = message.trim() === "เพิ่มรูปภาพ";
   if (isAddPhoto) {
     return {
-      text: "ลุงสามารถอัปโหลดรูปภาพในแชทนี้ได้เลยครับ (ระบบกำลังพัฒนาการอัปโหลดในแชท ตอนนี้รบกวนบันทึกเป็น Draft แล้วไปเพิ่มรูปในหน้าจัดการนะครับ)",
+      text: "ลุงสามารถอัปโหลดรูปภาพในแชทนี้ได้เลยครับ (ระบบกำลังพัฒนาการอัปโหลดในแชท ตอนนี้รบกวนบันทึกประกาศแล้วไปเพิ่มรูปในหน้าจัดการนะครับ)",
       carCards: [],
       skipGemini: true,
     };

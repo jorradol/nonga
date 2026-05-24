@@ -389,7 +389,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   }}
                   className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
                 >
-                  บันทึกเป็น Draft
+                  บันทึกประกาศ
                 </button>
                 <button
                   type="button"
