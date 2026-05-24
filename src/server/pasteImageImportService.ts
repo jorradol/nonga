@@ -17,7 +17,7 @@ import {
 import type { ParsedPasteVehicle } from "../utils/inventoryImport/pasteRawVehicleTypes";
 
 const PREVIEW_PROXY_TIMEOUT_MS = 12_000;
-const SAFE_LISTING_ID = /^draft-import-[0-9]+-d\d+$/;
+const SAFE_LISTING_ID = /^draft(?:-import-[0-9]+-d\d+|-[0-9]+)$/;
 
 export interface SelectedImageImportResult {
   storedUrls: string[];
@@ -112,7 +112,7 @@ export async function importSelectedPasteImages(
       storedUrls: [],
       thumbnails: [],
       failed: [],
-      warnings: ["รหัส Draft ไม่ถูกต้องสำหรับบันทึกรูป"],
+      warnings: ["รหัสประกาศไม่ถูกต้องสำหรับบันทึกรูป"],
     };
   }
 

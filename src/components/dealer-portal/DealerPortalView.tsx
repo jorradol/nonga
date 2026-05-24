@@ -115,12 +115,13 @@ export default function DealerPortalView() {
 
   return (
     <DealerPortalLayout activeTab={tab} dealerName={dealerName}>
-      {(isDealer || isAdmin) && (
-        <p className="text-[10px] text-slate-600 font-mono mb-4 -mt-2">
-          dealerId: {apiHeaders.dealerId}
-          {isAdmin ? " · admin view" : ""}
-        </p>
-      )}
+      {(isDealer || isAdmin) &&
+        (import.meta as { env?: { DEV?: boolean } }).env?.DEV && (
+          <p className="text-[10px] text-slate-600 font-mono mb-4 -mt-2">
+            [dev] tent: {apiHeaders.dealerId}
+            {isAdmin ? " · admin" : ""}
+          </p>
+        )}
       {content}
     </DealerPortalLayout>
   );

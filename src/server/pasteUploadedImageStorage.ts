@@ -8,7 +8,7 @@ import { saveProcessedListingImagePair } from "./listingImageStorage";
 export { PASTE_SOURCE_MAX_BYTES as PASTE_UPLOAD_MAX_DECODED_BYTES };
 
 const PASTE_MAX_FILES = 12;
-const SAFE_LISTING_ID = /^draft-import-[0-9]+-d\d+$/;
+const SAFE_LISTING_ID = /^draft(?:-import-[0-9]+-d\d+|-[0-9]+)$/;
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",
@@ -142,7 +142,7 @@ export async function persistPasteUploadedImages(
   | { ok: false; status: number; message: string }
 > {
   if (!SAFE_LISTING_ID.test(listingId)) {
-    return { ok: false, status: 400, message: "รหัส Draft ไม่ถูกต้อง" };
+    return { ok: false, status: 400, message: "รหัสประกาศไม่ถูกต้อง" };
   }
 
   const decoded = decodePasteUploadFiles(files);

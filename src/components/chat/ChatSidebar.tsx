@@ -163,9 +163,20 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           </AnimatePresence>
 
           {sessions.length === 0 && (
-            <div className="text-center py-8 px-4" id="empty-sidebar">
+            <div className="text-center py-8 px-4 space-y-3" id="empty-sidebar">
               <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
-              <p className="text-xs text-slate-500">ไม่มีประวัติการพูดคุย</p>
+              <p className="text-xs font-semibold text-slate-300">ยังไม่มีประวัติแชท</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                กด «แชทใหม่» แล้วบอกน้องเอว่าต้องการขายรถอะไร หรือถามหารถในตลาดได้เลย
+              </p>
+              <button
+                type="button"
+                disabled={isGenerating}
+                onClick={() => void handleCreateNewChat()}
+                className="min-h-[44px] w-full px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50"
+              >
+                เริ่มแชทใหม่
+              </button>
             </div>
           )}
         </div>

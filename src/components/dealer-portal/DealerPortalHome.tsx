@@ -49,7 +49,7 @@ export function DealerPortalHome({ apiHeaders, isDarkMode }: Props) {
       <div>
         <h1 className="text-2xl font-display font-bold">แดชบอร์ดเต็นท์</h1>
         <p className="text-sm text-slate-400 mt-1">
-          สรุปรถของคุณ — Published, Draft และที่ต้องตรวจสอบ
+          สรุปรถของคุณ — ลงขายแล้ว ยังไม่ลงขาย และที่ต้องตรวจสอบ
         </p>
       </div>
 
@@ -62,8 +62,8 @@ export function DealerPortalHome({ apiHeaders, isDarkMode }: Props) {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            { label: "Published", value: stats.published, icon: Car, color: "text-green-400" },
-            { label: "Draft", value: stats.draft, icon: FileEdit, color: "text-amber-400" },
+            { label: "ลงขายแล้ว", value: stats.published, icon: Car, color: "text-green-400" },
+            { label: "ยังไม่ลงขาย", value: stats.draft, icon: FileEdit, color: "text-amber-400" },
             { label: "ต้องตรวจสอบ", value: stats.needsReview, icon: AlertTriangle, color: "text-orange-300" },
             { label: "ซ่อนจากตลาด", value: stats.hidden, icon: Car, color: "text-slate-400" },
             { label: "ไม่มีรูป", value: stats.noImages, icon: ImageIcon, color: "text-red-300" },
@@ -90,7 +90,7 @@ export function DealerPortalHome({ apiHeaders, isDarkMode }: Props) {
             navigateDealerTab("import");
             window.dispatchEvent(new PopStateEvent("popstate"));
           }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-bold"
+          className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-orange-600 text-white text-xs font-bold"
         >
           <Upload className="w-4 h-4" />
           นำเข้ารถเพิ่ม
@@ -101,9 +101,9 @@ export function DealerPortalHome({ apiHeaders, isDarkMode }: Props) {
             navigateDealerTab("drafts");
             window.dispatchEvent(new PopStateEvent("popstate"));
           }}
-          className="px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-300 text-xs font-bold"
+          className="px-4 py-2.5 min-h-[44px] rounded-xl border border-amber-500/40 text-amber-300 text-xs font-bold"
         >
-          จัดการ Draft
+          จัดการประกาศรอลงขาย
         </button>
         {(stats?.possibleDuplicates ?? 0) + (stats?.draftDuplicates ?? 0) > 0 && (
           <button

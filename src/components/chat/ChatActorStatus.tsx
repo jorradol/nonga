@@ -30,11 +30,14 @@ export function ChatActorStatus() {
         </div>
         <div className="min-w-0">
           <p className="text-xs font-bold text-slate-100 truncate">
-            {isDealer ? `Dealer: ${chatActor.title}` : chatActor.title}
+            {chatActor.title}
           </p>
-          <p className="text-[10px] text-slate-500 font-mono truncate">
-            {isDealer ? `ID: ${chatActor.subtitle}` : `user: ${chatActor.subtitle}`}
-          </p>
+          {chatActor.subtitle && !isDealer && (
+            <p className="text-[10px] text-slate-500 truncate">{chatActor.subtitle}</p>
+          )}
+          {isDealer && (
+            <p className="text-[10px] text-orange-400/90">เต็นท์รถ — บันทึกประกาศได้จากแชท</p>
+          )}
         </div>
       </div>
     </div>

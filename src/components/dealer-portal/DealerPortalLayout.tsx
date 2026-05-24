@@ -22,7 +22,7 @@ export type DealerPortalTab =
 const NAV: { id: DealerPortalTab; label: string; path: string; icon: React.ElementType }[] = [
   { id: "home", label: "แดชบอร์ด", path: "/dealer", icon: LayoutDashboard },
   { id: "inventory", label: "รถในตลาด", path: "/dealer/inventory", icon: Car },
-  { id: "drafts", label: "Draft", path: "/dealer/drafts", icon: FileEdit },
+  { id: "drafts", label: "ยังไม่ลงขาย", path: "/dealer/drafts", icon: FileEdit },
   { id: "duplicates", label: "รถซ้ำ", path: "/dealer/duplicates", icon: Copy },
   { id: "import", label: "นำเข้า", path: "/dealer/import", icon: Upload },
   { id: "profile", label: "โปรไฟล์", path: "/dealer/profile", icon: User },
@@ -64,16 +64,23 @@ export function DealerPortalLayout({
     <div className="max-w-6xl mx-auto pb-20">
       <div className="flex flex-col lg:flex-row gap-6">
         <aside
-          className={`lg:w-56 shrink-0 rounded-2xl border p-4 space-y-1 ${panel}`}
+          className={`lg:w-56 shrink-0 rounded-2xl border p-3 sm:p-4 ${panel} flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-4 lg:space-y-1`}
         >
-          <div className="flex items-center gap-2 px-2 py-3 mb-2 border-b border-slate-800/80">
+          <div className="hidden lg:flex items-center gap-2 px-2 py-3 mb-2 border-b border-slate-800/80">
             <Store className="w-5 h-5 text-orange-400" />
             <div>
               <p className="text-[10px] text-slate-500 uppercase font-bold">
-                Dealer Portal
+                ศูนย์จัดการเต็นท์
               </p>
               <p className="text-xs font-semibold truncate">{dealerName}</p>
             </div>
+          </div>
+
+          <div className="lg:hidden shrink-0 flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/80 max-w-[9.5rem]">
+            <Store className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <p className="text-[10px] font-semibold text-slate-200 truncate">
+              {dealerName}
+            </p>
           </div>
 
           {NAV.map((item) => {
@@ -87,7 +94,7 @@ export function DealerPortalLayout({
                   navigateDealerTab(item.id);
                   window.dispatchEvent(new PopStateEvent("popstate"));
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                className={`shrink-0 lg:w-full flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-xl text-xs font-semibold transition whitespace-nowrap ${
                   active
                     ? "bg-orange-600 text-white"
                     : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
@@ -99,14 +106,14 @@ export function DealerPortalLayout({
             );
           })}
 
-          <div className="pt-3 mt-3 border-t border-slate-800/80 space-y-1">
+          <div className="hidden lg:block pt-3 mt-3 border-t border-slate-800/80 space-y-1">
             <button
               type="button"
               onClick={() => setView("marketplace")}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] text-slate-500 hover:text-orange-400"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              ไป Marketplace
+              ไปตลาดรถ
             </button>
           </div>
         </aside>

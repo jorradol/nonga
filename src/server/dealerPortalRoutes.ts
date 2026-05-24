@@ -249,7 +249,7 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!ctx) return;
     const draft = getDealerDraftById(req.params.id);
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
-      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+      return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
     const body = (req.body ?? {}) as Record<string, unknown>;
     const has = (key: string) =>
@@ -302,12 +302,12 @@ export function registerDealerPortalRoutes(app: Express): void {
 
     const draftId = String(req.params.id ?? "").trim();
     if (!draftId) {
-      return res.status(400).json({ success: false, message: "ไม่พบ draft id" });
+      return res.status(400).json({ success: false, message: "ไม่พบรหัสประกาศ" });
     }
 
     const draft = getDealerDraftById(draftId);
     if (!draft) {
-      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+      return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
     if (!draftBelongsToDealer(draft, ctx.dealerId)) {
       if (process.env.NODE_ENV !== "production") {
@@ -325,7 +325,7 @@ export function registerDealerPortalRoutes(app: Express): void {
 
     const removed = removeDealerDraft(draftId);
     if (!removed) {
-      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+      return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
 
     if (process.env.NODE_ENV !== "production") {
@@ -353,7 +353,7 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!ctx) return;
     const draft = getDealerDraftById(req.params.id);
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
-      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+      return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
 
     const result = await persistPasteUploadedImages(req.params.id, req.body?.files);
@@ -371,7 +371,7 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!ctx) return;
     const draft = getDealerDraftById(req.params.id);
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
-      return res.status(404).json({ success: false, message: "ไม่พบ draft" });
+      return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
     const guard = validateDraftForPublish({
       id: draft.id,
@@ -400,7 +400,7 @@ export function registerDealerPortalRoutes(app: Express): void {
       }
       res.json({ success: true, data: result.car });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Publish failed";
+      const message = err instanceof Error ? err.message : "ลงขายไม่สำเร็จ";
       res.status(500).json({ success: false, message });
     }
   });

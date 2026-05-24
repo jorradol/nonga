@@ -302,7 +302,7 @@ export default function MarketplaceView() {
                   ยังไม่มีรถในตลาด
                 </h4>
                 <p className="text-slate-500 text-xs sm:text-sm">
-                  เป็นคนแรกที่ลงประกาศขายรถได้เลยครับ — ข้อมูลจะแสดงทันทีหลัง publish
+                  เป็นคนแรกที่ลงประกาศขายรถได้เลยครับ — ข้อมูลจะแสดงทันทีหลังลงขาย
                 </p>
               </div>
               <button

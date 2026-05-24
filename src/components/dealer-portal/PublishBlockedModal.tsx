@@ -49,7 +49,7 @@ export function PublishBlockedModal({
                   id="publish-blocked-title"
                   className="text-lg font-bold text-amber-100"
                 >
-                  ยังไม่สามารถเผยแพร่ประกาศได้
+                  ยังไม่สามารถลงขายได้
                 </h2>
                 <p className="text-sm text-slate-300 mt-2 leading-relaxed">
                   กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด

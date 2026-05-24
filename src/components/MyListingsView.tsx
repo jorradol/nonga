@@ -146,8 +146,7 @@ export default function MyListingsView() {
             ประกาศของฉัน
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            แก้ไข ซ่อน หรือลบประกาศได้จากหน้านี้ — รหัสผู้ขาย:{" "}
-            <span className="font-mono text-orange-400">{ownerId || "—"}</span>
+            แก้ไข ซ่อน หรือลบประกาศของคุณได้จากหน้านี้
           </p>
         </div>
         <div className="flex gap-2">
@@ -214,7 +213,7 @@ export default function MyListingsView() {
           <CarFront className="w-12 h-12 mx-auto text-slate-500" />
           <h2 className="font-bold text-lg">ยังไม่มีประกาศของคุณในระบบ</h2>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
-            ลงประกาศใหม่หรือตรวจว่า ownerId ตรงกับบัญชีที่ล็อกอิน
+            กดลงประกาศใหม่เพื่อเพิ่มรถคันแรก หรือคุยกับน้องเอให้ช่วยสรุปข้อมูลรถก่อนบันทึก
           </p>
           <button
             type="button"

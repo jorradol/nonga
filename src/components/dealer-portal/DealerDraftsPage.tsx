@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, AlertTriangle, ImagePlus, Trash2 } from "lucide-react";
+import { useAppStore } from "../../store";
+import { Loader2, Send, AlertTriangle, ImagePlus, Trash2, FileEdit } from "lucide-react";
+import { EmptyState } from "../shared/EmptyState";
+import {
+  ListingStatusBadge,
+  draftRecordStatusVariant,
+} from "../shared/ListingStatusBadge";
+import { logTechnicalError, toUserFacingError } from "../../utils/userFacingErrors";
 import type { DealerApiHeaders, DealerDraftRecord } from "../../services/dealer/dealerApi";
 import { DuplicateBadge } from "../duplicate/DuplicateBadge";
 import {
@@ -46,6 +53,7 @@ export function DealerDraftsPage({
   onFocusDraftConsumed,
   onPublished,
 }: Props) {
+  const { setView } = useAppStore();
   const [drafts, setDrafts] = useState<DealerDraftRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +79,8 @@ export function DealerDraftsPage({
     try {
       setDrafts(await fetchDealerDrafts(apiHeaders));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+      logTechnicalError("DealerDraftsPage.load", e);
+      setError(toUserFacingError(e, "โหลดรายการประกาศไม่สำเร็จครับ"));
     } finally {
       setLoading(false);
     }
@@ -159,7 +168,8 @@ export function DealerDraftsPage({
         );
         return;
       }
-      setPublishError(e instanceof Error ? e.message : "Publish ล้มเหลว");
+      logTechnicalError("DealerDraftsPage.publish", e);
+      setPublishError(toUserFacingError(e, "ลงขายไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง"));
     }
   };
 
@@ -219,7 +229,8 @@ export function DealerDraftsPage({
       setImageEditDirty(false);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+      logTechnicalError("DealerDraftsPage.save", e);
+      setError(toUserFacingError(e, "บันทึกประกาศไม่สำเร็จครับ"));
     } finally {
       setSaving(false);
     }
@@ -250,9 +261,9 @@ export function DealerDraftsPage({
         }}
         onConfirm={() => void confirmDeleteDraft()}
       />
-      <h1 className="text-xl font-bold">Draft / รอเติมข้อมูล</h1>
-      <p className="text-xs text-slate-400">
-        ต้องมีรูปจริง ยี่ห้อ รุ่น ราคา และปีรถก่อน Publish — ระบบจะแจ้งรายการที่ขาด
+      <h1 className="text-xl sm:text-2xl font-bold">ประกาศที่ยังไม่ลงขาย</h1>
+      <p className="text-xs sm:text-sm text-slate-400">
+        เติมรูป ยี่ห้อ รุ่น ราคา และปีรถให้ครบก่อนกดลงขาย — ระบบจะบอกว่ายังขาดอะไร
       </p>
 
       {deleteSuccess && (
@@ -277,7 +288,13 @@ export function DealerDraftsPage({
       {loading ? (
         <Loader2 className="w-6 h-6 animate-spin text-orange-400 mx-auto" />
       ) : drafts.length === 0 ? (
-        <p className="text-slate-500 text-sm text-center py-12">ไม่มี Draft</p>
+        <EmptyState
+          icon={FileEdit}
+          title="ยังไม่มีประกาศที่บันทึกไว้"
+          description="คุยกับน้องเอเพื่อสร้างประกาศจากข้อความ หรือนำเข้ารายการรถจากเมนูนำเข้า แล้วกลับมาแก้ไขและลงขายที่นี่"
+          actionLabel="ไปคุยกับน้องเอ"
+          onAction={() => setView("chat")}
+        />
       ) : (
         <div className="space-y-3">
           {drafts.map((d) => {
@@ -285,6 +302,18 @@ export function DealerDraftsPage({
             const missingImage = publishCheck.missingLabelsThai.includes(
               "ขาดรูปภาพสินค้า"
             );
+            const statusVariant = draftRecordStatusVariant(
+              d.status,
+              publishCheck.ok,
+              missingImage
+            );
+            const fieldLabels: Record<string, string> = {
+              brand: "ยี่ห้อ",
+              model: "รุ่น",
+              year: "ปีรถ",
+              price: "ราคา",
+              mileage: "เลขไมล์",
+            };
             return (
             <div
               key={d.id}
@@ -295,10 +324,11 @@ export function DealerDraftsPage({
                   : "border-slate-800"
               }`}
             >
-              <div className="flex justify-between gap-2 flex-wrap">
-                <div>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-sm">{d.title}</h3>
+                    <ListingStatusBadge variant={statusVariant} />
                     <DuplicateBadge
                       status={
                         (d.duplicateStatus as
@@ -311,7 +341,7 @@ export function DealerDraftsPage({
                     />
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    คะแนน {d.confidenceScore}% · {d.status}
+                    ความมั่นใจของข้อมูล {d.confidenceScore}%
                   </p>
                   {publishCheck.ok ? (
                     <p className="text-[10px] text-emerald-400/90 mt-1.5">
@@ -346,21 +376,21 @@ export function DealerDraftsPage({
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-2 w-full sm:w-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => openEdit(d)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300"
+                    className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-700 text-xs text-slate-300 font-semibold"
                   >
                     แก้ไข
                   </button>
                   <button
                     type="button"
                     onClick={() => tryPublish(d.id)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold"
+                    className="min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-xs font-bold"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    Publish
+                    <Send className="w-4 h-4" />
+                    ลงขาย
                   </button>
                 </div>
               </div>
@@ -370,7 +400,7 @@ export function DealerDraftsPage({
                   {(["brand", "model", "year", "price", "mileage"] as const).map(
                     (key) => (
                       <label key={key} className="text-[11px]">
-                        <span className="text-slate-500">{key}</span>
+                        <span className="text-slate-500">{fieldLabels[key] ?? key}</span>
                         <input
                           className="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-sm"
                           value={String(form[key] ?? "")}
@@ -403,7 +433,7 @@ export function DealerDraftsPage({
                         type="button"
                         disabled={saving || deleting}
                         onClick={() => saveDraft(d)}
-                        className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50"
+                        className="min-h-[44px] px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50"
                       >
                         {saving ? "กำลังบันทึก…" : "บันทึกประกาศ"}
                       </button>
@@ -411,7 +441,7 @@ export function DealerDraftsPage({
                         type="button"
                         disabled={deleting}
                         onClick={closeEdit}
-                        className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 text-xs disabled:opacity-50"
+                        className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-600 text-slate-300 text-xs disabled:opacity-50"
                       >
                         ยกเลิก
                       </button>
@@ -423,7 +453,7 @@ export function DealerDraftsPage({
                         setDeleteError(null);
                         setDeleteConfirmId(d.id);
                       }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-500/50 bg-red-950/40 text-red-300 hover:bg-red-900/50 text-xs font-bold disabled:opacity-50"
+                      className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-red-500/50 bg-red-950/40 text-red-300 hover:bg-red-900/50 text-xs font-bold disabled:opacity-50 w-full sm:w-auto justify-center"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       ลบประกาศ

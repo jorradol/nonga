@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Search, EyeOff, Eye, Trash2, ExternalLink } from "lucide-react";
+import { Loader2, Search, EyeOff, Eye, Trash2, ExternalLink, Car } from "lucide-react";
+import { EmptyState } from "../shared/EmptyState";
+import { ListingStatusBadge } from "../shared/ListingStatusBadge";
+import { logTechnicalError, toUserFacingError } from "../../utils/userFacingErrors";
 import { useAppStore } from "../../store";
 import type { DealerApiHeaders, DealerInventoryCar } from "../../services/dealer/dealerApi";
 import { DuplicateBadge } from "../duplicate/DuplicateBadge";
@@ -29,7 +32,8 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
     try {
       setCars(await fetchDealerInventory(apiHeaders, q));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+      logTechnicalError("DealerInventoryPage.load", e);
+      setError(toUserFacingError(e, "โหลดรายการรถไม่สำเร็จครับ"));
     } finally {
       setLoading(false);
     }
@@ -45,14 +49,17 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">รถ Published ของเต็นท์</h1>
+      <h1 className="text-xl sm:text-2xl font-bold">รถที่ลงขายแล้ว</h1>
+      <p className="text-xs text-slate-400">
+        รายการที่แสดงในตลาดรถ — ซ่อน แก้ไข หรือลบได้จากหน้านี้
+      </p>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sm"
-            placeholder="ค้นหา brand / model / title"
+            placeholder="ค้นหายี่ห้อ รุ่น หรือชื่อประกาศ"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -60,7 +67,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
         <button
           type="button"
           onClick={load}
-          className="px-4 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold"
+          className="min-h-[44px] px-4 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-bold shrink-0"
         >
           ค้นหา
         </button>
@@ -70,7 +77,18 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
       {loading ? (
         <Loader2 className="w-6 h-6 animate-spin text-orange-400 mx-auto" />
       ) : cars.length === 0 ? (
-        <p className="text-slate-500 text-sm text-center py-12">ยังไม่มีรถในคลัง</p>
+        <EmptyState
+          icon={Car}
+          title="ยังไม่มีรถที่ลงขายในตลาด"
+          description="เมื่อลงขายประกาศจากเมนู «ยังไม่ลงขาย» รถจะมาแสดงที่นี่ หรือนำเข้ารายการจากเมนูนำเข้า"
+          secondaryActionLabel="ไปจัดการประกาศรอลงขาย"
+          onSecondaryAction={() => {
+            if (typeof window !== "undefined") {
+              window.history.replaceState(null, "", "/dealer/drafts");
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }
+          }}
+        />
       ) : (
         <div className="space-y-3">
           {cars.map((c) => (
@@ -93,17 +111,14 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                   <p className="text-[11px] text-slate-500">
                     {c.brand} {c.model} · {c.year} · ฿{c.price.toLocaleString("th-TH")}
                   </p>
-                  <span
-                    className={`text-[10px] font-bold ${
-                      c.listingStatus === "hidden"
-                        ? "text-slate-500"
-                        : "text-green-400"
-                    }`}
-                  >
-                    {c.listingStatus === "hidden" ? "ซ่อนจากตลาด" : "แสดงในตลาด"}
-                  </span>
+                  <ListingStatusBadge
+                    variant={
+                      c.listingStatus === "hidden" ? "hidden" : "published"
+                    }
+                    className="mt-1"
+                  />
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex flex-wrap gap-1.5 shrink-0">
                   <button
                     type="button"
                     title="ดูในตลาด"
@@ -111,7 +126,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                       setFilters({ search: c.title });
                       setView("marketplace");
                     }}
-                    className="p-2 rounded-lg border border-slate-700 text-slate-400 hover:text-orange-400"
+                    className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-slate-700 text-slate-400 hover:text-orange-400"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </button>
@@ -124,7 +139,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                         c.listingStatus !== "hidden"
                       ).then(load)
                     }
-                    className="p-2 rounded-lg border border-slate-700 text-slate-400"
+                    className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-slate-700 text-slate-400"
                   >
                     {c.listingStatus === "hidden" ? (
                       <Eye className="w-4 h-4" />
@@ -138,7 +153,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                       setEditingId(c.id);
                       setForm(c);
                     }}
-                    className="px-2 py-1 rounded-lg border border-slate-700 text-[10px] text-slate-300"
+                    className="min-h-[44px] px-3 py-2 rounded-xl border border-slate-700 text-xs text-slate-300 font-semibold"
                   >
                     แก้ไข
                   </button>
@@ -149,7 +164,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                         deleteDealerInventory(apiHeaders, c.id).then(load);
                       }
                     }}
-                    className="p-2 rounded-lg border border-red-500/30 text-red-400"
+                    className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-red-500/30 text-red-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -160,7 +175,13 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                 <div className="mt-3 grid sm:grid-cols-2 gap-2 pt-3 border-t border-slate-800">
                   {(["price", "year", "mileage"] as const).map((key) => (
                     <label key={key} className="text-[11px]">
-                      <span className="text-slate-500">{key}</span>
+                      <span className="text-slate-500">
+                        {key === "price"
+                          ? "ราคา"
+                          : key === "year"
+                            ? "ปีรถ"
+                            : "เลขไมล์"}
+                      </span>
                       <input
                         className="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-sm"
                         value={String(form[key] ?? "")}

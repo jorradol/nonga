@@ -172,7 +172,7 @@ async function main() {
   const menuChecks: [string, RegExp][] = [
     ["โปรไฟล์เต็นท์", /โปรไฟล์/i],
     ["รถในตลาด", /รถในตลาด/i],
-    ["Draft", /Draft/i],
+    ["ยังไม่ลงขาย", /ยังไม่ลงขาย/i],
     ["รถซ้ำ", /รถซ้ำ/i],
     ["นำเข้าไฟล์", /นำเข้า/i],
   ];
@@ -219,7 +219,7 @@ async function main() {
     .catch(() => false);
   const memberDealerPortalTitle = await memberPage
     .locator("aside")
-    .getByText(/^Dealer Portal$/i)
+    .getByText(/^ศูนย์จัดการเต็นท์$/i)
     .isVisible()
     .catch(() => false);
   record(

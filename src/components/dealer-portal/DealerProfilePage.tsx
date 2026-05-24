@@ -59,8 +59,6 @@ export function DealerProfilePage({ apiHeaders }: Props) {
   return (
     <div className="space-y-4 max-w-lg">
       <h1 className="text-xl font-bold">โปรไฟล์เต็นท์</h1>
-      <p className="text-[11px] text-slate-500 font-mono">dealerId: {profile.dealerId}</p>
-
       <div className="space-y-3">
         {fields.map((f) => (
           <label key={f.key} className="block text-[11px]">

@@ -4,6 +4,17 @@ import type {
   MarketplaceImportPayload,
 } from "../../utils/inventoryImport/import/types";
 import { dealerAuthHeaders } from "../../utils/apiAuthHeaders";
+import { logTechnicalError, toUserFacingMessage } from "../../utils/userFacingErrors";
+
+function failResponse(
+  scope: string,
+  res: Response,
+  body: { message?: string },
+  fallback: string
+): never {
+  logTechnicalError(scope, body.message ?? res.statusText, { status: res.status });
+  throw new Error(toUserFacingMessage(body.message, fallback));
+}
 
 export interface DealerApiHeaders {
   dealerId: string;
@@ -81,7 +92,7 @@ export async function fetchDealerDashboard(
 ): Promise<DealerDashboardStats> {
   const res = await fetch("/api/dealer/dashboard", { headers: headers(h) });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "โหลด dashboard ล้มเหลว");
+  if (!res.ok) failResponse("dealer-dashboard", res, body, "โหลดแดชบอร์ดไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -94,7 +105,7 @@ export async function fetchDealerInventory(
     headers: headers(h),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "โหลด inventory ล้มเหลว");
+  if (!res.ok) failResponse("dealer-inventory", res, body, "โหลดรายการรถไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -109,7 +120,7 @@ export async function patchDealerInventory(
     body: JSON.stringify(patch),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "บันทึกไม่สำเร็จ");
+  if (!res.ok) failResponse("dealer-inventory-patch", res, body, "บันทึกไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -122,7 +133,7 @@ export async function deleteDealerInventory(
     headers: headers(h),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "ลบไม่สำเร็จ");
+  if (!res.ok) failResponse("dealer-inventory-delete", res, body, "ลบรถไม่สำเร็จครับ");
 }
 
 export async function hideDealerInventory(
@@ -136,7 +147,7 @@ export async function hideDealerInventory(
     body: JSON.stringify({ hidden }),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "อัปเดตสถานะไม่สำเร็จ");
+  if (!res.ok) failResponse("dealer-inventory-visibility", res, body, "อัปเดตสถานะไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -145,7 +156,7 @@ export async function fetchDealerDrafts(
 ): Promise<DealerDraftRecord[]> {
   const res = await fetch("/api/dealer/drafts", { headers: headers(h) });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "โหลด drafts ล้มเหลว");
+  if (!res.ok) failResponse("dealer-drafts", res, body, "โหลดรายการประกาศไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -178,7 +189,7 @@ export async function patchDealerDraft(
     body: JSON.stringify(patch),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "บันทึก draft ไม่สำเร็จ");
+  if (!res.ok) failResponse("dealer-draft-patch", res, body, "บันทึกประกาศไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -216,7 +227,7 @@ export async function publishDealerDraft(
         body.missingLabelsThai ?? []
       );
     }
-    throw new Error(body.message ?? body.error ?? "Publish ล้มเหลว");
+    failResponse("dealer-draft-publish", res, body, "ลงขายไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง");
   }
   return body.data;
 }
@@ -226,7 +237,7 @@ export async function fetchDealerProfile(
 ): Promise<DealerProfile> {
   const res = await fetch("/api/dealer/profile", { headers: headers(h) });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "โหลด profile ล้มเหลว");
+  if (!res.ok) failResponse("dealer-profile", res, body, "โหลดโปรไฟล์ไม่สำเร็จครับ");
   return body.data;
 }
 
@@ -240,7 +251,7 @@ export async function patchDealerProfile(
     body: JSON.stringify(patch),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? "บันทึก profile ไม่สำเร็จ");
+  if (!res.ok) failResponse("dealer-profile-patch", res, body, "บันทึกโปรไฟล์ไม่สำเร็จครับ");
   return body.data;
 }
 
