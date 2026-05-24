@@ -1,5 +1,5 @@
 import React, { useImperativeHandle, useRef, forwardRef } from "react";
-import { X, FileSpreadsheet, FileText, Image as ImageIcon } from "lucide-react";
+import { X, FileSpreadsheet, FileText } from "lucide-react";
 import {
   CHAT_FILE_ACCEPT,
   CHAT_MAX_FILES,
@@ -13,7 +13,7 @@ import type { ChatMessageAttachment } from "../../types";
 export interface PendingChatFile {
   file: File;
   meta: ChatMessageAttachment;
-  /** blob: URL สำหรับ preview ก่อนส่ง */
+  /** blob: URL จาก URL.createObjectURL(file) */
   previewUrl?: string;
 }
 
@@ -25,7 +25,6 @@ interface ChatAttachmentInputProps {
   onAppend: (items: PendingChatFile[]) => void;
   onError: (message: string) => void;
   disabled?: boolean;
-  slotsUsed: number;
 }
 
 export function buildPendingChatFileSync(file: File): PendingChatFile {
@@ -35,7 +34,22 @@ export function buildPendingChatFileSync(file: File): PendingChatFile {
   return { file, meta, previewUrl };
 }
 
-export const ChatAttachmentPreviewStrip = ({
+function logAttachmentPickDev(files: File[]): void {
+  try {
+    const env = (import.meta as { env?: { DEV?: boolean } }).env;
+    if (!env?.DEV) return;
+    console.debug(
+      "[chat-attachment-pick]",
+      files.length,
+      files.map((f) => ({ name: f.name, type: f.type || "(none)", size: f.size }))
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Preview ภายในกล่อง composer — ใต้ข้อความ เหนือปุ่มแนบ/ส่ง */
+export const ChatComposerAttachmentPreview = ({
   pending,
   onRemoveAt,
 }: {
@@ -44,82 +58,99 @@ export const ChatAttachmentPreviewStrip = ({
 }) => {
   if (pending.length === 0) return null;
 
-  const imageCount = pending.filter((p) => p.meta.kind === "image").length;
+  const images = pending.filter((p) => p.meta.kind === "image");
+  const files = pending.filter((p) => p.meta.kind !== "image");
 
   return (
     <div
-      className="px-3 pt-3 pb-2 border-b border-slate-800/80 space-y-2 bg-slate-950/40"
+      className="px-3 pt-1 pb-2 border-t border-slate-800/60"
       id="chat-attachment-preview-row"
       data-testid="chat-attachment-preview"
     >
-      {imageCount > 0 && (
-        <p className="text-[10px] font-semibold text-slate-300 px-0.5">
-          รูปที่เลือก {imageCount} รูป — กดส่งเมื่อพร้อม
-        </p>
-      )}
-      {pending.length > imageCount && (
-        <p className="text-[10px] font-semibold text-slate-400 px-0.5">
-          ไฟล์แนบ {pending.length - imageCount} รายการ
-        </p>
-      )}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
-        {pending.map((item, idx) => (
-          <div
-            key={item.meta.id}
-            className="relative shrink-0 w-[72px] rounded-xl border border-slate-600 bg-slate-950 overflow-hidden shadow-md"
-          >
-            {item.meta.kind === "image" ? (
-              <img
-                src={item.previewUrl ?? item.meta.previewDataUrl}
-                alt={item.meta.name}
-                className="w-[72px] h-[72px] object-cover bg-slate-800"
-              />
-            ) : (
-              <div className="w-[72px] h-[72px] flex flex-col items-center justify-center gap-1 p-1">
-                {item.meta.kind === "spreadsheet" ? (
-                  <FileSpreadsheet className="w-7 h-7 text-emerald-400" />
-                ) : item.meta.kind === "pdf" ? (
-                  <FileText className="w-7 h-7 text-rose-400" />
+      <div className="flex flex-wrap gap-2 max-h-[88px] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-700">
+        {pending.map((item, idx) => {
+          if (item.meta.kind === "image") {
+            const src = item.previewUrl ?? item.meta.previewDataUrl;
+            return (
+              <div
+                key={item.meta.id}
+                className="relative shrink-0 w-16 h-16 rounded-lg border border-slate-600 bg-slate-800 overflow-hidden"
+              >
+                {src ? (
+                  <img
+                    src={src}
+                    alt={item.meta.name}
+                    className="w-full h-full object-cover block"
+                  />
                 ) : (
-                  <ImageIcon className="w-7 h-7 text-slate-400" />
+                  <div className="w-full h-full flex items-center justify-center text-[9px] text-slate-500">
+                    รูป
+                  </div>
                 )}
-                <span className="text-[8px] text-slate-400 text-center line-clamp-2 w-full px-0.5">
-                  {item.meta.name}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveAt(idx)}
+                  className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/75 text-white hover:bg-black cursor-pointer z-10"
+                  title="เอารูปออก"
+                  aria-label="เอารูปออก"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               </div>
-            )}
-            <button
-              type="button"
-              onClick={() => onRemoveAt(idx)}
-              className="absolute top-1 right-1 p-0.5 rounded-full bg-black/70 text-white hover:bg-black cursor-pointer z-10"
-              title="เอาไฟล์ออก"
-              aria-label="เอาไฟล์ออก"
+            );
+          }
+
+          return (
+            <div
+              key={item.meta.id}
+              className="relative flex items-center gap-1.5 shrink-0 max-w-[min(100%,220px)] rounded-full border border-slate-600 bg-slate-800/90 pl-2 pr-7 py-1"
             >
-              <X className="w-3 h-3" />
-            </button>
-            <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
-              <p className="text-[8px] text-slate-100 truncate">{item.meta.name}</p>
-              <p className="text-[7px] text-slate-400">{formatFileSize(item.meta.size)}</p>
+              {item.meta.kind === "spreadsheet" ? (
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              ) : (
+                <FileText className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              )}
+              <span className="text-[10px] text-slate-200 truncate max-w-[140px]">
+                {item.meta.name}
+              </span>
+              <span className="text-[9px] text-slate-500 shrink-0">
+                {formatFileSize(item.meta.size)}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemoveAt(idx)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"
+                title="เอาไฟล์ออก"
+                aria-label="เอาไฟล์ออก"
+              >
+                <X className="w-3 h-3" />
+              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      {images.length > 0 && (
+        <p className="text-[9px] text-slate-500 mt-1.5 px-0.5">
+          รูป {images.length} รูป
+          {files.length > 0 ? ` · ไฟล์ ${files.length} รายการ` : ""}
+        </p>
+      )}
     </div>
   );
 };
 
+/** @deprecated use ChatComposerAttachmentPreview */
+export const ChatAttachmentPreviewStrip = ChatComposerAttachmentPreview;
+
 export const ChatAttachmentInput = forwardRef<
   ChatAttachmentInputHandle,
   ChatAttachmentInputProps
->(function ChatAttachmentInput(
-  { onAppend, onError, disabled, slotsUsed },
-  ref
-) {
+>(function ChatAttachmentInput({ onAppend, onError, disabled }, ref) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useImperativeHandle(ref, () => ({
     openPicker: () => {
-      if (!disabled && slotsUsed < CHAT_MAX_FILES) {
+      if (!disabled) {
         fileInputRef.current?.click();
       }
     },
@@ -131,18 +162,10 @@ export const ChatAttachmentInput = forwardRef<
     if (!list?.length) return;
 
     const selected = Array.from(list) as File[];
-    const slotsLeft = CHAT_MAX_FILES - slotsUsed;
-    if (slotsLeft <= 0) {
-      onError(MSG_TOO_MANY_FILES);
-      return;
-    }
-    if (selected.length > slotsLeft) {
-      onError(MSG_TOO_MANY_FILES);
-    }
-    const toAdd = selected.slice(0, slotsLeft);
-    const built: PendingChatFile[] = [];
+    logAttachmentPickDev(selected);
 
-    for (const file of toAdd) {
+    const built: PendingChatFile[] = [];
+    for (const file of selected) {
       try {
         built.push(buildPendingChatFileSync(file));
       } catch (err) {

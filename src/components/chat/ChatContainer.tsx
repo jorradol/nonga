@@ -2,11 +2,12 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Paperclip } from "lucide-react";
 import {
   ChatAttachmentInput,
-  ChatAttachmentPreviewStrip,
+  ChatComposerAttachmentPreview,
   revokePendingPreviews,
   type PendingChatFile,
   type ChatAttachmentInputHandle,
 } from "./ChatAttachmentInput";
+import { CHAT_MAX_FILES, MSG_TOO_MANY_FILES } from "../../utils/chat/chatAttachments";
 import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
@@ -143,6 +144,21 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     resetTextareaHeight();
     void sendMessage(textToSend, filesToSend.length > 0 ? filesToSend : undefined);
   };
+
+  const handleAppendAttachments = useCallback((items: PendingChatFile[]) => {
+    setAttachError(null);
+    setPendingAttachments((prev) => {
+      const slotsLeft = CHAT_MAX_FILES - prev.length;
+      if (slotsLeft <= 0) {
+        setAttachError(MSG_TOO_MANY_FILES);
+        return prev;
+      }
+      if (items.length > slotsLeft) {
+        setAttachError(MSG_TOO_MANY_FILES);
+      }
+      return [...prev, ...items.slice(0, slotsLeft)];
+    });
+  }, []);
 
   const handleRemoveAttachment = (index: number) => {
     setPendingAttachments((prev) => {
@@ -304,21 +320,38 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
         <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
-            <div className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg">
-              <ChatAttachmentPreviewStrip
+            <div
+              className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
+              id="chat-composer-box"
+            >
+              <textarea
+                ref={textareaRef}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  isGenerating
+                    ? "น้องเอกำลังพิมพ์คำตอบให้คุณอยู่ครับ..."
+                    : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
+                }
+                rows={1}
+                disabled={isGenerating}
+                className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-3 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] min-h-[44px]"
+                id="chat-textarea-elt"
+              />
+
+              <ChatComposerAttachmentPreview
                 pending={pendingAttachments}
                 onRemoveAt={handleRemoveAttachment}
               />
-              <ChatAttachmentInput
-                ref={attachmentInputRef}
-                slotsUsed={pendingAttachments.length}
-                onAppend={(items) =>
-                  setPendingAttachments((prev) => [...prev, ...items])
-                }
-                onError={(msg) => setAttachError(msg)}
-                disabled={isGenerating}
-              />
-              <div className="flex items-end pr-3 pl-1 pb-1 pt-0.5">
+
+              <div className="flex items-center gap-1 px-1 pb-1 pt-0.5 shrink-0">
+                <ChatAttachmentInput
+                  ref={attachmentInputRef}
+                  onAppend={handleAppendAttachments}
+                  onError={(msg) => setAttachError(msg)}
+                  disabled={isGenerating}
+                />
                 <button
                   type="button"
                   onClick={() => attachmentInputRef.current?.openPicker()}
@@ -330,28 +363,14 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 >
                   <Paperclip className="w-4.5 h-4.5" />
                 </button>
-                <textarea
-                  ref={textareaRef}
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    isGenerating
-                      ? "น้องเอกำลังพิมพ์คำตอบให้คุณอยู่ครับ..."
-                      : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
-                  }
-                  rows={1}
-                  disabled={isGenerating}
-                  className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-3 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] min-h-[44px]"
-                  id="chat-textarea-elt"
-                />
+                <div className="flex-1 min-w-0" aria-hidden />
                 <button
                   type="submit"
                   disabled={
                     isGenerating ||
                     (!inputText.trim() && pendingAttachments.length === 0)
                   }
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer ml-1"
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
                   id="send-message-btn"
                   title="ส่งข้อความ"
                 >
