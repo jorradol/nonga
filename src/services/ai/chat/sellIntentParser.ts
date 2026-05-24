@@ -145,7 +145,7 @@ export function buildDraftPreviewCopy(fields: ExtractedCarFields): string {
     reply += `ข้อมูลครบถ้วนครับ!\n`;
   }
 
-  reply += `ยังขาดรูปภาพรถอย่างน้อย 1 รูปก่อนสร้าง Draft ครับ ลุงสามารถอัปโหลดรูปได้เลย`;
+  reply += `ยังขาดรูปภาพรถอย่างน้อย 1 รูปก่อนลงขายครับ สามารถส่งรูปมาได้เลย ปังปุริเย่!`;
 
   return reply;
 }

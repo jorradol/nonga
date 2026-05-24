@@ -60,6 +60,14 @@ export function registerDealerPortalRoutes(app: Express): void {
     const id = `draft-${Date.now()}`;
     const profile = getDealerProfile(ctx.dealerId);
     
+    // Validate required fields for draft creation
+    if (!body.brand || !body.model || !body.year || !body.price || !body.mileage) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ข้อมูลไม่ครบถ้วน กรุณาระบุ ยี่ห้อ, รุ่น, ปี, ราคา, และเลขไมล์" 
+      });
+    }
+
     const newDraft = {
       id,
       dealerId: ctx.dealerId,
@@ -88,11 +96,15 @@ export function registerDealerPortalRoutes(app: Express): void {
       updatedAt: new Date().toISOString()
     };
     
-    // We need to import bulkAddDealerDrafts
-    const { bulkAddDealerDrafts } = require("./dealerDraftInventory");
-    bulkAddDealerDrafts([newDraft]);
-    
-    res.json({ success: true, data: newDraft });
+    try {
+      const { bulkAddDealerDrafts } = require("./dealerDraftInventory");
+      bulkAddDealerDrafts([newDraft]);
+      res.json({ success: true, data: newDraft });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create draft";
+      console.error("[draft-inventory/new] Error:", err);
+      res.status(500).json({ success: false, message });
+    }
   });
 
   app.get("/api/dealer/dashboard", (req, res) => {

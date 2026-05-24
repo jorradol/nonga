@@ -41,7 +41,7 @@ assertEqual(fields3.price, 1200000, "Extract price '1.2 ล้าน'");
 
 // Test 5: Build Preview Copy
 const preview = buildDraftPreviewCopy(fields1);
-if (preview.includes("ยี่ห้อ: Honda") && preview.includes("ราคา: 389,000 บาท") && preview.includes("ขาดรูปภาพรถ")) {
+if (preview.includes("ยี่ห้อ: Honda") && preview.includes("ราคา: 389,000 บาท") && preview.includes("ก่อนลงขายครับ")) {
   console.log("✅ PASS: Build preview copy looks correct");
 } else {
   console.error("❌ FAIL: Build preview copy");

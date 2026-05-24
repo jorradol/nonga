@@ -89,7 +89,11 @@ export function useChat() {
               // Call the dealer draft API
               const res = await fetch("/api/admin/draft-inventory/new", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                  "Content-Type": "application/json",
+                  // Add a mock authorization header for testing if needed
+                  "Authorization": `Bearer mock-token-${user?.uid || "dealer-123"}`
+                },
                 body: JSON.stringify({
                   brand: draftData.brand,
                   model: draftData.model,
@@ -105,9 +109,11 @@ export function useChat() {
               
               if (res.ok) {
                 const result = await res.json();
-                orchestrated.text = `บันทึก Draft สำเร็จเรียบร้อยแล้วครับ! ลุงสามารถไปดูและแก้ไขต่อได้ที่หน้าจัดการรถครับ\n(Draft ID: ${result.data?.id || 'N/A'})`;
+                orchestrated.text = `บันทึก Draft สำเร็จเรียบร้อยแล้วครับ! ลุงสามารถไปดูและแก้ไขต่อได้ที่หน้าจัดการประกาศครับ\n(Draft ID: ${result.data?.id || 'N/A'})`;
               } else {
-                orchestrated.text = "เกิดข้อผิดพลาดในการบันทึก Draft ครับ รบกวนลองใหม่อีกครั้ง";
+                const errorData = await res.json().catch(() => ({}));
+                console.error("Draft API Error:", errorData);
+                orchestrated.text = `เกิดข้อผิดพลาดในการบันทึก Draft ครับ (${errorData.message || res.statusText}) รบกวนลองใหม่อีกครั้ง`;
               }
             } catch (e) {
               console.error("Failed to save draft:", e);
