@@ -385,7 +385,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const failMessage: ChatMessage = {
         id: `msg-fail-${Date.now()}`,
         sender: "ai",
-        text: `คุณพี่ครับ เกิดข้อผิดพลาดทางเทคนิคนิดหน่อยสงสัยไฟตก! ⚡ ${err?.message || "กรุณากรอก API Key ในแถบความลับนะครับ"}`,
+        text: "ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งครับ",
         createdAt: new Date().toISOString()
       };
       set((state) => ({
@@ -427,14 +427,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         data = await response.json();
       } catch {
         throw new Error(
-          "ยังสร้างโพสต์ไม่ได้ กรุณาตรวจสอบ API key หรือทดลองใหม่อีกครั้ง"
+          "ยังสร้างโพสต์ไม่ได้ครับ กรุณาลองใหม่อีกครั้ง"
         );
       }
 
       if (!response.ok && !data.success) {
+        if (data.error) {
+          console.warn("AI description generator failed:", data.error);
+        }
         throw new Error(
-          data.error ||
-            "ยังสร้างโพสต์ไม่ได้ กรุณาตรวจสอบ API key หรือทดลองใหม่อีกครั้ง"
+          "ยังสร้างโพสต์ไม่ได้ครับ กรุณาลองใหม่อีกครั้ง"
         );
       }
 
@@ -444,16 +446,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         return description;
       }
 
+      if (data.error) {
+        console.warn("AI description generator returned no description:", data.error);
+      }
       throw new Error(
-        data.error ||
-          "ยังสร้างโพสต์ไม่ได้ กรุณาตรวจสอบ API key หรือทดลองใหม่อีกครั้ง"
+        "ยังสร้างโพสต์ไม่ได้ครับ กรุณาลองใหม่อีกครั้ง"
       );
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "ยังสร้างโพสต์ไม่ได้ กรุณาตรวจสอบ API key หรือทดลองใหม่อีกครั้ง";
-      throw new Error(message);
+      console.warn("AI description generator error:", err);
+      throw new Error("ยังสร้างโพสต์ไม่ได้ครับ กรุณาลองใหม่อีกครั้ง");
     } finally {
       set({ isWritingAI: false });
     }

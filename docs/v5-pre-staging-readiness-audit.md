@@ -14,7 +14,7 @@ Blockers before staging with real Firebase users:
 
 - Configure real Firebase Web Config and Firebase Admin credentials in staging. The committed `firebase-applet-config.json` still contains placeholder/fake values by design.
 - Deploy Firestore/Storage rules only after emulator validation. The current rules files are drafts, not deployed production rules.
-- Remove user-facing technical chat error details before inviting non-technical users. `useChat` still can render a technical error detail string in the chat fallback.
+- Remove user-facing technical chat error details before inviting non-technical users. Resolved in Step 2N by replacing the chat fallback with a generic Thai message.
 - Confirm persistent storage for server file data and local image files if staging is hosted outside a stable local/dev machine.
 
 Recommended tag: do not tag `v5.0-pre-staging` yet. Use `v5.0-pre-staging-rc1` only after the blockers above are resolved and one successful staging smoke run is recorded.
@@ -118,7 +118,7 @@ Remaining security work:
 
 - Deploy tested rules to staging before real users.
 - Continue moving remaining beta-token compatibility toward Firebase ID token headers where practical.
-- Remove technical chat error detail from user-visible messages before public Online Beta.
+- Keep technical chat details out of user-visible messages; Step 2N replaced the known chat fallback with a generic Thai message.
 
 ## 5. Data Storage
 
@@ -173,9 +173,9 @@ Ready:
 - Saved draft button remains available in chat bubbles.
 - Delete flow still has confirmation/popup coverage in final smoke.
 
-Needs fix before non-technical users:
+Fixed in Step 2N:
 
-- `useChat` can still display a technical fallback detail inside the chat message when AI streaming fails. Replace with a Thai-friendly generic message and log details only to console/server logs.
+- `useChat` now displays a Thai-friendly generic message when AI streaming fails and logs details only to console.
 
 Dev-only UI note:
 
@@ -242,7 +242,7 @@ Blockers before staging with real users:
 
 - Real staging Firebase Web/Admin env not configured yet.
 - Firestore/Storage rules draft not emulator-tested/deployed to staging.
-- User-visible technical chat error detail still exists.
+- User-visible technical chat error detail was fixed in Step 2N; verify during staging.
 - Persistent storage plan required if staging host does not preserve `data/`.
 
 Fix after staging rehearsal:
@@ -265,5 +265,5 @@ Run a small "Step 2N - Staging Environment Setup" pass:
 - Create Firebase Auth test users.
 - Seed `users` and `dealerMembers`.
 - Emulator-test and deploy rules to staging.
-- Fix the technical chat error message.
+- Verify the fixed technical chat error message during staging.
 - Run the staging smoke checklist above.
