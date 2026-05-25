@@ -3,7 +3,10 @@ import {
   PASTE_SOURCE_MAX_BYTES,
   processListingImageUpload,
 } from "./listingImageProcessor";
-import { saveProcessedListingImagePair } from "./listingImageStorage";
+import {
+  createImageStorageRepository,
+  type ListingImageTargetType,
+} from "./repositories/imageStorageRepository";
 
 export { PASTE_SOURCE_MAX_BYTES as PASTE_UPLOAD_MAX_DECODED_BYTES };
 
@@ -148,6 +151,9 @@ export interface PasteUploadedImagesResult {
     imageUrl: string;
     thumbnailPath: string;
     thumbnailUrl: string;
+    imageId?: string;
+    storagePath?: string;
+    publicUrl?: string;
     createdAt: string;
     sortOrder: number;
   }>;
@@ -155,13 +161,42 @@ export interface PasteUploadedImagesResult {
   failed: PasteUploadFileFailure[];
 }
 
-export async function persistPasteUploadedImages(
+export function persistPasteUploadedImages(
   listingId: string,
   files: unknown
 ): Promise<
   | ({ ok: true } & PasteUploadedImagesResult)
   | { ok: false; status: number; message: string }
+>;
+export function persistPasteUploadedImages(
+  dealerId: string,
+  listingId: string,
+  files: unknown
+): Promise<
+  | ({ ok: true } & PasteUploadedImagesResult)
+  | { ok: false; status: number; message: string }
+>;
+export async function persistPasteUploadedImages(
+  dealerIdOrListingId: string,
+  listingIdOrFiles: string | unknown,
+  maybeFiles?: unknown
+): Promise<
+  | ({ ok: true } & PasteUploadedImagesResult)
+  | { ok: false; status: number; message: string }
 > {
+  const dealerId =
+    typeof listingIdOrFiles === "string" && maybeFiles !== undefined
+      ? dealerIdOrListingId
+      : "legacy-dealer";
+  const listingId =
+    typeof listingIdOrFiles === "string" && maybeFiles !== undefined
+      ? listingIdOrFiles
+      : dealerIdOrListingId;
+  const files =
+    typeof listingIdOrFiles === "string" && maybeFiles !== undefined
+      ? maybeFiles
+      : listingIdOrFiles;
+
   if (!SAFE_LISTING_ID.test(listingId)) {
     return { ok: false, status: 400, message: "รหัสประกาศไม่ถูกต้อง" };
   }
@@ -180,6 +215,10 @@ export async function persistPasteUploadedImages(
   const metadata: PasteUploadedImagesResult["metadata"] = [];
   const warnings: string[] = [...decoded.failed.map((f) => `${f.name}: ${f.error}`)];
   const failed: PasteUploadFileFailure[] = [...decoded.failed];
+  const imageStorage = createImageStorageRepository();
+  const targetType: ListingImageTargetType = listingId.startsWith("draft-")
+    ? "draft"
+    : "listing";
 
   for (const { buffer, mimeType, name, originalFileName } of decoded.items) {
     const processed = await processListingImageUpload(buffer, mimeType, name);
@@ -189,34 +228,48 @@ export async function persistPasteUploadedImages(
       continue;
     }
 
-    const saved = saveProcessedListingImagePair(
+    const saved = await imageStorage.uploadListingImagePair(
+      dealerId,
       listingId,
-      processed.data.mainBuffer,
-      processed.data.thumbBuffer,
-      processed.data.mainExt,
-      name
-    );
-    if (saved.ok === false) {
+      {
+        mainBuffer: processed.data.mainBuffer,
+        thumbBuffer: processed.data.thumbBuffer,
+        ext: processed.data.mainExt,
+        mimeType: processed.data.mainExt === ".webp" ? "image/webp" : "image/jpeg",
+        width: processed.data.mainWidth,
+        height: processed.data.mainHeight,
+        originalFileName: originalFileName ?? name,
+        seed: name,
+        sortOrder: metadata.length,
+        targetType,
+      }
+    ).catch((err: unknown) => ({
+      error: err instanceof Error ? err.message : "บันทึกรูปไม่สำเร็จ",
+    }));
+    if ("error" in saved) {
       warnings.push(`${name}: ${saved.error}`);
       failed.push({ name, error: saved.error });
       continue;
     }
 
     storedUrls.push(saved.storedUrl);
-    thumbnails.push(saved.thumbnailUrl);
+    if (saved.thumbnailUrl) thumbnails.push(saved.thumbnailUrl);
     metadata.push({
-      fileName: saved.storedUrl.split("/").pop() ?? name,
-      originalFileName: originalFileName ?? name,
-      mimeType: processed.data.mainExt === ".webp" ? "image/webp" : "image/jpeg",
-      width: processed.data.mainWidth,
-      height: processed.data.mainHeight,
-      size: processed.data.mainBuffer.length,
-      imagePath: saved.storedUrl,
-      imageUrl: saved.storedUrl,
-      thumbnailPath: saved.thumbnailUrl,
-      thumbnailUrl: saved.thumbnailUrl,
-      createdAt: new Date().toISOString(),
-      sortOrder: metadata.length,
+      imageId: saved.metadata.imageId,
+      fileName: saved.metadata.fileName,
+      originalFileName: saved.metadata.originalFileName ?? originalFileName ?? name,
+      mimeType: saved.metadata.mimeType,
+      width: saved.metadata.width,
+      height: saved.metadata.height,
+      size: saved.metadata.size,
+      storagePath: saved.metadata.storagePath,
+      publicUrl: saved.metadata.publicUrl,
+      imagePath: saved.metadata.imagePath,
+      imageUrl: saved.metadata.imageUrl,
+      thumbnailPath: saved.metadata.thumbnailPath ?? "",
+      thumbnailUrl: saved.metadata.thumbnailUrl ?? "",
+      createdAt: saved.metadata.createdAt,
+      sortOrder: saved.metadata.sortOrder,
     });
   }
 

@@ -3,6 +3,7 @@ import {
   getMarketplaceCarById,
   getOwnerMarketplaceCars,
   removeMarketplaceCar,
+  resolveCarDealerId,
   setMarketplaceCarListingStatus,
   updateMarketplaceCar,
 } from "./marketplaceInventory";
@@ -75,7 +76,11 @@ export function registerOwnerListingRoutes(app: Express): void {
       });
     }
 
-    const persisted = persistListingImageUploads(car.id, decoded.items);
+    const persisted = await persistListingImageUploads(
+      resolveCarDealerId(car),
+      car.id,
+      decoded.items
+    );
     if (persisted.ok === false) {
       return res.status(persisted.status).json({
         ok: false,

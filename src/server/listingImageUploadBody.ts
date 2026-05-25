@@ -1,4 +1,4 @@
-import { saveListingImageUpload } from "./listingImageStorage";
+import { createImageStorageRepository } from "./repositories/imageStorageRepository";
 
 export const MAX_LISTING_IMAGE_FILES = 12;
 /** ขนาดไฟล์หลัง decode (ต่อรูป) */
@@ -84,18 +84,34 @@ export function decodeListingImageFiles(
   return { ok: true, items };
 }
 
-export function persistListingImageUploads(
+export async function persistListingImageUploads(
+  dealerId: string,
   carId: string,
   items: Array<{ buffer: Buffer; mimeType: string; name: string }>
-): { ok: true; storedUrls: string[] } | { ok: false; status: number; message: string } {
+): Promise<
+  { ok: true; storedUrls: string[] } | { ok: false; status: number; message: string }
+> {
+  const imageStorage = createImageStorageRepository();
   const storedUrls: string[] = [];
   for (let i = 0; i < items.length; i++) {
     const { buffer, mimeType, name } = items[i];
-    const saved = saveListingImageUpload(carId, buffer, mimeType, name);
-    if (saved.ok === false) {
-      return { ok: false, status: 400, message: saved.error };
+    try {
+      const saved = await imageStorage.uploadListingImage(dealerId, carId, {
+        buffer,
+        mimeType,
+        originalFileName: name,
+        seed: name,
+        sortOrder: i,
+        targetType: "listing",
+      });
+      storedUrls.push(saved.storedUrl);
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        status: 400,
+        message: err instanceof Error ? err.message : "บันทึกรูปไม่สำเร็จ",
+      };
     }
-    storedUrls.push(saved.storedUrl);
   }
   return { ok: true, storedUrls };
 }

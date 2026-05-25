@@ -196,6 +196,12 @@ Step 2Q repository plan:
 - Backend selector: `NONGA_DATA_BACKEND=file|firestore`
 - Default remains `file` until image and data migration steps are complete.
 
+Step 2R image repository plan:
+
+- `docs/firebase-image-storage-repository-v5.md`
+- Backend selector: `NONGA_IMAGE_BACKEND=file|firebase-storage`
+- Default remains `file` until image migration and Firebase Storage integration tests are complete.
+
 ## 4. Persistent Storage Probe For Option A
 
 Manual probe before real staging rehearsal:

@@ -248,7 +248,11 @@ export function registerDealerPortalRoutes(app: Express): void {
       return res.status(404).json({ success: false, message: "ไม่พบรถ" });
     }
 
-    const result = await persistPasteUploadedImages(req.params.id, req.body?.files);
+    const result = await persistPasteUploadedImages(
+      ctx.dealerId,
+      req.params.id,
+      req.body?.files
+    );
     if (result.ok === false) {
       if (process.env.NODE_ENV !== "production") {
         console.error("[POST /api/dealer/inventory/:id/upload-images]", {
@@ -410,7 +414,11 @@ export function registerDealerPortalRoutes(app: Express): void {
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
 
-    const result = await persistPasteUploadedImages(req.params.id, req.body?.files);
+    const result = await persistPasteUploadedImages(
+      ctx.dealerId,
+      req.params.id,
+      req.body?.files
+    );
     if (result.ok === false) {
       return res.status(result.status).json({
         success: false,
@@ -659,7 +667,7 @@ export function registerDealerPortalRoutes(app: Express): void {
         .json({ success: false, message: listingScope.message });
     }
 
-    const result = await persistPasteUploadedImages(listingId, files);
+    const result = await persistPasteUploadedImages(ctx.dealerId, listingId, files);
     if (result.ok === false) {
       return res.status(result.status).json({
         success: false,
