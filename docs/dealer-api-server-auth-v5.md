@@ -69,23 +69,23 @@ Still supported:
 
 ## Legacy Endpoints
 
-These are still legacy and must be handled in Step 2D before multi-dealer production:
+Step 2D adds server-side guards for these legacy routes, but dealer production should still prefer `/api/dealer/*`:
 
-- `POST /api/cars` still accepts `dealerId`/`ownerId` from request body.
-- `GET /api/my/listings` still trusts `X-Owner-Id`.
-- `POST /api/cars/:id/images` still uses legacy owner access.
-- `PATCH /api/cars/:id` still uses legacy owner access.
-- `PATCH /api/cars/:id/visibility` still uses legacy owner access.
-- `DELETE /api/cars/:id` still uses legacy owner access.
+- `POST /api/cars` is guarded by server-resolved owner/dealer scope.
+- `GET /api/my/listings` is guarded by server-resolved owner/dealer scope.
+- `POST /api/cars/:id/images` checks listing ownership before image upload.
+- `PATCH /api/cars/:id` checks listing ownership before edit.
+- `PATCH /api/cars/:id/visibility` checks listing ownership before hide/show.
+- `DELETE /api/cars/:id` checks listing ownership before delete.
 
-Production should move these owner routes behind Firebase auth context or disable them for dealer production.
+See `docs/legacy-owner-routes-auth-v5.md` for the Step 2D guard behavior. Raw `X-Owner-Id` is now DEV-only; production requires server auth context or a compatible beta/stub auth path.
 
-## Step 2D
+## Step 2E
 
 Recommended next step:
 
 - make frontend send Firebase ID tokens for dealer/admin APIs
-- migrate legacy owner listing routes to server auth context
+- migrate frontend legacy owner calls away from raw `X-Owner-Id`
 - add Firestore-backed user/dealer membership rules
 - remove production exposure to default DEV tokens
 - keep chat history migration as a separate step when ready

@@ -40,6 +40,10 @@ import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
 import { sanitizeListingImagesForId } from "./src/utils/listingImages";
 import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
 import {
+  resolveCreateListingOwner,
+  resolveOwnerRequestScope,
+} from "./src/server/ownerListingAccess";
+import {
   registerJsonBodyParsers,
   registerPayloadTooLargeHandler,
 } from "./src/server/httpBodyLimits";
@@ -149,8 +153,19 @@ app.get("/api/cars", (req, res) => {
 });
 
 // 2. API: Create car sale post (saves in-memory)
-app.post("/api/cars", (req, res) => {
+app.post("/api/cars", async (req, res) => {
   const body = req.body ?? {};
+  const access = await resolveOwnerRequestScope(req);
+  if (access.ok === false) {
+    return res.status(access.status).json({
+      success: false,
+      message: access.message,
+    });
+  }
+  const ownership = resolveCreateListingOwner(access.scope, body);
+  if ("error" in ownership) {
+    return res.status(403).json({ success: false, message: ownership.error });
+  }
   const carId = `car-${Date.now()}`;
   const safeImages = sanitizeListingImagesForId(body.images, carId);
   const safeDescription = String(body.description ?? "").slice(0, 4000);
@@ -176,8 +191,8 @@ app.post("/api/cars", (req, res) => {
     fuelType: String(body.fuelType ?? "petrol"),
     images: safeImages,
     description: safeDescription,
-    dealerId: body.dealerId ? String(body.dealerId) : undefined,
-    ownerId: String(body.ownerId ?? ""),
+    dealerId: ownership.dealerId,
+    ownerId: ownership.ownerId,
     ownerName: String(body.ownerName ?? ""),
     ownerPhone: String(body.ownerPhone ?? ""),
     showroomName: body.showroomName ? String(body.showroomName) : undefined,

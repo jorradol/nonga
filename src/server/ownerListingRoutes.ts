@@ -8,7 +8,12 @@ import {
 } from "./marketplaceInventory";
 import { inferMarketplaceCategoryType } from "../utils/marketplaceCarMapper";
 import { sanitizeListingImagesForId } from "../utils/listingImages";
-import { canManageListing, getRequestOwnerId } from "./ownerListingAccess";
+import {
+  canManageListingWithScope,
+  getListingsForScope,
+  resolveOwnerRequestScope,
+  type OwnerRequestScope,
+} from "./ownerListingAccess";
 import {
   decodeListingImageFiles,
   persistListingImageUploads,
@@ -18,13 +23,27 @@ function deny(res: Response, status: number, message: string): void {
   res.status(status).json({ success: false, message });
 }
 
-function getCarOr404(req: Request, res: Response) {
+async function ownerScopeOrDeny(
+  req: Request,
+  res: Response
+): Promise<OwnerRequestScope | null> {
+  const access = await resolveOwnerRequestScope(req);
+  if (access.ok === false) {
+    deny(res, access.status, access.message);
+    return null;
+  }
+  return access.scope;
+}
+
+async function getCarOr404(req: Request, res: Response) {
+  const scope = await ownerScopeOrDeny(req, res);
+  if (!scope) return null;
   const car = getMarketplaceCarById(req.params.id);
   if (!car) {
     deny(res, 404, "ไม่พบประกาศ");
     return null;
   }
-  if (!canManageListing(req, car)) {
+  if (!canManageListingWithScope(scope, car)) {
     deny(res, 403, "ไม่มีสิทธิ์แก้ไขประกาศนี้");
     return null;
   }
@@ -33,18 +52,16 @@ function getCarOr404(req: Request, res: Response) {
 
 export function registerOwnerListingRoutes(app: Express): void {
   /** ประกาศของเจ้าของ — รวมที่ซ่อนแล้ว */
-  app.get("/api/my/listings", (req, res) => {
-    const ownerId = getRequestOwnerId(req);
-    if (!ownerId) {
-      return deny(res, 400, "ต้องระบุ X-Owner-Id");
-    }
-    const data = getOwnerMarketplaceCars(ownerId);
+  app.get("/api/my/listings", async (req, res) => {
+    const scope = await ownerScopeOrDeny(req, res);
+    if (!scope) return;
+    const data = getListingsForScope(scope);
     res.json({ success: true, count: data.length, data });
   });
 
   /** อัปโหลดรูปจาก edit listing — เก็บ data/listing-images/{carId}/ */
-  app.post("/api/cars/:id/images", (req, res) => {
-    const car = getCarOr404(req, res);
+  app.post("/api/cars/:id/images", async (req, res) => {
+    const car = await getCarOr404(req, res);
     if (!car) return;
 
     const body = req.body ?? {};
@@ -70,8 +87,8 @@ export function registerOwnerListingRoutes(app: Express): void {
     res.json({ success: true, data: { storedUrls: persisted.storedUrls } });
   });
 
-  app.patch("/api/cars/:id", (req, res) => {
-    const car = getCarOr404(req, res);
+  app.patch("/api/cars/:id", async (req, res) => {
+    const car = await getCarOr404(req, res);
     if (!car) return;
 
     const body = req.body ?? {};
@@ -108,8 +125,8 @@ export function registerOwnerListingRoutes(app: Express): void {
     res.json({ success: true, data: updated });
   });
 
-  app.patch("/api/cars/:id/visibility", (req, res) => {
-    const car = getCarOr404(req, res);
+  app.patch("/api/cars/:id/visibility", async (req, res) => {
+    const car = await getCarOr404(req, res);
     if (!car) return;
 
     const hidden = Boolean(req.body?.hidden);
@@ -120,8 +137,8 @@ export function registerOwnerListingRoutes(app: Express): void {
     res.json({ success: true, data: updated });
   });
 
-  app.delete("/api/cars/:id", (req, res) => {
-    const car = getCarOr404(req, res);
+  app.delete("/api/cars/:id", async (req, res) => {
+    const car = await getCarOr404(req, res);
     if (!car) return;
 
     const soft = req.query.soft !== "0" && req.body?.soft !== false;
