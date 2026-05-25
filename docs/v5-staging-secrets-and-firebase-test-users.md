@@ -2,6 +2,10 @@
 
 This runbook prepares real staging secrets and real Firebase test users for an internal staging rehearsal. It must not contain passwords, private keys, service account JSON, or real user secrets.
 
+Step 2P rules/storage decision plan:
+
+- `docs/v5-staging-rules-emulator-storage-decision.md`
+
 ## 1. Staging Secrets Checklist
 
 Set these in the staging host secret manager or environment configuration.
@@ -177,6 +181,10 @@ Recommendation for the first staging rehearsal:
 - If the chosen host is ephemeral or serverless, do not start real dealer testing; make Firestore/Storage migration the next step before staging.
 
 ## 6. Rules Emulator And Staging Deploy Plan
+
+Detailed Step 2P matrix:
+
+- `docs/v5-staging-rules-emulator-storage-decision.md`
 
 Rules files:
 

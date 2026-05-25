@@ -6,6 +6,10 @@ Step 2O operational runbook:
 
 - `docs/v5-staging-secrets-and-firebase-test-users.md`
 
+Step 2P rules/storage plan:
+
+- `docs/v5-staging-rules-emulator-storage-decision.md`
+
 ## 1. Staging Env Checklist
 
 Frontend env:

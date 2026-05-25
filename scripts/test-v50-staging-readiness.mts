@@ -19,6 +19,7 @@ console.log("=== Nong A v5.0 Staging Readiness Smoke ===");
 
 const doc = read("docs/v5-staging-environment-setup.md");
 const secretsDoc = read("docs/v5-staging-secrets-and-firebase-test-users.md");
+const rulesStorageDoc = read("docs/v5-staging-rules-emulator-storage-decision.md");
 const useChat = read("src/hooks/chat/useChat.ts");
 const appStore = read("src/store.ts");
 
@@ -152,6 +153,66 @@ includesAll(
   "rules emulator and deploy plan"
 );
 console.log("PASS rules emulator/deploy plan documented");
+
+includesAll(
+  rulesStorageDoc,
+  [
+    "Guest can read published listings",
+    "Guest cannot write listing docs",
+    "Member cannot change own `role`, `status`, or `dealerId`",
+    "Dealer A cannot read or write Dealer B",
+    "Dealer A cannot upload to Storage path for Dealer B",
+    "Pending or disabled dealer membership cannot write",
+    "Suspended user is blocked",
+    "chatSessions",
+    "Legacy `chats` is read-only",
+    "firebase-tools@latest emulators:start --only firestore,storage",
+  ],
+  "Step 2P rules emulator matrix"
+);
+console.log("PASS Step 2P rules emulator matrix documented");
+
+includesAll(
+  rulesStorageDoc,
+  [
+    "Copy-Item firestore.rules.draft firestore.rules",
+    "Copy-Item storage.rules.draft storage.rules",
+    "deploy --only firestore:rules,storage --project <staging-project-id>",
+    "Always pass `--project <staging-project-id>`",
+    "Never rely on whatever Firebase project is currently active",
+    "Do not deploy rules to production in Step 2P",
+  ],
+  "Step 2P staging deploy guard"
+);
+console.log("PASS Step 2P staging deploy guard documented");
+
+includesAll(
+  rulesStorageDoc,
+  [
+    "Recommendation for the first internal staging rehearsal",
+    "Use Option A only if the staging target is a single host with persistent filesystem",
+    "If the target is serverless, ephemeral, multi-instance",
+    "Step 2Q: Firestore inventory/draft repository layer",
+    "Step 2R: Firebase Storage image upload/migration",
+    "Step 2S: Data migration script",
+    "Step 2T: Emulator/integration tests",
+  ],
+  "Step 2P storage mode decision"
+);
+console.log("PASS Step 2P storage mode decision documented");
+
+includesAll(
+  rulesStorageDoc,
+  [
+    "data/.staging-persistence-probe",
+    "Restart the app server",
+    "Confirm the uploaded image URL still loads",
+    "Perform a staging redeploy",
+    "If any check fails, do not use Option A",
+  ],
+  "Step 2P persistent storage probe"
+);
+console.log("PASS Step 2P persistent storage probe documented");
 
 for (const forbidden of [
   "AIzaSy",
