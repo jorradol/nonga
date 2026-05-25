@@ -26,6 +26,7 @@
     "test:v50-server-auth": "tsx scripts/test-v50-server-auth.mts",
     "test:v50-dealer-api-auth": "tsx scripts/test-v50-dealer-api-auth.mts",
     "test:v50-legacy-owner-auth": "tsx scripts/test-v50-legacy-owner-auth.mts",
+    "test:v50-frontend-api-routes": "tsx scripts/test-v50-frontend-api-routes.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",
     "test:dealer-draft-publish-guard": "tsx scripts/test-dealer-draft-publish-guard.mts",

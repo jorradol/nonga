@@ -73,6 +73,13 @@ Recommended future frontend direction:
 
 ## Step 2E
 
+Step 2E update:
+
+- `MyListingsView` now uses dealer-scoped inventory APIs for dealer-capable users.
+- `EditListingModal` uses the same central listing API scope for image saves.
+- `SellingFormContainer` no longer fetches `/api/cars` directly; it uses the compatibility wrapper in `myListingsApi.ts`.
+- Raw `X-Owner-Id` is isolated to `src/services/listings/myListingsApi.ts` for compatibility.
+
 Recommended next step:
 
 - wire frontend API headers to real Firebase ID tokens

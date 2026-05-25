@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppStore } from "../store";
 import type { Car } from "../types";
 import {
@@ -23,14 +23,24 @@ import {
   patchMyListing,
   setMyListingVisibility,
   deleteMyListing,
+  type MyListingsApiScope,
 } from "../services/listings/myListingsApi";
+import { useDealerPortal } from "../hooks/dealer/useDealerPortal";
 
 export default function MyListingsView() {
   const { user, fetchCars, setView, setFilters, isDarkMode } = useAppStore();
+  const { apiHeaders, canAccessPortal } = useDealerPortal();
   const notifyFriendlyError = useNotifyStore((s) => s.notifyFriendlyError);
   const notifySuccess = useNotifyStore((s) => s.notifySuccess);
 
   const ownerId = user?.uid ?? "";
+  const listingApiScope: MyListingsApiScope = useMemo(
+    () => ({
+      ownerId,
+      ...(canAccessPortal ? { dealerHeaders: apiHeaders } : {}),
+    }),
+    [apiHeaders, canAccessPortal, ownerId]
+  );
   const [myCars, setMyCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -50,22 +60,24 @@ export default function MyListingsView() {
     setLoadFailed(false);
     setFriendlyHint(null);
     try {
-      const data = await fetchMyListings(ownerId);
+      const data = await fetchMyListings(listingApiScope);
       setMyCars(data);
       devClientMarketplaceLog("my-listings", {
         ownerId,
         mine: data.length,
-        source: "GET /api/my/listings",
+        source: canAccessPortal
+          ? "GET /api/dealer/inventory"
+          : "GET /api/my/listings",
       });
     } catch (e) {
-      const friendly = notifyFriendlyError(e, "/api/my/listings");
+      const friendly = notifyFriendlyError(e, "โหลดประกาศของฉัน");
       setLoadFailed(true);
       setFriendlyHint(friendly.friendlyMessage.split("\n")[0]);
       setMyCars([]);
     } finally {
       setLoading(false);
     }
-  }, [ownerId, notifyFriendlyError]);
+  }, [canAccessPortal, listingApiScope, notifyFriendlyError, ownerId]);
 
   useEffect(() => {
     load();
@@ -85,7 +97,11 @@ export default function MyListingsView() {
 
     setActionId(car.id);
     try {
-      const updated = await setMyListingVisibility(ownerId, car.id, hidden);
+      const updated = await setMyListingVisibility(
+        listingApiScope,
+        car.id,
+        hidden
+      );
       setMyCars((list) =>
         list.map((c) => (c.id === updated.id ? updated : c))
       );
@@ -114,7 +130,7 @@ export default function MyListingsView() {
 
     setActionId(car.id);
     try {
-      await deleteMyListing(ownerId, car.id, true);
+      await deleteMyListing(listingApiScope, car.id, true);
       setMyCars((list) => list.filter((c) => c.id !== car.id));
       await fetchCars();
       notifySuccess("ลบประกาศแล้วค่ะ", "รายการนี้ถูกลบออกจากระบบแล้วนะคะ");
@@ -322,12 +338,13 @@ export default function MyListingsView() {
         <EditListingModal
           car={editingCar}
           ownerId={ownerId}
+          listingApiScope={listingApiScope}
           isDarkMode={isDarkMode}
           onClose={() => setEditingCar(null)}
           onSave={async (patch) => {
             try {
               const updated = await patchMyListing(
-                ownerId,
+                listingApiScope,
                 editingCar.id,
                 patch
               );

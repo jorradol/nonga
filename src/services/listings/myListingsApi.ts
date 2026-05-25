@@ -21,6 +21,14 @@ import {
   type ApiJsonEnvelope,
 } from "../../utils/safeApiFetch";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
+import type { DealerApiHeaders, DealerInventoryCar } from "../dealer/dealerApi";
+import {
+  deleteDealerInventory,
+  fetchDealerInventory,
+  hideDealerInventory,
+  patchDealerInventory,
+} from "../dealer/dealerApi";
+import { uploadListingImagesApi } from "../dealer/dealerListingImageApi";
 
 export interface MyListingPatch {
   title?: string;
@@ -39,11 +47,31 @@ export interface MyListingPatch {
 
 const MAX_LISTING_IMAGES = 12;
 
+export interface MyListingsApiScope {
+  ownerId: string;
+  dealerHeaders?: DealerApiHeaders;
+}
+
+export type MyListingsApiScopeInput = string | MyListingsApiScope;
+
+export interface LegacyCreateListingInput {
+  ownerId?: unknown;
+  dealerId?: unknown;
+}
+
+function normalizeScope(scope: MyListingsApiScopeInput): MyListingsApiScope {
+  return typeof scope === "string" ? { ownerId: scope } : scope;
+}
+
 function ownerHeaders(ownerId: string): HeadersInit {
   return {
     "Content-Type": "application/json",
     "X-Owner-Id": ownerId,
   };
+}
+
+function toCar(raw: Record<string, unknown> | DealerInventoryCar): Car {
+  return normalizeMarketplaceCar(raw as Record<string, unknown>);
 }
 
 function payloadTooLargeFriendly(url: string, detail?: string): AppFriendlyError {
@@ -89,7 +117,7 @@ async function fileToBase64Payload(file: File): Promise<ListingImageUploadFilePa
 
 /** อัปโหลดไฟล์จากเครื่อง → เก็บ /storage/listings/{carId}/ (แบ่ง batch) */
 export async function uploadMyListingImages(
-  ownerId: string,
+  scopeInput: MyListingsApiScopeInput,
   carId: string,
   files: File[]
 ): Promise<string[]> {
@@ -118,11 +146,23 @@ export async function uploadMyListingImages(
       throw payloadTooLargeFriendly(url, `client bytes ${sizeCheck.bytes}`);
     }
 
+    const scope = normalizeScope(scopeInput);
+    if (scope.dealerHeaders) {
+      const result = await uploadListingImagesApi(
+        scope.dealerHeaders,
+        carId,
+        "inventory",
+        payloads
+      );
+      storedUrls.push(...result.storedUrls);
+      continue;
+    }
+
     const json = await safeApiFetch<
       ApiJsonEnvelope & { data?: { storedUrls?: string[] } }
     >(url, {
       method: "POST",
-      headers: ownerHeaders(ownerId),
+      headers: ownerHeaders(scope.ownerId),
       body: JSON.stringify(body),
     });
     assertApiSuccess(json, url);
@@ -144,7 +184,7 @@ export async function uploadMyListingImages(
 
 /** รวม URL ที่เก็บแล้ว + อัปโหลดไฟล์ใหม่ แล้ว sanitize */
 export async function resolveListingImagesForSave(
-  ownerId: string,
+  scope: MyListingsApiScopeInput,
   carId: string,
   keptUrls: string[],
   newFiles: File[]
@@ -152,13 +192,21 @@ export async function resolveListingImagesForSave(
   const kept = keptUrls.filter(
     (u) => !isDataImageUrl(u) && isValidListingImageUrl(u, carId)
   );
-  const uploaded = await uploadMyListingImages(ownerId, carId, newFiles);
+  const uploaded = await uploadMyListingImages(scope, carId, newFiles);
   return sanitizeListingImagesForId([...uploaded, ...kept], carId);
 }
 
-export async function fetchMyListings(ownerId: string): Promise<Car[]> {
+export async function fetchMyListings(
+  scopeInput: MyListingsApiScopeInput
+): Promise<Car[]> {
+  const scope = normalizeScope(scopeInput);
+  if (scope.dealerHeaders) {
+    const rows = await fetchDealerInventory(scope.dealerHeaders);
+    return rows.map(toCar);
+  }
+
   const json = await safeApiFetch<ApiJsonEnvelope>("/api/my/listings", {
-    headers: ownerHeaders(ownerId),
+    headers: ownerHeaders(scope.ownerId),
     cache: "no-store",
   });
   assertApiSuccess(json, "/api/my/listings");
@@ -166,45 +214,78 @@ export async function fetchMyListings(ownerId: string): Promise<Car[]> {
 }
 
 export async function patchMyListing(
-  ownerId: string,
+  scopeInput: MyListingsApiScopeInput,
   id: string,
   patch: MyListingPatch
 ): Promise<Car> {
+  const scope = normalizeScope(scopeInput);
+  if (scope.dealerHeaders) {
+    return toCar(await patchDealerInventory(scope.dealerHeaders, id, patch));
+  }
+
   const url = `/api/cars/${id}`;
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "PATCH",
-    headers: ownerHeaders(ownerId),
-    body: JSON.stringify({ ...patch, ownerId }),
+    headers: ownerHeaders(scope.ownerId),
+    body: JSON.stringify({ ...patch, ownerId: scope.ownerId }),
   });
   assertApiSuccess(json, url);
   return normalizeMarketplaceCar(json.data as Record<string, unknown>);
 }
 
 export async function setMyListingVisibility(
-  ownerId: string,
+  scopeInput: MyListingsApiScopeInput,
   id: string,
   hidden: boolean
 ): Promise<Car> {
+  const scope = normalizeScope(scopeInput);
+  if (scope.dealerHeaders) {
+    return toCar(await hideDealerInventory(scope.dealerHeaders, id, hidden));
+  }
+
   const url = `/api/cars/${id}/visibility`;
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "PATCH",
-    headers: ownerHeaders(ownerId),
-    body: JSON.stringify({ hidden, ownerId }),
+    headers: ownerHeaders(scope.ownerId),
+    body: JSON.stringify({ hidden, ownerId: scope.ownerId }),
   });
   assertApiSuccess(json, url);
   return normalizeMarketplaceCar(json.data as Record<string, unknown>);
 }
 
 export async function deleteMyListing(
-  ownerId: string,
+  scopeInput: MyListingsApiScopeInput,
   id: string,
   hard = true
 ): Promise<void> {
+  const scope = normalizeScope(scopeInput);
+  if (scope.dealerHeaders) {
+    await deleteDealerInventory(scope.dealerHeaders, id);
+    return;
+  }
+
   const url = `/api/cars/${id}?soft=${hard ? "0" : "1"}`;
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "DELETE",
-    headers: ownerHeaders(ownerId),
-    body: JSON.stringify({ ownerId, soft: !hard }),
+    headers: ownerHeaders(scope.ownerId),
+    body: JSON.stringify({ ownerId: scope.ownerId, soft: !hard }),
   });
   assertApiSuccess(json, url);
+}
+
+/**
+ * Compatibility path for the older public sell form.
+ * Dealer Portal and Chat to Draft should prefer /api/dealer/* flows.
+ */
+export async function createLegacyMarketplaceListing(
+  input: LegacyCreateListingInput
+): Promise<Car> {
+  logDevPayloadSize("POST /api/cars", input);
+  const json = await safeApiFetch<ApiJsonEnvelope>("/api/cars", {
+    method: "POST",
+    headers: ownerHeaders(String(input.ownerId ?? "")),
+    body: JSON.stringify(input),
+  });
+  assertApiSuccess(json, "/api/cars");
+  return normalizeMarketplaceCar(json.data as Record<string, unknown>);
 }

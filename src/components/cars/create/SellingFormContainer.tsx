@@ -25,9 +25,9 @@ import {
   serializeSellingFormDraft,
   buildMarketplaceApiCarPayload,
   assertApiPayloadWithinLimit,
-  logDevPayloadSize,
 } from "../../../utils/listingImageStorage";
 import { inferMarketplaceCategoryType } from "../../../utils/marketplaceCarMapper";
+import { createLegacyMarketplaceListing } from "../../../services/listings/myListingsApi";
 
 const DESC_REGENERATE_COOLDOWN_MS = 1200;
 import { Check, Sparkles, AlertCircle, RefreshCcw, ArrowRight, ArrowLeft, Send, MessageSquare, Clock, Star, BrainCircuit } from "lucide-react";
@@ -305,28 +305,13 @@ export default function SellingFormContainer({
         ownerPhone: formData.contactPhone,
       });
 
-      logDevPayloadSize("POST /api/cars", apiBody);
-
       const sizeCheck = assertApiPayloadWithinLimit(apiBody);
       if (sizeCheck.ok === false) {
         throw new Error(sizeCheck.message);
       }
 
-      const apiRes = await fetch("/api/cars", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(apiBody),
-      });
-
-      if (!apiRes.ok) {
-        if (apiRes.status === 413) {
-          throw new Error("ข้อมูลรูปภาพใหญ่เกินไป กรุณาลองใหม่อีกครั้ง");
-        }
-        throw new Error(`ไม่สามารถเพิ่มรถในตลาดได้ (${apiRes.status})`);
-      }
-
-      const apiJson = await apiRes.json();
-      const apiListingId = apiJson?.data?.id as string | undefined;
+      const createdListing = await createLegacyMarketplaceListing(apiBody);
+      const apiListingId = createdListing.id;
 
       await fetchCars();
 

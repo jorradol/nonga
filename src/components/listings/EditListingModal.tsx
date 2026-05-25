@@ -10,7 +10,10 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import type { Car } from "../../types";
-import type { MyListingPatch } from "../../services/listings/myListingsApi";
+import type {
+  MyListingPatch,
+  MyListingsApiScope,
+} from "../../services/listings/myListingsApi";
 import { resolveListingImagesForSave } from "../../services/listings/myListingsApi";
 import {
   isRemoteImageUrl,
@@ -62,6 +65,7 @@ function initGallery(car: Car): GalleryItem[] {
 interface Props {
   car: Car;
   ownerId: string;
+  listingApiScope?: MyListingsApiScope;
   isDarkMode: boolean;
   onClose: () => void;
   onSave: (patch: MyListingPatch) => Promise<void>;
@@ -70,6 +74,7 @@ interface Props {
 export default function EditListingModal({
   car,
   ownerId,
+  listingApiScope,
   isDarkMode,
   onClose,
   onSave,
@@ -172,7 +177,7 @@ export default function EditListingModal({
         .map((item) => item.file);
 
       const images = await resolveListingImagesForSave(
-        ownerId,
+        listingApiScope ?? ownerId,
         car.id,
         keptUrls,
         pendingFiles
