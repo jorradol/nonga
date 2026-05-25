@@ -187,3 +187,9 @@ service cloud.firestore {
 ```
 
 When chat history moves to Firestore, chat rules must also require `uid == request.auth.uid` and dealer membership matching `dealerId`.
+
+## Step 2J Seed Helper
+
+Real test users should be created in Firebase Auth first, then seeded into Firestore using UID-based docs.
+
+See `docs/firebase-role-test-users-v5.md` and `scripts/seed-v50-firebase-role-test-users.mts` for the safe dry-run/write flow.

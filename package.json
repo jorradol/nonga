@@ -31,6 +31,8 @@
     "test:v50-production-auth-mode": "tsx scripts/test-v50-production-auth-mode.mts",
     "test:v50-firebase-login-flow": "tsx scripts/test-v50-firebase-login-flow.mts",
     "test:v50-user-dealer-membership": "tsx scripts/test-v50-user-dealer-membership.mts",
+    "test:v50-real-login-role-flow": "tsx scripts/test-v50-real-login-role-flow.mts",
+    "seed:v50-firebase-role-test-users": "tsx scripts/seed-v50-firebase-role-test-users.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",
     "test:dealer-draft-publish-guard": "tsx scripts/test-dealer-draft-publish-guard.mts",

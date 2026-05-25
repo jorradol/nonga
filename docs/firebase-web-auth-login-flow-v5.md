@@ -135,3 +135,9 @@ Step 2H does not migrate all frontend fetches to Firebase ID tokens. Existing be
 Real user/dealer schemas and resolver rules are documented in `docs/user-dealer-membership-resolution-v5.md`.
 
 The backend now derives dealer access from active `dealerMembers` rows and blocks suspended users server-side.
+
+## Step 2J update
+
+Limited real Firebase role test user setup is documented in `docs/firebase-role-test-users-v5.md`.
+
+Use `npm run seed:v50-firebase-role-test-users -- --dry-run --json` to generate Firestore seed documents from env without storing passwords in the repo.
