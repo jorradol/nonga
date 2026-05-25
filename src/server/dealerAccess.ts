@@ -8,6 +8,8 @@ export interface DealerRequestScope {
   dealerId: string | null;
   isAdmin: boolean;
   role: string;
+  uid?: string;
+  provider?: "stub" | "firebase" | "dev-legacy";
 }
 
 export function parseDealerRequestScope(req: Request): DealerRequestScope {
@@ -16,6 +18,8 @@ export function parseDealerRequestScope(req: Request): DealerRequestScope {
       dealerId: normalizeDealerId(req.apiAuth.dealerId),
       isAdmin: false,
       role: "dealer",
+      uid: req.apiAuth.uid,
+      provider: req.apiAuth.provider,
     };
   }
   if (
@@ -34,9 +38,17 @@ export function parseDealerRequestScope(req: Request): DealerRequestScope {
       dealerId,
       isAdmin: true,
       role: req.apiAuth.role,
+      uid: req.apiAuth.uid,
+      provider: req.apiAuth.provider,
     };
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return { dealerId: null, isAdmin: false, role: "guest" };
+  }
+
+  // DEV-only compatibility for older direct route tests. Deployed dealer APIs
+  // must receive req.apiAuth from dealerApiAuth/adminApiAuth before reaching here.
   const role = String(req.headers["x-user-role"] ?? req.query.role ?? "dealer");
   const isAdmin = role === "admin" || role === "superadmin";
   const headerDealer = req.headers["x-dealer-id"];
@@ -48,7 +60,7 @@ export function parseDealerRequestScope(req: Request): DealerRequestScope {
         ? normalizeDealerId(queryDealer)
         : null;
 
-  return { dealerId, isAdmin, role };
+  return { dealerId, isAdmin, role, provider: "dev-legacy" };
 }
 
 export function requireDealerId(

@@ -108,8 +108,14 @@ This keeps existing smoke tests and Thor Auto Demo flows working while adding th
 ## Step 2C Remaining Work
 
 - Send real Firebase ID tokens from the frontend instead of dealer/admin stub tokens.
-- Replace all dealer/admin API guards with Firebase-first auth in production.
+- Continue tightening dealer/admin API guards with Firebase-first auth in production.
 - Deprecate legacy owner routes that trust `X-Owner-Id`.
 - Harden Firestore rules for `users`, `dealerMembers`, dealer inventory, images, and chat history.
 - Move chat sessions/messages to database storage when ready.
 - Disable sandbox role switching outside DEV/mock.
+
+## Step 2C update
+
+Step 2C applies server auth context to dealer API scope checks and documents endpoint coverage in `docs/dealer-api-server-auth-v5.md`.
+
+Dealer APIs now reject mismatched Firebase dealer membership scope and mismatched beta token dealer scope before route handlers run.

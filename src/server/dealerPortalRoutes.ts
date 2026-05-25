@@ -54,6 +54,35 @@ function scopeOr403(req: Request, res: Response) {
   return { scope, dealerId: auth.dealerId };
 }
 
+function listingIdBelongsToDealer(
+  listingId: string,
+  dealerId: string
+): { ok: true } | { ok: false; status: number; message: string } {
+  if (/^draft-import-[0-9]+-d\d+$/.test(listingId)) {
+    return { ok: true };
+  }
+
+  const car = getMarketplaceCarById(listingId);
+  if (car) {
+    return carBelongsToDealer(car, dealerId)
+      ? { ok: true }
+      : { ok: false, status: 403, message: "ไม่มีสิทธิ์จัดการรูปของประกาศนี้" };
+  }
+
+  const draft = getDealerDraftById(listingId);
+  if (draft) {
+    return draftBelongsToDealer(draft, dealerId)
+      ? { ok: true }
+      : { ok: false, status: 403, message: "ไม่มีสิทธิ์จัดการรูปของประกาศนี้" };
+  }
+
+  if (/^(?:draft-[0-9]+|car-[0-9]+)$/.test(listingId)) {
+    return { ok: false, status: 404, message: "ไม่พบประกาศ" };
+  }
+
+  return { ok: false, status: 400, message: "รหัสประกาศไม่ถูกต้อง" };
+}
+
 export function registerDealerPortalRoutes(app: Express): void {
   app.post("/api/dealer/drafts/new", (req, res) => {
     const ctx = scopeOr403(req, res);
@@ -593,6 +622,12 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!listingId) {
       return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
     }
+    const listingScope = listingIdBelongsToDealer(listingId, ctx.dealerId);
+    if (listingScope.ok === false) {
+      return res
+        .status(listingScope.status)
+        .json({ success: false, message: listingScope.message });
+    }
 
     try {
       const data = await importSelectedPasteImages(
@@ -616,6 +651,12 @@ export function registerDealerPortalRoutes(app: Express): void {
 
     if (!listingId) {
       return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
+    }
+    const listingScope = listingIdBelongsToDealer(listingId, ctx.dealerId);
+    if (listingScope.ok === false) {
+      return res
+        .status(listingScope.status)
+        .json({ success: false, message: listingScope.message });
     }
 
     const result = await persistPasteUploadedImages(listingId, files);
