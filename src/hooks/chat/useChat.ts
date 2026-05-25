@@ -106,6 +106,7 @@ export function useChat() {
     loadSessions,
     createSession,
     deleteSession,
+    selectSession,
     addMessage,
     editMessage,
     updateStreamedReply,
@@ -138,7 +139,7 @@ export function useChat() {
       lastHydratedChatScopeKey = storageScopeKey;
     }
 
-    await loadSessions(storageScopeKey);
+    await loadSessions(chatScope);
     await loadUserPreferences(storageScopeKey);
     await loadPersonalitiesList();
     logChatStorageDebug(chatScope, {
@@ -599,29 +600,24 @@ export function useChat() {
 
   const createNewChat = useCallback(
     async (title?: string) => {
-      return await createSession(storageScopeKey, title);
+      return await createSession(chatScope, title);
     },
-    [storageScopeKey, createSession]
+    [chatScope, createSession]
   );
 
   const removeChat = useCallback(
     async (sessionId: string) => {
-      await deleteSession(storageScopeKey, sessionId);
+      await deleteSession(chatScope, sessionId);
     },
-    [storageScopeKey, deleteSession]
+    [chatScope, deleteSession]
   );
 
-  const switchChatSession = useCallback((sessionId: string) => {
+  const switchChatSession = useCallback(async (sessionId: string) => {
     const state = useChatStore.getState();
     const exists = state.sessions.some((s) => s.id === sessionId);
     if (!exists) return;
-    useChatStore.setState({
-      activeSessionId: sessionId,
-      streamedReply: "",
-      streamedCarCards: [],
-      streamedHasMoreCars: false,
-    });
-  }, []);
+    await selectSession(chatScope, sessionId);
+  }, [chatScope, selectSession]);
 
   const chatActor = useMemo(
     () => resolveChatActorDisplay(user, chatScope),

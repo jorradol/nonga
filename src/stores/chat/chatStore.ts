@@ -1,24 +1,24 @@
 import { create } from "zustand";
 import { ChatSession, ChatMessage, ChatCarCardData, ChatMessageAttachment } from "../../types";
-import { db, isMockConfig } from "../../lib/firebase";
 import { AIPersonality, PersonalityPresetId } from "../../types/ai";
 import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from "../../services/ai/personality/personalityConfig";
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  setDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy,
-  getDoc
-} from "firebase/firestore";
 import {
-  chatMessagesLocalKey,
   chatPrefsLocalKey,
-  chatSessionsLocalKey,
 } from "../../utils/chatStorageScope";
+import type { ChatStorageScope } from "../../utils/chatStorageScope";
+import { db, isMockConfig } from "../../lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  appendChatMessage,
+  chatStorageScopeToHistoryScope,
+  createChatSession,
+  deleteChatSession,
+  loadChatMessages,
+  loadChatSessions,
+  sessionMatchesScope,
+  updateChatMessageText,
+  updateChatSessionMetadata,
+} from "../../services/chat/chatHistoryService";
 
 export interface AIUserProfile {
   userName: string | null;
@@ -45,12 +45,12 @@ interface ChatState {
   personalities: Record<PersonalityPresetId, AIPersonality>;
   isLoadingPersonalities: boolean;
 
-  // Actions — storageScopeKey partitions chat per dealer/user (see chatStorageScope.ts)
+  // Actions — storage scope partitions chat per dealer/user (see chatStorageScope.ts)
   resetChatState: () => void;
-  loadSessions: (storageScopeKey: string) => Promise<void>;
-  createSession: (storageScopeKey: string, title?: string) => Promise<string>;
-  deleteSession: (storageScopeKey: string, sessionId: string) => Promise<void>;
-  selectSession: (sessionId: string) => void;
+  loadSessions: (scope: ChatStorageScope) => Promise<void>;
+  createSession: (scope: ChatStorageScope, title?: string) => Promise<string>;
+  deleteSession: (scope: ChatStorageScope, sessionId: string) => Promise<void>;
+  selectSession: (scope: ChatStorageScope, sessionId: string) => Promise<void>;
   addMessage: (
     sessionId: string,
     sender: ChatMessage["sender"],
@@ -114,191 +114,66 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  loadSessions: async (storageScopeKey) => {
-    // 1. If mock config or firebase error, fallback to LocalStorage
-    if (isMockConfig || !db) {
-      try {
-        const storedSessions = localStorage.getItem(
-          chatSessionsLocalKey(storageScopeKey)
-        );
-        const storedMessages = localStorage.getItem(
-          chatMessagesLocalKey(storageScopeKey)
-        );
-        
-        const sessions: ChatSession[] = storedSessions ? JSON.parse(storedSessions) : [];
-        const messages: Record<string, ChatMessage[]> = storedMessages ? JSON.parse(storedMessages) : {};
-        
-        // If empty, seed a default welcome session
-        if (sessions.length === 0) {
-          const defaultSessionId = `session-welcome-${Date.now()}`;
-          const defaultSession: ChatSession = {
-            id: defaultSessionId,
-            userId: storageScopeKey,
-            title: "ยินดีต้อนรับสู่สต๊อกสตาร์ ⚡",
-            createdAt: new Date().toISOString()
-          };
-          const welcomeMsg: ChatMessage = {
-            id: `msg-welcome-${Date.now()}`,
-            sender: "ai",
-            text: "ปังปุริเย่! 🎉 ยินดีต้อนรับสู่ระบบแนะนำอัจฉริยะ ของน้องเอคนดีคนเดิมครับผม!\n\nวันนี้คุณอยากได้คำแนะนำ คัดสรรรถยนต์ไฟฟ้า EV สเป็คเด่น รถบ้านลุยๆ หรือรถหรูหราบารมีจับด้านไหนเป็นพิเศษ พิมพ์ทักคุยกับผมได้เลยนะคร้าบ! คันนี้มีคนทักแน่ครับ 🔥",
-            createdAt: new Date().toISOString()
-          };
-          
-          sessions.push(defaultSession);
-          messages[defaultSessionId] = [welcomeMsg];
-          
-          localStorage.setItem(
-            chatSessionsLocalKey(storageScopeKey),
-            JSON.stringify(sessions)
-          );
-          localStorage.setItem(
-            chatMessagesLocalKey(storageScopeKey),
-            JSON.stringify(messages)
-          );
-        }
-
-        const currentActive = get().activeSessionId;
-        const keepActive =
-          currentActive && sessions.some((s) => s.id === currentActive)
-            ? currentActive
-            : sessions[0]?.id || null;
-        set({
-          sessions,
-          messages,
-          activeSessionId: keepActive,
-        });
-      } catch (err) {
-        console.warn("Local chat history load err:", err);
-      }
-      return;
-    }
-
-    // 2. Load from Firebase Firestore
+  loadSessions: async (scope) => {
     try {
-      const q = query(
-        collection(db, "chats"),
-        where("userId", "==", storageScopeKey),
-        orderBy("createdAt", "desc")
-      );
-      const querySnapshot = await getDocs(q);
-      const sessions: ChatSession[] = [];
-      const messages: Record<string, ChatMessage[]> = {};
+      let sessions = await loadChatSessions(scope);
 
-      for (const docSnapshot of querySnapshot.docs) {
-        const data = docSnapshot.data();
-        const s: ChatSession = {
-          id: docSnapshot.id,
-          userId: data.userId || storageScopeKey,
-          title: data.title || "บทสนทนาไร้ชื่อ",
-          createdAt: data.createdAt || new Date().toISOString()
-        };
-        sessions.push(s);
-
-        // Load subcollection messages
-        const msgQuery = query(
-          collection(db, "chats", docSnapshot.id, "messages"),
-          orderBy("createdAt", "asc")
-        );
-        const msgSnapshot = await getDocs(msgQuery);
-        const list: ChatMessage[] = [];
-        msgSnapshot.forEach((mSnapshot) => {
-          const mData = mSnapshot.data();
-          list.push({
-            id: mSnapshot.id,
-            sender: mData.sender || "ai",
-            text: mData.text || "",
-            createdAt: mData.createdAt || new Date().toISOString(),
-            ...(Array.isArray(mData.carCards) && mData.carCards.length > 0
-              ? { carCards: mData.carCards }
-              : {}),
-            ...(mData.hasMoreCars ? { hasMoreCars: mData.hasMoreCars } : {}),
-            ...(mData.isDraftPreview ? { isDraftPreview: mData.isDraftPreview } : {}),
-            ...(mData.draftFields ? { draftFields: mData.draftFields } : {}),
-            ...(mData.savedDraftId ? { savedDraftId: mData.savedDraftId } : {}),
-            ...(Array.isArray(mData.attachments) && mData.attachments.length > 0
-              ? { attachments: mData.attachments }
-              : {}),
-          });
-        });
-
-        messages[docSnapshot.id] = list;
-      }
-
-      // Automatically create a default session if there are none in Firestore
       if (sessions.length === 0) {
-        set({ sessions: [], messages: {}, activeSessionId: null });
-        const newSessionId = await get().createSession(
-          storageScopeKey,
-          "สอบถามรถยนต์ครั้งแรก 🚗"
+        const welcomeId = await get().createSession(
+          scope,
+          "ยินดีต้อนรับสู่สต๊อกสตาร์ ⚡"
         );
-        // Add default message
         await get().addMessage(
-          newSessionId, 
-          "ai", 
-          "สวัสดีครับคุณพี่สุดคนดี! น้องเอสแตนด์บายพร้อมบริการค้นหารถสเป็คเด็ดในดวงใจให้แล้วคร้าบ 🎉 พิมพ์งบประมาณหรือแบรนด์รถที่อยากปรึกษามาได้เลยนะคร้าบ!"
+          welcomeId,
+          "ai",
+          "ปังปุริเย่! 🎉 ยินดีต้อนรับสู่ระบบแนะนำอัจฉริยะ ของน้องเอคนดีคนเดิมครับผม!\n\nวันนี้คุณอยากได้คำแนะนำ คัดสรรรถยนต์ไฟฟ้า EV สเป็คเด่น รถบ้านลุยๆ หรือรถหรูหราบารมีจับด้านไหนเป็นพิเศษ พิมพ์ทักคุยกับผมได้เลยนะคร้าบ! คันนี้มีคนทักแน่ครับ 🔥"
         );
-      } else {
-        const currentActive = get().activeSessionId;
-        const keepActive =
-          currentActive && sessions.some((s) => s.id === currentActive)
-            ? currentActive
-            : sessions[0].id;
-        set({
-          sessions,
-          messages,
-          activeSessionId: keepActive,
-        });
+        sessions = await loadChatSessions(scope);
       }
+
+      const currentActive = get().activeSessionId;
+      const activeSessionId =
+        currentActive && sessions.some((s) => s.id === currentActive)
+          ? currentActive
+          : sessions[0]?.id || null;
+      const activeMessages = activeSessionId
+        ? await loadChatMessages(scope, activeSessionId)
+        : [];
+
+      set({
+        sessions,
+        messages: activeSessionId ? { [activeSessionId]: activeMessages } : {},
+        activeSessionId,
+      });
     } catch (err) {
-      console.error("Firestore history load failure, falling back to LocalStorage:", err);
-      // fallback
-      isMockConfig; 
+      console.warn("Chat history load failure:", err);
+      set({ sessions: [], messages: {}, activeSessionId: null });
     }
   },
 
-  createSession: async (storageScopeKey, title) => {
-    const newSessionId = `chat-${Date.now()}`;
-    const newSession: ChatSession = {
-      id: newSessionId,
-      userId: storageScopeKey,
-      title: title || `ปรึกษาซื้อขาย #${get().sessions.length + 1}`,
-      createdAt: new Date().toISOString()
-    };
+  createSession: async (scope, title) => {
+    const session = await createChatSession(
+      scope,
+      title || `ปรึกษาซื้อขาย #${get().sessions.length + 1}`
+    );
 
     set((state) => ({
-      sessions: [newSession, ...state.sessions],
-      activeSessionId: newSessionId,
+      sessions: [session, ...state.sessions],
+      activeSessionId: session.id,
       messages: {
         ...state.messages,
-        [newSessionId]: []
-      }
+        [session.id]: []
+      },
+      streamedReply: "",
+      streamedCarCards: [],
+      streamedHasMoreCars: false,
     }));
 
-    if (!isMockConfig && db) {
-      try {
-        await setDoc(doc(db, "chats", newSessionId), {
-          userId: storageScopeKey,
-          title: newSession.title,
-          createdAt: newSession.createdAt,
-        });
-      } catch (err) {
-        console.warn("Firestore error saving chat session:", err);
-      }
-    } else {
-      localStorage.setItem(
-        chatSessionsLocalKey(storageScopeKey),
-        JSON.stringify(get().sessions)
-      );
-      localStorage.setItem(
-        chatMessagesLocalKey(storageScopeKey),
-        JSON.stringify(get().messages)
-      );
-    }
-
-    return newSessionId;
+    return session.id;
   },
 
-  deleteSession: async (storageScopeKey, sessionId) => {
+  deleteSession: async (scope, sessionId) => {
+    await deleteChatSession(scope, sessionId);
     const nextSessions = get().sessions.filter((s) => s.id !== sessionId);
     const nextMessages = { ...get().messages };
     delete nextMessages[sessionId];
@@ -306,115 +181,90 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let nextActiveId = get().activeSessionId;
     if (nextActiveId === sessionId) {
       nextActiveId = nextSessions[0]?.id || null;
+      if (nextActiveId && !nextMessages[nextActiveId]) {
+        nextMessages[nextActiveId] = await loadChatMessages(scope, nextActiveId);
+      }
     }
 
     set({
       sessions: nextSessions,
       messages: nextMessages,
-      activeSessionId: nextActiveId
+      activeSessionId: nextActiveId,
+      streamedReply: "",
+      streamedCarCards: [],
+      streamedHasMoreCars: false,
     });
-
-    if (!isMockConfig && db) {
-      try {
-        await deleteDoc(doc(db, "chats", sessionId));
-        // Note: Clean up subcollection messages if needed (handled server side or simple deletion rule)
-      } catch (err) {
-        console.warn("Firestore error deleting chat:", err);
-      }
-    } else {
-      localStorage.setItem(
-        chatSessionsLocalKey(storageScopeKey),
-        JSON.stringify(nextSessions)
-      );
-      localStorage.setItem(
-        chatMessagesLocalKey(storageScopeKey),
-        JSON.stringify(nextMessages)
-      );
-    }
   },
 
-  selectSession: (sessionId) => {
-    const exists = get().sessions.some((s) => s.id === sessionId);
-    if (!exists) return;
-    set({ activeSessionId: sessionId });
+  selectSession: async (scope, sessionId) => {
+    const historyScope = chatStorageScopeToHistoryScope(scope);
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session || !sessionMatchesScope(session, historyScope)) return;
+    const sessionMessages =
+      get().messages[sessionId] ?? (await loadChatMessages(scope, sessionId));
+    set((state) => ({
+      activeSessionId: sessionId,
+      messages: {
+        ...state.messages,
+        [sessionId]: sessionMessages,
+      },
+      streamedReply: "",
+      streamedCarCards: [],
+      streamedHasMoreCars: false,
+    }));
   },
 
   addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments) => {
-    const newMsg: ChatMessage = {
-      id:
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+    const activeSession = get().sessions.find((s) => s.id === sessionId);
+    if (!activeSession) {
+      throw new Error("chat_session_not_found");
+    }
+    const scope = {
+      storageKey: activeSession.storageScopeKey ?? activeSession.userId,
+      uid: activeSession.uid ?? activeSession.userId,
+      dealerId: activeSession.dealerId ?? null,
+      scope: activeSession.scope ?? (activeSession.dealerId ? "dealer" : "user"),
+    } as const;
+
+    const newMsg = await appendChatMessage(scope, sessionId, {
       sender,
       text,
-      createdAt: new Date().toISOString(),
       ...(carCards && carCards.length > 0 ? { carCards } : {}),
       ...(hasMoreCars ? { hasMoreCars } : {}),
       ...(isDraftPreview ? { isDraftPreview } : {}),
       ...(draftFields ? { draftFields } : {}),
       ...(savedDraftId ? { savedDraftId } : {}),
       ...(attachments && attachments.length > 0 ? { attachments } : {}),
-    };
+    });
 
     set((state) => ({
       messages: {
         ...state.messages,
         [sessionId]: [...(state.messages[sessionId] || []), newMsg]
-      }
+      },
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId
+          ? {
+              ...s,
+              updatedAt: newMsg.createdAt,
+              lastMessagePreview: newMsg.text.trim().replace(/\s+/g, " ").slice(0, 120),
+              ...(newMsg.savedDraftId ? { savedDraftId: newMsg.savedDraftId } : {}),
+            }
+          : s
+      ),
     }));
 
-    // Save
-    const activeSession = get().sessions.find((s) => s.id === sessionId);
-    const storageScopeKey = activeSession?.userId || "guest";
-
-    if (!isMockConfig && db) {
-      try {
-        await setDoc(doc(db, "chats", sessionId, "messages", newMsg.id), {
-          sender,
-          text,
-          createdAt: newMsg.createdAt,
-          ...(carCards && carCards.length > 0 ? { carCards } : {}),
-          ...(hasMoreCars ? { hasMoreCars } : {}),
-          ...(isDraftPreview ? { isDraftPreview } : {}),
-          ...(draftFields ? { draftFields } : {}),
-          ...(savedDraftId ? { savedDraftId } : {}),
-          ...(attachments && attachments.length > 0 ? { attachments } : {}),
-        });
-
-        // Trigger session title generation on first user prompt
-        if (sender === "user" && activeSession && activeSession.title.startsWith("สอบถามรถยนต์ครั้งแรก")) {
-          const newTitle = text.length > 20 ? `${text.substring(0, 18)}...` : text;
-          await setDoc(doc(db, "chats", sessionId), { title: newTitle }, { merge: true });
-          set((state) => ({
-            sessions: state.sessions.map((s) => s.id === sessionId ? { ...s, title: newTitle } : s)
-          }));
-        }
-      } catch (e) {
-        console.warn("Firestore message save error:", e);
-      }
-    } else {
-      localStorage.setItem(
-        chatMessagesLocalKey(storageScopeKey),
-        JSON.stringify(get().messages)
-      );
-
-      // Update local storage title as well
-      if (
-        sender === "user" &&
-        activeSession &&
-        activeSession.title.startsWith("ปรึกษาซื้อขาย")
-      ) {
-        const newTitle =
-          text.length > 20 ? `${text.substring(0, 18)}...` : text;
-        const updatedSessions = get().sessions.map((s) =>
+    if (
+      sender === "user" &&
+      activeSession.title.startsWith("ปรึกษาซื้อขาย")
+    ) {
+      const newTitle = text.length > 20 ? `${text.substring(0, 18)}...` : text;
+      await updateChatSessionMetadata(scope, sessionId, { title: newTitle });
+      set((state) => ({
+        sessions: state.sessions.map((s) =>
           s.id === sessionId ? { ...s, title: newTitle } : s
-        );
-        set({ sessions: updatedSessions });
-        localStorage.setItem(
-          chatSessionsLocalKey(storageScopeKey),
-          JSON.stringify(updatedSessions)
-        );
-      }
+        ),
+      }));
     }
 
     return newMsg;
@@ -435,21 +285,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     const activeSession = get().sessions.find((s) => s.id === sessionId);
-    const storageScopeKey = activeSession?.userId || "guest";
-
-    if (!isMockConfig && db) {
-      try {
-        await setDoc(doc(db, "chats", sessionId, "messages", messageId), {
-          text
-        }, { merge: true });
-      } catch (err) {
-        console.warn("Firestore error editing message:", err);
-      }
-    } else {
-      localStorage.setItem(
-        chatMessagesLocalKey(storageScopeKey),
-        JSON.stringify(get().messages)
-      );
+    if (activeSession) {
+      const scope = {
+        storageKey: activeSession.storageScopeKey ?? activeSession.userId,
+        uid: activeSession.uid ?? activeSession.userId,
+        dealerId: activeSession.dealerId ?? null,
+        scope: activeSession.scope ?? (activeSession.dealerId ? "dealer" : "user"),
+      } as const;
+      await updateChatMessageText(scope, sessionId, messageId, text);
     }
   },
 

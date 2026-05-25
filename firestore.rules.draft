@@ -107,6 +107,41 @@ service cloud.firestore {
         );
     }
 
+    function canReadChatSession(data) {
+      return isActiveAdmin()
+        || (
+          data.scope == "user"
+          && data.uid == request.auth.uid
+        )
+        || (
+          data.scope == "dealer"
+          && data.dealerId is string
+          && hasActiveDealerMembership(data.dealerId)
+        );
+    }
+
+    function canCreateChatSession(data) {
+      return isActiveAdmin()
+        || (
+          data.scope == "user"
+          && data.uid == request.auth.uid
+          && !(data.keys().hasAny(["dealerId"]) && data.dealerId != null)
+        )
+        || (
+          data.scope == "dealer"
+          && data.uid == request.auth.uid
+          && data.dealerId is string
+          && hasActiveDealerMembership(data.dealerId)
+        );
+    }
+
+    function canUpdateChatSession() {
+      return canReadChatSession(resource.data)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.scope == resource.data.scope
+        && request.resource.data.dealerId == resource.data.dealerId;
+    }
+
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isActiveAdmin());
       allow create: if false;
@@ -170,42 +205,35 @@ service cloud.firestore {
       allow delete: if canDeleteDealerScoped();
     }
 
-    // Current chat Firestore collection used by src/stores/chat/chatStore.ts.
-    match /chats/{chatId} {
-      allow read, create: if signedIn()
-        && request.resource.data.userId is string
-        && (
-          request.resource.data.uid == request.auth.uid
-          || request.resource.data.userId == "user:" + request.auth.uid
-          || (
-            request.resource.data.dealerId is string
-            && hasActiveDealerMembership(request.resource.data.dealerId)
-          )
-          || isActiveAdmin()
-        );
-      allow update, delete: if signedIn()
-        && (
-          resource.data.uid == request.auth.uid
-          || resource.data.userId == "user:" + request.auth.uid
-          || (
-            resource.data.dealerId is string
-            && hasActiveDealerMembership(resource.data.dealerId)
-          )
-          || isActiveAdmin()
-        );
+    // Production chat history schema used from Step 2L onward.
+    match /chatSessions/{sessionId} {
+      allow read: if signedIn() && canReadChatSession(resource.data);
+      allow create: if signedIn()
+        && request.resource.data.sessionId == sessionId
+        && request.resource.data.status == "active"
+        && canCreateChatSession(request.resource.data);
+      allow update: if signedIn() && canUpdateChatSession();
+      allow delete: if signedIn() && canReadChatSession(resource.data);
 
       match /messages/{messageId} {
-        allow read, create: if signedIn()
-          && (
-            get(/databases/$(database)/documents/chats/$(chatId)).data.uid == request.auth.uid
-            || get(/databases/$(database)/documents/chats/$(chatId)).data.userId == "user:" + request.auth.uid
-            || (
-              get(/databases/$(database)/documents/chats/$(chatId)).data.dealerId is string
-              && hasActiveDealerMembership(get(/databases/$(database)/documents/chats/$(chatId)).data.dealerId)
-            )
-            || isActiveAdmin()
-          );
+        allow read: if signedIn()
+          && canReadChatSession(get(/databases/$(database)/documents/chatSessions/$(sessionId)).data);
+        allow create: if signedIn()
+          && request.resource.data.messageId == messageId
+          && canReadChatSession(get(/databases/$(database)/documents/chatSessions/$(sessionId)).data);
         allow update, delete: if false;
+      }
+    }
+
+    // Legacy pre-Step-2L chat collection. Keep read-only for migration/export, not new writes.
+    match /chats/{chatId} {
+      allow read: if signedIn() && canReadChatSession(resource.data);
+      allow create, update, delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn()
+          && canReadChatSession(get(/databases/$(database)/documents/chats/$(chatId)).data);
+        allow create, update, delete: if false;
       }
     }
 

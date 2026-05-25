@@ -35,6 +35,7 @@ includesAll(
     "match /dealerListings/{listingId}",
     "match /dealerDrafts/{draftId}",
     "match /listingImages/{imageId}",
+    "match /chatSessions/{sessionId}",
     "match /chats/{chatId}",
     "match /messages/{messageId}",
     "match /ai_preferences/{scopeKey}",
@@ -49,6 +50,7 @@ includesAll(
   [
     "dealerMemberDoc(request.auth.uid, dealerId).status == \"active\"",
     "sameDealerId()",
+    "canReadChatSession",
     "publishedListing(resource.data)",
     "isSuperAdmin()",
     "isActiveAdmin()",
@@ -81,6 +83,7 @@ includesAll(
     "users/{uid}",
     "dealerMembers",
     "cars/{listingId}",
+    "chatSessions/{sessionId}",
     "chats/{chatId}",
     "data/marketplace-inventory.json",
     "data/dealer-draft-inventory.json",

@@ -7,6 +7,7 @@ Step 2K adds production security rules drafts only. These files are not deployed
 - Firestore draft: `firestore.rules.draft`
 - Storage draft: `storage.rules.draft`
 - Static checklist test: `scripts/test-v50-security-rules.mts`
+- Chat history production storage plan: `docs/chat-history-production-storage-v5.md`
 
 Do not deploy these drafts until the Firebase collections and Storage paths are finalized and validated with the Firebase Emulator Suite.
 
@@ -17,7 +18,8 @@ Current Firestore usage:
 - `users/{uid}` from `AuthContext`, `authService`, and server auth resolution.
 - `dealerMembers` queried by `uid` in `serverAuthContext`.
 - `cars/{listingId}` in `src/services/cars/index.ts`.
-- `chats/{chatId}` and `chats/{chatId}/messages/{messageId}` in `chatStore`.
+- `chatSessions/{sessionId}` and `chatSessions/{sessionId}/messages/{messageId}` from Step 2L chat history storage.
+- Legacy `chats/{chatId}` and `chats/{chatId}/messages/{messageId}` may exist from the pre-Step-2L client path and should be treated as migration/export only.
 - `ai_preferences/{scopeKey}` in `chatStore`.
 
 Current non-Firebase production-like data:
@@ -31,6 +33,7 @@ Recommended future Firestore/Storage projection:
 - `dealerListings/{listingId}` for server marketplace inventory.
 - `dealerDrafts/{draftId}` for dealer draft inventory.
 - `listingImages/{imageId}` for image metadata.
+- `chatSessions/{sessionId}` for production chat session metadata.
 - Storage: `listing-images/{dealerId}/{listingId}/{fileName}`.
 - Storage: `draft-images/{dealerId}/{draftId}/{fileName}`.
 - Storage: `chat-attachments/{dealerId}/{sessionId}/{fileName}`.
@@ -107,16 +110,17 @@ Backend protection from earlier steps still applies: API routes resolve role and
 
 ## Chat Rules Draft
 
-The app has not moved chat history production storage in Step 2K.
+Step 2L starts the production chat history storage shape while keeping local/mock mode on scoped localStorage.
 
 Draft coverage:
 
-- `chats/{chatId}` and `messages` support owner UID or dealer membership access.
-- Future chat records should store explicit `uid`, `dealerId`, and attachment metadata.
+- `chatSessions/{sessionId}` and `messages` support owner UID or dealer membership access.
+- Chat records store explicit `uid`, `dealerId`, `scope`, `storageScopeKey`, and attachment metadata.
 - Dealer chat access requires active membership for the chat `dealerId`.
 - Admin/superadmin access follows active server profile role.
+- Legacy `chats/{chatId}` is read-only in the draft so old data can be exported/migrated without accepting new writes.
 
-Before deploying chat rules, migrate chat records away from the current `userId` scope string-only model into explicit fields.
+Before deploying chat rules, export or migrate old `chats` records into `chatSessions` and verify indexes in the Firebase Emulator Suite.
 
 ## Emulator/Test Plan
 
@@ -139,11 +143,15 @@ Manual emulator plan before deploying:
 9. Admin can manage regular users and dealer memberships.
 10. Only superadmin can manage admin/superadmin users.
 11. Suspended user cannot access protected paths.
+12. Dealer A cannot read or write `chatSessions` for dealer B.
+13. Member can read only chat sessions where `uid == request.auth.uid`.
+14. Message attachments persist metadata only; binary files remain in Storage.
 
 ## Before Deploying
 
 - Decide final Firestore collection names for marketplace listings and dealer drafts.
 - Migrate server file-backed inventory/drafts to Firestore or keep rules as future projection only.
+- Export or migrate legacy `chats` into `chatSessions`.
 - Move listing images from local `/storage/listings` to Firebase Storage paths with `dealerId`.
 - Add Firebase Emulator Suite tests using `@firebase/rules-unit-testing`.
 - Confirm indexes for `dealerMembers.uid`, listings by `dealerId`, and published listing filters.

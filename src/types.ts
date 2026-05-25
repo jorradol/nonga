@@ -38,12 +38,21 @@ export interface Car {
 
 export interface ChatSession {
   id: string;
+  sessionId?: string;
   userId: string;
+  uid?: string;
+  dealerId?: string | null;
+  scope?: "user" | "dealer";
+  storageScopeKey?: string;
   title: string;
   createdAt: string;
+  updatedAt?: string;
+  lastMessagePreview?: string;
+  savedDraftId?: string;
+  status?: "active" | "archived";
 }
 
-export type ChatMessageAttachmentKind = "image" | "spreadsheet" | "pdf";
+export type ChatMessageAttachmentKind = "image" | "file" | "spreadsheet" | "pdf";
 
 /** ไฟล์แนบในแชท (metadata ใน message; ไฟล์จริงเก็บ in-memory ตาม storage scope) */
 export interface ChatMessageAttachment {
@@ -62,6 +71,10 @@ export interface ChatMessageAttachment {
   originalFileName?: string;
   imageUrl?: string;
   thumbnailUrl?: string;
+  storagePath?: string;
+  dealerId?: string;
+  listingId?: string;
+  draftId?: string;
   /** ขนาดรูปหลัง optimize แล้ว (client ตอนแนบ) */
   width?: number;
   height?: number;
