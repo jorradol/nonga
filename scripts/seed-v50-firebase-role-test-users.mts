@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -38,6 +39,20 @@ const write = args.has("--write");
 const json = args.has("--json") || args.has("--write");
 const example = args.has("--example");
 
+const requiredSeedEnvKeys = [
+  "NONGA_TEST_MEMBER_UID",
+  "NONGA_TEST_MEMBER_EMAIL",
+  "NONGA_TEST_MEMBER_DISPLAY_NAME",
+  "NONGA_TEST_DEALER_UID",
+  "NONGA_TEST_DEALER_EMAIL",
+  "NONGA_TEST_DEALER_DISPLAY_NAME",
+  "NONGA_TEST_DEALER_ID",
+  "NONGA_TEST_DEALER_NAME",
+  "NONGA_TEST_ADMIN_UID",
+  "NONGA_TEST_ADMIN_EMAIL",
+  "NONGA_TEST_ADMIN_DISPLAY_NAME",
+] as const;
+
 function env(key: string): string {
   return process.env[key]?.trim() ?? "";
 }
@@ -53,6 +68,13 @@ function membershipId(uid: string, dealerId: string): string {
 function requireField(value: string, key: string, missing: string[]): string {
   if (!value) missing.push(key);
   return value;
+}
+
+function printSeedEnvStatus(): void {
+  console.error("Seed env status (values redacted):");
+  for (const key of requiredSeedEnvKeys) {
+    console.error(`- ${key}: ${readSeedValue(key) ? "set" : "missing"}`);
+  }
 }
 
 function roleFromEnv(value: string): "admin" | "superadmin" {
@@ -236,6 +258,7 @@ const result = buildSeedPlan();
 if (result.ok === false) {
   console.error("Missing required seed env:");
   for (const key of result.missing) console.error(`- ${key}`);
+  printSeedEnvStatus();
   console.error("No passwords are required. Create Firebase Auth users first, then use their UIDs here.");
   process.exit(1);
 }
