@@ -8,6 +8,7 @@ export interface ListingImageFileInput {
   mimeType?: string;
   dataBase64?: string;
   name?: string;
+  originalFileName?: string;
 }
 
 export function stripDataUrlPrefix(b64: string): string {

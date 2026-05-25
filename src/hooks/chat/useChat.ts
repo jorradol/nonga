@@ -22,6 +22,27 @@ import {
   buildDealerDraftPayloadFromChat,
   logChatDraftSave,
 } from "../../services/ai/chat/chatDraftActions";
+import { isSellIntent } from "../../services/ai/chat/sellIntentParser";
+import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
+import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
+import {
+  clearChatImageAttachmentScope,
+  clearChatImagesForDraft,
+  collectChatImagesForDraft,
+  getChatImagesForMessage,
+  markChatImageMessageForPendingListing,
+  registerChatImageMessageFiles,
+  toChatImageMessageAttachments,
+  type StoredChatImageAttachment,
+} from "../../features/chat-image-attachment-v1/chatImageAttachmentStore";
+import type { PendingChatImageAttachment } from "../../features/chat-image-attachment-v1/types";
+import {
+  buildNoListingImageAckReply,
+  buildPendingListingImageAckReply,
+  buildSavedDraftImageAckReply,
+  findLatestPendingListingContext,
+  findLatestSavedDraftId,
+} from "../../features/chat-image-attachment-v1/followUpImageIntent";
 
 async function fetchInventoryForChat(): Promise<ChatInventoryCar[]> {
   try {
@@ -36,6 +57,33 @@ async function fetchInventoryForChat(): Promise<ChatInventoryCar[]> {
 async function fetchMockChatReply(userText: string): Promise<string> {
   const cars = await fetchInventoryForChat();
   return buildMockChatReply(userText, cars);
+}
+
+async function uploadChatImagesToDraft(
+  images: StoredChatImageAttachment[],
+  draftId: string,
+  dealerId: string,
+  role: string
+): Promise<{
+  storedUrls: string[];
+  failed: Array<{ name: string; error: string }>;
+}> {
+  const payloads = await Promise.all(
+    images.map((item) =>
+      fileToPasteUploadPayload(item.file).then((payload) => ({
+        ...payload,
+        originalFileName: item.metadata.originalFileName,
+        source: "chat-image-attachment-v1" as const,
+      }))
+    )
+  );
+
+  return uploadListingImagesApi(
+    { dealerId, role },
+    draftId,
+    "draft",
+    payloads
+  );
 }
 
 export function useChat() {
@@ -77,6 +125,9 @@ export function useChat() {
 
   const hydrateChatForScope = useCallback(async () => {
     if (loadedScopeRef.current !== storageScopeKey) {
+      if (loadedScopeRef.current) {
+        clearChatImageAttachmentScope(loadedScopeRef.current);
+      }
       resetChatState();
       loadedScopeRef.current = storageScopeKey;
     }
@@ -104,17 +155,103 @@ export function useChat() {
   }, [hydrateChatForScope]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (
+      text: string,
+      pendingImages?: PendingChatImageAttachment[]
+    ) => {
       const trimmed = text.trim();
-      if (!trimmed || !activeSessionId || isGenerating) return;
+      const imageAttachments = pendingImages ?? [];
+      const hasImages = imageAttachments.length > 0;
+      if ((!trimmed && !hasImages) || !activeSessionId || isGenerating) return;
 
-      await addMessage(activeSessionId, "user", trimmed);
+      const attachmentMeta = toChatImageMessageAttachments(imageAttachments);
+      const userMsg = await addMessage(
+        activeSessionId,
+        "user",
+        trimmed || "(แนบรูป)",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        attachmentMeta.length > 0 ? attachmentMeta : undefined
+      );
+      registerChatImageMessageFiles(
+        storageScopeKey,
+        activeSessionId,
+        userMsg.id,
+        imageAttachments,
+        attachmentMeta
+      );
 
       setGenerating(true);
       updateStreamedReply("", []);
 
       const historyAfterUser =
         useChatStore.getState().messages[activeSessionId] || [];
+
+      const pendingListingContext =
+        findLatestPendingListingContext(historyAfterUser);
+      const latestSavedDraftId = findLatestSavedDraftId(historyAfterUser);
+      const isListingCreateWithImages = hasImages && trimmed && isSellIntent(trimmed);
+
+      if (hasImages && latestSavedDraftId) {
+        const draftDealerId = resolveDealerIdFromUser(user);
+        const apiRole = isAdmin ? "admin" : "dealer";
+        const imagesForMessage = getChatImagesForMessage(
+          storageScopeKey,
+          activeSessionId,
+          userMsg.id
+        );
+        try {
+          await uploadChatImagesToDraft(
+            imagesForMessage,
+            latestSavedDraftId,
+            draftDealerId,
+            apiRole
+          );
+          const ack = buildSavedDraftImageAckReply(imageAttachments.length);
+          updateStreamedReply(ack);
+          await finalizeStreamedReply(activeSessionId);
+        } catch (uploadErr) {
+          console.error("[chat-image-attachment-v1-followup-upload]", {
+            draftId: latestSavedDraftId,
+            dealerId: draftDealerId,
+            error:
+              uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+          });
+          updateStreamedReply(
+            "รับรูปภาพรถแล้วครับ แต่เพิ่มเข้าไปในประกาศไม่สำเร็จ กรุณาลองส่งรูปอีกครั้งครับ"
+          );
+          await finalizeStreamedReply(activeSessionId);
+        }
+        setGenerating(false);
+        return;
+      }
+
+      if (hasImages && pendingListingContext) {
+        markChatImageMessageForPendingListing(
+          storageScopeKey,
+          activeSessionId,
+          userMsg.id
+        );
+        const ack = buildPendingListingImageAckReply(
+          imageAttachments.length,
+          pendingListingContext
+        );
+        updateStreamedReply(ack);
+        await finalizeStreamedReply(activeSessionId);
+        setGenerating(false);
+        return;
+      }
+
+      if (hasImages && !pendingListingContext && !isListingCreateWithImages) {
+        const ack = buildNoListingImageAckReply(imageAttachments.length);
+        updateStreamedReply(ack);
+        await finalizeStreamedReply(activeSessionId);
+        setGenerating(false);
+        return;
+      }
 
       const inventory = await fetchInventoryForChat();
 
@@ -196,8 +333,50 @@ export function useChat() {
                     latestDraftId: newDraftId ?? null,
                   });
 
-                  orchestrated.text =
+                  let saveText =
                     "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
+                  const sessionMessages =
+                    useChatStore.getState().messages[activeSessionId] || [];
+                  const imagesToUpload = newDraftId
+                    ? collectChatImagesForDraft(
+                        storageScopeKey,
+                        activeSessionId,
+                        sessionMessages
+                      )
+                    : [];
+
+                  if (newDraftId && imagesToUpload.length > 0) {
+                    try {
+                      const uploadResult = await uploadChatImagesToDraft(
+                        imagesToUpload,
+                        newDraftId,
+                        draftDealerId,
+                        apiRole
+                      );
+                      clearChatImagesForDraft(storageScopeKey, activeSessionId);
+                      const failedCount = uploadResult.failed?.length ?? 0;
+                      if (failedCount > 0) {
+                        saveText =
+                          "บันทึกประกาศสำเร็จแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+                      } else if (uploadResult.storedUrls.length > 0) {
+                        saveText +=
+                          "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                      }
+                    } catch (uploadErr) {
+                      console.error("[chat-image-attachment-v1-upload]", {
+                        draftId: newDraftId,
+                        dealerId: draftDealerId,
+                        error:
+                          uploadErr instanceof Error
+                            ? uploadErr.message
+                            : String(uploadErr),
+                      });
+                      saveText =
+                        "บันทึกประกาศสำเร็จแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+                    }
+                  }
+
+                  orchestrated.text = saveText;
                   orchestrated.savedDraftId = newDraftId;
                 } else {
                   logChatDraftSave("error", {
@@ -230,6 +409,14 @@ export function useChat() {
             orchestrated.text =
               "ไม่พบข้อมูลรถที่กำลังจะลงขายครับ รบกวนพิมพ์รายละเอียดรถใหม่อีกครั้งนะครับ";
           }
+        }
+
+        if (orchestrated.isDraftPreview && hasImages) {
+          markChatImageMessageForPendingListing(
+            storageScopeKey,
+            activeSessionId,
+            userMsg.id
+          );
         }
 
         updateStreamedReply(

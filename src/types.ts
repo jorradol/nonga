@@ -54,9 +54,19 @@ export interface ChatMessageAttachment {
   mimeType: string;
   /** thumbnail เล็กสำหรับแสดงใน bubble (ไม่บังคับหลัง reload) */
   previewDataUrl?: string;
-  /** ขนาดต้นฉบับ (จาก client ตอนแนบ) */
+  /** URL ชั่วคราวใน browser สำหรับแสดงทันทีหลังส่ง (ไม่ใช่ storage ถาวร) */
+  previewUrl?: string;
+  /** ชื่อไฟล์หลัง optimize แล้ว */
+  fileName?: string;
+  /** ชื่อไฟล์เดิมของผู้ใช้ เก็บเฉพาะชื่อ ไม่เก็บ binary ต้นฉบับ */
+  originalFileName?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  /** ขนาดรูปหลัง optimize แล้ว (client ตอนแนบ) */
   width?: number;
   height?: number;
+  sortOrder?: number;
+  source?: "chat-image-attachment-v1" | string;
 }
 
 export interface ChatMessage {

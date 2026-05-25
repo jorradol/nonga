@@ -12,7 +12,13 @@ function formatAttachmentsSummary(attachments: ChatMessageAttachment[]): string 
   const images = attachments.filter((a) => a.kind === "image");
   const lines: string[] = [];
   if (images.length > 0) {
-    lines.push(`รูปรถ ${images.length} รูป`);
+    const names = images
+      .map((img) => img.originalFileName ?? img.name)
+      .filter(Boolean)
+      .join(", ");
+    lines.push(
+      names ? `แนบรูป ${images.length} รูป: ${names}` : `แนบรูป ${images.length} รูป`
+    );
   }
   for (const a of attachments) {
     if (a.kind !== "image") {
@@ -27,7 +33,7 @@ interface ChatMessageAttachmentsProps {
   isUser?: boolean;
 }
 
-/** แสดงไฟล์แนบในประวัติแชทเก่า (ฟีเจอร์แนบใน composer ปิดชั่วคราวก่อน beta) */
+/** แสดงรูปแนบใน user bubble; metadata ถูกเก็บแยกจาก binary รูป */
 export function ChatMessageAttachments({
   attachments,
   isUser,
@@ -52,16 +58,16 @@ export function ChatMessageAttachments({
                 isUser ? "border-white/30" : "border-slate-700"
               }`}
             >
-              {img.previewDataUrl ? (
+              {img.previewUrl || img.thumbnailUrl || img.imageUrl || img.previewDataUrl ? (
                 <img
-                  src={img.previewDataUrl}
-                  alt={img.name}
+                  src={img.previewUrl ?? img.thumbnailUrl ?? img.imageUrl ?? img.previewDataUrl}
+                  alt={img.originalFileName ?? img.name}
                   className="w-14 h-14 sm:w-16 sm:h-16 object-cover block"
                   draggable={false}
                 />
               ) : (
                 <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-800/80 flex items-center justify-center text-[9px] px-1 text-center">
-                  {img.name}
+                  {img.originalFileName ?? img.name}
                 </div>
               )}
             </div>

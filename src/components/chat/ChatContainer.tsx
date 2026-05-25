@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft } from "lucide-react";
+import { ChatImageAttachmentInput } from "./ChatImageAttachmentInput";
 import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
@@ -7,6 +8,16 @@ import { ChatMessageBubble } from "./ChatMessageBubble";
 import { SuggestionsGrid } from "./SuggestionsGrid";
 import { MemoryPanel } from "./MemoryPanel";
 import { PersonalityPanel } from "./PersonalityPanel";
+import {
+  optimizeChatImageAttachments,
+  revokePendingChatImagePreviews,
+} from "../../features/chat-image-attachment-v1/imageOptimizer";
+import {
+  CHAT_IMAGE_ATTACHMENT_MAX_FILES,
+  CHAT_IMAGE_ATTACHMENT_TOO_MANY,
+  CHAT_IMAGE_ATTACHMENT_V1_ENABLED,
+  type PendingChatImageAttachment,
+} from "../../features/chat-image-attachment-v1/types";
 
 interface ChatContainerProps {
   onToggleSidebar: () => void;
@@ -29,6 +40,11 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const { setView } = useAppStore();
 
   const [inputText, setInputText] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingChatImageAttachment[]
+  >([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [isPreparingAttachments, setIsPreparingAttachments] = useState(false);
   const [showMobileProps, setShowMobileProps] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const { ref: textareaRef, reset: resetTextareaHeight } = useChatTextareaAutosize(inputText);
@@ -36,6 +52,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pendingAttachmentsRef = useRef<PendingChatImageAttachment[]>([]);
   const userScrolledAwayRef = useRef(false);
   const prevGeneratingRef = useRef(false);
   const messageCountRef = useRef(0);
@@ -106,15 +123,79 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     }
   }, [streamedReply, isGenerating, isNearBottom]);
 
+  useEffect(() => {
+    pendingAttachmentsRef.current = pendingAttachments;
+  }, [pendingAttachments]);
+
+  useEffect(() => {
+    return () => {
+      revokePendingChatImagePreviews(pendingAttachmentsRef.current);
+    };
+  }, []);
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || isGenerating) return;
+    const hasText = inputText.trim().length > 0;
+    const hasAttachments = pendingAttachments.length > 0;
+    if ((!hasText && !hasAttachments) || isGenerating || isPreparingAttachments) {
+      return;
+    }
 
     const textToSend = inputText;
+    const attachmentsToSend = pendingAttachments;
     setInputText("");
+    setPendingAttachments([]);
+    setAttachmentError(null);
     resetTextareaHeight();
-    await sendMessage(textToSend);
+    try {
+      await sendMessage(textToSend, attachmentsToSend);
+    } finally {
+      revokePendingChatImagePreviews(attachmentsToSend);
+    }
   };
+
+  const handleFilesSelected = useCallback(
+    async (files: File[]) => {
+      if (!CHAT_IMAGE_ATTACHMENT_V1_ENABLED || files.length === 0) return;
+
+      const slotsLeft = CHAT_IMAGE_ATTACHMENT_MAX_FILES - pendingAttachments.length;
+      if (slotsLeft <= 0) {
+        setAttachmentError(CHAT_IMAGE_ATTACHMENT_TOO_MANY);
+        return;
+      }
+
+      const selected = files.slice(0, slotsLeft);
+      if (files.length > slotsLeft) {
+        setAttachmentError(CHAT_IMAGE_ATTACHMENT_TOO_MANY);
+      } else {
+        setAttachmentError(null);
+      }
+
+      setIsPreparingAttachments(true);
+      try {
+        const optimized = await optimizeChatImageAttachments(
+          selected,
+          setAttachmentError
+        );
+        if (optimized.length > 0) {
+          setPendingAttachments((prev) => [...prev, ...optimized]);
+        }
+      } finally {
+        setIsPreparingAttachments(false);
+      }
+    },
+    [pendingAttachments.length]
+  );
+
+  const handleRemoveAttachment = useCallback((index: number) => {
+    setPendingAttachments((prev) => {
+      const item = prev[index];
+      if (item) {
+        revokePendingChatImagePreviews([item]);
+      }
+      return prev.filter((_, idx) => idx !== index);
+    });
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -263,7 +344,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
             <div
-              className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex items-end shadow-lg overflow-hidden"
+              className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
               id="chat-composer-box"
             >
               <textarea
@@ -278,20 +359,43 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 }
                 rows={1}
                 disabled={isGenerating}
-                className="flex-1 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2.5 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px]"
+                className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px]"
                 style={{ minHeight: 38, maxHeight: 82 }}
                 id="chat-textarea-elt"
               />
-              <button
-                type="submit"
-                disabled={isGenerating || !inputText.trim()}
-                className="min-w-[44px] min-h-[44px] w-11 h-11 m-1 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
-                id="send-message-btn"
-                title="ส่งข้อความ"
+              <div
+                className="composer-bottom-row flex items-center justify-end gap-1.5 px-1 pb-1 pt-0 shrink-0 min-h-[44px]"
+                id="chat-composer-bottom-row"
               >
-                <Send className="w-4 h-4 ml-0.5" />
-              </button>
+                {CHAT_IMAGE_ATTACHMENT_V1_ENABLED && (
+                  <ChatImageAttachmentInput
+                    pending={pendingAttachments}
+                    disabled={isGenerating}
+                    isPreparing={isPreparingAttachments}
+                    onFilesSelected={handleFilesSelected}
+                    onRemoveAt={handleRemoveAttachment}
+                  />
+                )}
+                <button
+                  type="submit"
+                  disabled={
+                    isGenerating ||
+                    isPreparingAttachments ||
+                    (!inputText.trim() && pendingAttachments.length === 0)
+                  }
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
+                  id="send-message-btn"
+                  title="ส่งข้อความ"
+                >
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              </div>
             </div>
+            {attachmentError && (
+              <p className="text-[11px] text-rose-400 text-center mt-2" role="alert">
+                {attachmentError}
+              </p>
+            )}
           </form>
         </div>
       </div>

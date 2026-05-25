@@ -22,7 +22,13 @@ export async function uploadListingImagesApi(
   h: DealerApiHeaders,
   listingId: string,
   target: DealerListingImageTarget,
-  files: Array<{ mimeType: string; dataBase64: string; name: string }>
+  files: Array<{
+    mimeType: string;
+    dataBase64: string;
+    name: string;
+    originalFileName?: string;
+    source?: "chat-image-attachment-v1" | "draft-upload";
+  }>
 ): Promise<{
   storedUrls: string[];
   thumbnails: string[];
@@ -38,7 +44,7 @@ export async function uploadListingImagesApi(
     const res = await fetch(uploadPath(target, listingId), {
       method: "POST",
       headers: headers(h),
-      body: JSON.stringify({ files: [file] }),
+      body: JSON.stringify({ files: [file], source: file.source }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {

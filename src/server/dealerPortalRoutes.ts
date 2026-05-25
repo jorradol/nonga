@@ -390,10 +390,26 @@ export function registerDealerPortalRoutes(app: Express): void {
     }
 
     if (result.storedUrls.length > 0) {
+      const uploadSource =
+        req.body?.source === "chat-image-attachment-v1"
+          ? "chat-image-attachment-v1"
+          : "draft-upload";
       const merged = [...(draft.images ?? []), ...result.storedUrls];
+      const existingMetadata = draft.imageMetadata ?? [];
+      const nextMetadata = [
+        ...existingMetadata,
+        ...(result.metadata ?? []).map((item, index) => ({
+          ...item,
+          dealerId: ctx.dealerId,
+          draftId: req.params.id,
+          source: uploadSource,
+          sortOrder: existingMetadata.length + index,
+        })),
+      ];
       updateDealerDraft(req.params.id, {
         images: merged,
         sourceImageUrls: merged,
+        imageMetadata: nextMetadata,
       });
     }
 

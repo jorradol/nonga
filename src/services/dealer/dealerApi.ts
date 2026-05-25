@@ -53,6 +53,21 @@ export interface DealerDraftRecord {
   price: number;
   mileage: number;
   images: string[];
+  imageMetadata?: Array<{
+    dealerId: string;
+    draftId: string;
+    fileName: string;
+    originalFileName?: string;
+    mimeType: string;
+    width: number;
+    height: number;
+    size: number;
+    imageUrl: string;
+    thumbnailUrl: string;
+    createdAt: string;
+    sortOrder: number;
+    source?: string;
+  }>;
   missingFields: string[];
   warnings: string[];
   confidenceScore: number;

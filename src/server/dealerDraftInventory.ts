@@ -7,6 +7,25 @@ import type { DuplicateMeta } from "../utils/duplicateDetection/types";
 
 export type DraftInventoryStatus = "draft" | "needs_review";
 
+export interface DealerDraftImageMetadata {
+  dealerId: string;
+  draftId: string;
+  sessionId?: string;
+  fileName: string;
+  originalFileName?: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  size: number;
+  imagePath: string;
+  imageUrl: string;
+  thumbnailPath: string;
+  thumbnailUrl: string;
+  createdAt: string;
+  sortOrder: number;
+  source?: "chat-image-attachment-v1" | "draft-upload" | string;
+}
+
 export interface DealerDraftRecord {
   id: string;
   dealerId: string;
@@ -22,6 +41,7 @@ export interface DealerDraftRecord {
   status: DraftInventoryStatus;
   images: string[];
   sourceImageUrls?: string[];
+  imageMetadata?: DealerDraftImageMetadata[];
   title: string;
   brand: string;
   model: string;

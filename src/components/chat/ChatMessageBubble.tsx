@@ -352,7 +352,9 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           >
             {isUser ? (
               <>
-                {message.text && message.text !== "(แนบไฟล์)" && (
+                {message.text &&
+                  message.text !== "(แนบไฟล์)" &&
+                  message.text !== "(แนบรูป)" && (
                   <p className="whitespace-pre-wrap leading-relaxed select-text font-medium text-slate-100">
                     {message.text}
                   </p>

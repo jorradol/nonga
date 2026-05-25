@@ -28,6 +28,7 @@ export interface PasteUploadFileItem {
   buffer: Buffer;
   mimeType: string;
   name: string;
+  originalFileName?: string;
 }
 
 export interface PasteUploadFileFailure {
@@ -93,7 +94,12 @@ export function decodeSinglePasteUploadFile(
     };
   }
 
-  return { ok: true, data: { buffer, mimeType, name } };
+  const originalFileName =
+    typeof item.originalFileName === "string" && item.originalFileName.trim()
+      ? item.originalFileName.trim()
+      : undefined;
+
+  return { ok: true, data: { buffer, mimeType, name, originalFileName } };
 }
 
 export function decodePasteUploadFiles(
@@ -131,6 +137,20 @@ export function decodePasteUploadFiles(
 export interface PasteUploadedImagesResult {
   storedUrls: string[];
   thumbnails: string[];
+  metadata: Array<{
+    fileName: string;
+    originalFileName: string;
+    mimeType: string;
+    width: number;
+    height: number;
+    size: number;
+    imagePath: string;
+    imageUrl: string;
+    thumbnailPath: string;
+    thumbnailUrl: string;
+    createdAt: string;
+    sortOrder: number;
+  }>;
   warnings: string[];
   failed: PasteUploadFileFailure[];
 }
@@ -157,10 +177,11 @@ export async function persistPasteUploadedImages(
 
   const storedUrls: string[] = [];
   const thumbnails: string[] = [];
+  const metadata: PasteUploadedImagesResult["metadata"] = [];
   const warnings: string[] = [...decoded.failed.map((f) => `${f.name}: ${f.error}`)];
   const failed: PasteUploadFileFailure[] = [...decoded.failed];
 
-  for (const { buffer, mimeType, name } of decoded.items) {
+  for (const { buffer, mimeType, name, originalFileName } of decoded.items) {
     const processed = await processListingImageUpload(buffer, mimeType, name);
     if (processed.ok === false) {
       warnings.push(processed.error);
@@ -183,7 +204,21 @@ export async function persistPasteUploadedImages(
 
     storedUrls.push(saved.storedUrl);
     thumbnails.push(saved.thumbnailUrl);
+    metadata.push({
+      fileName: saved.storedUrl.split("/").pop() ?? name,
+      originalFileName: originalFileName ?? name,
+      mimeType: processed.data.mainExt === ".webp" ? "image/webp" : "image/jpeg",
+      width: processed.data.mainWidth,
+      height: processed.data.mainHeight,
+      size: processed.data.mainBuffer.length,
+      imagePath: saved.storedUrl,
+      imageUrl: saved.storedUrl,
+      thumbnailPath: saved.thumbnailUrl,
+      thumbnailUrl: saved.thumbnailUrl,
+      createdAt: new Date().toISOString(),
+      sortOrder: metadata.length,
+    });
   }
 
-  return { ok: true, storedUrls, thumbnails, warnings, failed };
+  return { ok: true, storedUrls, thumbnails, metadata, warnings, failed };
 }
