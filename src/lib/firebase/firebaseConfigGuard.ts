@@ -15,6 +15,17 @@ export interface FirebaseClientConfigLike {
   firestoreDatabaseId?: string;
 }
 
+export interface FirebaseWebConfigEnv {
+  VITE_FIREBASE_API_KEY?: string;
+  VITE_FIREBASE_AUTH_DOMAIN?: string;
+  VITE_FIREBASE_PROJECT_ID?: string;
+  VITE_FIREBASE_STORAGE_BUCKET?: string;
+  VITE_FIREBASE_MESSAGING_SENDER_ID?: string;
+  VITE_FIREBASE_APP_ID?: string;
+  VITE_FIREBASE_MEASUREMENT_ID?: string;
+  VITE_FIREBASE_FIRESTORE_DATABASE_ID?: string;
+}
+
 export interface FirebaseConfigReport {
   mode: FirebaseClientAuthMode;
   hasFakePlaceholder: boolean;
@@ -42,6 +53,17 @@ const REQUIRED_WEB_CONFIG_FIELDS: Array<keyof FirebaseClientConfigLike> = [
   "projectId",
   "appId",
 ];
+
+const FIREBASE_WEB_ENV_KEYS: Record<keyof FirebaseClientConfigLike, keyof FirebaseWebConfigEnv> = {
+  apiKey: "VITE_FIREBASE_API_KEY",
+  authDomain: "VITE_FIREBASE_AUTH_DOMAIN",
+  projectId: "VITE_FIREBASE_PROJECT_ID",
+  storageBucket: "VITE_FIREBASE_STORAGE_BUCKET",
+  messagingSenderId: "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  appId: "VITE_FIREBASE_APP_ID",
+  measurementId: "VITE_FIREBASE_MEASUREMENT_ID",
+  firestoreDatabaseId: "VITE_FIREBASE_FIRESTORE_DATABASE_ID",
+};
 
 function valueOf(
   config: FirebaseClientConfigLike,
@@ -73,6 +95,31 @@ function readViteString(key: string): string {
   } catch {
     return "";
   }
+}
+
+function envValue(
+  env: FirebaseWebConfigEnv | undefined,
+  key: keyof FirebaseWebConfigEnv
+): string {
+  const provided = env?.[key];
+  if (typeof provided === "string") return provided.trim();
+  return readViteString(key);
+}
+
+export function resolveFirebaseClientConfig(
+  baseConfig: FirebaseClientConfigLike,
+  env?: FirebaseWebConfigEnv
+): FirebaseClientConfigLike {
+  const resolved: FirebaseClientConfigLike = { ...baseConfig };
+  for (const [configKey, envKey] of Object.entries(FIREBASE_WEB_ENV_KEYS) as Array<
+    [keyof FirebaseClientConfigLike, keyof FirebaseWebConfigEnv]
+  >) {
+    const value = envValue(env, envKey);
+    if (value) {
+      resolved[configKey] = value;
+    }
+  }
+  return resolved;
 }
 
 export function hasBetaTokenClientEnv(): boolean {

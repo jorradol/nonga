@@ -47,6 +47,48 @@ export interface UserSession {
 // LocalStorage key for session persistence
 const AUTH_SESSION_KEY = "nonga_auth_session";
 const REGISTERED_USERS_KEY = "nonga_registered_local_users";
+const PUBLIC_SIGNUP_DISABLED_MESSAGE =
+  "ระบบสมัครสมาชิกสาธารณะยังไม่ได้เปิดใช้งานในสภาพแวดล้อมนี้ครับ";
+
+export interface PublicSignupEnv {
+  DEV?: boolean;
+  VITE_NONGA_PUBLIC_SIGNUP_ENABLED?: string;
+}
+
+function readViteFlag(key: "DEV"): boolean {
+  try {
+    const meta = import.meta as { env?: Record<string, unknown> };
+    return Boolean(meta.env?.[key]);
+  } catch {
+    return false;
+  }
+}
+
+function readViteString(key: string): string {
+  try {
+    const meta = import.meta as { env?: Record<string, unknown> };
+    const value = meta.env?.[key];
+    return typeof value === "string" ? value.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+function isEnabledFlag(value: string): boolean {
+  return /^(1|true|yes|on)$/i.test(value.trim());
+}
+
+export function isPublicSignupEnabled(
+  env?: PublicSignupEnv,
+  mockMode = isMockConfig
+): boolean {
+  const configured =
+    env?.VITE_NONGA_PUBLIC_SIGNUP_ENABLED?.trim() ||
+    readViteString("VITE_NONGA_PUBLIC_SIGNUP_ENABLED");
+  if (configured) return isEnabledFlag(configured);
+  const isDev = env?.DEV ?? readViteFlag("DEV");
+  return mockMode && isDev;
+}
 
 export const authService = {
   // Get active session stored in localStorage (if any)
@@ -80,6 +122,9 @@ export const authService = {
 
   // Email and Password Registration
   async registerWithEmail(email: string, password: string, displayName: string): Promise<UserSession> {
+    if (!isPublicSignupEnabled()) {
+      throw new Error(PUBLIC_SIGNUP_DISABLED_MESSAGE);
+    }
     if (isMockConfig) {
       if (!isMockAuthStorageEnabled) {
         throw new Error(firebaseAuthUnavailableMessage);

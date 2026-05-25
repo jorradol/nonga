@@ -129,3 +129,7 @@ Frontend Firebase config is now checked by `src/lib/firebase/firebaseConfigGuard
 ## Step 2G update
 
 Production auth hardening now prevents dev stub helper defaults from being surfaced in production. `getStubTokensForDev()` returns hardcoded fallback tokens only outside `NODE_ENV=production`.
+
+## Step 2H update
+
+Frontend Firebase Web Auth config can now come from `VITE_FIREBASE_*` env values. Real backend token verification still requires Firebase Admin env credentials, while local tests can continue using the dev Firebase token maps.

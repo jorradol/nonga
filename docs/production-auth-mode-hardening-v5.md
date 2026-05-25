@@ -83,8 +83,9 @@ It checks production fake config blocking, sandbox hiding, token default blockin
 
 ## Step 2H Recommendations
 
+- Use real `VITE_FIREBASE_*` config from deployment env and keep `firebase-applet-config.json` as local placeholder fallback only.
 - Migrate dealer/admin frontend fetch helpers to prefer `getFirebaseAuthHeaders()` when real Firebase Auth is ready.
 - Remove client exposure of dealer/admin beta tokens for production.
-- Add deployment-time env validation for Firebase web config and Firebase Admin credentials.
+- Add deployment-time env validation for Firebase Admin credentials.
 - Add production Firestore rules for `users`, `dealerMembers`, listings, images, and later chat history.
 - Move chat history persistence from localStorage to a server/database path after auth is fully real.

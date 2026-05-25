@@ -7,6 +7,7 @@ import {
   detectFirebaseClientConfig,
   firebaseAuthEnvironment,
   reportFirebaseClientConfig,
+  resolveFirebaseClientConfig,
   shouldAllowMockAuth,
   shouldAllowSandboxTools,
 } from "./firebaseConfigGuard";
@@ -16,7 +17,8 @@ let app;
 let auth: ReturnType<typeof getAuth>;
 let db: ReturnType<typeof getFirestore>;
 
-const firebaseClientConfigReport = detectFirebaseClientConfig(firebaseConfig);
+const firebaseClientConfig = resolveFirebaseClientConfig(firebaseConfig);
+const firebaseClientConfigReport = detectFirebaseClientConfig(firebaseClientConfig);
 reportFirebaseClientConfig(firebaseClientConfigReport);
 
 const firebaseClientAuthMode = firebaseClientConfigReport.mode;
@@ -29,7 +31,7 @@ const isSandboxAuthToolsEnabled = shouldAllowSandboxTools(firebaseClientConfigRe
 const firebaseAuthUnavailableMessage = FIREBASE_AUTH_UNAVAILABLE_THAI;
 
 try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  app = getApps().length === 0 ? initializeApp(firebaseClientConfig) : getApp();
   auth = getAuth(app);
   db = getFirestore(app);
 } catch (error) {
@@ -41,6 +43,7 @@ export {
   auth,
   db,
   firebaseAuthUnavailableMessage,
+  firebaseClientConfig,
   firebaseClientAuthEnvironment,
   firebaseClientAuthMode,
   firebaseClientConfigReport,

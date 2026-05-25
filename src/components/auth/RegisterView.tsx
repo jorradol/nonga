@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../../hooks/auth/useAuth";
+import { isPublicSignupEnabled } from "../../services/auth/authService";
 import { useAppStore } from "../../store";
 import { motion } from "motion/react";
 import { 
@@ -11,6 +12,7 @@ import { AnimatedCard } from "../LayoutSystem";
 export default function RegisterView() {
   const { registerWithEmail, error: authError } = useAuth();
   const setView = useAppStore((state) => state.setView);
+  const signupEnabled = isPublicSignupEnabled();
 
   // Form states
   const [name, setName] = useState("");
@@ -36,6 +38,11 @@ export default function RegisterView() {
     e.preventDefault();
     setLocalError(null);
     setSuccessToast(null);
+
+    if (!signupEnabled) {
+      setLocalError("ระบบสมัครสมาชิกสาธารณะยังไม่ได้เปิดใช้งานในสภาพแวดล้อมนี้ครับ");
+      return;
+    }
 
     // Dynamic checks
     if (!name.trim()) {
@@ -126,6 +133,17 @@ export default function RegisterView() {
             </motion.div>
           )}
 
+          {!signupEnabled && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-amber-500 flex items-start gap-2.5"
+            >
+              <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
+              <span>ระบบสมัครสมาชิกสาธารณะยังไม่ได้เปิดใช้งานในสภาพแวดล้อมนี้ครับ กรุณาใช้บัญชีทดสอบที่ได้รับจากทีมงาน</span>
+            </motion.div>
+          )}
+
           {/* Setup registration fields form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             
@@ -142,7 +160,7 @@ export default function RegisterView() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="เช่น พี่ออโต้ แฟนคลับเว็ปตรัง"
-                  disabled={loading}
+                  disabled={loading || !signupEnabled}
                   className="w-full pl-11 pr-4 py-3 text-xs sm:text-sm rounded-xl border bg-slate-500/[0.03] border-slate-200 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
                 />
               </div>
@@ -161,7 +179,7 @@ export default function RegisterView() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="nongbot@example.com"
-                  disabled={loading}
+                  disabled={loading || !signupEnabled}
                   className="w-full pl-11 pr-4 py-3 text-xs sm:text-sm rounded-xl border bg-slate-500/[0.03] border-slate-200 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
                 />
               </div>
@@ -182,7 +200,7 @@ export default function RegisterView() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••"
-                    disabled={loading}
+                    disabled={loading || !signupEnabled}
                     className="w-full pl-11 pr-11 py-3 text-xs sm:text-sm rounded-xl border bg-slate-500/[0.03] border-slate-200 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
                   />
                   <button
@@ -208,7 +226,7 @@ export default function RegisterView() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••"
-                    disabled={loading}
+                    disabled={loading || !signupEnabled}
                     className="w-full pl-11 pr-11 py-3 text-xs sm:text-sm rounded-xl border bg-slate-500/[0.03] border-slate-200 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
                   />
                   <button
@@ -226,14 +244,14 @@ export default function RegisterView() {
             {/* Custom orange submit trigger button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !signupEnabled}
               className="w-full py-3.5 mt-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 disabled:from-slate-700 disabled:to-slate-800 disabled:cursor-not-allowed text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-orange-600/15 hover:shadow-orange-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>สร้างบัญชีสตรีมออโต้ฟรี</span>
+                  <span>{signupEnabled ? "สร้างบัญชีสตรีมออโต้ฟรี" : "ยังไม่เปิดสมัครสมาชิกสาธารณะ"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

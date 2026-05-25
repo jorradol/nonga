@@ -14,7 +14,7 @@ Step 2F prepares the frontend for real Firebase Auth without removing local mock
 - `appId` is present but placeholder-like
 - `measurementId` is not set
 
-This means local development remains in mock/demo mode until real Firebase web config is supplied.
+This means local development remains in mock/demo mode until real Firebase web config is supplied through `VITE_FIREBASE_*` env values.
 
 ## Auth Modes
 
@@ -105,3 +105,9 @@ Remaining items for Step 2H:
 Production auth hardening is documented in `docs/production-auth-mode-hardening-v5.md`.
 
 Client-side dealer/admin token helpers no longer fall back to hardcoded dev tokens in production, and the sandbox role switcher / Thor Auto Demo tools remain guarded behind dev/mock mode.
+
+## Step 2H update
+
+Real Firebase Web Auth config can now be supplied by env and overrides `firebase-applet-config.json`.
+
+See `docs/firebase-web-auth-login-flow-v5.md` for the limited login test plan, Firestore profile documents, dealer membership test data, and public signup guard.
