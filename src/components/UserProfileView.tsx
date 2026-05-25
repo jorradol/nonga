@@ -114,11 +114,7 @@ export default function UserProfileView() {
       showToast("ระบบโปรไฟล์ยังไม่พร้อม — โหลดหน้าใหม่แล้วลองอีกครั้ง", "error");
       return;
     }
-    if (
-      !demoToolsEnabled &&
-      !isSimulatedState &&
-      user?.uid !== "guest-user-100"
-    ) {
+    if (!demoToolsEnabled) {
       showToast(
         "สลับสิทธิ์จำลองใช้ได้เฉพาะโหมดพัฒนา (DEV) หรือบัญชีจำลองเท่านั้น",
         "error"
@@ -165,6 +161,10 @@ export default function UserProfileView() {
 
   const handleDemoDealerLogin = async () => {
     if (!updateUserProfile) return;
+    if (!demoToolsEnabled) {
+      showToast("ระบบทดลองดีลเลอร์เปิดใช้เฉพาะโหมดพัฒนาเท่านั้นครับ", "error");
+      return;
+    }
     setDemoLoginBusy(true);
     try {
       await updateUserProfile(buildThorAutoDemoProfileUpdates(user));
@@ -647,6 +647,7 @@ export default function UserProfileView() {
                         แผงนี้ถูกสงวนไว้เฉพาะสำหรับผู้ขายที่ผ่านการยืนยันตัวตน มีสิทธิ์ <strong>Dealer Partner</strong> หรือผู้บริหารระบบเท่านั้น อย่างไรก็ตาม ในระบบ Sandbox เพื่อความพรีเมียม คุณสามารถทดสอบแก้ไขปรับจูนแบนเนอร์หรือตรวจเช็คสถิติแบบพรีเมียมจำลองได้ทันที!
                       </p>
                     </div>
+                    {demoToolsEnabled && (
                     <div className="pt-2">
                       <button
                         onClick={() => handleSandboxRoleChange("dealer")}
@@ -655,6 +656,7 @@ export default function UserProfileView() {
                         สวิตช์บทบาทเป็นดีลเลอร์สุดตึงทันที ✨
                       </button>
                     </div>
+                    )}
                   </div>
                 )}
 

@@ -5,6 +5,7 @@ import firebaseConfig from "../../../firebase-applet-config.json";
 import {
   FIREBASE_AUTH_UNAVAILABLE_THAI,
   detectFirebaseClientConfig,
+  firebaseAuthEnvironment,
   reportFirebaseClientConfig,
   shouldAllowMockAuth,
   shouldAllowSandboxTools,
@@ -19,6 +20,8 @@ const firebaseClientConfigReport = detectFirebaseClientConfig(firebaseConfig);
 reportFirebaseClientConfig(firebaseClientConfigReport);
 
 const firebaseClientAuthMode = firebaseClientConfigReport.mode;
+const firebaseClientAuthEnvironment =
+  firebaseAuthEnvironment(firebaseClientConfigReport);
 const isFirebaseAuthReady = firebaseClientConfigReport.isUsableForFirebaseAuth;
 const isMockConfig = shouldAllowMockAuth(firebaseClientConfigReport);
 const isMockAuthStorageEnabled = shouldAllowMockAuth(firebaseClientConfigReport);
@@ -38,6 +41,7 @@ export {
   auth,
   db,
   firebaseAuthUnavailableMessage,
+  firebaseClientAuthEnvironment,
   firebaseClientAuthMode,
   firebaseClientConfigReport,
   isFirebaseAuthReady,

@@ -91,7 +91,7 @@ Backend verification from Step 2B still requires one credential path:
 
 ## Still Not Full Production
 
-Remaining items for Step 2G:
+Remaining items for Step 2H:
 
 - make frontend dealer/admin API helpers prefer Firebase ID tokens when real auth is ready
 - remove production exposure to default DEV dealer/admin tokens
@@ -99,3 +99,9 @@ Remaining items for Step 2G:
 - disable or remove sandbox role switching from production UI entirely
 - add stricter Firestore rules for `users`, `dealerMembers`, listings, images, and later chat history
 - keep chat history migration separate
+
+## Step 2G update
+
+Production auth hardening is documented in `docs/production-auth-mode-hardening-v5.md`.
+
+Client-side dealer/admin token helpers no longer fall back to hardcoded dev tokens in production, and the sandbox role switcher / Thor Auto Demo tools remain guarded behind dev/mock mode.

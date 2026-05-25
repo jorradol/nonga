@@ -125,3 +125,7 @@ Dealer APIs now reject mismatched Firebase dealer membership scope and mismatche
 Frontend Firebase config is now checked by `src/lib/firebase/firebaseConfigGuard.ts`.
 
 `src/services/auth/firebaseAuthHeaders.ts` prepares the client-side helper for sending real Firebase ID tokens once real Firebase web config is provided.
+
+## Step 2G update
+
+Production auth hardening now prevents dev stub helper defaults from being surfaced in production. `getStubTokensForDev()` returns hardcoded fallback tokens only outside `NODE_ENV=production`.

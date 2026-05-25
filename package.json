@@ -28,6 +28,7 @@
     "test:v50-legacy-owner-auth": "tsx scripts/test-v50-legacy-owner-auth.mts",
     "test:v50-frontend-api-routes": "tsx scripts/test-v50-frontend-api-routes.mts",
     "test:v50-firebase-config": "tsx scripts/test-v50-firebase-config.mts",
+    "test:v50-production-auth-mode": "tsx scripts/test-v50-production-auth-mode.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",
     "test:dealer-draft-publish-guard": "tsx scripts/test-dealer-draft-publish-guard.mts",

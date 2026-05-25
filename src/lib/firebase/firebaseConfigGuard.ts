@@ -25,6 +25,14 @@ export interface FirebaseConfigReport {
   warnings: string[];
 }
 
+export interface FirebaseAuthEnvironment {
+  isLocalDev: boolean;
+  isProduction: boolean;
+  isBetaMode: boolean;
+  isFirebaseAuthMode: boolean;
+  isInvalidProductionConfig: boolean;
+}
+
 export const FIREBASE_AUTH_UNAVAILABLE_THAI =
   "ระบบเข้าสู่ระบบยังไม่ได้เปิดใช้งานในสภาพแวดล้อมนี้ครับ";
 
@@ -133,6 +141,19 @@ export function shouldAllowMockAuth(report: FirebaseConfigReport): boolean {
 
 export function shouldAllowSandboxTools(report: FirebaseConfigReport): boolean {
   return report.mode === "dev-mock";
+}
+
+export function firebaseAuthEnvironment(
+  report: FirebaseConfigReport,
+  env: { dev?: boolean; prod?: boolean } = {}
+): FirebaseAuthEnvironment {
+  return {
+    isLocalDev: env.dev ?? readViteFlag("DEV"),
+    isProduction: env.prod ?? readViteFlag("PROD"),
+    isBetaMode: report.mode === "beta-token",
+    isFirebaseAuthMode: report.mode === "firebase-auth",
+    isInvalidProductionConfig: report.mode === "invalid-production-config",
+  };
 }
 
 export function reportFirebaseClientConfig(report: FirebaseConfigReport): void {

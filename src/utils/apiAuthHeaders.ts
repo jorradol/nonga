@@ -1,10 +1,19 @@
+import { firebaseAuthUnavailableMessage } from "../lib/firebase";
+
 /**
- * Client auth headers — stub ก่อน Firebase Auth
- * ตั้งใน .env: VITE_NONGA_DEALER_API_TOKEN, VITE_NONGA_ADMIN_API_TOKEN
+ * Client beta/dev auth headers.
+ * Production must use explicit env tokens or Firebase ID token helpers.
  */
 
 const DEFAULT_DEALER = "nonga-v4-dev-dealer-token";
 const DEFAULT_ADMIN = "nonga-v4-dev-admin-token";
+
+export interface ClientApiAuthEnv {
+  DEV?: boolean;
+  PROD?: boolean;
+  VITE_NONGA_DEALER_API_TOKEN?: string;
+  VITE_NONGA_ADMIN_API_TOKEN?: string;
+}
 
 function readViteEnv(key: string): string {
   try {
@@ -16,12 +25,55 @@ function readViteEnv(key: string): string {
   }
 }
 
+function readViteFlag(key: "DEV" | "PROD"): boolean {
+  try {
+    const meta = import.meta as { env?: Record<string, unknown> };
+    return Boolean(meta.env?.[key]);
+  } catch {
+    return false;
+  }
+}
+
+function readFromEnv(env: ClientApiAuthEnv | undefined, key: keyof ClientApiAuthEnv): string {
+  const value = env?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function resolveClientDealerToken(env?: ClientApiAuthEnv): string {
+  const configured =
+    readFromEnv(env, "VITE_NONGA_DEALER_API_TOKEN") ||
+    readViteEnv("VITE_NONGA_DEALER_API_TOKEN");
+  if (configured) return configured;
+
+  const isProd = env?.PROD ?? readViteFlag("PROD");
+  const isDev = env?.DEV ?? readViteFlag("DEV");
+  return !isProd || isDev ? DEFAULT_DEALER : "";
+}
+
+export function resolveClientAdminToken(env?: ClientApiAuthEnv): string {
+  const configured =
+    readFromEnv(env, "VITE_NONGA_ADMIN_API_TOKEN") ||
+    readViteEnv("VITE_NONGA_ADMIN_API_TOKEN");
+  if (configured) return configured;
+
+  const isProd = env?.PROD ?? readViteFlag("PROD");
+  const isDev = env?.DEV ?? readViteFlag("DEV");
+  return !isProd || isDev ? DEFAULT_ADMIN : "";
+}
+
+function requireClientToken(token: string): string {
+  if (!token) {
+    throw new Error(firebaseAuthUnavailableMessage);
+  }
+  return token;
+}
+
 function dealerToken(): string {
-  return readViteEnv("VITE_NONGA_DEALER_API_TOKEN") || DEFAULT_DEALER;
+  return requireClientToken(resolveClientDealerToken());
 }
 
 function adminToken(): string {
-  return readViteEnv("VITE_NONGA_ADMIN_API_TOKEN") || DEFAULT_ADMIN;
+  return requireClientToken(resolveClientAdminToken());
 }
 
 export function bearerDealer(): string {

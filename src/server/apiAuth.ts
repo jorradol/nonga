@@ -281,6 +281,12 @@ export function getStubTokensForDev(): {
   dealerToken: string;
   adminToken: string;
 } {
+  if (process.env.NODE_ENV === "production") {
+    return {
+      dealerToken: dealerToken(),
+      adminToken: adminToken(),
+    };
+  }
   return {
     dealerToken: dealerToken() || DEFAULT_DEALER_TOKEN,
     adminToken: adminToken() || DEFAULT_ADMIN_TOKEN,
