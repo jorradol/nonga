@@ -9,6 +9,7 @@ Step 2P rules/storage decision plan:
 Closed staging rehearsal Step 1 checklist:
 
 - `docs/v5-staging-rehearsal-step1-firebase-test-users.md`
+- `docs/v5-staging-secret-collection-guide-for-uncle.md`
 
 ## 1. Staging Secrets Checklist
 

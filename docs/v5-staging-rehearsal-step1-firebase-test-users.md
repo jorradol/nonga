@@ -7,6 +7,10 @@ Checkpoint:
 
 This rehearsal prepares real staging Firebase configuration and closed test users. It does not deploy public staging, does not open Online Beta, does not run migration `--write`, and does not switch the app to Firestore/Firebase Storage backends.
 
+Uncle-friendly secret collection guide:
+
+- `docs/v5-staging-secret-collection-guide-for-uncle.md`
+
 ## 1. Firebase Web Config
 
 Copy these values from Firebase Console > Project settings > General > Web app SDK setup into the staging host or secret manager only:
