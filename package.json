@@ -35,6 +35,7 @@
     "test:v50-security-rules": "tsx scripts/test-v50-security-rules.mts",
     "test:v50-chat-history-storage": "tsx scripts/test-v50-chat-history-storage.mts",
     "test:v50-staging-readiness": "tsx scripts/test-v50-staging-readiness.mts",
+    "test:v50-firestore-repository": "tsx scripts/test-v50-firestore-repository.mts",
     "seed:v50-firebase-role-test-users": "tsx scripts/seed-v50-firebase-role-test-users.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",

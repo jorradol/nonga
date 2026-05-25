@@ -190,6 +190,12 @@ If Option B is required, split into new steps:
 - Step 2S: Data migration script from `data/marketplace-inventory.json`, `data/dealer-draft-inventory.json`, and `data/listing-images`.
 - Step 2T: Emulator/integration tests for Firestore/Storage backed dealer flows.
 
+Step 2Q repository plan:
+
+- `docs/firestore-inventory-repository-v5.md`
+- Backend selector: `NONGA_DATA_BACKEND=file|firestore`
+- Default remains `file` until image and data migration steps are complete.
+
 ## 4. Persistent Storage Probe For Option A
 
 Manual probe before real staging rehearsal:
