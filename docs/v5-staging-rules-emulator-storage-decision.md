@@ -202,6 +202,13 @@ Step 2R image repository plan:
 - Backend selector: `NONGA_IMAGE_BACKEND=file|firebase-storage`
 - Default remains `file` until image migration and Firebase Storage integration tests are complete.
 
+Step 2S migration plan:
+
+- `docs/v5-data-image-migration-plan.md`
+- Script: `npm run migrate:v50-file-data`
+- Default mode is dry-run; `--write` is required for Firestore/Storage writes.
+- Source `data/` files and local images are never deleted by the migration.
+
 ## 4. Persistent Storage Probe For Option A
 
 Manual probe before real staging rehearsal:

@@ -37,6 +37,8 @@
     "test:v50-staging-readiness": "tsx scripts/test-v50-staging-readiness.mts",
     "test:v50-firestore-repository": "tsx scripts/test-v50-firestore-repository.mts",
     "test:v50-image-storage-repository": "tsx scripts/test-v50-image-storage-repository.mts",
+    "test:v50-data-migration": "tsx scripts/test-v50-data-migration.mts",
+    "migrate:v50-file-data": "tsx scripts/migrate-v50-file-data-to-firestore-storage.mts",
     "seed:v50-firebase-role-test-users": "tsx scripts/seed-v50-firebase-role-test-users.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",

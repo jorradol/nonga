@@ -17,6 +17,7 @@ export type ListingImageTargetType = "listing" | "draft";
 export interface ImageUploadInput {
   buffer: Buffer;
   mimeType: string;
+  imageId?: string;
   originalFileName?: string;
   seed?: string;
   width?: number;
@@ -30,6 +31,7 @@ export interface ProcessedImagePairUploadInput {
   thumbBuffer: Buffer;
   ext: ProcessedImageExt;
   mimeType: string;
+  imageId?: string;
   width: number;
   height: number;
   originalFileName?: string;
@@ -391,7 +393,9 @@ export class FirebaseStorageImageRepository implements ImageStorageRepository {
     input: ImageUploadInput
   ): Promise<UploadListingImageResult> {
     const ext = extFromMime(input.mimeType);
-    const imageId = buildImageId(input.seed ?? input.originalFileName);
+    const imageId = input.imageId
+      ? sanitizeImageId(input.imageId)
+      : buildImageId(input.seed ?? input.originalFileName);
     const fileName = `${imageId}${ext}`;
     const targetType = input.targetType ?? "listing";
     const storagePath = buildFirebaseImageStoragePath(
@@ -421,7 +425,9 @@ export class FirebaseStorageImageRepository implements ImageStorageRepository {
     listingId: string,
     input: ProcessedImagePairUploadInput
   ): Promise<UploadListingImageResult> {
-    const imageId = buildImageId(input.seed ?? input.originalFileName);
+    const imageId = input.imageId
+      ? sanitizeImageId(input.imageId)
+      : buildImageId(input.seed ?? input.originalFileName);
     const fileName = `${imageId}${input.ext}`;
     const thumbFileName = `thumb-${fileName}`;
     const targetType = input.targetType ?? "listing";
@@ -611,6 +617,12 @@ export class FirebaseStorageImageRepository implements ImageStorageRepository {
 function buildImageId(seed?: string): string {
   const base = seed?.trim() || randomUUID();
   return `${Date.now()}-${hashSlug(base)}`;
+}
+
+function sanitizeImageId(imageId: string): string {
+  const base = requireSafeFileName(imageId).replace(/\.(jpe?g|png|webp|gif)$/i, "");
+  if (!base) throw new Error("imageId is invalid");
+  return base;
 }
 
 function firebaseMediaUrl(bucketName: string, storagePath: string): string {
