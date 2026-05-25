@@ -21,6 +21,11 @@ import HomeView from "./components/HomeView";
 import LoginView from "./components/auth/LoginView";
 import RegisterView from "./components/auth/RegisterView";
 import ForgotPasswordView from "./components/auth/ForgotPasswordView";
+import {
+  RequireAdmin,
+  RequireDealer,
+  RequireMember,
+} from "./components/auth/RouteGuard";
 import UserProfileView from "./components/UserProfileView";
 import BillingDashboard from "./components/billing/BillingDashboard";
 import OnboardingView from "./components/OnboardingView";
@@ -206,11 +211,23 @@ export default function App() {
       case "marketplace":
         return <MarketplaceView />;
       case "my-listings":
-        return <MyListingsView />;
+        return (
+          <RequireMember>
+            <MyListingsView />
+          </RequireMember>
+        );
       case "chat":
-        return <AIChatView />;
+        return (
+          <RequireDealer>
+            <AIChatView />
+          </RequireDealer>
+        );
       case "sell":
-        return <SellCarView />;
+        return (
+          <RequireDealer>
+            <SellCarView />
+          </RequireDealer>
+        );
       case "dealers":
         return <DealersView />;
       case "dealer-showroom":
@@ -220,21 +237,45 @@ export default function App() {
       case "car-details":
         return <DetailView />;
       case "profile":
-        return <UserProfileView />;
+        return (
+          <RequireMember>
+            <UserProfileView />
+          </RequireMember>
+        );
       case "billing":
         return <BillingDashboard />;
       case "onboarding":
         return <OnboardingView />;
       case "dealer-dashboard":
-        return isDealer || isAdmin ? <DealerDashboardView /> : <HomeView />;
+        return (
+          <RequireDealer>
+            <DealerDashboardView />
+          </RequireDealer>
+        );
       case "admin-dashboard":
-        return isAdmin ? <AdminDashboardView /> : <HomeView />;
+        return (
+          <RequireAdmin>
+            <AdminDashboardView />
+          </RequireAdmin>
+        );
       case "inventory-import":
-        return isAdmin ? <InventoryImportView /> : <HomeView />;
+        return (
+          <RequireAdmin>
+            <InventoryImportView />
+          </RequireAdmin>
+        );
       case "dealer-draft-inventory":
-        return isAdmin ? <DealerDraftInventoryView /> : <HomeView />;
+        return (
+          <RequireAdmin>
+            <DealerDraftInventoryView />
+          </RequireAdmin>
+        );
       case "dealer-portal":
-        return <DealerPortalView />;
+        return (
+          <RequireDealer>
+            <DealerPortalView />
+          </RequireDealer>
+        );
       case "search":
         return <SearchPageView />;
       case "car-vision":

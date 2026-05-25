@@ -22,6 +22,7 @@
     "test:dealer-paste-save-redirect": "tsx scripts/test-dealer-paste-save-redirect.mts",
     "test:dealer-draft-edit-publish": "tsx scripts/test-dealer-draft-edit-publish.mts",
     "test:v49-final-smoke": "tsx scripts/test-v49-final-smoke.mts",
+    "test:v50-route-guards": "tsx scripts/test-v50-route-guards.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",
     "test:dealer-entry-flow": "tsx scripts/test-dealer-entry-flow.mts",
     "test:dealer-draft-publish-guard": "tsx scripts/test-dealer-draft-publish-guard.mts",

@@ -12,6 +12,7 @@ import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, isMockConfig } from "../../lib/firebase";
 
 import type { DealerOwnerContext } from "../../utils/dealerIdentity";
+import type { UserStatus } from "../../utils/rbac";
 
 export interface UserSession {
   uid: string;
@@ -21,6 +22,7 @@ export interface UserSession {
   providerId: string;
   isSimulated?: boolean;
   role?: string;
+  status?: UserStatus;
   membershipType?: string;
   postLimit?: number;
   totalPosts?: number;

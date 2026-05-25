@@ -7,6 +7,7 @@ import {
   ownerContextToImportOwner,
   type DealerOwnerContext,
 } from "../../utils/dealerIdentity";
+import { canAccessDealerPortal } from "../../utils/rbac";
 import type { DealerApiHeaders } from "../../services/dealer/dealerApi";
 
 export function useDealerPortal() {
@@ -40,7 +41,7 @@ export function useDealerPortal() {
     [ownerContext]
   );
 
-  const canAccessPortal = isDealer || isAdmin;
+  const canAccessPortal = canAccessDealerPortal(user);
 
   return {
     dealerId,

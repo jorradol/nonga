@@ -1,6 +1,41 @@
 // Role definition configurations and permission maps for Nong A
 
-export type UserRole = "guest" | "member" | "dealer" | "premium" | "admin" | "superadmin";
+export type UserRole =
+  | "guest"
+  | "member"
+  | "dealer"
+  | "premium"
+  | "admin"
+  | "superadmin";
+
+export type AuthRole = UserRole;
+
+export type UserStatus = "active" | "pending" | "suspended";
+
+export type DealerMembershipStatus = "active" | "pending" | "disabled";
+
+export type DealerRoleInDealer = "owner" | "staff";
+
+export interface UserAuthProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: AuthRole;
+  status: UserStatus;
+  dealerId?: string;
+  dealerName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DealerMembership {
+  uid: string;
+  dealerId: string;
+  roleInDealer: DealerRoleInDealer;
+  status: DealerMembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface RolePermissions {
   canPostCars: boolean;
@@ -9,6 +44,11 @@ export interface RolePermissions {
   canManageUsers: boolean;
   canManageDealers: boolean;
   canManageAllCars: boolean;
+  canAccessDealerPortal: boolean;
+  canCreateListing: boolean;
+  canManageOwnDealerListings: boolean;
+  canAccessAdmin: boolean;
+  canManageRoles: boolean;
   postLimit: number;
 }
 
@@ -20,6 +60,11 @@ export const ROLE_CONFIGS: Record<UserRole, RolePermissions> = {
     canManageUsers: false,
     canManageDealers: false,
     canManageAllCars: false,
+    canAccessDealerPortal: false,
+    canCreateListing: false,
+    canManageOwnDealerListings: false,
+    canAccessAdmin: false,
+    canManageRoles: false,
     postLimit: 0,
   },
   member: {
@@ -29,6 +74,11 @@ export const ROLE_CONFIGS: Record<UserRole, RolePermissions> = {
     canManageUsers: false,
     canManageDealers: false,
     canManageAllCars: false,
+    canAccessDealerPortal: false,
+    canCreateListing: false,
+    canManageOwnDealerListings: false,
+    canAccessAdmin: false,
+    canManageRoles: false,
     postLimit: 5,
   },
   dealer: {
@@ -38,6 +88,11 @@ export const ROLE_CONFIGS: Record<UserRole, RolePermissions> = {
     canManageUsers: false,
     canManageDealers: true, // Dealers can manage showrooms
     canManageAllCars: false,
+    canAccessDealerPortal: true,
+    canCreateListing: true,
+    canManageOwnDealerListings: true,
+    canAccessAdmin: false,
+    canManageRoles: false,
     postLimit: Infinity, // Unlimited posts
   },
   premium: {
@@ -47,6 +102,11 @@ export const ROLE_CONFIGS: Record<UserRole, RolePermissions> = {
     canManageUsers: false,
     canManageDealers: false,
     canManageAllCars: false,
+    canAccessDealerPortal: false,
+    canCreateListing: false,
+    canManageOwnDealerListings: false,
+    canAccessAdmin: false,
+    canManageRoles: false,
     postLimit: Infinity, // Unlimited posts
   },
   admin: {
@@ -56,6 +116,11 @@ export const ROLE_CONFIGS: Record<UserRole, RolePermissions> = {
     canManageUsers: true,
     canManageDealers: true,
     canManageAllCars: true,
+    canAccessDealerPortal: true,
+    canCreateListing: true,
+    canManageOwnDealerListings: true,
+    canAccessAdmin: true,
+    canManageRoles: false,
     postLimit: Infinity,
   },
   superadmin: {
@@ -65,6 +130,11 @@ export const ROLE_CONFIGS: Record<UserRole, RolePermissions> = {
     canManageUsers: true,
     canManageDealers: true,
     canManageAllCars: true,
+    canAccessDealerPortal: true,
+    canCreateListing: true,
+    canManageOwnDealerListings: true,
+    canAccessAdmin: true,
+    canManageRoles: true,
     postLimit: Infinity,
   }
 };
@@ -136,6 +206,127 @@ export function hasPermission(role: UserRole | undefined, action: keyof RolePerm
   if (!role) return false;
   const val = ROLE_CONFIGS[role]?.[action];
   return typeof val === "boolean" ? val : false;
+}
+
+type RoleInput =
+  | UserRole
+  | {
+      role?: string | null;
+      status?: string | null;
+      dealerId?: string | null;
+    }
+  | null
+  | undefined;
+
+function roleFrom(input: RoleInput): UserRole {
+  const role = typeof input === "string" ? input : input?.role;
+  return isKnownRole(role) ? role : "guest";
+}
+
+function statusFrom(input: RoleInput): UserStatus {
+  if (typeof input === "string") return "active";
+  const status = input?.status;
+  if (status === "pending" || status === "suspended") return status;
+  return "active";
+}
+
+function dealerIdFrom(input: RoleInput): string | null {
+  if (typeof input === "string") return null;
+  const dealerId = input?.dealerId?.trim();
+  return dealerId || null;
+}
+
+export function isKnownRole(role: unknown): role is UserRole {
+  return (
+    role === "guest" ||
+    role === "member" ||
+    role === "premium" ||
+    role === "dealer" ||
+    role === "admin" ||
+    role === "superadmin"
+  );
+}
+
+export function normalizeRole(role: unknown): UserRole {
+  return isKnownRole(role) ? role : "guest";
+}
+
+export function isGuest(input: RoleInput): boolean {
+  return roleFrom(input) === "guest";
+}
+
+export function isMember(input: RoleInput): boolean {
+  return roleFrom(input) === "member";
+}
+
+export function isPremium(input: RoleInput): boolean {
+  return roleFrom(input) === "premium";
+}
+
+export function isDealer(input: RoleInput): boolean {
+  return roleFrom(input) === "dealer";
+}
+
+export function isAdmin(input: RoleInput): boolean {
+  const role = roleFrom(input);
+  return role === "admin" || role === "superadmin";
+}
+
+export function isSuperAdmin(input: RoleInput): boolean {
+  return roleFrom(input) === "superadmin";
+}
+
+export function isSuspended(input: RoleInput): boolean {
+  return statusFrom(input) === "suspended";
+}
+
+export function isActiveUser(input: RoleInput): boolean {
+  return statusFrom(input) === "active";
+}
+
+export function canAccessDealerPortal(input: RoleInput): boolean {
+  if (isSuspended(input)) return false;
+  const role = roleFrom(input);
+  if (role === "dealer" || role === "admin" || role === "superadmin") {
+    return true;
+  }
+  return role === "premium" && Boolean(dealerIdFrom(input));
+}
+
+export function canCreateListing(input: RoleInput): boolean {
+  return canAccessDealerPortal(input);
+}
+
+export function canManageOwnDealerListings(input: RoleInput): boolean {
+  return canAccessDealerPortal(input);
+}
+
+export function canAccessAdmin(input: RoleInput): boolean {
+  return !isSuspended(input) && isAdmin(input);
+}
+
+export function canManageRoles(input: RoleInput): boolean {
+  return !isSuspended(input) && isSuperAdmin(input);
+}
+
+export function getRoleFlags(input: RoleInput) {
+  const role = roleFrom(input);
+  return {
+    role,
+    status: statusFrom(input),
+    isGuest: isGuest(input),
+    isMember: isMember(input),
+    isPremium: isPremium(input),
+    isDealer: isDealer(input),
+    isAdmin: isAdmin(input),
+    isSuperAdmin: isSuperAdmin(input),
+    isSuspended: isSuspended(input),
+    canAccessDealerPortal: canAccessDealerPortal(input),
+    canCreateListing: canCreateListing(input),
+    canManageOwnDealerListings: canManageOwnDealerListings(input),
+    canAccessAdmin: canAccessAdmin(input),
+    canManageRoles: canManageRoles(input),
+  };
 }
 
 /**
