@@ -2,6 +2,10 @@
 
 This document prepares an internal staging environment for Nong A v5.0. It does not open public Online Beta, does not deploy production rules, and must not contain real secrets.
 
+Step 2O operational runbook:
+
+- `docs/v5-staging-secrets-and-firebase-test-users.md`
+
 ## 1. Staging Env Checklist
 
 Frontend env:

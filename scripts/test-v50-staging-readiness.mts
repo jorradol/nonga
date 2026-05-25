@@ -18,6 +18,7 @@ function includesAll(text: string, snippets: string[], label: string): void {
 console.log("=== Nong A v5.0 Staging Readiness Smoke ===");
 
 const doc = read("docs/v5-staging-environment-setup.md");
+const secretsDoc = read("docs/v5-staging-secrets-and-firebase-test-users.md");
 const useChat = read("src/hooks/chat/useChat.ts");
 const appStore = read("src/store.ts");
 
@@ -44,6 +45,30 @@ includesAll(
 console.log("PASS staging env checklist documents required values");
 
 includesAll(
+  secretsDoc,
+  [
+    "VITE_FIREBASE_API_KEY",
+    "VITE_FIREBASE_AUTH_DOMAIN",
+    "VITE_FIREBASE_PROJECT_ID",
+    "VITE_FIREBASE_STORAGE_BUCKET",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID",
+    "VITE_FIREBASE_APP_ID",
+    "VITE_NONGA_PUBLIC_SIGNUP_ENABLED=\"false\"",
+    "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "FIREBASE_CLIENT_EMAIL",
+    "FIREBASE_PRIVATE_KEY",
+    "GEMINI_API_KEY",
+    "APP_URL",
+    "NODE_ENV=\"production\"",
+    "NONGA_BETA_DEALER_ID",
+    "NONGA_DEALER_API_TOKEN",
+    "NONGA_DEALER_TOKEN_MAP",
+  ],
+  "staging secrets checklist"
+);
+console.log("PASS staging secrets checklist documents required values");
+
+includesAll(
   doc,
   [
     "npm run seed:v50-firebase-role-test-users -- --dry-run --json",
@@ -56,6 +81,22 @@ includesAll(
   "Firebase user and rules setup"
 );
 console.log("PASS Firebase users and rules staging plan documented");
+
+includesAll(
+  secretsDoc,
+  [
+    "Firebase Console > Authentication > Users",
+    "npm run seed:v50-firebase-role-test-users -- --dry-run --json",
+    "npm run seed:v50-firebase-role-test-users -- --write",
+    "role: \"member\"",
+    "role: \"dealer\"",
+    "roleInDealer: \"owner\"",
+    "status: \"active\"",
+    "No passwords",
+  ],
+  "Firebase test user seed runbook"
+);
+console.log("PASS Firebase test user seed runbook documented");
 
 includesAll(
   doc,
@@ -73,6 +114,20 @@ includesAll(
 console.log("PASS persistent storage risks documented");
 
 includesAll(
+  secretsDoc,
+  [
+    "Option A",
+    "Option B",
+    "single persistent-disk staging host",
+    "ephemeral",
+    "Firestore/Storage migration",
+    "Recommendation for the first staging rehearsal",
+  ],
+  "storage mode decision"
+);
+console.log("PASS storage mode decision documented");
+
+includesAll(
   doc,
   [
     "Guest can view marketplace",
@@ -85,6 +140,29 @@ includesAll(
   "staging smoke checklist"
 );
 console.log("PASS staging smoke checklist documented");
+
+includesAll(
+  secretsDoc,
+  [
+    "firebase-tools@latest emulators:start --only firestore,storage",
+    "firebase-tools@latest deploy --only firestore:rules,storage",
+    "Do not deploy these rules to production",
+    "Dealer A cannot write dealer B",
+  ],
+  "rules emulator and deploy plan"
+);
+console.log("PASS rules emulator/deploy plan documented");
+
+for (const forbidden of [
+  "AIzaSy",
+  "-----BEGIN PRIVATE KEY-----",
+  "password=",
+  "PASSWORD=",
+  "service_account",
+]) {
+  assert(!secretsDoc.includes(forbidden), `staging secrets doc must not contain ${forbidden}`);
+}
+console.log("PASS staging secrets doc contains no obvious real secrets");
 
 assert(
   useChat.includes("ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งครับ"),
