@@ -119,3 +119,9 @@ This keeps existing smoke tests and Thor Auto Demo flows working while adding th
 Step 2C applies server auth context to dealer API scope checks and documents endpoint coverage in `docs/dealer-api-server-auth-v5.md`.
 
 Dealer APIs now reject mismatched Firebase dealer membership scope and mismatched beta token dealer scope before route handlers run.
+
+## Step 2F update
+
+Frontend Firebase config is now checked by `src/lib/firebase/firebaseConfigGuard.ts`.
+
+`src/services/auth/firebaseAuthHeaders.ts` prepares the client-side helper for sending real Firebase ID tokens once real Firebase web config is provided.

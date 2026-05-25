@@ -1,4 +1,4 @@
-import { isMockConfig } from "../lib/firebase";
+import { isSandboxAuthToolsEnabled } from "../lib/firebase";
 import {
   THOR_AUTO_DEALER_ID,
   buildThorAutoOwnerContext,
@@ -16,8 +16,8 @@ function readViteEnv(): ViteMeta["env"] | undefined {
 /** เปิดเครื่องมือ demo/sandbox ดีลเลอร์ — dev หรือ mock Firebase เท่านั้น */
 export function isDealerDemoToolsEnabled(): boolean {
   const env = readViteEnv();
-  if (env?.PROD && !isMockConfig) return false;
-  return isMockConfig || env?.DEV === true;
+  if (env?.PROD) return false;
+  return isSandboxAuthToolsEnabled || env?.DEV === true;
 }
 
 export const THOR_AUTO_DEMO_SHOWROOM = "Thor Auto Demo";

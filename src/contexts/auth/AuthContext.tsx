@@ -2,7 +2,14 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { authService, UserSession } from "../../services/auth/authService";
-import { auth, db, isMockConfig } from "../../lib/firebase";
+import {
+  auth,
+  db,
+  firebaseAuthUnavailableMessage,
+  isFirebaseAuthReady,
+  isMockAuthStorageEnabled,
+  isMockConfig,
+} from "../../lib/firebase";
 import { useAppStore } from "../../store";
 import { handleFirestoreError, OperationType } from "../../utils/firebaseHelpers";
 
@@ -42,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isSimulated = isMockConfig || !!baseSession.isSimulated || uid.startsWith("sim-") || uid === "guest-user-100";
     
     if (isSimulated) {
+      if (!isMockAuthStorageEnabled) return baseSession;
       try {
         const savedUsers = localStorage.getItem("nonga_simulated_users") 
           ? JSON.parse(localStorage.getItem("nonga_simulated_users")!) 
@@ -156,6 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const updatedUserSession = { ...user, ...updates };
 
     if (isSimulated) {
+      if (!isMockAuthStorageEnabled) {
+        throw new Error(firebaseAuthUnavailableMessage);
+      }
       try {
         const savedUsers = localStorage.getItem("nonga_simulated_users")
           ? JSON.parse(localStorage.getItem("nonga_simulated_users")!)
@@ -239,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Clear loader on snapshot auth observer
-      if (auth && !isMockConfig) {
+      if (auth && isFirebaseAuthReady && !isMockConfig) {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
           if (firebaseUser) {
             const baseSession: UserSession = {

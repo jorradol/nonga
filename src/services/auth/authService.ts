@@ -9,7 +9,14 @@ import {
   User as FirebaseUser
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db, isMockConfig } from "../../lib/firebase";
+import {
+  auth,
+  db,
+  firebaseAuthUnavailableMessage,
+  isFirebaseAuthReady,
+  isMockAuthStorageEnabled,
+  isMockConfig,
+} from "../../lib/firebase";
 
 import type { DealerOwnerContext } from "../../utils/dealerIdentity";
 import type { UserStatus } from "../../utils/rbac";
@@ -46,7 +53,15 @@ export const authService = {
   getPersistedSession(): UserSession | null {
     try {
       const session = localStorage.getItem(AUTH_SESSION_KEY);
-      return session ? JSON.parse(session) : null;
+      if (!session) return null;
+      const parsed = JSON.parse(session) as UserSession;
+      if (!isFirebaseAuthReady && !isMockAuthStorageEnabled) {
+        return null;
+      }
+      if (!isMockAuthStorageEnabled && parsed.isSimulated) {
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -55,6 +70,8 @@ export const authService = {
   // Save session to local storage for persistence
   persistSession(user: UserSession | null) {
     if (user) {
+      if (!isFirebaseAuthReady && !isMockAuthStorageEnabled) return;
+      if (!isMockAuthStorageEnabled && user.isSimulated) return;
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
     } else {
       localStorage.removeItem(AUTH_SESSION_KEY);
@@ -64,6 +81,9 @@ export const authService = {
   // Email and Password Registration
   async registerWithEmail(email: string, password: string, displayName: string): Promise<UserSession> {
     if (isMockConfig) {
+      if (!isMockAuthStorageEnabled) {
+        throw new Error(firebaseAuthUnavailableMessage);
+      }
       // Simulate registration with local storage database
       const users = this._getLocalUsers();
       if (users[email]) {
@@ -123,6 +143,9 @@ export const authService = {
   // Email and Password Login
   async loginWithEmail(email: string, password: string): Promise<UserSession> {
     if (isMockConfig) {
+      if (!isMockAuthStorageEnabled) {
+        throw new Error(firebaseAuthUnavailableMessage);
+      }
       const users = this._getLocalUsers();
       const userRecord = users[email];
       
@@ -153,6 +176,9 @@ export const authService = {
   // Send Password Reset Link
   async resetPassword(email: string): Promise<void> {
     if (isMockConfig) {
+      if (!isMockAuthStorageEnabled) {
+        throw new Error(firebaseAuthUnavailableMessage);
+      }
       // Simulate password reset
       const users = this._getLocalUsers();
       if (!users[email]) {
@@ -167,6 +193,9 @@ export const authService = {
   // Google OAuth Login
   async loginWithGoogle(): Promise<UserSession> {
     if (isMockConfig) {
+      if (!isMockAuthStorageEnabled) {
+        throw new Error(firebaseAuthUnavailableMessage);
+      }
       // Simulate Google OAuth popup
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -215,6 +244,9 @@ export const authService = {
 
   // Facebook OAuth Login Simulation
   async loginWithFacebook(): Promise<UserSession> {
+    if (!isFirebaseAuthReady && !isMockAuthStorageEnabled) {
+      throw new Error(firebaseAuthUnavailableMessage);
+    }
     return new Promise((resolve) => {
       setTimeout(() => {
         const mockUser: UserSession = {
@@ -233,6 +265,9 @@ export const authService = {
 
   // LINE OAuth Login Simulation
   async loginWithLINE(): Promise<UserSession> {
+    if (!isFirebaseAuthReady && !isMockAuthStorageEnabled) {
+      throw new Error(firebaseAuthUnavailableMessage);
+    }
     return new Promise((resolve) => {
       setTimeout(() => {
         const mockUser: UserSession = {
