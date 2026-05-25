@@ -1,11 +1,28 @@
+# Dependencies
 node_modules/
+
+# Build output
 build/
 dist/
 coverage/
+
+# System / logs
 .DS_Store
 *.log
-.env*
+
+# Environment variables / secrets
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+.env.test
+.env.*.local
+
+# Keep example env file for documentation only
 !.env.example
+
+# Local data storage
 data/marketplace-inventory.json
 data/dealer-draft-inventory.json
 data/dealer-profiles.json

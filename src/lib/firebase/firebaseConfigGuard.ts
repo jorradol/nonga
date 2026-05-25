@@ -90,7 +90,40 @@ function readViteFlag(key: "DEV" | "PROD"): boolean {
 function readViteString(key: string): string {
   try {
     const meta = import.meta as { env?: Record<string, unknown> };
-    const value = meta.env?.[key];
+    const staticValue =
+      key === "VITE_FIREBASE_API_KEY"
+        ? (import.meta as unknown as { env: { VITE_FIREBASE_API_KEY?: string } }).env
+            .VITE_FIREBASE_API_KEY
+        : key === "VITE_FIREBASE_AUTH_DOMAIN"
+          ? (import.meta as unknown as { env: { VITE_FIREBASE_AUTH_DOMAIN?: string } }).env
+              .VITE_FIREBASE_AUTH_DOMAIN
+          : key === "VITE_FIREBASE_PROJECT_ID"
+            ? (import.meta as unknown as { env: { VITE_FIREBASE_PROJECT_ID?: string } }).env
+                .VITE_FIREBASE_PROJECT_ID
+            : key === "VITE_FIREBASE_STORAGE_BUCKET"
+              ? (import.meta as unknown as { env: { VITE_FIREBASE_STORAGE_BUCKET?: string } }).env
+                  .VITE_FIREBASE_STORAGE_BUCKET
+              : key === "VITE_FIREBASE_MESSAGING_SENDER_ID"
+                ? (import.meta as unknown as { env: { VITE_FIREBASE_MESSAGING_SENDER_ID?: string } }).env
+                    .VITE_FIREBASE_MESSAGING_SENDER_ID
+                : key === "VITE_FIREBASE_APP_ID"
+                  ? (import.meta as unknown as { env: { VITE_FIREBASE_APP_ID?: string } }).env
+                      .VITE_FIREBASE_APP_ID
+                  : key === "VITE_FIREBASE_MEASUREMENT_ID"
+                    ? (import.meta as unknown as { env: { VITE_FIREBASE_MEASUREMENT_ID?: string } }).env
+                        .VITE_FIREBASE_MEASUREMENT_ID
+                    : key === "VITE_FIREBASE_FIRESTORE_DATABASE_ID"
+                      ? (import.meta as unknown as {
+                          env: { VITE_FIREBASE_FIRESTORE_DATABASE_ID?: string };
+                        }).env.VITE_FIREBASE_FIRESTORE_DATABASE_ID
+                      : key === "VITE_NONGA_DEALER_API_TOKEN"
+                        ? (import.meta as unknown as { env: { VITE_NONGA_DEALER_API_TOKEN?: string } }).env
+                            .VITE_NONGA_DEALER_API_TOKEN
+                        : key === "VITE_NONGA_ADMIN_API_TOKEN"
+                          ? (import.meta as unknown as { env: { VITE_NONGA_ADMIN_API_TOKEN?: string } })
+                              .env.VITE_NONGA_ADMIN_API_TOKEN
+                          : undefined;
+    const value = staticValue ?? meta.env?.[key];
     return typeof value === "string" ? value.trim() : "";
   } catch {
     return "";

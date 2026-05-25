@@ -1,603 +1,256 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // 1. Global Zero-Trust Catch-All Net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // --- Hardened Global Helpers ---
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function myProfileExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function incoming() {
-      return request.resource.data;
+    function myProfile() {
+      return userDoc(request.auth.uid);
     }
 
-    function existing() {
-      return resource.data;
+    function isActiveUser() {
+      return myProfileExists() && myProfile().status == "active";
     }
 
-    // Role-Based Access Control Lookup Primitives
-    function isBootstrappedAdmin() {
-      return isSignedIn() && request.auth.token.email == "jorradol@gmail.com" && request.auth.token.email_verified == true;
+    function hasActiveRole(roles) {
+      return isActiveUser() && myProfile().role in roles;
     }
 
-    function isUserAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    function isActiveAdmin() {
+      return hasActiveRole(["admin", "superadmin"]);
     }
 
-    function isAdmin() {
-      return isBootstrappedAdmin() || isUserAdmin();
+    function isSuperAdmin() {
+      return hasActiveRole(["superadmin"]);
     }
 
-    function hasUserRole(roleList) {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roleList;
+    function membershipId(uid, dealerId) {
+      return uid + "_" + dealerId;
     }
 
-    // --- Strict Schema Validation Functions ---
-    function isValidUser(user) {
-      return user.keys().hasAll(['uid', 'displayName', 'email', 'photoURL', 'role', 'createdAt', 'lastLogin', 'favoriteCars', 'aiPersona', 'membershipType', 'postLimit', 'totalPosts'])
-        && user.uid == request.auth.uid
-        && user.email is string && user.email.size() <= 200
-        && user.displayName is string && user.displayName.size() <= 100
-        && user.photoURL is string && user.photoURL.size() <= 500
-        // Self-Assigned Role Prevention
-        && user.role == 'member'
-        && user.membershipType == 'free'
-        && user.postLimit == 5
-        && user.totalPosts == 0
-        && user.createdAt is string
-        && user.lastLogin is string
-        && user.favoriteCars is list
-        && user.aiPersona is string;
+    function dealerMemberDoc(uid, dealerId) {
+      return get(/databases/$(database)/documents/dealerMembers/$(membershipId(uid, dealerId))).data;
     }
 
-    function isValidUserSettings(settings) {
-      return settings.keys().hasAll(['theme', 'emailNotifications', 'pushNotifications', 'language', 'updatedAt'])
-        && settings.theme in ['light', 'dark', 'system']
-        && settings.emailNotifications is bool
-        && settings.pushNotifications is bool
-        && settings.language in ['th', 'en']
-        && settings.updatedAt is string;
+    function hasDealerMembership(dealerId) {
+      return signedIn()
+        && dealerId is string
+        && exists(/databases/$(database)/documents/dealerMembers/$(membershipId(request.auth.uid, dealerId)));
     }
 
-    function isValidUserSession(session) {
-      return session.keys().hasAll(['userId', 'loginTime'])
-        && session.userId == request.auth.uid
-        && session.loginTime is string;
+    function hasActiveDealerMembership(dealerId) {
+      return hasDealerMembership(dealerId)
+        && dealerMemberDoc(request.auth.uid, dealerId).status == "active";
     }
 
-    function isValidAiPreferences(pref) {
-      return pref.keys().hasAll(['userId', 'aiResponseLength', 'focusArea'])
-        && pref.userId == request.auth.uid
-        && pref.aiResponseLength in ['short', 'medium', 'conversational']
-        && pref.focusArea in ['ev', 'luxury', 'general', 'performance'];
+    function isDealerOwner(dealerId) {
+      return hasActiveDealerMembership(dealerId)
+        && dealerMemberDoc(request.auth.uid, dealerId).roleInDealer == "owner";
     }
 
-    function isValidCarListing(car) {
-      return car.keys().hasAll(['title', 'slug', 'brand', 'model', 'year', 'price', 'bodyType', 'transmission', 'fuelType', 'mileage', 'color', 'condition', 'province', 'description', 'sellerId', 'sellerType', 'status'])
-        && car.title is string && car.title.size() >= 5 && car.title.size() <= 150
-        && car.brand is string && car.brand.size() > 0
-        && car.model is string && car.model.size() > 0
-        && car.year is int && car.year >= 1900
-        && (car.price is number || car.price is int) && car.price > 0
-        && car.bodyType is string
-        && car.transmission in ['auto', 'manual', 'other']
-        && car.fuelType in ['petrol', 'diesel', 'electric', 'hybrid', 'plug-in-hybrid', 'other']
-        && (car.mileage is number || car.mileage is int) && car.mileage >= 0
-        && car.color is string
-        && car.condition in ['new', 'used', 'excellent', 'good', 'fair']
-        && car.province is string
-        && car.description is string && car.description.size() >= 10
-        && car.sellerId == request.auth.uid
-        && car.sellerType in ['private', 'dealer', 'agent']
-        && car.status in ['draft', 'pending', 'approved', 'rejected', 'archived']
-        && car.get('featured', false) is bool
-        && car.get('boosted', false) is bool
-        && car.get('aiGenerated', false) is bool;
+    function safeUserSelfUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "role",
+        "status",
+        "dealerId",
+        "dealerName",
+        "createdAt",
+        "uid"
+      ]);
     }
 
-    function isValidCarImage(img) {
-      return img.keys().hasAll(['carId', 'url', 'isCover', 'uploadedBy'])
-        && img.carId is string
-        && img.url is string && img.url.size() > 0
-        && img.isCover is bool
-        && img.uploadedBy == request.auth.uid;
+    function sameDealerId() {
+      return request.resource.data.dealerId == resource.data.dealerId;
     }
 
-    function isValidCarBrand(brand) {
-      return brand.keys().hasAll(['name', 'slug'])
-        && brand.name is string && brand.name.size() > 0
-        && brand.slug is string && brand.slug.size() > 0;
+    function publishedListing(data) {
+      return data.listingStatus == "published"
+        || data.status == "approved"
+        || data.status == "published";
     }
 
-    function isValidCarModel(m) {
-      return m.keys().hasAll(['brandId', 'brandName', 'name', 'slug'])
-        && m.brandId is string
-        && m.brandName is string
-        && m.name is string
-        && m.slug is string;
+    function canReadDealerScoped(data) {
+      return isActiveAdmin()
+        || (data.dealerId is string && hasActiveDealerMembership(data.dealerId));
     }
 
-    function isValidCarView(view) {
-      return view.keys().hasAll(['carId', 'viewedAt'])
-        && view.carId is string
-        && view.viewedAt is string;
+    function canCreateDealerScoped(data) {
+      return isActiveAdmin()
+        || (data.dealerId is string && hasActiveDealerMembership(data.dealerId));
     }
 
-    function isValidFavorite(fav) {
-      return fav.keys().hasAll(['userId', 'carId'])
-        && fav.userId == request.auth.uid
-        && fav.carId is string;
+    function canUpdateDealerScoped() {
+      return isActiveAdmin()
+        || (
+          resource.data.dealerId is string
+          && sameDealerId()
+          && hasActiveDealerMembership(resource.data.dealerId)
+        );
     }
 
-    function isValidDealer(dealer) {
-      return dealer.keys().hasAll(['name', 'slug', 'userId', 'phone', 'email', 'address', 'province'])
-        && dealer.name is string && dealer.name.size() > 0
-        && dealer.slug is string
-        && dealer.userId == request.auth.uid
-        && dealer.phone is string
-        && dealer.email is string
-        && dealer.address is string
-        && dealer.province is string;
+    function canDeleteDealerScoped() {
+      return isActiveAdmin()
+        || (
+          resource.data.dealerId is string
+          && hasActiveDealerMembership(resource.data.dealerId)
+        );
     }
 
-    function isValidShowroomReview(review) {
-      return review.keys().hasAll(['dealerId', 'userId', 'userDisplayName', 'rating', 'comment'])
-        && review.dealerId is string
-        && review.userId == request.auth.uid
-        && review.userDisplayName is string
-        && review.rating is int && review.rating >= 1 && review.rating <= 5
-        && review.comment is string;
+    function canReadChatSession(data) {
+      return isActiveAdmin()
+        || (
+          data.scope == "user"
+          && data.uid == request.auth.uid
+        )
+        || (
+          data.scope == "dealer"
+          && data.dealerId is string
+          && hasActiveDealerMembership(data.dealerId)
+        );
     }
 
-    function isValidCarComment(comm) {
-      return comm.keys().hasAll(['carId', 'userId', 'userDisplayName', 'commentText'])
-        && comm.carId is string
-        && comm.userId == request.auth.uid
-        && comm.userDisplayName is string
-        && comm.commentText is string && comm.commentText.size() > 0;
+    function canCreateChatSession(data) {
+      return isActiveAdmin()
+        || (
+          data.scope == "user"
+          && data.uid == request.auth.uid
+          && !(data.keys().hasAny(["dealerId"]) && data.dealerId != null)
+        )
+        || (
+          data.scope == "dealer"
+          && data.uid == request.auth.uid
+          && data.dealerId is string
+          && hasActiveDealerMembership(data.dealerId)
+        );
     }
 
-    function isValidCarReport(rep) {
-      return rep.keys().hasAll(['carId', 'reporterId', 'reporterEmail', 'reason', 'status'])
-        && rep.carId is string
-        && rep.reporterId == request.auth.uid
-        && rep.reporterEmail is string
-        && rep.reason in ['spam', 'fraud', 'incorrect_info', 'offensive', 'sold', 'other']
-        && rep.status == 'pending';
+    function canUpdateChatSession() {
+      return canReadChatSession(resource.data)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.scope == resource.data.scope
+        && request.resource.data.dealerId == resource.data.dealerId;
     }
 
-    function isValidSubscription(sub) {
-      return sub.keys().hasAll(['userId', 'planId', 'planName', 'status', 'price', 'currency', 'cancelAtPeriodEnd', 'currentPeriodStart', 'currentPeriodEnd'])
-        && sub.userId == request.auth.uid
-        && sub.planId in ['free', 'dealer_pro', 'dealer_premium']
-        && sub.status in ['active', 'cancelled', 'past_due', 'trialing']
-        && (sub.price is number || sub.price is int)
-        && sub.currency is string
-        && sub.cancelAtPeriodEnd is bool;
-    }
-
-    function isValidPayment(pay) {
-      return pay.keys().hasAll(['userId', 'amount', 'currency', 'status', 'paymentMethod', 'description', 'createdAt'])
-        && pay.userId == request.auth.uid
-        && (pay.amount is number || pay.amount is int)
-        && pay.currency is string
-        && pay.status in ['pending', 'success', 'failed', 'verified']
-        && pay.paymentMethod in ['stripe', 'promptpay']
-        && pay.description is string;
-    }
-
-    function isValidInvoice(inv) {
-      return inv.keys().hasAll(['userId', 'invoiceNo', 'amount', 'status', 'billingDate', 'dueDate', 'items', 'createdAt'])
-        && inv.userId == request.auth.uid
-        && inv.invoiceNo is string
-        && (inv.amount is number || inv.amount is int)
-        && inv.status in ['paid', 'unpaid', 'voided']
-        && inv.items is list;
-    }
-
-    function isValidPremiumFeatures(pf) {
-      return pf.keys().hasAll(['userId', 'aiPostGenerationEnabled', 'aiCaptionsEnabled', 'analyticsEnabled', 'showroomEnabled', 'aiAutoReplyEnabled', 'aiSalesAssistantEnabled', 'seoBoostEnabled', 'priorityListingEnabled', 'boostTokens'])
-        && pf.userId == request.auth.uid
-        && pf.aiPostGenerationEnabled is bool
-        && pf.aiCaptionsEnabled is bool
-        && pf.analyticsEnabled is bool
-        && pf.showroomEnabled is bool
-        && pf.aiAutoReplyEnabled is bool
-        && pf.aiSalesAssistantEnabled is bool
-        && pf.seoBoostEnabled is bool
-        && pf.priorityListingEnabled is bool
-        && pf.boostTokens is int;
-    }
-
-    function isValidBoost(boost) {
-      return boost.keys().hasAll(['carId', 'userId', 'planId', 'planName', 'status', 'startTime', 'endTime', 'autoRenew', 'features', 'createdAt'])
-        && boost.carId is string
-        && boost.userId == request.auth.uid
-        && boost.planId in ['7_days', '30_days', 'homepage_spotlight', 'ai_trending']
-        && boost.planName is string
-        && boost.status in ['active', 'expired']
-        && boost.startTime is string
-        && boost.endTime is string
-        && boost.autoRenew is bool
-        && boost.features is list
-        && boost.createdAt is string;
-    }
-
-    function isValidBoostHistory(hist) {
-      return hist.keys().hasAll(['carId', 'userId', 'planId', 'planName', 'action', 'tokensUsed', 'timestamp'])
-        && hist.carId is string
-        && hist.userId == request.auth.uid
-        && hist.planId is string
-        && hist.planName is string
-        && hist.action in ['purchase', 'auto_renew', 'expire', 'cancel']
-        && hist.tokensUsed is int
-        && hist.timestamp is string;
-    }
-
-    function isValidFeaturedCar(fc) {
-      return fc.keys().hasAll(['carId', 'userId', 'title', 'price', 'coverImage', 'brand', 'model', 'boostEndTime'])
-        && fc.carId is string
-        && fc.userId == request.auth.uid
-        && fc.title is string
-        && (fc.price is number || fc.price is int)
-        && fc.coverImage is string
-        && fc.brand is string
-        && fc.model is string
-        && fc.boostEndTime is string;
-    }
-
-    function isValidAiUsage(usage) {
-      return usage.keys().hasAll(['userId', 'featureId', 'usedCount', 'limitCount'])
-        && usage.userId == request.auth.uid
-        && usage.featureId is string
-        && usage.usedCount is int
-        && usage.limitCount is int;
-    }
-
-    function isValidAiLimit(limit) {
-      return limit.keys().hasAll(['tier', 'postGenerationLimit', 'analysisLimit', 'unlockedFeatures'])
-        && limit.tier is string
-        && limit.postGenerationLimit is int
-        && limit.analysisLimit is int
-        && limit.unlockedFeatures is list;
-    }
-
-    function isValidAiSubscription(sub) {
-      return sub.keys().hasAll(['userId', 'status', 'tier', 'tokens'])
-        && sub.userId == request.auth.uid
-        && sub.status in ['active', 'expired', 'cancelled', 'past_due']
-        && sub.tier is string
-        && sub.tokens is int;
-    }
-
-    function isValidLead(lead) {
-      return lead.keys().hasAll(['id', 'carId', 'carTitle', 'buyerName', 'eventType', 'status', 'createdAt'])
-        && lead.id is string
-        && lead.carId is string
-        && lead.carTitle is string && lead.carTitle.size() <= 200
-        && lead.buyerName is string && lead.buyerName.size() <= 100
-        && lead.eventType in ['view_car', 'favorite_car', 'contact_seller', 'chat_inquiry', 'finance_inquiry', 'share_listing']
-        && lead.status in ['new', 'contacted', 'negotiating', 'sold', 'lost']
-        && lead.createdAt is string;
-    }
-
-    function isValidTrafficEvent(event) {
-      return event.keys().hasAll(['id', 'carId', 'eventType', 'timestamp'])
-        && event.id is string
-        && event.carId is string
-        && event.eventType in ['view_car', 'favorite_car', 'contact_seller', 'chat_inquiry', 'finance_inquiry', 'share_listing']
-        && event.timestamp is string;
-    }
-
-    function isValidAiLeadScore(scoreObj) {
-      return scoreObj.keys().hasAll(['id', 'leadId', 'score', 'tier', 'segment', 'conversionProbability', 'createdAt'])
-        && scoreObj.id is string
-        && scoreObj.leadId is string
-        && (scoreObj.score is number || scoreObj.score is int)
-        && scoreObj.tier in ['hot', 'warm', 'cold']
-        && scoreObj.segment is string
-        && (scoreObj.conversionProbability is number || scoreObj.conversionProbability is int)
-        && scoreObj.createdAt is string;
-    }
-
-    function isValidAnalyticsSummary(summary) {
-      return summary.keys().hasAll(['id', 'period', 'viewsCount', 'favoritesCount', 'totalLeadsCount', 'lastUpdated'])
-        && summary.id is string
-        && summary.period is string
-        && summary.viewsCount is int
-        && summary.favoritesCount is int
-        && summary.totalLeadsCount is int
-        && summary.lastUpdated is string;
-    }
-
-    // --- Collection Security Rules ---
-
-    // 2. Users Collection
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      
-      allow create: if isSignedIn() 
-        && isValidId(userId) 
-        && userId == request.auth.uid 
-        && isValidUser(incoming());
-        
-      allow update: if isSignedIn() 
-        && isValidId(userId)
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isActiveAdmin());
+      allow create: if false;
+      allow update: if signedIn()
         && (
-          isAdmin() || (
-            isOwner(userId)
-            && incoming().role == existing().role
-            && incoming().membershipType == existing().membershipType
-            && incoming().postLimit == existing().postLimit
-            && incoming().totalPosts == existing().totalPosts
-            && incoming().uid == existing().uid
-            && incoming().email == existing().email
-            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastLogin', 'favoriteCars', 'aiPersona', 'premiumExpireDate'])
+          isSuperAdmin()
+          || (
+            isActiveAdmin()
+            && !(
+              resource.data.role in ["admin", "superadmin"]
+              || request.resource.data.role in ["admin", "superadmin"]
+            )
           )
+          || (request.auth.uid == uid && safeUserSelfUpdate())
         );
-        
-      allow delete: if isAdmin();
+      allow delete: if isSuperAdmin();
     }
 
-    // 3. User Settings Collection
-    match /user_settings/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow write: if isSignedIn() && isOwner(userId) && isValidId(userId);
-    }
-
-    // 4. User Sessions Logs
-    match /user_sessions/{sessionId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(sessionId) && isValidUserSession(incoming());
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    // 5. AI Preferences Collection
-    match /ai_preferences/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow write: if isSignedIn() && isOwner(userId) && isValidId(userId);
-    }
-
-    // 6. Cars Listings (Marketplace)
-    match /cars/{carId} {
-      allow get, list: if true; // public viewable
-      
-      allow create: if isSignedIn() 
-        && isValidId(carId) 
-        && isValidCarListing(incoming())
-        // Subscription checks: dealer, premium, admins can post unlimited. standard member cannot exceed limit
+    match /dealerMembers/{membershipId} {
+      allow read: if signedIn()
         && (
-          hasUserRole(['dealer', 'premium', 'admin', 'superadmin']) 
-          || isBootstrappedAdmin()
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.totalPosts < get(/databases/$(database)/documents/users/$(request.auth.uid)).data.postLimit
+          resource.data.uid == request.auth.uid
+          || isDealerOwner(resource.data.dealerId)
+          || isActiveAdmin()
         );
-        
-      allow update: if isSignedIn()
-        && isValidCarListing(incoming())
-        && (isOwner(existing().sellerId) || isAdmin())
-        && incoming().sellerId == existing().sellerId
-        && (
-          isAdmin() || (
-            incoming().diff(existing()).affectedKeys().hasAny(['title', 'price', 'description', 'condition', 'mileage', 'status', 'coverImage', 'gallery', 'tags', 'features'])
-          )
-        );
-        
-      allow delete: if isSignedIn()
-        && (isOwner(existing().sellerId) || isAdmin());
+      allow create, update: if isActiveAdmin();
+      allow delete: if isSuperAdmin();
     }
 
-    // 7. Chats and Conversational Threads 
-    match /chats/{sessionId} {
-      allow get, list: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow create: if isSignedIn() && isValidId(sessionId);
-      allow update: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+    // Current client-side Firestore listing collection used by src/services/cars.
+    match /cars/{listingId} {
+      allow read: if publishedListing(resource.data) || canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
 
-      // Chat Messages Subcollection
+    // Production projection for server-side marketplace inventory.
+    match /dealerListings/{listingId} {
+      allow read: if publishedListing(resource.data) || canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Production projection for server-side dealer draft inventory.
+    match /dealerDrafts/{draftId} {
+      allow read: if canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Metadata for listing/draft/chat images. Binary files belong in Storage.
+    match /listingImages/{imageId} {
+      allow read: if resource.data.visibility == "public"
+        || publishedListing(resource.data)
+        || canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Production chat history schema used from Step 2L onward.
+    match /chatSessions/{sessionId} {
+      allow read: if signedIn() && canReadChatSession(resource.data);
+      allow create: if signedIn()
+        && request.resource.data.sessionId == sessionId
+        && request.resource.data.status == "active"
+        && canCreateChatSession(request.resource.data);
+      allow update: if signedIn() && canUpdateChatSession();
+      allow delete: if signedIn() && canReadChatSession(resource.data);
+
       match /messages/{messageId} {
-        allow get, list: if isSignedIn();
-        allow create: if isSignedIn() && isValidId(messageId);
-        allow update, delete: if false; 
+        allow read: if signedIn()
+          && canReadChatSession(get(/databases/$(database)/documents/chatSessions/$(sessionId)).data);
+        allow create: if signedIn()
+          && request.resource.data.messageId == messageId
+          && canReadChatSession(get(/databases/$(database)/documents/chatSessions/$(sessionId)).data);
+        allow update, delete: if false;
       }
     }
 
-    // 8. Dealer Showrooms
-    match /dealers/{dealerId} {
-      allow get, list: if true; 
-      allow create: if isSignedIn() && isValidId(dealerId) && isValidDealer(incoming());
-      allow update: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-      allow delete: if isAdmin();
+    // Legacy pre-Step-2L chat collection. Keep read-only for migration/export, not new writes.
+    match /chats/{chatId} {
+      allow read: if signedIn() && canReadChatSession(resource.data);
+      allow create, update, delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn()
+          && canReadChatSession(get(/databases/$(database)/documents/chats/$(chatId)).data);
+        allow create, update, delete: if false;
+      }
     }
 
-    // 9. Saved Bookmarks (Favorites / car_favorites)
-    match /favorites/{favoriteId} {
-      allow get: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(favoriteId) && isValidFavorite(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+    match /ai_preferences/{scopeKey} {
+      allow read, write: if signedIn()
+        && (
+          scopeKey == "user:" + request.auth.uid
+          || (
+            request.resource.data.dealerId is string
+            && hasActiveDealerMembership(request.resource.data.dealerId)
+          )
+          || isActiveAdmin()
+        );
     }
 
-    match /car_favorites/{favoriteId} {
-      allow get: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(favoriteId) && isValidFavorite(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-    }
-
-    // 10. Car Images
-    match /car_images/{imageId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(imageId) && isValidCarImage(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().uploadedBy) || isAdmin());
-    }
-
-    // 11. Car Brands
-    match /car_brands/{brandId} {
-      allow get, list: if true;
-      allow write: if isAdmin();
-    }
-
-    // 12. Car Models
-    match /car_models/{modelId} {
-      allow get, list: if true;
-      allow write: if isAdmin();
-    }
-
-    // 13. Car Page Views Logs
-    match /car_views/{viewId} {
-      allow get: if true;
-      allow list: if isAdmin();
-      allow create: if isValidId(viewId) && isValidCarView(incoming());
-    }
-
-    // 14. Showroom Reviews
-    match /showroom_reviews/{reviewId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(reviewId) && isValidShowroomReview(incoming());
-      allow update: if isSignedIn() && (isOwner(existing().userId) || isAdmin()) && isValidShowroomReview(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-    }
-
-    // 15. Car Discussion Comments
-    match /car_comments/{commentId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(commentId) && isValidCarComment(incoming());
-      allow update: if isSignedIn() && (isOwner(existing().userId) || isAdmin()) && isValidCarComment(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-    }
-
-    // 16. Fraud / Abuse Reports
-    match /car_reports/{reportId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn() && isValidId(reportId) && isValidCarReport(incoming());
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // 17. Subscriptions Collection
-    match /subscriptions/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow write: if isSignedIn() && isOwner(userId) && isValidId(userId) && isValidSubscription(incoming());
-    }
-
-    // 18. Payments Collection
-    match /payments/{paymentId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming());
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
-    }
-
-    // 19. Invoices Collection
-    match /invoices/{invoiceId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(invoiceId) && isValidInvoice(incoming());
-      allow update, delete: if isAdmin();
-    }
-
-    // 20. Premium Features Collection
-    match /premium_features/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow write: if isSignedIn() && isOwner(userId) && isValidId(userId) && isValidPremiumFeatures(incoming());
-    }
-
-    // 21. Active Promotional Boosts
-    match /boosts/{boostId} {
-      allow get: if true;
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(boostId) && isValidBoost(incoming());
-      allow update: if isSignedIn() && isValidId(boostId) && (isOwner(existing().userId) || isAdmin()) && isValidBoost(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-    }
-
-    // 22. Post Boost Historical Logs
-    match /boost_history/{historyId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(historyId) && isValidBoostHistory(incoming());
-      allow update, delete: if isAdmin();
-    }
-
-    // 23. Featured Cars Fast Page Cache
-    match /featured_cars/{carId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(carId) && isValidFeaturedCar(incoming());
-      allow update: if isSignedIn() && isValidId(carId) && (isOwner(existing().userId) || isAdmin()) && isValidFeaturedCar(incoming());
-      allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-    }
-
-    // 24. AI Usage Tracking Collection
-    match /ai_usage/{usageId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(usageId) && isValidAiUsage(incoming());
-      allow update: if isSignedIn() && isValidId(usageId) && (isOwner(existing().userId) || isAdmin()) && isValidAiUsage(incoming());
-      allow delete: if isAdmin();
-    }
-
-    // 25. AI Limits Config Collection
-    match /ai_limits/{limitId} {
-      allow get: if true;
-      allow list: if true;
-      allow write: if isAdmin();
-    }
-
-    // 26. AI Subscriptions Collection
-    match /ai_subscriptions/{subscriptionId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(subscriptionId) && isValidAiSubscription(incoming());
-      allow update: if isSignedIn() && isValidId(subscriptionId) && (isOwner(existing().userId) || isAdmin()) && isValidAiSubscription(incoming());
-      allow delete: if isAdmin();
-    }
-
-    // 27. Leads Tracker Collection
-    match /leads/{leadId} {
-      allow get, list: if isSignedIn() && (resource.data.dealerId == request.auth.uid || resource.data.buyerId == request.auth.uid || isAdmin());
-      allow create: if isValidId(leadId) && isValidLead(incoming());
-      allow update: if isSignedIn() && (resource.data.dealerId == request.auth.uid || isAdmin()) && isValidLead(incoming());
-      allow delete: if isAdmin();
-    }
-
-    // 28. Traffic Tracking Events Click-stream
-    match /traffic_events/{eventId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.dealerId == request.auth.uid || isAdmin());
-      allow create: if isValidId(eventId) && isValidTrafficEvent(incoming());
-      allow update, delete: if isAdmin();
-    }
-
-    // 29. AI Lead Scores Analysis Metrics
-    match /ai_lead_scores/{scoreId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.dealerId == request.auth.uid || isAdmin());
-      allow create, update: if isSignedIn() && isValidId(scoreId) && isValidAiLeadScore(incoming());
-      allow delete: if isAdmin();
-    }
-
-    // 30. Consolidated Analytics Summary Reports
-    match /analytics/{analyticsId} {
-      allow get, list: if isSignedIn() && (resource.data.dealerId == request.auth.uid || isAdmin());
-      allow create, update: if isSignedIn() && isValidId(analyticsId) && isValidAnalyticsSummary(incoming()) && (incoming().dealerId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
