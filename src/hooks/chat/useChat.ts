@@ -212,7 +212,15 @@ export function useChat() {
           );
           const ack = buildSavedDraftImageAckReply(imageAttachments.length);
           updateStreamedReply(ack);
-          await finalizeStreamedReply(activeSessionId);
+          await finalizeStreamedReply(
+            activeSessionId,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            attachmentMeta
+          );
         } catch (uploadErr) {
           console.error("[chat-image-attachment-v1-followup-upload]", {
             draftId: latestSavedDraftId,
@@ -240,7 +248,15 @@ export function useChat() {
           pendingListingContext
         );
         updateStreamedReply(ack);
-        await finalizeStreamedReply(activeSessionId);
+        await finalizeStreamedReply(
+          activeSessionId,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          attachmentMeta
+        );
         setGenerating(false);
         return;
       }
@@ -248,7 +264,15 @@ export function useChat() {
       if (hasImages && !pendingListingContext && !isListingCreateWithImages) {
         const ack = buildNoListingImageAckReply(imageAttachments.length);
         updateStreamedReply(ack);
-        await finalizeStreamedReply(activeSessionId);
+        await finalizeStreamedReply(
+          activeSessionId,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          attachmentMeta
+        );
         setGenerating(false);
         return;
       }
@@ -446,7 +470,8 @@ export function useChat() {
           orchestrated.hasMoreCars,
           orchestrated.isDraftPreview,
           orchestrated.draftFields,
-          orchestrated.savedDraftId
+          orchestrated.savedDraftId,
+          orchestrated.isDraftPreview && hasImages ? attachmentMeta : undefined
         );
         setGenerating(false);
         return;

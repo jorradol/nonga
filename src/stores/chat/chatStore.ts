@@ -70,7 +70,8 @@ interface ChatState {
     hasMoreCars?: boolean,
     isDraftPreview?: boolean,
     draftFields?: any,
-    savedDraftId?: string
+    savedDraftId?: string,
+    attachments?: ChatMessageAttachment[]
   ) => Promise<void>;
   setGenerating: (generating: boolean) => void;
   analyzeUserPreferences: (messages: ChatMessage[]) => Promise<void>;
@@ -460,7 +461,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId) => {
+  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments) => {
     const totalReply = get().streamedReply;
     if (!totalReply) return;
 
@@ -483,7 +484,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       more,
       isDraftPreview,
       draftFields,
-      savedDraftId
+      savedDraftId,
+      attachments
     );
     
     // Core AI memory loop: Trigger preference extraction in background for memory

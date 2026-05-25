@@ -43,6 +43,8 @@ export function ChatMessageAttachments({
   const images = attachments.filter((a) => a.kind === "image");
   const others = attachments.filter((a) => a.kind !== "image");
   const summary = formatAttachmentsSummary(attachments);
+  const visibleImages = images.slice(0, 5);
+  const hiddenImageCount = Math.max(0, images.length - visibleImages.length);
 
   return (
     <div
@@ -51,7 +53,7 @@ export function ChatMessageAttachments({
     >
       {images.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-1">
-          {images.map((img) => (
+          {visibleImages.map((img) => (
             <div
               key={img.id}
               className={`rounded-lg overflow-hidden border shrink-0 ${
@@ -72,6 +74,17 @@ export function ChatMessageAttachments({
               )}
             </div>
           ))}
+          {hiddenImageCount > 0 && (
+            <div
+              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg border shrink-0 flex items-center justify-center text-[11px] font-bold ${
+                isUser
+                  ? "border-white/30 bg-white/10"
+                  : "border-slate-700 bg-slate-800/80 text-slate-300"
+              }`}
+            >
+              + อีก {hiddenImageCount} รูป
+            </div>
+          )}
         </div>
       )}
       {others.map((file) => (
