@@ -40,12 +40,15 @@ export interface OrchestratedChatReply {
 
 export function tryOrchestrateChatReply(
   message: string,
-  inventory: ChatInventoryCar[]
+  inventory: ChatInventoryCar[],
+  options?: { attachedImageCount?: number }
 ): OrchestratedChatReply | null {
   if (isSellIntent(message)) {
     const fields = extractCarFieldsFromMessage(message);
     return {
-      text: buildDraftPreviewCopy(fields),
+      text: buildDraftPreviewCopy(fields, {
+        attachedImageCount: options?.attachedImageCount,
+      }),
       carCards: [],
       skipGemini: true,
       isDraftPreview: true,

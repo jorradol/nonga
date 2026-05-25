@@ -49,7 +49,8 @@ const FEATURE_KEYWORDS = [
 ];
 
 export function isSellIntent(message: string): boolean {
-  return SELL_INTENT.test(message);
+  if (SELL_INTENT.test(message)) return true;
+  return hasMinimumDraftFields(extractCarFieldsFromMessage(message));
 }
 
 function parseThaiNumber(raw: string): number {
@@ -375,12 +376,30 @@ export function extractCarFieldsFromMessage(message: string): ExtractedCarFields
   return fields;
 }
 
-export function buildDraftPreviewCopy(fields: ExtractedCarFields): string {
+export function hasMinimumDraftFields(fields: ExtractedCarFields): boolean {
+  return Boolean(
+    fields.brand &&
+      fields.model &&
+      fields.year &&
+      fields.price &&
+      fields.mileage != null
+  );
+}
+
+function displayTransmission(transmission: string): string {
+  return transmission.replace(/^เกียร์\s*/i, "").trim() || transmission;
+}
+
+export function buildDraftPreviewCopy(
+  fields: ExtractedCarFields,
+  options?: { attachedImageCount?: number }
+): string {
   const missingFields: string[] = [];
   if (!fields.brand || !fields.model) missingFields.push("ยี่ห้อ/รุ่น");
   if (!fields.year) missingFields.push("ปี");
   if (!fields.price) missingFields.push("ราคา");
   if (!fields.mileage) missingFields.push("เลขไมล์");
+  const attachedImageCount = options?.attachedImageCount ?? 0;
 
   const formattedPrice = fields.price
     ? `${fields.price.toLocaleString("th-TH")} บาท`
@@ -396,15 +415,21 @@ export function buildDraftPreviewCopy(fields: ExtractedCarFields): string {
   if (fields.licensePlate) reply += `• ทะเบียน: ${fields.licensePlate}\n`;
   reply += `• ปี: ${fields.year || "-"}\n`;
   if (fields.color) reply += `• สี: ${fields.color}\n`;
-  if (fields.transmission) reply += `• เกียร์: ${fields.transmission}\n`;
+  if (fields.transmission) reply += `• เกียร์: ${displayTransmission(fields.transmission)}\n`;
   reply += `• ราคา: ${formattedPrice}\n`;
   reply += `• เลขไมล์: ${formattedMileage}\n`;
+  if (attachedImageCount > 0) {
+    reply += `• รูปภาพ: ได้รับแล้ว ${attachedImageCount} รูป\n`;
+  }
   if (fields.description) reply += `• จุดเด่น: ${fields.description}\n`;
 
   reply += "\n";
 
   if (missingFields.length > 0) {
     reply += `ยังขาดข้อมูล ${missingFields.join(", ")} ครับ ลุงช่วยพิมพ์บอกน้องเอเพิ่มหน่อยนะครับ\n`;
+  } else if (attachedImageCount > 0) {
+    reply += `ข้อมูลและรูปภาพพร้อมสำหรับบันทึกประกาศแล้วครับ กด ‘บันทึกประกาศ’ ได้เลย ปังปุริเย่!`;
+    return reply;
   } else {
     reply += `ข้อมูลครบถ้วนครับ!\n`;
   }

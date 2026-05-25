@@ -195,7 +195,7 @@ export function useChat() {
       const latestSavedDraftId = findLatestSavedDraftId(historyAfterUser);
       const isListingCreateWithImages = hasImages && trimmed && isSellIntent(trimmed);
 
-      if (hasImages && latestSavedDraftId) {
+      if (hasImages && latestSavedDraftId && !isListingCreateWithImages) {
         const draftDealerId = resolveDealerIdFromUser(user);
         const apiRole = isAdmin ? "admin" : "dealer";
         const imagesForMessage = getChatImagesForMessage(
@@ -229,7 +229,7 @@ export function useChat() {
         return;
       }
 
-      if (hasImages && pendingListingContext) {
+      if (hasImages && pendingListingContext && !isListingCreateWithImages) {
         markChatImageMessageForPendingListing(
           storageScopeKey,
           activeSessionId,
@@ -256,7 +256,9 @@ export function useChat() {
       const inventory = await fetchInventoryForChat();
 
       const orchestrated = trimmed
-        ? tryOrchestrateChatReply(trimmed, inventory)
+        ? tryOrchestrateChatReply(trimmed, inventory, {
+            attachedImageCount: hasImages ? imageAttachments.length : undefined,
+          })
         : null;
       if (orchestrated?.skipGemini) {
         if (isSaveListingChatAction(trimmed)) {
