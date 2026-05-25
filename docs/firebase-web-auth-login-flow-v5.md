@@ -129,3 +129,9 @@ Public signup is not open by default for real Firebase mode.
 8. Try mismatched dealer scope: backend should reject it.
 
 Step 2H does not migrate all frontend fetches to Firebase ID tokens. Existing beta/dev compatibility remains documented for the next step.
+
+## Step 2I update
+
+Real user/dealer schemas and resolver rules are documented in `docs/user-dealer-membership-resolution-v5.md`.
+
+The backend now derives dealer access from active `dealerMembers` rows and blocks suspended users server-side.

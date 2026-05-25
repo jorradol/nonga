@@ -182,6 +182,13 @@ export function dealerApiAuth(
       next();
     })
     .catch((err) => {
+      if (err instanceof ServerAuthError && err.status === 403) {
+        res.status(err.status).json({
+          success: false,
+          message: err.message || "บัญชีนี้ไม่มีสิทธิ์ใช้งานส่วนนี้ครับ",
+        });
+        return;
+      }
       if (process.env.NODE_ENV === "production") {
         const status = err instanceof ServerAuthError ? err.status : 401;
         res.status(status).json({

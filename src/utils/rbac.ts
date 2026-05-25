@@ -31,6 +31,7 @@ export interface UserAuthProfile {
 export interface DealerMembership {
   uid: string;
   dealerId: string;
+  dealerName?: string;
   roleInDealer: DealerRoleInDealer;
   status: DealerMembershipStatus;
   createdAt: string;
@@ -285,7 +286,7 @@ export function isActiveUser(input: RoleInput): boolean {
 }
 
 export function canAccessDealerPortal(input: RoleInput): boolean {
-  if (isSuspended(input)) return false;
+  if (!isActiveUser(input)) return false;
   const role = roleFrom(input);
   if (role === "dealer" || role === "admin" || role === "superadmin") {
     return true;
@@ -302,11 +303,11 @@ export function canManageOwnDealerListings(input: RoleInput): boolean {
 }
 
 export function canAccessAdmin(input: RoleInput): boolean {
-  return !isSuspended(input) && isAdmin(input);
+  return isActiveUser(input) && isAdmin(input);
 }
 
 export function canManageRoles(input: RoleInput): boolean {
-  return !isSuspended(input) && isSuperAdmin(input);
+  return isActiveUser(input) && isSuperAdmin(input);
 }
 
 export function getRoleFlags(input: RoleInput) {

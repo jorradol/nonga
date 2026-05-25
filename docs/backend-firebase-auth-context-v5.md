@@ -133,3 +133,11 @@ Production auth hardening now prevents dev stub helper defaults from being surfa
 ## Step 2H update
 
 Frontend Firebase Web Auth config can now come from `VITE_FIREBASE_*` env values. Real backend token verification still requires Firebase Admin env credentials, while local tests can continue using the dev Firebase token maps.
+
+## Step 2I update
+
+User profile and dealer membership resolution is hardened in `src/server/serverAuthContext.ts`.
+
+`users/{uid}` now drives server-side role/status, `dealerMembers` drives active dealer access, suspended users are blocked server-side, and dealer APIs require an active dealer membership before accepting a dealer scope.
+
+Schema and Firestore rules draft: `docs/user-dealer-membership-resolution-v5.md`.

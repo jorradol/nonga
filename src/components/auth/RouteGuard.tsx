@@ -21,6 +21,7 @@ interface RouteGuardProps {
 const MESSAGES = {
   login: "กรุณาเข้าสู่ระบบก่อนใช้งานส่วนนี้ครับ",
   dealer: "บัญชีนี้ยังไม่ได้เปิดใช้งานเป็นสมาชิกดีลเลอร์ครับ",
+  dealerPending: "บัญชีดีลเลอร์นี้ยังรอการอนุมัติครับ",
   admin: "บัญชีนี้ไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบครับ",
   suspended: "บัญชีนี้ถูกระงับการใช้งานครับ กรุณาติดต่อผู้ดูแลระบบ",
 };
@@ -88,6 +89,9 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
   }
 
   if (require === "dealer" && !canAccessDealerPortal(user)) {
+    if (role === "dealer" && user?.status === "pending") {
+      return <AccessDenied message={MESSAGES.dealerPending} action="profile" />;
+    }
     return <AccessDenied message={MESSAGES.dealer} action="profile" />;
   }
 

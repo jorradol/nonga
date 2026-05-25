@@ -243,6 +243,7 @@ export async function resolveUserAuthProfile(
 function normalizeMembership(raw: Partial<DealerMembership>): DealerMembership | null {
   const uid = String(raw.uid ?? "").trim();
   const dealerId = normalizeDealerId(String(raw.dealerId ?? ""));
+  const dealerName = String(raw.dealerName ?? "").trim();
   const roleInDealer = raw.roleInDealer === "staff" ? "staff" : "owner";
   const status =
     raw.status === "active" || raw.status === "pending" || raw.status === "disabled"
@@ -252,6 +253,7 @@ function normalizeMembership(raw: Partial<DealerMembership>): DealerMembership |
   return {
     uid,
     dealerId,
+    ...(dealerName ? { dealerName } : {}),
     roleInDealer,
     status,
     createdAt: String(raw.createdAt ?? ""),
@@ -306,6 +308,39 @@ function deriveDealerId(
   return activeMemberships[0]?.dealerId;
 }
 
+function deriveDealerName(
+  profile: UserAuthProfile,
+  memberships: DealerMembership[],
+  dealerId?: string
+): string | undefined {
+  if (profile.dealerName) return profile.dealerName;
+  if (!dealerId) return undefined;
+  return memberships.find((row) => row.dealerId === dealerId)?.dealerName;
+}
+
+function assertProfileCanBuildContext(
+  profile: UserAuthProfile,
+  memberships: DealerMembership[]
+): void {
+  if (profile.status === "suspended") {
+    throw new ServerAuthError(
+      403,
+      "บัญชีนี้ถูกระงับการใช้งานครับ กรุณาติดต่อผู้ดูแลระบบ"
+    );
+  }
+  const role = normalizeRole(profile.role);
+  const activeMemberships = memberships.filter((row) => row.status === "active");
+  if (role === "dealer" && activeMemberships.length === 0) {
+    return;
+  }
+  if ((role === "admin" || role === "superadmin") && profile.status !== "active") {
+    throw new ServerAuthError(
+      403,
+      "บัญชีนี้ไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบครับ"
+    );
+  }
+}
+
 export async function getServerAuthContext(
   req: Request
 ): Promise<ServerAuthContext> {
@@ -315,7 +350,9 @@ export async function getServerAuthContext(
   const identity = await verifyFirebaseIdToken(token);
   const profile = await resolveUserAuthProfile(identity);
   const memberships = await resolveDealerMemberships(identity.uid);
+  assertProfileCanBuildContext(profile, memberships);
   const dealerId = deriveDealerId(profile, memberships);
+  const dealerName = deriveDealerName(profile, memberships, dealerId);
 
   return {
     uid: identity.uid,
@@ -324,7 +361,7 @@ export async function getServerAuthContext(
     role: profile.role,
     status: profile.status,
     ...(dealerId ? { dealerId } : {}),
-    ...(profile.dealerName ? { dealerName: profile.dealerName } : {}),
+    ...(dealerName ? { dealerName } : {}),
     memberships,
     provider: "firebase",
     verificationMode: identity.verificationMode,
@@ -335,6 +372,20 @@ export function authorizeDealerScope(
   context: ServerAuthContext,
   requestedDealerId?: string | null
 ): { ok: true; dealerId: string } | { ok: false; status: 403; message: string } {
+  if (context.status === "suspended") {
+    return {
+      ok: false,
+      status: 403,
+      message: "บัญชีนี้ถูกระงับการใช้งานครับ กรุณาติดต่อผู้ดูแลระบบ",
+    };
+  }
+  if (context.status !== "active") {
+    return {
+      ok: false,
+      status: 403,
+      message: "บัญชีนี้ยังไม่ได้เปิดใช้งานเป็นสมาชิกดีลเลอร์ครับ",
+    };
+  }
   if (!canAccessDealerPortal(context)) {
     return { ok: false, status: 403, message: "บัญชีนี้ไม่มีสิทธิ์ดีลเลอร์" };
   }
@@ -349,7 +400,16 @@ export function authorizeDealerScope(
   }
 
   if (!context.dealerId) {
-    return { ok: false, status: 403, message: "ไม่พบ dealer membership ที่ใช้งานได้" };
+    const hasPendingMembership = context.memberships.some(
+      (row) => row.status === "pending"
+    );
+    return {
+      ok: false,
+      status: 403,
+      message: hasPendingMembership
+        ? "บัญชีดีลเลอร์นี้ยังรอการอนุมัติครับ"
+        : "บัญชีนี้ยังไม่ได้เปิดใช้งานเป็นสมาชิกดีลเลอร์ครับ",
+    };
   }
   if (requested && requested !== context.dealerId) {
     return { ok: false, status: 403, message: "dealerId ไม่ตรงกับสิทธิ์ของบัญชีนี้" };
