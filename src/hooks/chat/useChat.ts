@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useChatStore } from "../../stores/chat/chatStore";
 import { useAppStore } from "../../store";
 import { aiService } from "../../services/ai/aiService";
@@ -43,6 +43,8 @@ import {
   findLatestPendingListingContext,
   findLatestSavedDraftId,
 } from "../../features/chat-image-attachment-v1/followUpImageIntent";
+
+let lastHydratedChatScopeKey: string | null = null;
 
 async function fetchInventoryForChat(): Promise<ChatInventoryCar[]> {
   try {
@@ -104,7 +106,6 @@ export function useChat() {
     loadSessions,
     createSession,
     deleteSession,
-    selectSession,
     addMessage,
     editMessage,
     updateStreamedReply,
@@ -121,16 +122,22 @@ export function useChat() {
 
   const chatScope = useMemo(() => getChatStorageScope(user), [user]);
   const storageScopeKey = chatScope.storageKey;
-  const loadedScopeRef = useRef<string | null>(null);
 
-  const hydrateChatForScope = useCallback(async () => {
-    if (loadedScopeRef.current !== storageScopeKey) {
-      if (loadedScopeRef.current) {
-        clearChatImageAttachmentScope(loadedScopeRef.current);
+  const hydrateChatForScope = useCallback(async (force = false) => {
+    const isNewScope = lastHydratedChatScopeKey !== storageScopeKey;
+    const chatState = useChatStore.getState();
+    const needsInitialLoad =
+      chatState.sessions.length === 0 && chatState.activeSessionId === null;
+    if (!isNewScope && !force && !needsInitialLoad) return;
+
+    if (isNewScope) {
+      if (lastHydratedChatScopeKey) {
+        clearChatImageAttachmentScope(lastHydratedChatScopeKey);
       }
       resetChatState();
-      loadedScopeRef.current = storageScopeKey;
+      lastHydratedChatScopeKey = storageScopeKey;
     }
+
     await loadSessions(storageScopeKey);
     await loadUserPreferences(storageScopeKey);
     await loadPersonalitiesList();
@@ -151,7 +158,7 @@ export function useChat() {
   }, [hydrateChatForScope]);
 
   const initializeChat = useCallback(async () => {
-    await hydrateChatForScope();
+    await hydrateChatForScope(true);
   }, [hydrateChatForScope]);
 
   const sendMessage = useCallback(
@@ -604,6 +611,18 @@ export function useChat() {
     [storageScopeKey, deleteSession]
   );
 
+  const switchChatSession = useCallback((sessionId: string) => {
+    const state = useChatStore.getState();
+    const exists = state.sessions.some((s) => s.id === sessionId);
+    if (!exists) return;
+    useChatStore.setState({
+      activeSessionId: sessionId,
+      streamedReply: "",
+      streamedCarCards: [],
+      streamedHasMoreCars: false,
+    });
+  }, []);
+
   const chatActor = useMemo(
     () => resolveChatActorDisplay(user, chatScope),
     [user, chatScope]
@@ -631,7 +650,7 @@ export function useChat() {
     sendMessage,
     createNewChat,
     removeChat,
-    selectSession,
+    selectSession: switchChatSession,
     editMessage,
   };
 }

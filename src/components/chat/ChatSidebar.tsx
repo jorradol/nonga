@@ -28,7 +28,6 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   };
 
   const handleSelectSession = (id: string) => {
-    if (id === activeSessionId) return;
     selectSession(id);
     if (window.innerWidth < 768) {
       onClose();
@@ -117,31 +116,44 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               return (
-                <motion.button
-                  type="button"
+                <motion.div
                   key={session.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className={`group relative flex w-full items-center justify-between rounded-xl p-3 transition-all duration-200 cursor-pointer text-xs text-left before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-1 before:rounded-r-lg ${
+                  className={`group relative flex w-full items-center justify-between rounded-xl transition-all duration-200 text-xs text-left before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-1 before:rounded-r-lg ${
                     isActive
                       ? "bg-slate-800/60 border border-slate-700/60 text-slate-100 before:bg-orange-500"
                       : "hover:bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent before:bg-transparent"
                   }`}
-                  onClick={() => handleSelectSession(session.id)}
-                  id={`chat-session-item-${session.id}`}
+                  id={`chat-session-row-${session.id}`}
                 >
-                  <div className="flex items-start gap-2.5 overflow-hidden w-[82%]">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      handleSelectSession(session.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectSession(session.id);
+                      }
+                    }}
+                    className="flex min-h-[56px] flex-1 items-start gap-2.5 overflow-hidden p-3 pr-1 text-left cursor-pointer"
+                    id={`chat-session-item-${session.id}`}
+                    aria-current={isActive ? "page" : undefined}
+                  >
                     <MessageSquare className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? "text-orange-400" : "text-slate-500"}`} />
-                    <div className="overflow-hidden">
+                    <div className="overflow-hidden min-w-0">
                       <p className="truncate font-medium text-slate-200 leading-snug">{session.title}</p>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                         <Calendar className="w-3 h-3" />
                         {formattedDate(session.createdAt)}
                       </span>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Delete button (displays on group-hover or if active) */}
                   <button
@@ -149,6 +161,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                     className={`text-slate-500 hover:text-red-400 p-1 rounded-lg hover:bg-slate-800/80 transition-colors backdrop-blur-md md:opacity-0 group-hover:opacity-100 ${
                       isActive ? "opacity-100" : ""
                     }`}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบบทสนทนานี้ออกระบบอย่างถาวร?")) {
@@ -159,7 +172,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </motion.button>
+                </motion.div>
               );
             })}
           </AnimatePresence>
