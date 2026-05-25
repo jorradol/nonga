@@ -6,6 +6,10 @@ Step 2P rules/storage decision plan:
 
 - `docs/v5-staging-rules-emulator-storage-decision.md`
 
+Closed staging rehearsal Step 1 checklist:
+
+- `docs/v5-staging-rehearsal-step1-firebase-test-users.md`
+
 ## 1. Staging Secrets Checklist
 
 Set these in the staging host secret manager or environment configuration.
