@@ -1,11 +1,22 @@
 import type { Request, Response, NextFunction } from "express";
 import { normalizeDealerId, THOR_AUTO_DEALER_ID } from "../utils/dealerIdentity";
+import type { AuthRole, DealerMembership, UserStatus } from "../utils/rbac";
+import {
+  authorizeDealerScope,
+  getServerAuthContext,
+  ServerAuthError,
+} from "./serverAuthContext";
 
 /** ข้อมูล auth หลังผ่าน guard — เตรียมต่อ Firebase ID token */
 export interface ApiAuthContext {
-  role: "dealer" | "admin" | "superadmin";
+  role: AuthRole;
   dealerId?: string;
   uid?: string;
+  email?: string;
+  displayName?: string;
+  status?: UserStatus;
+  dealerName?: string;
+  memberships?: DealerMembership[];
   provider: "stub" | "firebase";
 }
 
@@ -106,6 +117,10 @@ function unauthorized(res: Response, message: string): void {
   res.status(401).json({ success: false, message });
 }
 
+function forbidden(res: Response, message: string): void {
+  res.status(403).json({ success: false, message });
+}
+
 /** Guard /api/dealer/* — beta/prod ต้อง bind Bearer token กับ dealerId ฝั่ง server */
 export function dealerApiAuth(
   req: Request,
@@ -145,35 +160,62 @@ export function dealerApiAuth(
     return;
   }
 
-  if (process.env.NODE_ENV === "production") {
-    unauthorized(
-      res,
-      "Dealer auth ยังไม่ได้ bind token กับ dealerId — ตั้ง NONGA_DEALER_TOKEN_MAP หรือ NONGA_BETA_DEALER_ID"
-    );
-    return;
-  }
+  getServerAuthContext(req)
+    .then((context) => {
+      const scope = authorizeDealerScope(context, requestedDealerId);
+      if (scope.ok === false) {
+        forbidden(res, scope.message);
+        return;
+      }
 
-  const expected = dealerToken();
-  if (!expected || token !== expected) {
-    unauthorized(res, "Unauthorized — dealer token ไม่ถูกต้อง");
-    return;
-  }
+      req.apiAuth = {
+        role: context.role,
+        dealerId: scope.dealerId,
+        uid: context.uid,
+        email: context.email,
+        displayName: context.displayName,
+        status: context.status,
+        dealerName: context.dealerName,
+        memberships: context.memberships,
+        provider: "firebase",
+      };
+      next();
+    })
+    .catch((err) => {
+      if (process.env.NODE_ENV === "production") {
+        const status = err instanceof ServerAuthError ? err.status : 401;
+        res.status(status).json({
+          success: false,
+          message:
+            status === 401
+              ? "กรุณาเข้าสู่ระบบก่อนใช้งานส่วนนี้ครับ"
+              : "บัญชีนี้ไม่มีสิทธิ์ใช้งานส่วนนี้ครับ",
+        });
+        return;
+      }
 
-  if (!requestedDealerId) {
-    res.status(403).json({
-      success: false,
-      message: "ต้องระบุ X-Dealer-Id ที่ตรงกับบัญชี dealer",
+      const expected = dealerToken();
+      if (!expected || token !== expected) {
+        unauthorized(res, "Unauthorized — dealer token ไม่ถูกต้อง");
+        return;
+      }
+
+      if (!requestedDealerId) {
+        res.status(403).json({
+          success: false,
+          message: "ต้องระบุ X-Dealer-Id ที่ตรงกับบัญชี dealer",
+        });
+        return;
+      }
+
+      req.apiAuth = {
+        role: "dealer",
+        dealerId: requestedDealerId,
+        uid: `dealer-${requestedDealerId}`,
+        provider: "stub",
+      };
+      next();
     });
-    return;
-  }
-
-  req.apiAuth = {
-    role: "dealer",
-    dealerId: requestedDealerId,
-    uid: `dealer-${requestedDealerId}`,
-    provider: "stub",
-  };
-  next();
 }
 
 /** Guard /api/admin/* — ต้องมี Bearer token ของ admin */
@@ -183,16 +225,42 @@ export function adminApiAuth(
   next: NextFunction
 ): void {
   const expected = adminToken();
-  if (!expected) {
-    unauthorized(res, "NONGA_ADMIN_API_TOKEN ไม่ได้ตั้งค่า");
+  const token = extractBearer(req);
+  if (!token) {
+    unauthorized(res, "กรุณาเข้าสู่ระบบก่อนใช้งานส่วนนี้ครับ");
     return;
   }
-  const token = extractBearer(req);
-  if (!token || token !== expected) {
-    unauthorized(
-      res,
-      "Unauthorized — ต้องส่ง Authorization: Bearer <admin-token>"
-    );
+
+  if (!expected || token !== expected) {
+    getServerAuthContext(req)
+      .then((context) => {
+        if (context.role !== "admin" && context.role !== "superadmin") {
+          forbidden(res, "บัญชีนี้ไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบครับ");
+          return;
+        }
+        req.apiAuth = {
+          role: context.role,
+          dealerId: context.dealerId,
+          uid: context.uid,
+          email: context.email,
+          displayName: context.displayName,
+          status: context.status,
+          dealerName: context.dealerName,
+          memberships: context.memberships,
+          provider: "firebase",
+        };
+        next();
+      })
+      .catch((err) => {
+        const status = err instanceof ServerAuthError ? err.status : 401;
+        res.status(status).json({
+          success: false,
+          message:
+            status === 401
+              ? "กรุณาเข้าสู่ระบบก่อนใช้งานส่วนนี้ครับ"
+              : "บัญชีนี้ไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบครับ",
+        });
+      });
     return;
   }
 

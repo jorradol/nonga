@@ -41,6 +41,21 @@ In this mode, `X-Dealer-Id` is only treated as a consistency check. If it does n
 
 Development/mock mode still accepts the legacy dev token plus `X-Dealer-Id` to keep local smoke tests and demo workflows working.
 
+## v5.0 Step 2B Backend Auth Context
+
+Step 2B adds a Firebase-backed server auth helper in `src/server/serverAuthContext.ts`.
+
+The backend now has:
+
+- `verifyFirebaseIdToken`
+- `getServerAuthContext`
+- `resolveUserAuthProfile`
+- `resolveDealerMemberships`
+- `authorizeDealerScope`
+- `requireServerAuth`
+
+`/api/dealer/*` and `/api/admin/*` can accept Firebase-derived auth context while retaining the existing beta token and DEV stub paths for compatibility. Production should use Firebase ID tokens plus server-resolved dealer memberships as the primary auth path.
+
 ## Endpoint Coverage
 
 Guarded by `/api/dealer/*` and scoped to the authenticated dealer:
