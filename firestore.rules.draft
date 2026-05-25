@@ -1,0 +1,228 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function myProfileExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function myProfile() {
+      return userDoc(request.auth.uid);
+    }
+
+    function isActiveUser() {
+      return myProfileExists() && myProfile().status == "active";
+    }
+
+    function hasActiveRole(roles) {
+      return isActiveUser() && myProfile().role in roles;
+    }
+
+    function isActiveAdmin() {
+      return hasActiveRole(["admin", "superadmin"]);
+    }
+
+    function isSuperAdmin() {
+      return hasActiveRole(["superadmin"]);
+    }
+
+    function membershipId(uid, dealerId) {
+      return uid + "_" + dealerId;
+    }
+
+    function dealerMemberDoc(uid, dealerId) {
+      return get(/databases/$(database)/documents/dealerMembers/$(membershipId(uid, dealerId))).data;
+    }
+
+    function hasDealerMembership(dealerId) {
+      return signedIn()
+        && dealerId is string
+        && exists(/databases/$(database)/documents/dealerMembers/$(membershipId(request.auth.uid, dealerId)));
+    }
+
+    function hasActiveDealerMembership(dealerId) {
+      return hasDealerMembership(dealerId)
+        && dealerMemberDoc(request.auth.uid, dealerId).status == "active";
+    }
+
+    function isDealerOwner(dealerId) {
+      return hasActiveDealerMembership(dealerId)
+        && dealerMemberDoc(request.auth.uid, dealerId).roleInDealer == "owner";
+    }
+
+    function safeUserSelfUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "role",
+        "status",
+        "dealerId",
+        "dealerName",
+        "createdAt",
+        "uid"
+      ]);
+    }
+
+    function sameDealerId() {
+      return request.resource.data.dealerId == resource.data.dealerId;
+    }
+
+    function publishedListing(data) {
+      return data.listingStatus == "published"
+        || data.status == "approved"
+        || data.status == "published";
+    }
+
+    function canReadDealerScoped(data) {
+      return isActiveAdmin()
+        || (data.dealerId is string && hasActiveDealerMembership(data.dealerId));
+    }
+
+    function canCreateDealerScoped(data) {
+      return isActiveAdmin()
+        || (data.dealerId is string && hasActiveDealerMembership(data.dealerId));
+    }
+
+    function canUpdateDealerScoped() {
+      return isActiveAdmin()
+        || (
+          resource.data.dealerId is string
+          && sameDealerId()
+          && hasActiveDealerMembership(resource.data.dealerId)
+        );
+    }
+
+    function canDeleteDealerScoped() {
+      return isActiveAdmin()
+        || (
+          resource.data.dealerId is string
+          && hasActiveDealerMembership(resource.data.dealerId)
+        );
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isActiveAdmin());
+      allow create: if false;
+      allow update: if signedIn()
+        && (
+          isSuperAdmin()
+          || (
+            isActiveAdmin()
+            && !(
+              resource.data.role in ["admin", "superadmin"]
+              || request.resource.data.role in ["admin", "superadmin"]
+            )
+          )
+          || (request.auth.uid == uid && safeUserSelfUpdate())
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /dealerMembers/{membershipId} {
+      allow read: if signedIn()
+        && (
+          resource.data.uid == request.auth.uid
+          || isDealerOwner(resource.data.dealerId)
+          || isActiveAdmin()
+        );
+      allow create, update: if isActiveAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Current client-side Firestore listing collection used by src/services/cars.
+    match /cars/{listingId} {
+      allow read: if publishedListing(resource.data) || canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Production projection for server-side marketplace inventory.
+    match /dealerListings/{listingId} {
+      allow read: if publishedListing(resource.data) || canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Production projection for server-side dealer draft inventory.
+    match /dealerDrafts/{draftId} {
+      allow read: if canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Metadata for listing/draft/chat images. Binary files belong in Storage.
+    match /listingImages/{imageId} {
+      allow read: if resource.data.visibility == "public"
+        || publishedListing(resource.data)
+        || canReadDealerScoped(resource.data);
+      allow create: if canCreateDealerScoped(request.resource.data);
+      allow update: if canUpdateDealerScoped();
+      allow delete: if canDeleteDealerScoped();
+    }
+
+    // Current chat Firestore collection used by src/stores/chat/chatStore.ts.
+    match /chats/{chatId} {
+      allow read, create: if signedIn()
+        && request.resource.data.userId is string
+        && (
+          request.resource.data.uid == request.auth.uid
+          || request.resource.data.userId == "user:" + request.auth.uid
+          || (
+            request.resource.data.dealerId is string
+            && hasActiveDealerMembership(request.resource.data.dealerId)
+          )
+          || isActiveAdmin()
+        );
+      allow update, delete: if signedIn()
+        && (
+          resource.data.uid == request.auth.uid
+          || resource.data.userId == "user:" + request.auth.uid
+          || (
+            resource.data.dealerId is string
+            && hasActiveDealerMembership(resource.data.dealerId)
+          )
+          || isActiveAdmin()
+        );
+
+      match /messages/{messageId} {
+        allow read, create: if signedIn()
+          && (
+            get(/databases/$(database)/documents/chats/$(chatId)).data.uid == request.auth.uid
+            || get(/databases/$(database)/documents/chats/$(chatId)).data.userId == "user:" + request.auth.uid
+            || (
+              get(/databases/$(database)/documents/chats/$(chatId)).data.dealerId is string
+              && hasActiveDealerMembership(get(/databases/$(database)/documents/chats/$(chatId)).data.dealerId)
+            )
+            || isActiveAdmin()
+          );
+        allow update, delete: if false;
+      }
+    }
+
+    match /ai_preferences/{scopeKey} {
+      allow read, write: if signedIn()
+        && (
+          scopeKey == "user:" + request.auth.uid
+          || (
+            request.resource.data.dealerId is string
+            && hasActiveDealerMembership(request.resource.data.dealerId)
+          )
+          || isActiveAdmin()
+        );
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

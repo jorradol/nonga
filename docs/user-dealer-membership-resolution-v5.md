@@ -193,3 +193,12 @@ When chat history moves to Firestore, chat rules must also require `uid == reque
 Real test users should be created in Firebase Auth first, then seeded into Firestore using UID-based docs.
 
 See `docs/firebase-role-test-users-v5.md` and `scripts/seed-v50-firebase-role-test-users.mts` for the safe dry-run/write flow.
+
+## Step 2K Rules Draft
+
+Firestore and Storage security rules drafts are documented in `docs/firestore-storage-rules-v5.md`.
+
+Draft files:
+
+- `firestore.rules.draft`
+- `storage.rules.draft`

@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(uid) {
+      return firestore.get(/databases/(default)/documents/users/$(uid)).data;
+    }
+
+    function myProfileExists() {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return myProfileExists() && userDoc(request.auth.uid).status == "active";
+    }
+
+    function hasActiveRole(roles) {
+      return isActiveUser() && userDoc(request.auth.uid).role in roles;
+    }
+
+    function isActiveAdmin() {
+      return hasActiveRole(["admin", "superadmin"]);
+    }
+
+    function membershipId(uid, dealerId) {
+      return uid + "_" + dealerId;
+    }
+
+    function membershipPath(dealerId) {
+      return /databases/(default)/documents/dealerMembers/$(membershipId(request.auth.uid, dealerId));
+    }
+
+    function hasActiveDealerMembership(dealerId) {
+      return signedIn()
+        && dealerId is string
+        && firestore.exists(membershipPath(dealerId))
+        && firestore.get(membershipPath(dealerId)).data.status == "active";
+    }
+
+    function isSafeImageUpload(maxBytes) {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= maxBytes
+        && request.resource.contentType.matches("image/.*");
+    }
+
+    function listingDoc(listingId) {
+      return firestore.get(/databases/(default)/documents/dealerListings/$(listingId)).data;
+    }
+
+    function carDoc(listingId) {
+      return firestore.get(/databases/(default)/documents/cars/$(listingId)).data;
+    }
+
+    function publishedListingById(listingId) {
+      return firestore.exists(/databases/(default)/documents/dealerListings/$(listingId))
+        && (
+          listingDoc(listingId).listingStatus == "published"
+          || listingDoc(listingId).status == "published"
+          || listingDoc(listingId).status == "approved"
+        );
+    }
+
+    function publishedCarById(listingId) {
+      return firestore.exists(/databases/(default)/documents/cars/$(listingId))
+        && (
+          carDoc(listingId).listingStatus == "published"
+          || carDoc(listingId).status == "published"
+          || carDoc(listingId).status == "approved"
+        );
+    }
+
+    // Future canonical Firebase Storage path.
+    // Current app still serves local files from /storage/listings/{listingId}.
+    match /listing-images/{dealerId}/{listingId}/{fileName} {
+      allow read: if publishedListingById(listingId)
+        || publishedCarById(listingId)
+        || hasActiveDealerMembership(dealerId)
+        || isActiveAdmin();
+      allow create, update: if (hasActiveDealerMembership(dealerId) || isActiveAdmin())
+        && isSafeImageUpload(5 * 1024 * 1024);
+      allow delete: if hasActiveDealerMembership(dealerId) || isActiveAdmin();
+    }
+
+    match /draft-images/{dealerId}/{draftId}/{fileName} {
+      allow read: if hasActiveDealerMembership(dealerId) || isActiveAdmin();
+      allow create, update: if (hasActiveDealerMembership(dealerId) || isActiveAdmin())
+        && isSafeImageUpload(5 * 1024 * 1024);
+      allow delete: if hasActiveDealerMembership(dealerId) || isActiveAdmin();
+    }
+
+    match /chat-attachments/{dealerId}/{sessionId}/{fileName} {
+      allow read, create, update: if (hasActiveDealerMembership(dealerId) || isActiveAdmin())
+        && isSafeImageUpload(5 * 1024 * 1024);
+      allow delete: if hasActiveDealerMembership(dealerId) || isActiveAdmin();
+    }
+
+    match /user-avatars/{uid}/{fileName} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && isSafeImageUpload(2 * 1024 * 1024);
+      allow delete: if signedIn() && (request.auth.uid == uid || isActiveAdmin());
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
