@@ -209,6 +209,13 @@ Step 2S migration plan:
 - Default mode is dry-run; `--write` is required for Firestore/Storage writes.
 - Source `data/` files and local images are never deleted by the migration.
 
+Step 2T migration integration and backend switch plan:
+
+- `docs/v5-migration-integration-and-backend-switch-plan.md`
+- Integration test: `npm run test:v50-migration-integration`
+- `--write` requires `--confirm-staging` and production-like project IDs are blocked by default.
+- Backend switch to Firestore/Storage remains a staging checklist only.
+
 ## 4. Persistent Storage Probe For Option A
 
 Manual probe before real staging rehearsal:

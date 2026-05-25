@@ -23,6 +23,8 @@ export interface MigrationCliOptions {
   dryRun: boolean;
   write: boolean;
   json: boolean;
+  confirmStaging: boolean;
+  allowProductionWrite: boolean;
   dealerId?: string;
   limit?: number;
   skipImages: boolean;
@@ -98,6 +100,7 @@ export interface MigrationPlan {
     | "provided"
     | "checked-firestore"
     | "skipped-dry-run-no-credentials";
+  safety: MigrationWriteSafety;
   listings: MigrationRecordPlan[];
   drafts: MigrationRecordPlan[];
   warnings: string[];
@@ -106,11 +109,22 @@ export interface MigrationPlan {
 
 type SourceRecord = MarketplaceCarRecord | DealerDraftRecord;
 
+export interface MigrationWriteSafety {
+  ok: boolean;
+  projectId: string;
+  storageBucket?: string;
+  targetKind: "dry-run" | "staging" | "production-like" | "unknown";
+  warnings: string[];
+  errors: string[];
+}
+
 function parseArgs(argv: string[]): MigrationCliOptions {
   const opts: MigrationCliOptions = {
     dryRun: true,
     write: false,
     json: false,
+    confirmStaging: false,
+    allowProductionWrite: false,
     skipImages: false,
     skipListings: false,
     skipDrafts: false,
@@ -128,6 +142,10 @@ function parseArgs(argv: string[]): MigrationCliOptions {
       opts.write = false;
     } else if (arg === "--json") {
       opts.json = true;
+    } else if (arg === "--confirm-staging") {
+      opts.confirmStaging = true;
+    } else if (arg === "--allow-production-write") {
+      opts.allowProductionWrite = true;
     } else if (arg === "--skip-images") {
       opts.skipImages = true;
     } else if (arg === "--skip-listings") {
@@ -155,6 +173,75 @@ function parseArgs(argv: string[]): MigrationCliOptions {
 
   if (opts.write && opts.dryRun) opts.dryRun = false;
   return opts;
+}
+
+export function evaluateWriteSafety(
+  options: Pick<
+    MigrationCliOptions,
+    "write" | "skipImages" | "confirmStaging" | "allowProductionWrite"
+  >,
+  env: NodeJS.ProcessEnv = process.env
+): MigrationWriteSafety {
+  const projectId =
+    env.FIREBASE_PROJECT_ID?.trim() ||
+    env.NONGA_FIREBASE_PROJECT_ID?.trim() ||
+    env.GOOGLE_CLOUD_PROJECT?.trim() ||
+    env.GCLOUD_PROJECT?.trim() ||
+    "";
+  const storageBucket =
+    env.FIREBASE_STORAGE_BUCKET?.trim() ||
+    env.VITE_FIREBASE_STORAGE_BUCKET?.trim() ||
+    "";
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  if (!options.write) {
+    return {
+      ok: true,
+      projectId,
+      ...(storageBucket ? { storageBucket } : {}),
+      targetKind: "dry-run",
+      warnings,
+      errors,
+    };
+  }
+
+  if (!options.confirmStaging) {
+    errors.push("--write requires --confirm-staging after reviewing dry-run output");
+  }
+  if (!projectId) {
+    errors.push("Missing FIREBASE_PROJECT_ID for --write");
+  }
+  const projectLooksProduction = /(^|[-_])(prod|production|live)([-_]|$)/i.test(
+    projectId
+  );
+  if (projectLooksProduction && !options.allowProductionWrite) {
+    errors.push(
+      `Refusing --write to production-like Firebase project "${projectId}" without --allow-production-write`
+    );
+  }
+  if (!options.skipImages && !storageBucket) {
+    errors.push("Missing FIREBASE_STORAGE_BUCKET for image migration; use --skip-images to skip");
+  }
+
+  if (options.allowProductionWrite) {
+    warnings.push(
+      "--allow-production-write was provided; this should not be used before Online Beta sign-off"
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    projectId,
+    ...(storageBucket ? { storageBucket } : {}),
+    targetKind: projectLooksProduction
+      ? "production-like"
+      : projectId
+        ? "staging"
+        : "unknown",
+    warnings,
+    errors,
+  };
 }
 
 function readJsonArray<T>(filePath: string): T[] {
@@ -337,12 +424,15 @@ function buildRecordPlan(params: {
 
 export function createMigrationPlan(
   options: Partial<MigrationCliOptions> = {},
-  existing: MigrationExistingState = {}
+  existing: MigrationExistingState = {},
+  safety?: MigrationWriteSafety
 ): MigrationPlan {
   const opts: MigrationCliOptions = {
     dryRun: true,
     write: false,
     json: false,
+    confirmStaging: false,
+    allowProductionWrite: false,
     skipImages: false,
     skipListings: false,
     skipDrafts: false,
@@ -398,6 +488,8 @@ export function createMigrationPlan(
     options: {
       dryRun: !opts.write,
       write: opts.write,
+      confirmStaging: opts.confirmStaging,
+      allowProductionWrite: opts.allowProductionWrite,
       dealerId: opts.dealerId,
       limit: opts.limit,
       skipImages: opts.skipImages,
@@ -435,10 +527,18 @@ export function createMigrationPlan(
       existing.listingIds || existing.draftIds
         ? "provided"
         : "skipped-dry-run-no-credentials",
+    safety:
+      safety ??
+      evaluateWriteSafety({
+        write: opts.write,
+        skipImages: opts.skipImages,
+        confirmStaging: opts.confirmStaging,
+        allowProductionWrite: opts.allowProductionWrite,
+      }),
     listings: listingPlans,
     drafts: draftPlans,
-    warnings,
-    errors,
+    warnings: [...warnings, ...(safety?.warnings ?? [])],
+    errors: [...errors, ...(safety?.errors ?? [])],
   };
 }
 
@@ -639,6 +739,11 @@ function printHuman(plan: MigrationPlan): void {
   console.log(`Source images: ${plan.sources.imageRoot}`);
   console.log(`Target Firestore: ${plan.targets.listingsCollection}, ${plan.targets.draftsCollection}`);
   console.log(`Target Storage: ${plan.targets.listingImagePath}, ${plan.targets.draftImagePath}`);
+  if (plan.mode === "write") {
+    console.log(`Firebase project: ${plan.safety.projectId || "(missing)"}`);
+    console.log(`Firebase target kind: ${plan.safety.targetKind}`);
+    console.log(`Firebase storage bucket: ${plan.safety.storageBucket || "(missing)"}`);
+  }
   console.log("");
   console.log(`Marketplace listings found: ${plan.counts.marketplaceListingsFound}`);
   console.log(`Drafts found: ${plan.counts.draftsFound}`);
@@ -664,12 +769,32 @@ function printHuman(plan: MigrationPlan): void {
     console.log("");
     console.log("Dry-run only. No Firestore documents, Storage objects, or local files were changed.");
     console.log("Use --write to write, and --overwrite only after reviewing existing records.");
+  } else {
+    console.log("");
+    console.log("Write mode confirmed. Source data files are still preserved and never deleted.");
   }
 }
 
 export async function runMigrationCli(argv = process.argv.slice(2)): Promise<MigrationPlan> {
   const options = parseArgs(argv);
+  const initialSafety = evaluateWriteSafety({
+    write: options.write,
+    skipImages: options.skipImages,
+    confirmStaging: options.confirmStaging,
+    allowProductionWrite: options.allowProductionWrite,
+  });
   let existing: MigrationExistingState = {};
+  let plan = createMigrationPlan(options, existing, initialSafety);
+
+  if (options.write && !initialSafety.ok) {
+    plan.counts.errors = plan.errors.length;
+    if (options.json) {
+      console.log(JSON.stringify(plan, null, 2));
+    } else {
+      printHuman(plan);
+    }
+    return plan;
+  }
 
   if (options.write) {
     const marketplaceFile = path.join(options.dataDir, "marketplace-inventory.json");
@@ -681,9 +806,9 @@ export async function runMigrationCli(argv = process.argv.slice(2)): Promise<Mig
       ? []
       : readJsonArray<DealerDraftRecord>(draftsFile).map((record) => String(record.id));
     existing = await readExistingStateFromFirestore(listingIds, draftIds);
+    plan = createMigrationPlan(options, existing, initialSafety);
   }
 
-  const plan = createMigrationPlan(options, existing);
   plan.existingCheck = options.write ? "checked-firestore" : plan.existingCheck;
   const result = options.write ? await writePlan(plan) : plan;
 

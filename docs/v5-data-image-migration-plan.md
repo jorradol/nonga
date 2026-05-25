@@ -76,13 +76,13 @@ npm run migrate:v50-file-data -- --skip-drafts
 Write mode must be explicit:
 
 ```bash
-npm run migrate:v50-file-data -- --write --dealer-id thor-auto --limit 5
+npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id thor-auto --limit 5
 ```
 
 Overwrite is off by default. Do not use overwrite until a dry-run and backup have been reviewed:
 
 ```bash
-npm run migrate:v50-file-data -- --write --overwrite --dealer-id thor-auto
+npm run migrate:v50-file-data -- --write --confirm-staging --overwrite --dealer-id thor-auto
 ```
 
 ## Required Env For Write
@@ -91,6 +91,7 @@ Dry-run does not require Firebase secrets.
 
 `--write` requires:
 
+- `--confirm-staging`
 - `FIREBASE_PROJECT_ID`
 - One Admin credential source:
   - `FIREBASE_SERVICE_ACCOUNT_JSON`, or
@@ -98,6 +99,8 @@ Dry-run does not require Firebase secrets.
   - `GOOGLE_APPLICATION_CREDENTIALS`
 - For image migration:
   - `FIREBASE_STORAGE_BUCKET`
+
+The script blocks project IDs that look production-like, such as containing `prod`, `production`, or `live`, unless the explicit `--allow-production-write` flag is present. Do not use `--allow-production-write` during staging rehearsal.
 
 Do not change these defaults just to run the migration:
 
@@ -216,13 +219,13 @@ npm run migrate:v50-file-data -- --dealer-id thor-auto --limit 10 --json
 3. Run image-free write rehearsal in a staging project:
 
 ```bash
-npm run migrate:v50-file-data -- --write --dealer-id thor-auto --limit 5 --skip-images
+npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id thor-auto --limit 5 --skip-images
 ```
 
 4. Run image write rehearsal:
 
 ```bash
-npm run migrate:v50-file-data -- --write --dealer-id thor-auto --limit 5
+npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id thor-auto --limit 5
 ```
 
 5. Do not switch backend flags until Step 2T integration tests pass.
