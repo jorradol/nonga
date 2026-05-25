@@ -52,7 +52,7 @@ Recommended Secret Manager names:
 - `gemini-api-key`
 - `firebase-service-account-json`
 
-Create the secrets without putting values in shell history, Dockerfile, `firebase.json`, or the repo. Add secret versions from secure files outside the repository or from a trusted secret-handling workflow:
+Create the secrets without putting values in Dockerfile, `firebase.json`, `.env`, or the repo. The safest path is Google Cloud Console or `--data-file` from a temporary file outside this repository.
 
 ```bash
 gcloud secrets create gemini-api-key \
@@ -74,6 +74,31 @@ gcloud secrets versions add firebase-service-account-json \
 
 Do not store `/secure/path/outside/repo/*` under this repository. Delete temporary secret files after uploading if they are not managed by a secure vault process.
 
+Console path:
+
+1. Open Google Cloud Console for project `nonga-ce93c`.
+2. Go to Secret Manager.
+3. Create `gemini-api-key`.
+4. Add a secret version with the Gemini API key.
+5. Create `firebase-service-account-json`.
+6. Add a secret version with the Firebase Admin service account JSON.
+
+Pipe-from-stdin examples with placeholders only:
+
+```bash
+printf "PASTE_GEMINI_API_KEY_HERE" | gcloud secrets create gemini-api-key \
+  --project nonga-ce93c \
+  --replication-policy=automatic \
+  --data-file=-
+
+printf "PASTE_FIREBASE_SERVICE_ACCOUNT_JSON_HERE" | gcloud secrets create firebase-service-account-json \
+  --project nonga-ce93c \
+  --replication-policy=automatic \
+  --data-file=-
+```
+
+Only use the `printf` form in a private terminal where shell history and screen capture are controlled. Do not paste either value into chat.
+
 Use an explicit Cloud Run service account and grant it read access to only the required secrets:
 
 ```bash
@@ -92,18 +117,61 @@ gcloud secrets add-iam-policy-binding firebase-service-account-json \
   --role="roles/secretmanager.secretAccessor"
 ```
 
+Required permission:
+
+- `roles/secretmanager.secretAccessor` on `gemini-api-key`
+- `roles/secretmanager.secretAccessor` on `firebase-service-account-json`
+
+The Cloud Run service account is:
+
+```text
+nonga-staging-runner@nonga-ce93c.iam.gserviceaccount.com
+```
+
 ## Build-Time Firebase Web Config
 
 The Vite frontend needs `VITE_*` values at image build time. This is not the same as Cloud Run runtime env. Because `.env` and `.env.*` are intentionally excluded by `.dockerignore`, the image build must receive public Firebase web config through an approved build-time path.
 
-Before real deploy, choose one:
+The Dockerfile now declares build args and maps them to build-stage env only before `npm run build`:
 
-- Add reviewed Docker build arguments / Cloud Build config for the public `VITE_*` web config.
-- Or build a reviewed image locally/CI with explicit `--build-arg` values and push it to Artifact Registry.
+```text
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+VITE_FIREBASE_MEASUREMENT_ID
+VITE_NONGA_PUBLIC_SIGNUP_ENABLED=false
+```
+
+The Dockerfile also fails the build if required Firebase web config is missing or if public signup is not explicitly `false`.
 
 Do not put `GEMINI_API_KEY`, Firebase Admin JSON, private keys, or service account files in build args.
 
-Current blocker: the deploy command examples below assume the Docker build consumes the listed public `VITE_*` build arguments. If the Dockerfile has not yet been updated to declare and export those build arguments before `npm run build`, do not run the image build command as-is.
+`VITE_*` values are client web config, so they are expected to be present in the frontend bundle. They are not backend secrets. Firebase Admin private keys, service account JSON, Gemini API keys, dealer/admin tokens, and any server-side credentials must never be build args.
+
+## Build Strategy Options
+
+Option A: local Docker build and push to Artifact Registry.
+
+- Easiest first staging path.
+- Uses the reviewed Dockerfile directly.
+- Lets the operator provide public `VITE_*` build args locally.
+- Keeps runtime secrets in Secret Manager and out of the image.
+
+Option B: Cloud Build with substitutions or build args.
+
+- Better once a reviewed `cloudbuild.yaml` exists.
+- Requires careful substitution handling so only public `VITE_*` values are build args.
+- Still uses Secret Manager only at Cloud Run runtime for backend secrets.
+
+Option C: `gcloud run deploy --source .`.
+
+- Convenient, but not recommended for this staging round until the build-time `VITE_*` injection path is explicit.
+- It can obscure exactly how public Vite env reaches `npm run build`.
+
+Recommended for the first closed staging deploy: Option A, local Docker build plus `docker push`, then `gcloud run deploy --image`.
 
 ## Recommended Cloud Run Deploy Command
 
@@ -124,7 +192,7 @@ gcloud artifacts repositories create nonga-staging \
   --project=nonga-ce93c
 ```
 
-Build and push after the build-time `VITE_*` path is approved and the Dockerfile/Cloud Build path consumes these public build arguments:
+Build and push after the public Firebase web config values are reviewed:
 
 ```bash
 docker build \

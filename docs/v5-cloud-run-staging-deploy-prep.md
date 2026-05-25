@@ -130,14 +130,34 @@ If the closed staging goal includes persistent dealer draft/listing/image valida
 
 Do not run these until the Cloud Run service/env/secrets are reviewed.
 
-Build and deploy Cloud Run using source:
+Preferred first staging path: build a reviewed Docker image with public `VITE_*` build args, push it to Artifact Registry, then deploy Cloud Run by image. Do not use `gcloud run deploy --source .` until the build-time Vite env path is reviewed.
+
+Build image example:
+
+```bash
+docker build \
+  --build-arg VITE_FIREBASE_API_KEY=<firebase-web-api-key> \
+  --build-arg VITE_FIREBASE_AUTH_DOMAIN=nonga-ce93c.firebaseapp.com \
+  --build-arg VITE_FIREBASE_PROJECT_ID=nonga-ce93c \
+  --build-arg VITE_FIREBASE_STORAGE_BUCKET=<firebase-storage-bucket> \
+  --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID=<firebase-messaging-sender-id> \
+  --build-arg VITE_FIREBASE_APP_ID=<firebase-app-id> \
+  --build-arg VITE_FIREBASE_MEASUREMENT_ID=<optional-measurement-id> \
+  --build-arg VITE_NONGA_PUBLIC_SIGNUP_ENABLED=false \
+  -t asia-southeast1-docker.pkg.dev/nonga-ce93c/nonga-staging/nonga-staging:v5.0-pre-staging-rc2 \
+  .
+```
+
+Deploy Cloud Run by image:
 
 ```bash
 gcloud run deploy nonga-staging \
-  --source . \
+  --image asia-southeast1-docker.pkg.dev/nonga-ce93c/nonga-staging/nonga-staging:v5.0-pre-staging-rc2 \
   --region asia-southeast1 \
   --project nonga-ce93c \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --set-env-vars NODE_ENV=production,APP_URL=https://nonga-ce93c.web.app,VITE_NONGA_PUBLIC_SIGNUP_ENABLED=false,VITE_FIREBASE_PROJECT_ID=nonga-ce93c,NONGA_DATA_BACKEND=file,NONGA_IMAGE_BACKEND=file \
+  --set-secrets GEMINI_API_KEY=gemini-api-key:latest,FIREBASE_SERVICE_ACCOUNT_JSON=firebase-service-account-json:latest
 ```
 
 Deploy Firebase Hosting only after Cloud Run is healthy:
