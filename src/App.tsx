@@ -69,6 +69,8 @@ export default function App() {
   } = useAppStore();
 
   const { isAdmin, isDealer, role } = useRole();
+  const comingSoonLinkClass =
+    "text-left text-slate-500 cursor-not-allowed opacity-75";
 
   // Load cars directory from fullstack server immediately on startup
   useEffect(() => {
@@ -433,9 +435,30 @@ export default function App() {
                 >
                   ระบบดีลเลอร์พันธมิตร Nong A
                 </button>
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">ติดต่อความปลอดภัยไอที</a>
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">ข้อตกลงและนโยบายส่วนบุคคล</a>
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" className="hover:text-orange-500 transition-colors">ช่วยเหลือสนับสนุน API</a>
+                <button
+                  type="button"
+                  disabled
+                  className={comingSoonLinkClass}
+                  title="Coming Soon"
+                >
+                  ติดต่อความปลอดภัยไอที (เร็วๆ นี้)
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className={comingSoonLinkClass}
+                  title="Coming Soon"
+                >
+                  ข้อตกลงและนโยบายส่วนบุคคล (เร็วๆ นี้)
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className={comingSoonLinkClass}
+                  title="Coming Soon"
+                >
+                  ช่วยเหลือสนับสนุน API (เร็วๆ นี้)
+                </button>
               </div>
             </div>
 

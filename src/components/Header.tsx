@@ -6,8 +6,9 @@ import {
   MessageSquare, Car, Sparkles, Heart, Store, ClipboardList, FileText,
   Sun, Moon, PlusCircle, Search, Menu, X, 
   ChevronRight, ArrowRight, ShieldCheck, UserCheck, 
-  Trash2, Landmark, Home, LogOut, Key, Sparkle, Camera, Crown, Rocket, Globe
+  Home, LogOut, Key, Sparkle, Camera, Crown, Rocket, Globe
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function Header() {
@@ -61,20 +62,42 @@ export default function Header() {
     return () => el.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const navItems = [
+  type AppView = Parameters<typeof setView>[0];
+  type HeaderNavItem = {
+    id: AppView;
+    label: string;
+    icon: LucideIcon;
+    badge?: string;
+    count?: number;
+  };
+
+  const viteEnv = (import.meta as { env?: { DEV?: boolean } }).env;
+  const showSandboxNavigation = isSimulatedState || Boolean(viteEnv?.DEV);
+  const showDealerActions = isDealer || isAdmin;
+  const dealerNavItems: HeaderNavItem[] = showDealerActions
+    ? [
+        { id: "chat", label: "คุยกับน้องเอ AI", icon: MessageSquare },
+        { id: "sell", label: "ลงขายด่วน 🪄", icon: PlusCircle },
+      ]
+    : [];
+  const sandboxNavItems: HeaderNavItem[] = showSandboxNavigation
+    ? [
+        { id: "car-vision", label: "วิเคราะห์รูปรถ 📸", icon: Camera, badge: "AI" },
+        { id: "car-post-generator", label: "แต่งโพสต์ขายรถ 🪄", icon: Sparkles, badge: "ฮิต" },
+        { id: "viral-captions", label: "เขียนแคปชั่น 👑", icon: Sparkle, badge: "ใหม่" },
+        { id: "seo-landing", label: "SEO หน้าพิเศษ 🔎", icon: Globe, badge: "ใหม่" },
+      ]
+    : [];
+  const navItems: HeaderNavItem[] = [
     { id: "home", label: "หน้าแรก", icon: Home },
-    { id: "chat", label: "คุยกับน้องเอ AI", icon: MessageSquare },
     { id: "marketplace", label: "ตลาดรถยนต์", icon: Car },
-    { id: "sell", label: "ลงขายด่วน 🪄", icon: PlusCircle },
+    ...dealerNavItems,
     { id: "my-listings", label: "ประกาศของฉัน", icon: ClipboardList },
     { id: "search", label: "ค้นหาละเอียด 🔍", icon: Search, badge: "แนะนำ" },
-    { id: "car-vision", label: "วิเคราะห์รูปรถ 📸", icon: Camera, badge: "AI" },
-    { id: "car-post-generator", label: "แต่งโพสต์ขายรถ 🪄", icon: Sparkles, badge: "ฮิต" },
-    { id: "viral-captions", label: "เขียนแคปชั่น 👑", icon: Sparkle, badge: "ใหม่" },
-    { id: "seo-landing", label: "SEO หน้าพิเศษ 🔎", icon: Globe, badge: "ใหม่" },
+    ...sandboxNavItems,
     { id: "dealers", label: "ดีลเลอร์และศูนย์บริการ", icon: Store },
     { id: "saved", label: "ที่บันทึกไว้", icon: Heart, count: favorites.length },
-  ] as const;
+  ];
 
   const handleSearchChange = (value: string) => {
     setFilters({ search: value });
@@ -249,38 +272,46 @@ export default function Header() {
                               <span>การตั้งค่าโปรไฟล์และบทบาท</span>
                             </button>
 
-                            <button
-                              onClick={() => {
-                                setView("billing");
-                                setIsProfileOpen(false);
-                              }}
-                              className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-400 hover:text-white"
-                            >
-                              <Crown className="w-4 h-4 text-orange-400 animate-pulse" />
-                              <span>การเงินและแพ็กเกจสมาชิก 👑</span>
-                            </button>
+                            {showSandboxNavigation ? (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setView("billing");
+                                    setIsProfileOpen(false);
+                                  }}
+                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-400 hover:text-white"
+                                >
+                                  <Crown className="w-4 h-4 text-orange-400 animate-pulse" />
+                                  <span>การเงินและแพ็กเกจสมาชิก 👑</span>
+                                </button>
 
-                            <button
-                              onClick={() => {
-                                setView("boost");
-                                setIsProfileOpen(false);
-                              }}
-                              className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-400 hover:text-white"
-                            >
-                              <Rocket className="w-4 h-4 text-orange-500 animate-bounce" />
-                              <span>บูสต์จัดอันดับโพสต์ 🚀</span>
-                            </button>
+                                <button
+                                  onClick={() => {
+                                    setView("boost");
+                                    setIsProfileOpen(false);
+                                  }}
+                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-400 hover:text-white"
+                                >
+                                  <Rocket className="w-4 h-4 text-orange-500 animate-bounce" />
+                                  <span>บูสต์จัดอันดับโพสต์ 🚀</span>
+                                </button>
 
-                            <button
-                              onClick={() => {
-                                setView("onboarding");
-                                setIsProfileOpen(false);
-                              }}
-                              className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
-                            >
-                              <Sparkles className="w-4 h-4 text-amber-500" />
-                              <span>ไปทัวร์ Onboarding</span>
-                            </button>
+                                <button
+                                  onClick={() => {
+                                    setView("onboarding");
+                                    setIsProfileOpen(false);
+                                  }}
+                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
+                                >
+                                  <Sparkles className="w-4 h-4 text-amber-500" />
+                                  <span>ไปทัวร์ Onboarding</span>
+                                </button>
+                              </>
+                            ) : (
+                              <div className="p-2 rounded-lg border border-amber-500/15 bg-amber-500/5 text-[10.5px] text-amber-200 leading-relaxed">
+                                แพ็กเกจ, บูสต์ และทัวร์ระบบจะเปิดในรอบ Public Beta ถัดไป
+                              </div>
+                            )}
 
                             {isAdmin && (
                               <>
@@ -322,16 +353,18 @@ export default function Header() {
                                   <Store className="w-4 h-4 text-orange-400" />
                                   <span>Dealer Portal (คลังรถ)</span>
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    setView("dealer-dashboard");
-                                    setIsProfileOpen(false);
-                                  }}
-                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
-                                >
-                                  <Store className="w-4 h-4 text-teal-400" />
-                                  <span>โชว์รูมฝ่ายขายดีลเลอร์</span>
-                                </button>
+                                {showSandboxNavigation && (
+                                  <button
+                                    onClick={() => {
+                                      setView("dealer-dashboard");
+                                      setIsProfileOpen(false);
+                                    }}
+                                    className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
+                                  >
+                                    <Store className="w-4 h-4 text-teal-400" />
+                                    <span>โชว์รูมฝ่ายขายดีลเลอร์</span>
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
