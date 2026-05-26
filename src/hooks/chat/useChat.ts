@@ -43,6 +43,7 @@ import {
   findLatestPendingListingContext,
   findLatestSavedDraftId,
 } from "../../features/chat-image-attachment-v1/followUpImageIntent";
+import { getPublishMissingLabelsThai } from "../../utils/dealerPublishGuard";
 
 let lastHydratedChatScopeKey: string | null = null;
 
@@ -346,7 +347,15 @@ export function useChat() {
                   body: JSON.stringify(payload),
                 });
                 const responseText = await res.text();
-                let result: { data?: { id?: string }; message?: string; missing?: string[] } =
+                let result: {
+                  data?: {
+                    id?: string;
+                    missingFields?: string[];
+                    missingLabelsThai?: string[];
+                  };
+                  message?: string;
+                  missing?: string[];
+                } =
                   {};
                 try {
                   result = JSON.parse(responseText) as typeof result;
@@ -369,10 +378,8 @@ export function useChat() {
                     latestDraftId: newDraftId ?? null,
                   });
 
-                  let saveText =
-                    missing.length > 0
-                      ? `บันทึก Draft แล้วครับ แต่ยังขาดข้อมูลก่อนส่งเข้าตลาด:\n${missing.map((item) => `- ${item}`).join("\n")}\n\nกรุณาเติมข้อมูลเหล่านี้ในหน้า Draft ก่อนกดลงขายครับ`
-                      : "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
+                  let missingFields = [...(result.data?.missingFields ?? [])];
+                  let uploadNote = "";
                   const sessionMessages =
                     useChatStore.getState().messages[sessionId] || [];
                   const imagesToUpload = newDraftId
@@ -394,11 +401,11 @@ export function useChat() {
                       clearChatImagesForDraft(storageScopeKey, sessionId);
                       const failedCount = uploadResult.failed?.length ?? 0;
                       if (failedCount > 0) {
-                        saveText =
-                          "บันทึกประกาศสำเร็จแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+                        uploadNote =
+                          "\n\nมีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบรูปภาพในหน้า Draft อีกครั้ง";
                       } else if (uploadResult.storedUrls.length > 0) {
-                        saveText +=
-                          "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                        missingFields = missingFields.filter((field) => field !== "image");
+                        uploadNote = "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
                       }
                     } catch (uploadErr) {
                       console.error("[chat-image-attachment-v1-upload]", {
@@ -409,11 +416,19 @@ export function useChat() {
                             ? uploadErr.message
                             : String(uploadErr),
                       });
-                      saveText =
-                        "บันทึกประกาศสำเร็จแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+                      uploadNote =
+                        "\n\nมีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบรูปภาพในหน้า Draft อีกครั้ง";
                     }
                   }
 
+                  const missingLabels =
+                    missingFields.length > 0
+                      ? getPublishMissingLabelsThai(missingFields)
+                      : result.data?.missingLabelsThai ?? missing;
+                  const saveText =
+                    missingLabels.length > 0
+                      ? `บันทึก Draft แล้วครับ แต่ยังต้องเติมก่อนส่งเข้าตลาด:\n${missingLabels.map((item) => `- ${item}`).join("\n")}\n\nกรุณาเติมข้อมูลเหล่านี้ในหน้า Draft ก่อนกดลงขายครับ${uploadNote}`
+                      : `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!${uploadNote}`;
                   orchestrated.text = saveText;
                   orchestrated.savedDraftId = newDraftId;
                 } else {

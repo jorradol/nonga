@@ -18,6 +18,14 @@ export const PUBLISH_MISSING_THAI: Record<PublishRequiredFieldKey, string> = {
   mileage: "ขาดเลขไมล์",
 };
 
+export function getPublishMissingLabelsThai(
+  missingFields: readonly string[]
+): string[] {
+  return missingFields
+    .map((field) => PUBLISH_MISSING_THAI[field as PublishRequiredFieldKey])
+    .filter((label): label is string => Boolean(label));
+}
+
 export interface DraftPublishInput {
   id: string;
   brand?: string;
@@ -76,7 +84,7 @@ export function validateDraftForPublish(
   return {
     ok: missing.length === 0,
     missingFields: missing,
-    missingLabelsThai: missing.map((k) => PUBLISH_MISSING_THAI[k]),
+    missingLabelsThai: getPublishMissingLabelsThai(missing),
   };
 }
 

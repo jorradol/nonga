@@ -1,5 +1,9 @@
 import { extractCarFieldsFromMessage, isSellIntent, buildDraftPreviewCopy } from "../src/services/ai/chat/sellIntentParser";
 import { buildDealerDraftPayloadFromChat } from "../src/services/ai/chat/chatDraftActions";
+import {
+  getPublishMissingLabelsThai,
+  validateDraftForPublish,
+} from "../src/utils/dealerPublishGuard";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -72,6 +76,33 @@ if (
 } else {
   console.error("❌ FAIL: Incomplete chat-to-draft payload");
   console.error(incompleteDraft);
+  process.exit(1);
+}
+
+const missingMileageNoImageFields = extractCarFieldsFromMessage(
+  "ช่วยลงขาย Honda Civic ปี 2020 ราคา 350000"
+);
+const missingMileageNoImageDraft = buildDealerDraftPayloadFromChat(
+  missingMileageNoImageFields
+);
+const missingMileageNoImageCheck = validateDraftForPublish({
+  id: "draft-chat-missing-image",
+  ...missingMileageNoImageDraft.payload,
+  images: [],
+});
+const missingMileageNoImageLabels = getPublishMissingLabelsThai(
+  missingMileageNoImageCheck.missingFields
+);
+if (
+  missingMileageNoImageCheck.missingFields.includes("mileage") &&
+  missingMileageNoImageCheck.missingFields.includes("image") &&
+  missingMileageNoImageLabels.includes("ขาดเลขไมล์") &&
+  missingMileageNoImageLabels.includes("ขาดรูปภาพสินค้า")
+) {
+  console.log("✅ PASS: Chat draft checklist includes missing mileage and image");
+} else {
+  console.error("❌ FAIL: Chat draft checklist should include mileage and image");
+  console.error(missingMileageNoImageCheck);
   process.exit(1);
 }
 

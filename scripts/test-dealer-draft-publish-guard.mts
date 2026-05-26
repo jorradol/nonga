@@ -226,7 +226,8 @@ async function main() {
     incompleteCreate.ok &&
       incompleteDraft?.id &&
       incompleteDraft.missingFields?.includes("year") &&
-      incompleteDraft.missingFields?.includes("mileage"),
+      incompleteDraft.missingFields?.includes("mileage") &&
+      incompleteDraft.missingFields?.includes("image"),
     JSON.stringify(incompleteBody).slice(0, 120)
   );
   if (incompleteDraft?.id) {

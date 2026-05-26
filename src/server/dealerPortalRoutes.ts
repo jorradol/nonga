@@ -30,7 +30,6 @@ import {
 } from "./pasteImageImportService";
 import { persistPasteUploadedImages } from "./pasteUploadedImageStorage";
 import type { ImageLinkCandidate } from "../utils/inventoryImport/imageLinkExtractor";
-import { getMissingPublishFields } from "../utils/inventoryImport/importConfidence";
 import {
   isMissingFieldsPublishError,
   publishGuardApiBody,
@@ -117,10 +116,15 @@ export function registerDealerPortalRoutes(app: Express): void {
       description,
       imageUrls: images.join(","),
     };
-    const missing = [
-      ...getMissingPublishFields(normalizedData),
-      ...(hasMileage ? [] : ["mileage"]),
-    ].filter((field, index, list) => list.indexOf(field) === index);
+    const missing = validateDraftForPublish({
+      id,
+      brand,
+      model,
+      year,
+      price,
+      mileage: hasMileage ? mileage : undefined,
+      images,
+    }).missingFields;
 
     const newDraft = {
       id,
@@ -339,7 +343,6 @@ export function registerDealerPortalRoutes(app: Express): void {
 
     const patch: Parameters<typeof updateDealerDraft>[1] = {
       normalizedData: normalized,
-      missingFields: getMissingPublishFields(normalized),
     };
     if (has("brand")) patch.brand = String(body.brand ?? "");
     if (has("model")) patch.model = String(body.model ?? "");
@@ -359,6 +362,18 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (has("sourceImageUrls")) {
       patch.sourceImageUrls = body.sourceImageUrls as string[];
     }
+
+    const nextDraft = { ...draft, ...patch };
+    patch.missingFields = validateDraftForPublish({
+      id: nextDraft.id,
+      brand: nextDraft.brand,
+      model: nextDraft.model,
+      year: nextDraft.year,
+      price: nextDraft.price,
+      mileage: nextDraft.mileage,
+      images: nextDraft.images,
+      sourceImageUrls: nextDraft.sourceImageUrls,
+    }).missingFields;
 
     const updated = updateDealerDraft(req.params.id, patch);
     res.json({ success: true, data: updated });
