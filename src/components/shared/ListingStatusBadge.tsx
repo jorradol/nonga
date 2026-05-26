@@ -60,9 +60,7 @@ export function draftRecordStatusVariant(
   publishReady: boolean,
   missingImage: boolean
 ): ListingStatusVariant {
-  if (status === "needs_review") return "needs-review";
-  if (missingImage) return "needs-images";
-  if (!publishReady) return "draft-pending";
   if (publishReady) return "ready-publish";
-  return "draft-pending";
+  if (missingImage) return "needs-images";
+  return "needs-review";
 }

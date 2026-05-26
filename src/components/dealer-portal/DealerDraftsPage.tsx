@@ -344,6 +344,8 @@ export function DealerDraftsPage({
             const missingImage = publishCheck.missingLabelsThai.includes(
               "ขาดรูปภาพสินค้า"
             );
+            const needsConfidenceReview =
+              publishCheck.ok && Number(d.confidenceScore) < 90;
             const statusVariant = draftRecordStatusVariant(
               d.status,
               publishCheck.ok,
@@ -382,13 +384,20 @@ export function DealerDraftsPage({
                       score={d.duplicateScore}
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p
+                    className={`text-[11px] ${
+                      needsConfidenceReview ? "text-amber-300/90" : "text-slate-500"
+                    }`}
+                  >
                     ความมั่นใจของข้อมูล {d.confidenceScore}%
+                    {needsConfidenceReview ? " — ควรตรวจทานก่อนลงขาย" : ""}
                   </p>
                   {publishCheck.ok ? (
-                    <p className="text-[10px] text-emerald-400/90 mt-1.5">
-                      ข้อมูลพร้อมเผยแพร่
-                    </p>
+                    <div className="mt-1.5 space-y-1">
+                      <p className="text-[10px] text-emerald-400/90">
+                        ข้อมูลพร้อมเผยแพร่
+                      </p>
+                    </div>
                   ) : (
                     <div className="mt-1.5 space-y-1">
                       <p className="text-[10px] text-amber-400/95 flex items-center gap-1">
@@ -428,8 +437,18 @@ export function DealerDraftsPage({
                   </button>
                   <button
                     type="button"
+                    disabled={!publishCheck.ok}
                     onClick={() => tryPublish(d.id)}
-                    className="min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-xs font-bold"
+                    title={
+                      publishCheck.ok
+                        ? "ลงขายประกาศนี้"
+                        : "กรุณาแก้ไขข้อมูลที่ขาดก่อนลงขาย"
+                    }
+                    className={`min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-bold ${
+                      publishCheck.ok
+                        ? "bg-green-600 hover:bg-green-500"
+                        : "bg-slate-700/70 cursor-not-allowed opacity-60"
+                    }`}
                   >
                     <Send className="w-4 h-4" />
                     ลงขาย
