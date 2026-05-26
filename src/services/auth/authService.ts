@@ -12,6 +12,7 @@ import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import {
   auth,
   db,
+  firebaseClientAuthEnvironment,
   firebaseAuthUnavailableMessage,
   isFirebaseAuthReady,
   isMockAuthStorageEnabled,
@@ -94,6 +95,9 @@ export const authService = {
   // Get active session stored in localStorage (if any)
   getPersistedSession(): UserSession | null {
     try {
+      if (!isMockConfig && isFirebaseAuthReady && firebaseClientAuthEnvironment.isProduction) {
+        return null;
+      }
       const session = localStorage.getItem(AUTH_SESSION_KEY);
       if (!session) return null;
       const parsed = JSON.parse(session) as UserSession;
@@ -112,8 +116,11 @@ export const authService = {
   // Save session to local storage for persistence
   persistSession(user: UserSession | null) {
     if (user) {
-      if (!isFirebaseAuthReady && !isMockAuthStorageEnabled) return;
+      if (!isMockConfig && isFirebaseAuthReady && firebaseClientAuthEnvironment.isProduction) {
+        return;
+      }
       if (!isMockAuthStorageEnabled && user.isSimulated) return;
+      if (user.providerId === "guest") return;
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
     } else {
       localStorage.removeItem(AUTH_SESSION_KEY);

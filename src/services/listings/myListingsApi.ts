@@ -29,6 +29,7 @@ import {
   patchDealerInventory,
 } from "../dealer/dealerApi";
 import { uploadListingImagesApi } from "../dealer/dealerListingImageApi";
+import { getFirebaseAuthHeaders } from "../auth/firebaseAuthHeaders";
 
 export interface MyListingPatch {
   title?: string;
@@ -63,8 +64,9 @@ function normalizeScope(scope: MyListingsApiScopeInput): MyListingsApiScope {
   return typeof scope === "string" ? { ownerId: scope } : scope;
 }
 
-function ownerHeaders(ownerId: string): HeadersInit {
+async function ownerHeadersAsync(ownerId: string): Promise<HeadersInit> {
   return {
+    ...((await getFirebaseAuthHeaders()) as Record<string, string>),
     "Content-Type": "application/json",
     "X-Owner-Id": ownerId,
   };
@@ -162,7 +164,7 @@ export async function uploadMyListingImages(
       ApiJsonEnvelope & { data?: { storedUrls?: string[] } }
     >(url, {
       method: "POST",
-      headers: ownerHeaders(scope.ownerId),
+      headers: await ownerHeadersAsync(scope.ownerId),
       body: JSON.stringify(body),
     });
     assertApiSuccess(json, url);
@@ -206,7 +208,7 @@ export async function fetchMyListings(
   }
 
   const json = await safeApiFetch<ApiJsonEnvelope>("/api/my/listings", {
-    headers: ownerHeaders(scope.ownerId),
+    headers: await ownerHeadersAsync(scope.ownerId),
     cache: "no-store",
   });
   assertApiSuccess(json, "/api/my/listings");
@@ -226,7 +228,7 @@ export async function patchMyListing(
   const url = `/api/cars/${id}`;
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "PATCH",
-    headers: ownerHeaders(scope.ownerId),
+    headers: await ownerHeadersAsync(scope.ownerId),
     body: JSON.stringify({ ...patch, ownerId: scope.ownerId }),
   });
   assertApiSuccess(json, url);
@@ -246,7 +248,7 @@ export async function setMyListingVisibility(
   const url = `/api/cars/${id}/visibility`;
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "PATCH",
-    headers: ownerHeaders(scope.ownerId),
+    headers: await ownerHeadersAsync(scope.ownerId),
     body: JSON.stringify({ hidden, ownerId: scope.ownerId }),
   });
   assertApiSuccess(json, url);
@@ -267,7 +269,7 @@ export async function deleteMyListing(
   const url = `/api/cars/${id}?soft=${hard ? "0" : "1"}`;
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "DELETE",
-    headers: ownerHeaders(scope.ownerId),
+    headers: await ownerHeadersAsync(scope.ownerId),
     body: JSON.stringify({ ownerId: scope.ownerId, soft: !hard }),
   });
   assertApiSuccess(json, url);
@@ -283,7 +285,7 @@ export async function createLegacyMarketplaceListing(
   logDevPayloadSize("POST /api/cars", input);
   const json = await safeApiFetch<ApiJsonEnvelope>("/api/cars", {
     method: "POST",
-    headers: ownerHeaders(String(input.ownerId ?? "")),
+    headers: await ownerHeadersAsync(String(input.ownerId ?? "")),
     body: JSON.stringify(input),
   });
   assertApiSuccess(json, "/api/cars");

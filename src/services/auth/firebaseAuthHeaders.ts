@@ -1,4 +1,5 @@
 import type { User } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   auth,
   firebaseAuthUnavailableMessage,
@@ -21,11 +22,34 @@ function currentFirebaseUser(): User | null {
   return auth?.currentUser ?? null;
 }
 
+function waitForFirebaseUser(timeoutMs = 2000): Promise<User | null> {
+  if (!isFirebaseAuthReady || !auth) return Promise.resolve(null);
+  const current = currentFirebaseUser();
+  if (current) return Promise.resolve(current);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let unsubscribe: (() => void) | null = null;
+    const finish = (user: User | null) => {
+      if (settled) return;
+      settled = true;
+      if (unsubscribe) unsubscribe();
+      clearTimeout(timer);
+      resolve(user);
+    };
+    const timer = globalThis.setTimeout(
+      () => finish(currentFirebaseUser()),
+      timeoutMs
+    );
+    unsubscribe = onAuthStateChanged(auth, (user) => finish(user));
+  });
+}
+
 export async function getCurrentUserIdToken(
   forceRefresh = false
 ): Promise<string | null> {
   if (!isFirebaseAuthReady) return null;
-  const user = currentFirebaseUser();
+  const user = currentFirebaseUser() ?? (await waitForFirebaseUser());
   if (!user) return null;
   return user.getIdToken(forceRefresh);
 }

@@ -5,6 +5,7 @@ import { authService, UserSession } from "../../services/auth/authService";
 import {
   auth,
   db,
+  firebaseClientAuthEnvironment,
   firebaseAuthUnavailableMessage,
   isFirebaseAuthReady,
   isMockAuthStorageEnabled,
@@ -223,7 +224,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let unsubscribeAuth: (() => void) | undefined;
     const initializeAuth = async () => {
+      const realFirebaseAuth =
+        auth &&
+        isFirebaseAuthReady &&
+        !isMockConfig &&
+        firebaseClientAuthEnvironment.isProduction;
+      if (realFirebaseAuth) {
+        unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+          try {
+            if (!firebaseUser) {
+              syncUser(null);
+              return;
+            }
+
+            const baseSession: UserSession = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "AI User",
+              photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${firebaseUser.uid}`,
+              providerId: firebaseUser.providerData[0]?.providerId || "password"
+            };
+            const fullProfile = await fetchOrCreateUserProfile(firebaseUser.uid, baseSession);
+            syncUser(fullProfile);
+          } finally {
+            setLoading(false);
+          }
+        });
+        return;
+      }
+
       // 1. Check saved session
       const savedSession = authService.getPersistedSession();
       if (savedSession) {
@@ -248,28 +279,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         syncUser(defaultGuest);
         setLoading(false);
       }
-
-      // 2. Clear loader on snapshot auth observer
-      if (auth && isFirebaseAuthReady && !isMockConfig) {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-          if (firebaseUser) {
-            const baseSession: UserSession = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || "",
-              displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "AI User",
-              photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${firebaseUser.uid}`,
-              providerId: firebaseUser.providerData[0]?.providerId || "password"
-            };
-            const fullProfile = await fetchOrCreateUserProfile(firebaseUser.uid, baseSession);
-            syncUser(fullProfile);
-          }
-          setLoading(false);
-        });
-        return unsubscribe;
-      }
     };
 
     initializeAuth();
+    return () => unsubscribeAuth?.();
   }, [setUserInStore]);
 
   const loginWithEmail = async (email: string, password: string) => {
@@ -277,8 +290,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const session = await authService.loginWithEmail(email, password);
-      syncUser(session);
-      return session;
+      const fullProfile = await fetchOrCreateUserProfile(session.uid, session);
+      syncUser(fullProfile);
+      return fullProfile;
     } catch (err: any) {
       const errMsg = err.message || "การเข้าสู่ระบบล้มเหลว กรุณาตรวจสอบอีเมลและรหัสผ่านครับ";
       setError(errMsg);
@@ -293,8 +307,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const session = await authService.registerWithEmail(email, password, displayName);
-      syncUser(session);
-      return session;
+      const fullProfile = await fetchOrCreateUserProfile(session.uid, session);
+      syncUser(fullProfile);
+      return fullProfile;
     } catch (err: any) {
       const errMsg = err.message || "การลงทะเบียนล้มเหลว กรุณากรอกข้อมูลให้ครบถ้วนและลองอีกครั้งครับ";
       setError(errMsg);
@@ -323,8 +338,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const session = await authService.loginWithGoogle();
-      syncUser(session);
-      return session;
+      const fullProfile = await fetchOrCreateUserProfile(session.uid, session);
+      syncUser(fullProfile);
+      return fullProfile;
     } catch (err: any) {
       const errMsg = err.message || "การเข้าสู่ระบบผ่าน Google ล้มเหลว";
       setError(errMsg);

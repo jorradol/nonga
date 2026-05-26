@@ -178,7 +178,7 @@ export function useChat() {
           sessionId = await createSession(chatScope, "ปรึกษาซื้อขาย");
         } catch (err) {
           console.warn("[chat] unable to create local session", err);
-          return;
+          throw new Error("เตรียมบทสนทนาไม่สำเร็จครับ กรุณารีเฟรชหน้าแล้วลองใหม่");
         }
       }
 
