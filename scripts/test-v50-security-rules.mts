@@ -20,6 +20,7 @@ console.log("=== Nong A v5.0 Security Rules Draft Smoke ===");
 const firestore = read("firestore.rules.draft");
 const stagingFirestore = read("firestore.rules");
 const storage = read("storage.rules.draft");
+const stagingStorage = read("storage.rules");
 const docs = read("docs/firestore-storage-rules-v5.md");
 
 assert(
@@ -27,6 +28,12 @@ assert(
   "firestore.rules should match firestore.rules.draft before staging deploy"
 );
 console.log("PASS Firestore staging rules match draft");
+
+assert(
+  stagingStorage === storage,
+  "storage.rules should match storage.rules.draft before staging deploy"
+);
+console.log("PASS Storage staging rules match draft");
 
 includesAll(
   firestore,
