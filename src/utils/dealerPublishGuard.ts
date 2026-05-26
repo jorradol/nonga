@@ -1,20 +1,30 @@
 import { isValidListingImageUrl } from "./listingImages";
 
 /** ฟิลด์จำเป็นสำหรับ Publish Draft → Marketplace */
-export type PublishRequiredFieldKey = "image" | "brand" | "model" | "price";
+export type PublishRequiredFieldKey =
+  | "image"
+  | "brand"
+  | "model"
+  | "year"
+  | "price"
+  | "mileage";
 
 export const PUBLISH_MISSING_THAI: Record<PublishRequiredFieldKey, string> = {
   image: "ขาดรูปภาพสินค้า",
   brand: "ขาดยี่ห้อรถ",
   model: "ขาดรุ่นรถ",
+  year: "ขาดปีรถ",
   price: "ขาดราคาขาย",
+  mileage: "ขาดเลขไมล์",
 };
 
 export interface DraftPublishInput {
   id: string;
   brand?: string;
   model?: string;
+  year?: number;
   price?: number;
+  mileage?: number;
   images?: string[];
   /** ไม่นับเป็นรูปจริงถ้ายังไม่มี images ใน storage */
   sourceImageUrls?: string[];
@@ -44,8 +54,20 @@ export function validateDraftForPublish(
   if (!draft.brand?.trim()) missing.push("brand");
   if (!draft.model?.trim()) missing.push("model");
 
+  const year = Number(draft.year);
+  if (
+    !Number.isFinite(year) ||
+    year < 1980 ||
+    year > new Date().getFullYear() + 2
+  ) {
+    missing.push("year");
+  }
+
   const price = Number(draft.price);
   if (!Number.isFinite(price) || price <= 0) missing.push("price");
+
+  const mileage = Number(draft.mileage);
+  if (!Number.isFinite(mileage) || mileage < 0) missing.push("mileage");
 
   if (getValidPublishImages(draft.id, draft.images).length < 1) {
     missing.push("image");

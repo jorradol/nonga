@@ -255,7 +255,9 @@ async function main() {
     id: smokeDraftId,
     brand: "",
     model: "",
+    year: 0,
     price: 0,
+    mileage: -1,
     images: [],
   });
   ok(

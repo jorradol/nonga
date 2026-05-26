@@ -12,11 +12,11 @@ export function isSaveListingChatAction(message: string): boolean {
 }
 
 export interface DealerDraftFromChatPayload {
-  brand: string;
-  model: string;
-  year: number;
-  price: number;
-  mileage: number;
+  brand?: string;
+  model?: string;
+  year?: number;
+  price?: number;
+  mileage?: number;
   color?: string;
   description?: string;
   fuelType?: string;
@@ -26,7 +26,7 @@ export interface DealerDraftFromChatPayload {
 
 export function buildDealerDraftPayloadFromChat(
   fields: ExtractedCarFields
-): { payload: DealerDraftFromChatPayload | null; missing: string[] } {
+): { payload: DealerDraftFromChatPayload; missing: string[] } {
   const missing: string[] = [];
   const brand = fields.brand?.trim() ?? "";
   const model = fields.model?.trim() ?? "";
@@ -42,10 +42,6 @@ export function buildDealerDraftPayloadFromChat(
   const mileage = Number(fields.mileage);
   if (!Number.isFinite(mileage) || mileage < 0) missing.push("เลขไมล์");
 
-  if (missing.length > 0) {
-    return { payload: null, missing };
-  }
-
   const descParts: string[] = [];
   if (fields.licensePlate?.trim()) {
     descParts.push(`ทะเบียน ${fields.licensePlate.trim()}`);
@@ -54,20 +50,25 @@ export function buildDealerDraftPayloadFromChat(
   if (fields.transmission?.trim()) descParts.push(fields.transmission.trim());
   if (fields.description?.trim()) descParts.push(fields.description.trim());
 
+  const titleParts = [brand, model, Number.isFinite(year) ? String(year) : ""]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
   return {
     payload: {
-      brand,
-      model,
-      year,
-      price,
-      mileage,
+      ...(brand ? { brand } : {}),
+      ...(model ? { model } : {}),
+      ...(Number.isFinite(year) && year >= 1900 ? { year } : {}),
+      ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+      ...(Number.isFinite(mileage) && mileage >= 0 ? { mileage } : {}),
       color: fields.color?.trim() || undefined,
       description: descParts.length > 0 ? descParts.join(" · ") : undefined,
       fuelType: fields.fuelType?.trim() || undefined,
       condition: fields.transmission?.trim() || undefined,
-      title: `${brand} ${model} ${year}`.trim(),
+      title: titleParts || "ร่างประกาศจากแชท",
     },
-    missing: [],
+    missing,
   };
 }
 

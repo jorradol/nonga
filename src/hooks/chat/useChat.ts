@@ -318,14 +318,6 @@ export function useChat() {
             if (!canSaveDealerDraft) {
               orchestrated.text =
                 "ต้องเข้าใช้งานในนามดีลเลอร์ก่อนจึงจะบันทึกประกาศได้ครับ — เปิดสิทธิ์ดีลเลอร์จากโปรไฟล์แล้วลองใหม่";
-            } else if (!payload) {
-              orchestrated.text = `ข้อมูลยังไม่ครบ (${missing.join(", ")}) ครับ รบกวนพิมพ์รายละเอียดเพิ่มแล้วกดบันทึกประกาศอีกครั้ง`;
-              logChatDraftSave("error", {
-                reason: "incomplete-fields",
-                missing,
-                draftFields: lastDraftMsg.draftFields,
-                chatScope: chatScope.storageKey,
-              });
             } else {
               const draftDealerId = resolveDealerIdFromUser(user);
               const apiRole = isAdmin ? "admin" : "dealer";
@@ -378,7 +370,9 @@ export function useChat() {
                   });
 
                   let saveText =
-                    "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
+                    missing.length > 0
+                      ? `บันทึก Draft แล้วครับ แต่ยังขาดข้อมูลก่อนส่งเข้าตลาด:\n${missing.map((item) => `- ${item}`).join("\n")}\n\nกรุณาเติมข้อมูลเหล่านี้ในหน้า Draft ก่อนกดลงขายครับ`
+                      : "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
                   const sessionMessages =
                     useChatStore.getState().messages[sessionId] || [];
                   const imagesToUpload = newDraftId

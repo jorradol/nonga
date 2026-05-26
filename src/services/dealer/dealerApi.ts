@@ -77,6 +77,20 @@ export interface DealerDraftRecord {
   duplicateMatches?: { id: string; score: number; source: string }[];
 }
 
+export interface CreateDealerDraftInput {
+  title?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
+  price?: number;
+  mileage?: number;
+  color?: string;
+  description?: string;
+  fuelType?: string;
+  condition?: string;
+  images?: string[];
+}
+
 export interface DealerDashboardStats {
   published: number;
   hidden: number;
@@ -172,6 +186,22 @@ export async function fetchDealerDrafts(
   const res = await fetch("/api/dealer/drafts", { headers: await headers(h) });
   const body = await res.json();
   if (!res.ok) failResponse("dealer-drafts", res, body, "โหลดรายการประกาศไม่สำเร็จครับ");
+  return body.data;
+}
+
+export async function createDealerDraft(
+  h: DealerApiHeaders,
+  input: CreateDealerDraftInput
+): Promise<DealerDraftRecord> {
+  const res = await fetch("/api/dealer/drafts/new", {
+    method: "POST",
+    headers: await headers(h),
+    body: JSON.stringify(input),
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    failResponse("dealer-draft-create", res, body, "บันทึก Draft ไม่สำเร็จครับ");
+  }
   return body.data;
 }
 

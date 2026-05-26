@@ -1,4 +1,5 @@
 import { extractCarFieldsFromMessage, isSellIntent, buildDraftPreviewCopy } from "../src/services/ai/chat/sellIntentParser";
+import { buildDealerDraftPayloadFromChat } from "../src/services/ai/chat/chatDraftActions";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -58,6 +59,19 @@ if (preview4.includes("ยังขาดข้อมูล ยี่ห้อ/�
 } else {
   console.error("❌ FAIL: Missing info message");
   console.error(preview4);
+  process.exit(1);
+}
+
+const incompleteDraft = buildDealerDraftPayloadFromChat(fields4);
+if (
+  incompleteDraft.payload &&
+  incompleteDraft.payload.title === "ร่างประกาศจากแชท" &&
+  incompleteDraft.missing.includes("เลขไมล์")
+) {
+  console.log("✅ PASS: Incomplete chat-to-draft still builds draft payload");
+} else {
+  console.error("❌ FAIL: Incomplete chat-to-draft payload");
+  console.error(incompleteDraft);
   process.exit(1);
 }
 

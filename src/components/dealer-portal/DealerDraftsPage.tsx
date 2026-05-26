@@ -34,7 +34,9 @@ function draftPublishCheck(d: DealerDraftRecord) {
     id: d.id,
     brand: d.brand,
     model: d.model,
+    year: d.year,
     price: d.price,
+    mileage: d.mileage,
     images: d.images,
   });
 }

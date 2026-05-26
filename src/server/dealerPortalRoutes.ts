@@ -93,30 +93,34 @@ export function registerDealerPortalRoutes(app: Express): void {
 
     const brand = String(body.brand ?? "").trim();
     const model = String(body.model ?? "").trim();
-    const year = Number(body.year);
-    const price = Number(body.price);
-    const mileage = Number(body.mileage);
-    const missing: string[] = [];
-    if (!brand) missing.push("brand");
-    if (!model) missing.push("model");
-    if (!Number.isFinite(year) || year < 1900) missing.push("year");
-    if (!Number.isFinite(price) || price <= 0) missing.push("price");
-    if (!Number.isFinite(mileage) || mileage < 0) missing.push("mileage");
-
-    if (missing.length > 0) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[POST /api/dealer/drafts/new] validation failed", {
-          dealerId: ctx.dealerId,
-          missing,
-          body: { brand, model, year, price, mileage },
-        });
-      }
-      return res.status(400).json({
-        success: false,
-        message: "ข้อมูลไม่ครบถ้วน กรุณาระบุ ยี่ห้อ, รุ่น, ปี, ราคา, และเลขไมล์",
-        missing,
-      });
-    }
+    const rawYear = Number(body.year);
+    const rawPrice = Number(body.price);
+    const rawMileage = Number(body.mileage);
+    const year = Number.isFinite(rawYear) && rawYear >= 1900 ? rawYear : 0;
+    const price = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 0;
+    const hasMileage = Number.isFinite(rawMileage) && rawMileage >= 0;
+    const mileage = hasMileage ? rawMileage : 0;
+    const description = String(body.description ?? "").trim();
+    const images = Array.isArray(body.images)
+      ? (body.images as unknown[]).filter((u): u is string => typeof u === "string")
+      : [];
+    const normalizedData = {
+      ...createEmptyNormalizedRow(),
+      brand,
+      model,
+      year: year > 0 ? String(year) : "",
+      price: price > 0 ? String(price) : "",
+      mileage: hasMileage ? String(mileage) : "",
+      color: String(body.color ?? "").trim(),
+      fuelType: String(body.fuelType ?? "").trim(),
+      gear: String(body.transmission ?? body.condition ?? "").trim(),
+      description,
+      imageUrls: images.join(","),
+    };
+    const missing = [
+      ...getMissingPublishFields(normalizedData),
+      ...(hasMileage ? [] : ["mileage"]),
+    ].filter((field, index, list) => list.indexOf(field) === index);
 
     const newDraft = {
       id,
@@ -126,14 +130,20 @@ export function registerDealerPortalRoutes(app: Express): void {
       phone: profile?.phone || "",
       showroomName: profile?.showroomName || "",
       rawRow: {},
-      normalizedData: createEmptyNormalizedRow(),
-      missingFields: [],
-      warnings: [],
-      confidenceScore: 100,
-      status: "draft" as const,
-      images: [],
+      normalizedData,
+      missingFields: missing,
+      warnings:
+        missing.length > 0
+          ? ["บันทึกเป็น Draft แล้ว แต่ยังขาดข้อมูลก่อนส่งเข้าตลาด"]
+          : [],
+      confidenceScore: Math.max(10, 100 - missing.length * 15),
+      status: missing.length > 0 ? ("needs_review" as const) : ("draft" as const),
+      images,
       sourceImageUrls: [],
-      title: String(body.title ?? "").trim() || `${brand} ${model} ${year}`.trim(),
+      title:
+        String(body.title ?? "").trim() ||
+        `${brand} ${model} ${year || ""}`.trim() ||
+        "ร่างประกาศใหม่",
       brand,
       model,
       year,
@@ -141,7 +151,7 @@ export function registerDealerPortalRoutes(app: Express): void {
       mileage,
       fuelType: String(body.fuelType ?? "").trim(),
       condition: String(body.condition ?? "").trim(),
-      description: String(body.description ?? "").trim(),
+      description,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -464,7 +474,9 @@ export function registerDealerPortalRoutes(app: Express): void {
       id: draft.id,
       brand: draft.brand,
       model: draft.model,
+      year: draft.year,
       price: draft.price,
+      mileage: draft.mileage,
       images: draft.images,
       sourceImageUrls: draft.sourceImageUrls,
     });

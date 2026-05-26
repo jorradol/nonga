@@ -189,7 +189,9 @@ async function main() {
     id: c1Id,
     brand: c1!.brand,
     model: c1!.model,
+    year: c1!.year,
     price: c1!.price,
+    mileage: c1!.mileage,
     images: c1!.images,
   });
   ok("1-guard-missing-image", guardBefore.missingFields.includes("image"), "");
@@ -212,7 +214,9 @@ async function main() {
     id: c1Id,
     brand: c1.brand,
     model: c1.model,
+    year: c1.year,
     price: c1.price,
+    mileage: c1.mileage,
     images: c1.images,
   });
   ok("1-guard-ok", guardAfter.ok, guardAfter.missingLabelsThai.join(","));

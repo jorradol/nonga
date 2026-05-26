@@ -30,7 +30,9 @@ function completeDraft(id: string) {
     id,
     brand: "Toyota",
     model: "Camry",
+    year: 2020,
     price: 650000,
+    mileage: 45000,
     images: [`/storage/listings/${id}/1.jpg`],
   };
 }
@@ -79,7 +81,9 @@ async function main() {
     id: "x4",
     brand: "Honda",
     model: "CRV",
+    year: 2020,
     price: 0,
+    mileage: 45000,
     images: ["/storage/listings/x4/1.jpg"],
   });
   ok("4-no-price", !v4.ok && v4.missingFields.includes("price"), "");
@@ -92,7 +96,17 @@ async function main() {
     price: 0,
     images: [],
   });
-  ok("5-multi-missing", v5.missingFields.length >= 4, String(v5.missingFields.length));
+  ok("5-multi-missing", v5.missingFields.length >= 6, String(v5.missingFields.length));
+
+  const v5b = validateDraftForPublish({
+    id: "x5b",
+    brand: "Honda",
+    model: "CRV",
+    year: 2020,
+    price: 500000,
+    images: ["/storage/listings/x5b/1.jpg"],
+  });
+  ok("5b-no-mileage", !v5b.ok && v5b.missingFields.includes("mileage"), "");
 
   const v6 = validateDraftForPublish(completeDraft("x6"));
   ok("6-complete", v6.ok, v6.missingFields.join(","));
@@ -101,7 +115,9 @@ async function main() {
     id: "x7",
     brand: "Honda",
     model: "CRV",
+    year: 2020,
     price: 500000,
+    mileage: 45000,
     images: [],
     sourceImageUrls: ["https://drive.google.com/drive/folders/abc"],
   });
@@ -192,6 +208,45 @@ async function main() {
     price: number;
     images: string[];
   }[];
+
+  const incompleteCreate = await fetch(`${BASE}/api/dealer/drafts/new`, {
+    method: "POST",
+    headers: hdrs,
+    body: JSON.stringify({
+      title: "Incomplete Draft Smoke",
+      brand: "Honda",
+      model: "Civic",
+      price: 350000,
+    }),
+  });
+  const incompleteBody = await incompleteCreate.json();
+  const incompleteDraft = incompleteBody.data;
+  ok(
+    "11b-incomplete-save-draft",
+    incompleteCreate.ok &&
+      incompleteDraft?.id &&
+      incompleteDraft.missingFields?.includes("year") &&
+      incompleteDraft.missingFields?.includes("mileage"),
+    JSON.stringify(incompleteBody).slice(0, 120)
+  );
+  if (incompleteDraft?.id) {
+    const incompletePublish = await fetch(
+      `${BASE}/api/dealer/drafts/${incompleteDraft.id}/publish`,
+      { method: "POST", headers: hdrs }
+    );
+    const incompletePublishBody = await incompletePublish.json();
+    ok(
+      "11c-incomplete-publish-blocked",
+      incompletePublish.status === 400 &&
+        incompletePublishBody.error === "missing_required_fields",
+      JSON.stringify(incompletePublishBody).slice(0, 120)
+    );
+    await fetch(`${BASE}/api/dealer/drafts/${incompleteDraft.id}`, {
+      method: "DELETE",
+      headers: hdrs,
+    });
+  }
+
   const target = draftList.find((d) => d.brand?.trim() && d.model?.trim());
   if (target) {
     const savedImages = target.images ?? [];

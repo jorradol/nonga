@@ -347,7 +347,9 @@ async function apiPhaseAfterBrowser(draftId: string) {
     id: "x",
     brand: "T",
     model: "V",
+    year: 2020,
     price: 1,
+    mileage: 1,
     images: [],
   });
   ok("9-client-guard", guard.missingLabelsThai.includes("ขาดรูปภาพสินค้า"));

@@ -107,7 +107,9 @@ export default function DealerDraftInventoryView() {
         id: draft.id,
         brand: draft.brand,
         model: draft.model,
+        year: draft.year,
         price: draft.price,
+        mileage: draft.mileage,
         images: draft.images,
       });
       if (!guard.ok) {

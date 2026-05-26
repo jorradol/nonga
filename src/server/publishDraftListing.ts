@@ -37,7 +37,9 @@ export async function publishDealerDraftToMarketplace(
     id: draft.id,
     brand: draft.brand,
     model: draft.model,
+    year: draft.year,
     price: draft.price,
+    mileage: draft.mileage,
     images: draft.images,
     sourceImageUrls: draft.sourceImageUrls,
   });

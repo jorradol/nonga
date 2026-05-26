@@ -25,9 +25,13 @@ import {
   serializeSellingFormDraft,
   buildMarketplaceApiCarPayload,
   assertApiPayloadWithinLimit,
+  isDataImageUrl,
 } from "../../../utils/listingImageStorage";
 import { inferMarketplaceCategoryType } from "../../../utils/marketplaceCarMapper";
 import { createLegacyMarketplaceListing } from "../../../services/listings/myListingsApi";
+import { useDealerPortal } from "../../../hooks/dealer/useDealerPortal";
+import { createDealerDraft } from "../../../services/dealer/dealerApi";
+import { navigateToSavedDealerDraft } from "../../../utils/dealer/dealerDraftNavigation";
 
 const DESC_REGENERATE_COOLDOWN_MS = 1200;
 import { Check, Sparkles, AlertCircle, RefreshCcw, ArrowRight, ArrowLeft, Send, MessageSquare, Clock, Star, BrainCircuit } from "lucide-react";
@@ -56,6 +60,7 @@ export default function SellingFormContainer({
   // Grab state from Zustand AppStore
   const { user, generateAIDescription, fetchCars, setView, setFilters } =
     useAppStore();
+  const { apiHeaders, canAccessPortal } = useDealerPortal();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [hasDraftToRecover, setHasDraftToRecover] = useState(false);
@@ -71,6 +76,12 @@ export default function SellingFormContainer({
   const [publishSuccess, setPublishSuccess] = useState<{
     title: string;
     id?: string;
+  } | null>(null);
+  const [draftSaveResult, setDraftSaveResult] = useState<{
+    title: string;
+    id: string;
+    missing: string[];
+    imageWarning?: string;
   } | null>(null);
 
   // Form States
@@ -347,6 +358,65 @@ export default function SellingFormContainer({
     }
   };
 
+  const handleSaveDraft = async () => {
+    if (!canAccessPortal) {
+      showToast("ต้องเข้าสู่ระบบด้วยบัญชี Dealer ก่อนจึงจะบันทึก Draft ได้ครับ");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setValidationErrors([]);
+    try {
+      const publishCheck = carSellingPublishSchema.safeParse(formData);
+      const missing = publishCheck.success
+        ? []
+        : publishCheck.error.issues.map((issue) => issue.message);
+      const remoteOrStoredImages = formData.images.filter(
+        (url) =>
+          !isDataImageUrl(url) &&
+          (/^https?:\/\//i.test(url) || url.startsWith("/storage/listings/"))
+      );
+      const imageWarning =
+        formData.images.length > 0 && remoteOrStoredImages.length === 0
+          ? "รูปที่เลือกไว้ยังเป็น temporary preview บนเครื่องนี้ ยังไม่ได้อัปโหลดเข้ากับ Draft"
+          : undefined;
+
+      const title =
+        `${formData.brand} ${formData.model} ปี ${formData.year}`.trim() ||
+        "ร่างประกาศใหม่";
+      const draft = await createDealerDraft(apiHeaders, {
+        title,
+        brand: formData.brand,
+        model: formData.model,
+        year: formData.year,
+        price: formData.price,
+        mileage: formData.mileage,
+        color: formData.color,
+        fuelType: formData.fuelType,
+        condition: formData.condition,
+        description: formData.description,
+        images: remoteOrStoredImages,
+      });
+
+      setDraftSaveResult({
+        title: draft.title,
+        id: draft.id,
+        missing,
+        imageWarning,
+      });
+      showToast(
+        missing.length > 0
+          ? "บันทึก Draft แล้ว — ยังมี checklist ให้เติมก่อนเผยแพร่"
+          : "บันทึก Draft สำเร็จแล้ว พร้อมตรวจสอบก่อนเผยแพร่"
+      );
+    } catch (err: any) {
+      console.error(err);
+      showToast(`❌ ${err?.message || "บันทึก Draft ไม่สำเร็จครับ"}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const updateFields = (next: Partial<typeof formData>) => {
     setFormData((prev) => ({ ...prev, ...next }));
   };
@@ -523,6 +593,62 @@ export default function SellingFormContainer({
             <button
               type="button"
               onClick={() => setPublishSuccess(null)}
+              className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      )}
+
+      {draftSaveResult && (
+        <div
+          role="status"
+          className="p-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 space-y-3 text-left"
+        >
+          <div className="flex items-start gap-3">
+            <Check className="w-6 h-6 text-amber-300 shrink-0" />
+            <div className="space-y-1">
+              <h3 className="text-sm font-extrabold text-amber-200">
+                บันทึก Draft เรียบร้อยแล้วครับ
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                <strong>{draftSaveResult.title}</strong> ถูกเก็บเป็น Draft แล้ว
+                {draftSaveResult.id ? ` (รหัส: ${draftSaveResult.id})` : ""}{" "}
+                — ตรวจและเติมข้อมูลก่อนกดเผยแพร่เข้าตลาด
+              </p>
+              {draftSaveResult.missing.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-[11px] text-amber-100 font-bold">
+                    Checklist ก่อนเผยแพร่:
+                  </p>
+                  <ul className="mt-1 list-disc list-inside text-[11px] text-amber-100/90 space-y-0.5">
+                    {draftSaveResult.missing.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {draftSaveResult.imageWarning && (
+                <p className="text-[11px] text-orange-200">
+                  {draftSaveResult.imageWarning}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                navigateToSavedDealerDraft(draftSaveResult.id, setView)
+              }
+              className="flex-1 py-3 px-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition"
+            >
+              ไปแก้ไข Draft →
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraftSaveResult(null)}
               className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition"
             >
               ปิด
@@ -715,7 +841,7 @@ export default function SellingFormContainer({
             </div>
 
             {/* Stepper bottom control buttons */}
-            <div className="flex justify-between border-t border-white/5 pt-5.5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-white/5 pt-5.5">
               <button
                 type="button"
                 disabled={currentStep === 0}
@@ -726,16 +852,27 @@ export default function SellingFormContainer({
                 <span>ขั้นตอนก่อนหน้า</span>
               </button>
 
-              {currentStep < 6 ? (
-                <button
-                  type="button"
-                  onClick={handleStepNext}
-                  className="px-5 py-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-600/10 transition flex items-center gap-1.5 active:scale-95"
-                >
-                  <span>ขั้นตอนถัดไป</span>
-                  <ArrowRight className="w-4 h-4 text-white" />
-                </button>
-              ) : (
+              <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                {canAccessPortal && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={handleSaveDraft}
+                    className="px-5 py-3 border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold rounded-xl text-xs transition active:scale-95 disabled:opacity-40"
+                  >
+                    {isSubmitting ? "กำลังบันทึก Draft..." : "บันทึก Draft"}
+                  </button>
+                )}
+                {currentStep < 6 ? (
+                  <button
+                    type="button"
+                    onClick={handleStepNext}
+                    className="px-5 py-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-600/10 transition flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <span>ขั้นตอนถัดไป</span>
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  </button>
+                ) : (
                 <button
                   type="button"
                   disabled={isSubmitting}
@@ -744,7 +881,8 @@ export default function SellingFormContainer({
                 >
                   <span>{isSubmitting ? "กำลังส่งประกาศขึ้นแผง..." : "🚀 ยืนยันเผยแพร่สเปกทันที!"}</span>
                 </button>
-              )}
+                )}
+              </div>
             </div>
 
           </div>

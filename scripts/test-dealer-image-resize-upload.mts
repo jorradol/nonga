@@ -226,7 +226,9 @@ async function main() {
       id: listingId,
       brand: "Honda",
       model: "CRV",
+      year: 2020,
       price: 500000,
+      mileage: 45000,
       images: up.storedUrls,
     });
     ok("7-publish-guard", guard.ok, guard.missingLabelsThai.join(","));
