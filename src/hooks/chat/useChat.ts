@@ -15,7 +15,7 @@ import {
 } from "../../utils/chatStorageScope";
 import { logDealerDraftEditUrl } from "../../utils/dealer/dealerDraftNavigation";
 import { resolveDealerIdFromUser } from "../../utils/dealerIdentity";
-import { dealerAuthHeaders } from "../../utils/apiAuthHeaders";
+import { dealerAuthHeadersAsync } from "../../utils/apiAuthHeaders";
 import { useRole } from "../auth/useRole";
 import {
   isSaveListingChatAction,
@@ -170,11 +170,21 @@ export function useChat() {
       const trimmed = text.trim();
       const imageAttachments = pendingImages ?? [];
       const hasImages = imageAttachments.length > 0;
-      if ((!trimmed && !hasImages) || !activeSessionId || isGenerating) return;
+      if ((!trimmed && !hasImages) || isGenerating) return;
+
+      let sessionId = activeSessionId;
+      if (!sessionId) {
+        try {
+          sessionId = await createSession(chatScope, "ปรึกษาซื้อขาย");
+        } catch (err) {
+          console.warn("[chat] unable to create local session", err);
+          return;
+        }
+      }
 
       const attachmentMeta = toChatImageMessageAttachments(imageAttachments);
       const userMsg = await addMessage(
-        activeSessionId,
+        sessionId,
         "user",
         trimmed || "(แนบรูป)",
         undefined,
@@ -186,7 +196,7 @@ export function useChat() {
       );
       registerChatImageMessageFiles(
         storageScopeKey,
-        activeSessionId,
+        sessionId,
         userMsg.id,
         imageAttachments,
         attachmentMeta
@@ -196,7 +206,7 @@ export function useChat() {
       updateStreamedReply("", []);
 
       const historyAfterUser =
-        useChatStore.getState().messages[activeSessionId] || [];
+        useChatStore.getState().messages[sessionId] || [];
 
       const pendingListingContext =
         findLatestPendingListingContext(historyAfterUser);
@@ -208,7 +218,7 @@ export function useChat() {
         const apiRole = isAdmin ? "admin" : "dealer";
         const imagesForMessage = getChatImagesForMessage(
           storageScopeKey,
-          activeSessionId,
+          sessionId,
           userMsg.id
         );
         try {
@@ -221,7 +231,7 @@ export function useChat() {
           const ack = buildSavedDraftImageAckReply(imageAttachments.length);
           updateStreamedReply(ack);
           await finalizeStreamedReply(
-            activeSessionId,
+            sessionId,
             undefined,
             undefined,
             undefined,
@@ -239,7 +249,7 @@ export function useChat() {
           updateStreamedReply(
             "รับรูปภาพรถแล้วครับ แต่เพิ่มเข้าไปในประกาศไม่สำเร็จ กรุณาลองส่งรูปอีกครั้งครับ"
           );
-          await finalizeStreamedReply(activeSessionId);
+          await finalizeStreamedReply(sessionId);
         }
         setGenerating(false);
         return;
@@ -248,7 +258,7 @@ export function useChat() {
       if (hasImages && pendingListingContext && !isListingCreateWithImages) {
         markChatImageMessageForPendingListing(
           storageScopeKey,
-          activeSessionId,
+          sessionId,
           userMsg.id
         );
         const ack = buildPendingListingImageAckReply(
@@ -257,7 +267,7 @@ export function useChat() {
         );
         updateStreamedReply(ack);
         await finalizeStreamedReply(
-          activeSessionId,
+          sessionId,
           undefined,
           undefined,
           undefined,
@@ -273,7 +283,7 @@ export function useChat() {
         const ack = buildNoListingImageAckReply(imageAttachments.length);
         updateStreamedReply(ack);
         await finalizeStreamedReply(
-          activeSessionId,
+          sessionId,
           undefined,
           undefined,
           undefined,
@@ -319,7 +329,6 @@ export function useChat() {
             } else {
               const draftDealerId = resolveDealerIdFromUser(user);
               const apiRole = isAdmin ? "admin" : "dealer";
-              const headers = dealerAuthHeaders(draftDealerId, apiRole);
               const endpoint = "/api/dealer/drafts/new";
 
               logChatStorageDebug(chatScope, { draftDealerId });
@@ -332,12 +341,13 @@ export function useChat() {
                 headers: {
                   "X-Dealer-Id": draftDealerId,
                   "X-User-Role": apiRole,
-                  Authorization: "(Bearer dealer token)",
+                  Authorization: "(Bearer redacted)",
                 },
                 payload,
               });
 
               try {
+                const headers = await dealerAuthHeadersAsync(draftDealerId, apiRole);
                 const res = await fetch(endpoint, {
                   method: "POST",
                   headers,
@@ -370,11 +380,11 @@ export function useChat() {
                   let saveText =
                     "บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!";
                   const sessionMessages =
-                    useChatStore.getState().messages[activeSessionId] || [];
+                    useChatStore.getState().messages[sessionId] || [];
                   const imagesToUpload = newDraftId
                     ? collectChatImagesForDraft(
                         storageScopeKey,
-                        activeSessionId,
+                        sessionId,
                         sessionMessages
                       )
                     : [];
@@ -387,7 +397,7 @@ export function useChat() {
                         draftDealerId,
                         apiRole
                       );
-                      clearChatImagesForDraft(storageScopeKey, activeSessionId);
+                      clearChatImagesForDraft(storageScopeKey, sessionId);
                       const failedCount = uploadResult.failed?.length ?? 0;
                       if (failedCount > 0) {
                         saveText =
@@ -448,7 +458,7 @@ export function useChat() {
         if (orchestrated.isDraftPreview && hasImages) {
           markChatImageMessageForPendingListing(
             storageScopeKey,
-            activeSessionId,
+            sessionId,
             userMsg.id
           );
         }
@@ -473,7 +483,7 @@ export function useChat() {
           await new Promise((r) => setTimeout(r, 12));
         }
         await finalizeStreamedReply(
-          activeSessionId,
+          sessionId,
           orchestrated.carCards,
           orchestrated.hasMoreCars,
           orchestrated.isDraftPreview,
@@ -501,7 +511,7 @@ export function useChat() {
         {
           userRole: (user as { role?: string })?.role || "client",
           sentiment,
-          chatId: activeSessionId,
+          chatId: sessionId,
         }
       );
 
@@ -527,7 +537,7 @@ export function useChat() {
           updateStreamedReply(accumulatedString);
         },
         async () => {
-          await finalizeStreamedReply(activeSessionId);
+          await finalizeStreamedReply(sessionId);
           setGenerating(false);
         },
         async (err) => {
@@ -550,7 +560,7 @@ export function useChat() {
                   mockOrchestrated.draftFields
                 );
                 await finalizeStreamedReply(
-                  activeSessionId,
+                  sessionId,
                   mockOrchestrated.carCards,
                   mockOrchestrated.hasMoreCars,
                   mockOrchestrated.isDraftPreview,
@@ -558,7 +568,7 @@ export function useChat() {
                 );
               } else {
                 updateStreamedReply(mockReply);
-                await finalizeStreamedReply(activeSessionId);
+                await finalizeStreamedReply(sessionId);
               }
               setGenerating(false);
               return;
@@ -571,7 +581,7 @@ export function useChat() {
           updateStreamedReply("", []);
 
           await addMessage(
-            activeSessionId,
+            sessionId,
             "ai",
             "ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งครับ"
           );
@@ -592,6 +602,7 @@ export function useChat() {
       isAdmin,
       role,
       addMessage,
+      createSession,
       setGenerating,
       updateStreamedReply,
       finalizeStreamedReply,

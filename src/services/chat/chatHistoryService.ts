@@ -220,6 +220,46 @@ function writeLocalSnapshot(
   storage.setItem(chatMessagesLocalKey(scope.storageKey), JSON.stringify(safeMessages));
 }
 
+function appendLocalMessage(
+  scope: ChatHistoryScope,
+  sessionId: string,
+  message: ChatMessage,
+  patch: Partial<ChatSession>
+): void {
+  const snapshot = readLocalSnapshot(scope);
+  const session = snapshot.sessions.find((item) => item.id === sessionId);
+  if (session && !sessionMatchesScope(session, scope)) {
+    throw new Error("chat_session_scope_mismatch");
+  }
+  const fallbackSession: ChatSession = {
+    id: sessionId,
+    sessionId,
+    userId: scope.storageKey,
+    uid: scope.uid,
+    dealerId: scope.dealerId,
+    scope: scope.scope,
+    storageScopeKey: scope.storageKey,
+    title: "ปรึกษาซื้อขาย",
+    createdAt: message.createdAt,
+    updatedAt: message.createdAt,
+    lastMessagePreview: "",
+    status: ACTIVE_STATUS,
+  };
+  const baseSessions = session ? snapshot.sessions : [fallbackSession, ...snapshot.sessions];
+  const sessions = baseSessions
+    .map((item) => (item.id === sessionId ? { ...item, ...patch } : item))
+    .sort((a, b) =>
+      String(b.updatedAt ?? b.createdAt).localeCompare(String(a.updatedAt ?? a.createdAt))
+    );
+  writeLocalSnapshot(scope, {
+    sessions,
+    messages: {
+      ...snapshot.messages,
+      [sessionId]: [...(snapshot.messages[sessionId] ?? []), message],
+    },
+  });
+}
+
 function sessionToFirestoreData(session: ChatSession) {
   return {
     sessionId: session.id,
@@ -304,7 +344,12 @@ export async function loadChatSessions(
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
   if (shouldUseLocalStorage()) return readLocalSnapshot(scope).sessions;
-  return loadFirestoreSessions(scope);
+  try {
+    return await loadFirestoreSessions(scope);
+  } catch (err) {
+    console.warn("[chat-history] Firestore session read failed; using local history", err);
+    return readLocalSnapshot(scope).sessions;
+  }
 }
 
 export async function loadChatMessages(
@@ -319,28 +364,33 @@ export async function loadChatMessages(
     return localSession ? localSnapshot.messages[sessionId] ?? [] : [];
   }
 
-  const session = (await loadFirestoreSessions(scope)).find((item) => item.id === sessionId);
-  if (!session || !sessionMatchesScope(session, scope)) return [];
+  try {
+    const session = (await loadFirestoreSessions(scope)).find((item) => item.id === sessionId);
+    if (!session || !sessionMatchesScope(session, scope)) return [];
 
-  const msgQuery = query(
-    collection(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages"),
-    orderBy("createdAt", "asc")
-  );
-  const msgSnap = await getDocs(msgQuery);
-  if (msgSnap.docs.length > 0) {
-    return msgSnap.docs.map((docSnap) =>
+    const msgQuery = query(
+      collection(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages"),
+      orderBy("createdAt", "asc")
+    );
+    const msgSnap = await getDocs(msgQuery);
+    if (msgSnap.docs.length > 0) {
+      return msgSnap.docs.map((docSnap) =>
+        normalizeMessage({ id: docSnap.id, ...docSnap.data() })
+      );
+    }
+
+    const legacyQuery = query(
+      collection(db, LEGACY_CHATS_COLLECTION, sessionId, "messages"),
+      orderBy("createdAt", "asc")
+    );
+    const legacySnap = await getDocs(legacyQuery);
+    return legacySnap.docs.map((docSnap) =>
       normalizeMessage({ id: docSnap.id, ...docSnap.data() })
     );
+  } catch (err) {
+    console.warn("[chat-history] Firestore message read failed; using local history", err);
+    return localSession ? localSnapshot.messages[sessionId] ?? [] : [];
   }
-
-  const legacyQuery = query(
-    collection(db, LEGACY_CHATS_COLLECTION, sessionId, "messages"),
-    orderBy("createdAt", "asc")
-  );
-  const legacySnap = await getDocs(legacyQuery);
-  return legacySnap.docs.map((docSnap) =>
-    normalizeMessage({ id: docSnap.id, ...docSnap.data() })
-  );
 }
 
 export async function createChatSession(
@@ -373,7 +423,16 @@ export async function createChatSession(
       messages: { ...snapshot.messages, [id]: [] },
     });
   } else {
-    await setDoc(doc(db, CHAT_SESSIONS_COLLECTION, id), sessionToFirestoreData(session));
+    try {
+      await setDoc(doc(db, CHAT_SESSIONS_COLLECTION, id), sessionToFirestoreData(session));
+    } catch (err) {
+      console.warn("[chat-history] Firestore session write failed; using local history", err);
+      const snapshot = readLocalSnapshot(scope);
+      writeLocalSnapshot(scope, {
+        sessions: [session, ...snapshot.sessions],
+        messages: { ...snapshot.messages, [id]: [] },
+      });
+    }
   }
 
   return session;
@@ -408,36 +467,25 @@ export async function appendChatMessage(
   };
 
   if (shouldUseLocalStorage()) {
-    const snapshot = readLocalSnapshot(scope);
-    const session = snapshot.sessions.find((item) => item.id === sessionId);
-    if (!session || !sessionMatchesScope(session, scope)) {
-      throw new Error("chat_session_scope_mismatch");
-    }
-    const sessions = snapshot.sessions
-      .map((item) => (item.id === sessionId ? { ...item, ...patch } : item))
-      .sort((a, b) =>
-        String(b.updatedAt ?? b.createdAt).localeCompare(String(a.updatedAt ?? a.createdAt))
-      );
-    writeLocalSnapshot(scope, {
-      sessions,
-      messages: {
-        ...snapshot.messages,
-        [sessionId]: [...(snapshot.messages[sessionId] ?? []), message],
-      },
-    });
+    appendLocalMessage(scope, sessionId, message, patch);
   } else {
-    await setDoc(
-      doc(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages", message.id),
-      messageToFirestoreData(message)
-    );
-    await setDoc(
-      doc(db, CHAT_SESSIONS_COLLECTION, sessionId),
-      {
-        ...patch,
-        ...(message.savedDraftId ? { savedDraftId: message.savedDraftId } : {}),
-      },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages", message.id),
+        messageToFirestoreData(message)
+      );
+      await setDoc(
+        doc(db, CHAT_SESSIONS_COLLECTION, sessionId),
+        {
+          ...patch,
+          ...(message.savedDraftId ? { savedDraftId: message.savedDraftId } : {}),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn("[chat-history] Firestore message write failed; using local history", err);
+      appendLocalMessage(scope, sessionId, message, patch);
+    }
   }
 
   return message;

@@ -5,7 +5,7 @@ import type { DuplicateReviewAction } from "../../utils/duplicateDetection/types
 import type { DealerApiHeaders } from "../../services/dealer/dealerApi";
 import {
   adminAuthHeaders,
-  dealerAuthHeaders,
+  dealerAuthHeadersAsync,
 } from "../../utils/apiAuthHeaders";
 
 export interface DuplicateGroupMember {
@@ -40,7 +40,7 @@ async function fetchGroups(
   const res = await fetch(url, {
     headers:
       apiBase === "dealer" && headers
-        ? dealerAuthHeaders(headers.dealerId, headers.role)
+        ? await dealerAuthHeadersAsync(headers.dealerId, headers.role)
         : adminAuthHeaders(),
   });
   const body = await res.json();
@@ -66,7 +66,7 @@ async function submitReview(
     method: "POST",
     headers:
       apiBase === "dealer" && headers
-        ? dealerAuthHeaders(headers.dealerId, headers.role)
+        ? await dealerAuthHeadersAsync(headers.dealerId, headers.role)
         : adminAuthHeaders(),
     body: JSON.stringify(payload),
   });

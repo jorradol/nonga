@@ -147,10 +147,19 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     setPendingAttachments([]);
     setAttachmentError(null);
     resetTextareaHeight();
+    let didSend = false;
     try {
       await sendMessage(textToSend, attachmentsToSend);
+      didSend = true;
+    } catch (err) {
+      console.error("[ChatContainer] send failed", err);
+      setInputText(textToSend);
+      setPendingAttachments(attachmentsToSend);
+      setAttachmentError("ส่งข้อความไม่สำเร็จครับ กรุณาลองใหม่อีกครั้ง");
     } finally {
-      revokePendingChatImagePreviews(attachmentsToSend);
+      if (didSend) {
+        revokePendingChatImagePreviews(attachmentsToSend);
+      }
     }
   };
 

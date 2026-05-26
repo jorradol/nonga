@@ -1,4 +1,5 @@
 import { firebaseAuthUnavailableMessage } from "../lib/firebase";
+import { getFirebaseAuthHeaders } from "../services/auth/firebaseAuthHeaders";
 
 /**
  * Client beta/dev auth headers.
@@ -94,6 +95,22 @@ export function dealerAuthHeaders(
     "X-Dealer-Id": dealerId,
     "X-User-Role": role,
   };
+}
+
+export async function dealerAuthHeadersAsync(
+  dealerId: string,
+  role: string
+): Promise<HeadersInit> {
+  const firebaseHeaders = (await getFirebaseAuthHeaders()) as Record<string, string>;
+  if (firebaseHeaders.Authorization) {
+    return {
+      ...firebaseHeaders,
+      "Content-Type": "application/json",
+      "X-Dealer-Id": dealerId,
+      "X-User-Role": role,
+    };
+  }
+  return dealerAuthHeaders(dealerId, role);
 }
 
 export function adminAuthHeaders(): HeadersInit {

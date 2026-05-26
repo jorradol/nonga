@@ -1,10 +1,10 @@
 import type { DealerApiHeaders } from "./dealerApi";
-import { dealerAuthHeaders } from "../../utils/apiAuthHeaders";
+import { dealerAuthHeadersAsync } from "../../utils/apiAuthHeaders";
 import type { ImageLinkCandidate } from "../../utils/inventoryImport/imageLinkExtractor";
 import type { PasteImagePreviewResult } from "../../utils/inventoryImport/pasteImagePreview";
 
-function headers(h: DealerApiHeaders): HeadersInit {
-  return dealerAuthHeaders(h.dealerId, h.role);
+function headers(h: DealerApiHeaders): Promise<HeadersInit> {
+  return dealerAuthHeadersAsync(h.dealerId, h.role);
 }
 
 export async function probePasteImages(
@@ -13,7 +13,7 @@ export async function probePasteImages(
 ): Promise<PasteImagePreviewResult[]> {
   const res = await fetch("/api/dealer/paste-import/image-probe", {
     method: "POST",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify({ candidates }),
   });
   const body = await res.json();
@@ -36,7 +36,7 @@ export async function importSelectedPasteImagesApi(
 }> {
   const res = await fetch("/api/dealer/paste-import/import-selected-images", {
     method: "POST",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify({
       listingId,
       candidates,
@@ -74,7 +74,7 @@ export async function uploadPasteImagesApi(
     opts?.onFileStart?.(i);
     const res = await fetch("/api/dealer/paste-import/upload-images", {
       method: "POST",
-      headers: headers(h),
+      headers: await headers(h),
       body: JSON.stringify({ listingId, files: [files[i]] }),
     });
     const body = await res.json();

@@ -1,5 +1,5 @@
 import type { DealerApiHeaders } from "./dealerApi";
-import { dealerAuthHeaders } from "../../utils/apiAuthHeaders";
+import { dealerAuthHeadersAsync } from "../../utils/apiAuthHeaders";
 import { toUserFacingMessage } from "../../utils/userFacingErrors";
 
 export type DealerListingImageTarget = "draft" | "inventory";
@@ -7,8 +7,8 @@ export type DealerListingImageTarget = "draft" | "inventory";
 const UPLOAD_FAIL_THAI =
   "อัปโหลดรูปไม่สำเร็จครับ กรุณาลองใหม่อีกครั้ง";
 
-function headers(h: DealerApiHeaders): HeadersInit {
-  return dealerAuthHeaders(h.dealerId, h.role);
+function headers(h: DealerApiHeaders): Promise<HeadersInit> {
+  return dealerAuthHeadersAsync(h.dealerId, h.role);
 }
 
 function uploadPath(target: DealerListingImageTarget, listingId: string): string {
@@ -43,7 +43,7 @@ export async function uploadListingImagesApi(
   for (const file of files) {
     const res = await fetch(uploadPath(target, listingId), {
       method: "POST",
-      headers: headers(h),
+      headers: await headers(h),
       body: JSON.stringify({ files: [file], source: file.source }),
     });
     const body = await res.json().catch(() => ({}));

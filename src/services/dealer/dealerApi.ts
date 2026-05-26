@@ -3,7 +3,7 @@ import type {
   ImportOwnerContext,
   MarketplaceImportPayload,
 } from "../../utils/inventoryImport/import/types";
-import { dealerAuthHeaders } from "../../utils/apiAuthHeaders";
+import { dealerAuthHeadersAsync } from "../../utils/apiAuthHeaders";
 import { logTechnicalError, toUserFacingMessage } from "../../utils/userFacingErrors";
 
 function failResponse(
@@ -21,8 +21,8 @@ export interface DealerApiHeaders {
   role: string;
 }
 
-function headers(h: DealerApiHeaders): HeadersInit {
-  return dealerAuthHeaders(h.dealerId, h.role);
+function headers(h: DealerApiHeaders): Promise<HeadersInit> {
+  return dealerAuthHeadersAsync(h.dealerId, h.role);
 }
 
 export interface DealerInventoryCar {
@@ -105,7 +105,7 @@ export interface DealerProfile {
 export async function fetchDealerDashboard(
   h: DealerApiHeaders
 ): Promise<DealerDashboardStats> {
-  const res = await fetch("/api/dealer/dashboard", { headers: headers(h) });
+  const res = await fetch("/api/dealer/dashboard", { headers: await headers(h) });
   const body = await res.json();
   if (!res.ok) failResponse("dealer-dashboard", res, body, "โหลดแดชบอร์ดไม่สำเร็จครับ");
   return body.data;
@@ -117,7 +117,7 @@ export async function fetchDealerInventory(
 ): Promise<DealerInventoryCar[]> {
   const params = q ? `?q=${encodeURIComponent(q)}` : "";
   const res = await fetch(`/api/dealer/inventory${params}`, {
-    headers: headers(h),
+    headers: await headers(h),
   });
   const body = await res.json();
   if (!res.ok) failResponse("dealer-inventory", res, body, "โหลดรายการรถไม่สำเร็จครับ");
@@ -131,7 +131,7 @@ export async function patchDealerInventory(
 ): Promise<DealerInventoryCar> {
   const res = await fetch(`/api/dealer/inventory/${id}`, {
     method: "PATCH",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify(patch),
   });
   const body = await res.json();
@@ -145,7 +145,7 @@ export async function deleteDealerInventory(
 ): Promise<void> {
   const res = await fetch(`/api/dealer/inventory/${id}`, {
     method: "DELETE",
-    headers: headers(h),
+    headers: await headers(h),
   });
   const body = await res.json();
   if (!res.ok) failResponse("dealer-inventory-delete", res, body, "ลบรถไม่สำเร็จครับ");
@@ -158,7 +158,7 @@ export async function hideDealerInventory(
 ): Promise<DealerInventoryCar> {
   const res = await fetch(`/api/dealer/inventory/${id}/visibility`, {
     method: "PATCH",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify({ hidden }),
   });
   const body = await res.json();
@@ -169,7 +169,7 @@ export async function hideDealerInventory(
 export async function fetchDealerDrafts(
   h: DealerApiHeaders
 ): Promise<DealerDraftRecord[]> {
-  const res = await fetch("/api/dealer/drafts", { headers: headers(h) });
+  const res = await fetch("/api/dealer/drafts", { headers: await headers(h) });
   const body = await res.json();
   if (!res.ok) failResponse("dealer-drafts", res, body, "โหลดรายการประกาศไม่สำเร็จครับ");
   return body.data;
@@ -181,7 +181,7 @@ export async function deleteDealerDraft(
 ): Promise<void> {
   const res = await fetch(`/api/dealer/drafts/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: headers(h),
+    headers: await headers(h),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -200,7 +200,7 @@ export async function patchDealerDraft(
 ): Promise<DealerDraftRecord> {
   const res = await fetch(`/api/dealer/drafts/${id}`, {
     method: "PATCH",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify(patch),
   });
   const body = await res.json();
@@ -231,7 +231,7 @@ export async function publishDealerDraft(
 ): Promise<DealerInventoryCar> {
   const res = await fetch(`/api/dealer/drafts/${id}/publish`, {
     method: "POST",
-    headers: headers(h),
+    headers: await headers(h),
   });
   const body = await res.json();
   if (!res.ok) {
@@ -250,7 +250,7 @@ export async function publishDealerDraft(
 export async function fetchDealerProfile(
   h: DealerApiHeaders
 ): Promise<DealerProfile> {
-  const res = await fetch("/api/dealer/profile", { headers: headers(h) });
+  const res = await fetch("/api/dealer/profile", { headers: await headers(h) });
   const body = await res.json();
   if (!res.ok) failResponse("dealer-profile", res, body, "โหลดโปรไฟล์ไม่สำเร็จครับ");
   return body.data;
@@ -262,7 +262,7 @@ export async function patchDealerProfile(
 ): Promise<DealerProfile> {
   const res = await fetch("/api/dealer/profile", {
     method: "PATCH",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify(patch),
   });
   const body = await res.json();
@@ -278,7 +278,7 @@ export async function commitDealerImport(
 ): Promise<ImportCommitResult> {
   const res = await fetch("/api/dealer/import/commit", {
     method: "POST",
-    headers: headers(h),
+    headers: await headers(h),
     body: JSON.stringify({ published, drafts, owner }),
   });
   const body = await res.json();
