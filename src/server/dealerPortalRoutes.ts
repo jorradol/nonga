@@ -144,7 +144,7 @@ export function registerDealerPortalRoutes(
       missingFields: missing,
       warnings:
         missing.length > 0
-          ? ["บันทึกเป็น Draft แล้ว แต่ยังขาดข้อมูลก่อนส่งเข้าตลาด"]
+          ? ["บันทึกเป็นฉบับร่างแล้ว แต่ยังขาดข้อมูลก่อนส่งเข้าตลาด"]
           : [],
       confidenceScore: Math.max(10, 100 - missing.length * 15),
       status: missing.length > 0 ? ("needs_review" as const) : ("draft" as const),
