@@ -113,6 +113,7 @@ try {
   ]);
   writeImage(tmp, "car-a", "01-car-a.webp");
   writeImage(tmp, "draft-a", "01-draft-a.webp");
+  writeImage(tmp, "orphan-folder", "01-orphan.webp");
 
   const dryRun = createMigrationPlan({ dataDir: tmp });
   assert(dryRun.mode === "dry-run", "integration plan should default to dry-run");
@@ -120,6 +121,14 @@ try {
   assert(dryRun.counts.draftsPlanned === 1, "dry-run should plan valid draft");
   assert(dryRun.counts.recordsMissingDealerId === 1, "missing dealerId should be counted");
   assert(dryRun.counts.imageFilesPlanned === 2, "dry-run should plan images");
+  assert(
+    dryRun.counts.imageFoldersWithoutMatchingRecord === 1,
+    "orphan image folder count should be surfaced"
+  );
+  assert(
+    dryRun.counts.duplicateStoragePathGroups === 0,
+    "duplicate planned Storage path groups should be counted"
+  );
   console.log("PASS migration dry-run output covers records, warnings, and images");
 
   const jsonOutput = await captureLogs(() =>
@@ -139,6 +148,37 @@ try {
   const noDrafts = createMigrationPlan({ dataDir: tmp, skipDrafts: true });
   assert(noDrafts.counts.draftsFound === 0, "--skip-drafts should suppress drafts");
   console.log("PASS limit and skip switches work");
+
+  const mapped = createMigrationPlan({
+    dataDir: tmp,
+    dealerId: "nonga-dealer",
+    dealerIdMap: { "dealer-a": "nonga-dealer" },
+  });
+  assert(mapped.counts.listingsPlanned === 1, "mapped dealerId should allow target subset");
+  assert(mapped.counts.draftsPlanned === 1, "mapped dealerId should include target drafts");
+  assert(
+    mapped.listings[0]?.images[0]?.storagePath ===
+      "listing-images/nonga-dealer/car-a/01-car-a.webp",
+    "mapped dealerId should be used in planned Storage paths"
+  );
+  const mappedOutput = await captureLogs(() =>
+    runMigrationCli([
+      "--data-dir",
+      tmp,
+      "--json",
+      "--dealer-id",
+      "nonga-dealer",
+      "--map-dealer-id",
+      "dealer-a=nonga-dealer",
+    ])
+  );
+  const mappedParsed = JSON.parse(mappedOutput);
+  assert(mappedParsed.counts.listingsPlanned === 1, "CLI mapping output should parse");
+  assert(
+    mappedParsed.readiness.dealerIdMappings[0]?.targetDealerId === "nonga-dealer",
+    "CLI mapping should be reported"
+  );
+  console.log("PASS dealerId mapping and readiness reporting work");
 
   const existing = createMigrationPlan(
     { dataDir: tmp },
@@ -238,6 +278,7 @@ try {
     "NONGA_DATA_BACKEND=firestore",
     "NONGA_IMAGE_BACKEND=firebase-storage",
     "--confirm-staging",
+    "--map-dealer-id",
   ]) {
     assert(docs.includes(needle), `integration doc missing: ${needle}`);
   }

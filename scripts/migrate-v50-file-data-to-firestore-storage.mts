@@ -26,6 +26,7 @@ export interface MigrationCliOptions {
   confirmStaging: boolean;
   allowProductionWrite: boolean;
   dealerId?: string;
+  dealerIdMap: Record<string, string>;
   limit?: number;
   skipImages: boolean;
   skipListings: boolean;
@@ -57,6 +58,7 @@ export interface MigrationImagePlan {
 export interface MigrationRecordPlan {
   id: string;
   dealerId?: string;
+  sourceDealerId?: string;
   targetCollection: typeof DEALER_LISTINGS_COLLECTION | typeof DEALER_DRAFTS_COLLECTION;
   targetType: ListingImageTargetType;
   status: "planned" | "skipped" | "exists" | "written" | "error";
@@ -91,6 +93,9 @@ export interface MigrationPlan {
     recordsMissingDealerId: number;
     listingsPlanned: number;
     draftsPlanned: number;
+    recordsPointingToMissingImageFiles: number;
+    imageFoldersWithoutMatchingRecord: number;
+    duplicateStoragePathGroups: number;
     recordsExisting: number;
     recordsSkipped: number;
     warnings: number;
@@ -103,6 +108,7 @@ export interface MigrationPlan {
   safety: MigrationWriteSafety;
   listings: MigrationRecordPlan[];
   drafts: MigrationRecordPlan[];
+  readiness: MigrationReadinessReport;
   warnings: string[];
   errors: string[];
 }
@@ -118,6 +124,41 @@ export interface MigrationWriteSafety {
   errors: string[];
 }
 
+export interface MigrationDealerDistributionRow {
+  dealerId: string;
+  listings: number;
+  drafts: number;
+  total: number;
+  mappedTo?: string;
+}
+
+export interface MigrationDealerMappingReport {
+  sourceDealerId: string;
+  targetDealerId: string;
+  records: number;
+}
+
+export interface MigrationMissingImageRecordReport {
+  id: string;
+  targetType: ListingImageTargetType;
+  dealerId?: string;
+  sourceDealerId?: string;
+  sourceImageCount: number;
+}
+
+export interface MigrationDuplicateStoragePathReport {
+  storagePath: string;
+  count: number;
+}
+
+export interface MigrationReadinessReport {
+  dealerIds: MigrationDealerDistributionRow[];
+  dealerIdMappings: MigrationDealerMappingReport[];
+  recordsPointingToMissingImageFiles: MigrationMissingImageRecordReport[];
+  imageFoldersWithoutMatchingRecord: string[];
+  duplicateStoragePaths: MigrationDuplicateStoragePathReport[];
+}
+
 function parseArgs(argv: string[]): MigrationCliOptions {
   const opts: MigrationCliOptions = {
     dryRun: true,
@@ -125,6 +166,7 @@ function parseArgs(argv: string[]): MigrationCliOptions {
     json: false,
     confirmStaging: false,
     allowProductionWrite: false,
+    dealerIdMap: {},
     skipImages: false,
     skipListings: false,
     skipDrafts: false,
@@ -146,6 +188,12 @@ function parseArgs(argv: string[]): MigrationCliOptions {
       opts.confirmStaging = true;
     } else if (arg === "--allow-production-write") {
       opts.allowProductionWrite = true;
+    } else if (arg === "--map-dealer-id") {
+      const [source, target] = parseDealerIdMapping(argv[++i] ?? "");
+      opts.dealerIdMap[source] = target;
+    } else if (arg.startsWith("--map-dealer-id=")) {
+      const [source, target] = parseDealerIdMapping(arg.slice("--map-dealer-id=".length));
+      opts.dealerIdMap[source] = target;
     } else if (arg === "--skip-images") {
       opts.skipImages = true;
     } else if (arg === "--skip-listings") {
@@ -173,6 +221,16 @@ function parseArgs(argv: string[]): MigrationCliOptions {
 
   if (opts.write && opts.dryRun) opts.dryRun = false;
   return opts;
+}
+
+function parseDealerIdMapping(value: string): [string, string] {
+  const [sourceRaw, targetRaw, ...rest] = value.split("=");
+  const source = normalizeDealerId(sourceRaw ?? "");
+  const target = normalizeDealerId(targetRaw ?? "");
+  if (!source || !target || rest.length > 0) {
+    throw new Error("--map-dealer-id requires source=target");
+  }
+  return [source, target];
 }
 
 export function evaluateWriteSafety(
@@ -254,6 +312,10 @@ function readJsonArray<T>(filePath: string): T[] {
 function explicitDealerId(record: SourceRecord): string {
   const dealerId = normalizeDealerId(String(record.dealerId ?? ""));
   return dealerId;
+}
+
+function mapDealerId(sourceDealerId: string, dealerIdMap: Record<string, string>): string {
+  return dealerIdMap[sourceDealerId] ?? sourceDealerId;
 }
 
 function isMigratableImage(fileName: string): boolean {
@@ -346,8 +408,10 @@ function buildRecordPlan(params: {
   existingIds?: Set<string>;
   skipImages: boolean;
   overwrite: boolean;
+  dealerIdMap: Record<string, string>;
 }): MigrationRecordPlan {
-  const dealerId = explicitDealerId(params.record);
+  const sourceDealerId = explicitDealerId(params.record);
+  const dealerId = sourceDealerId ? mapDealerId(sourceDealerId, params.dealerIdMap) : "";
   const warnings: string[] = [];
   const recordId = String(params.record.id ?? "").trim();
 
@@ -365,7 +429,7 @@ function buildRecordPlan(params: {
     };
   }
 
-  if (!dealerId) {
+  if (!sourceDealerId) {
     return {
       id: recordId,
       targetCollection: params.targetCollection,
@@ -385,6 +449,7 @@ function buildRecordPlan(params: {
     return {
       id: recordId,
       dealerId,
+      ...(sourceDealerId !== dealerId ? { sourceDealerId } : {}),
       targetCollection: params.targetCollection,
       targetType: params.targetType,
       status: "exists",
@@ -412,6 +477,7 @@ function buildRecordPlan(params: {
   return {
     id: recordId,
     dealerId,
+    ...(sourceDealerId !== dealerId ? { sourceDealerId } : {}),
     targetCollection: params.targetCollection,
     targetType: params.targetType,
     status: "planned",
@@ -433,6 +499,7 @@ export function createMigrationPlan(
     json: false,
     confirmStaging: false,
     allowProductionWrite: false,
+    dealerIdMap: {},
     skipImages: false,
     skipListings: false,
     skipDrafts: false,
@@ -450,10 +517,18 @@ export function createMigrationPlan(
   const filterDealer = opts.dealerId ? normalizeDealerId(opts.dealerId) : undefined;
 
   const filteredListings = marketplace
-    .filter((item) => !filterDealer || explicitDealerId(item) === filterDealer)
+    .filter((item) => {
+      const sourceDealerId = explicitDealerId(item);
+      const targetDealerId = mapDealerId(sourceDealerId, opts.dealerIdMap);
+      return !filterDealer || sourceDealerId === filterDealer || targetDealerId === filterDealer;
+    })
     .slice(0, opts.limit ?? marketplace.length);
   const filteredDrafts = drafts
-    .filter((item) => !filterDealer || explicitDealerId(item) === filterDealer)
+    .filter((item) => {
+      const sourceDealerId = explicitDealerId(item);
+      const targetDealerId = mapDealerId(sourceDealerId, opts.dealerIdMap);
+      return !filterDealer || sourceDealerId === filterDealer || targetDealerId === filterDealer;
+    })
     .slice(0, opts.limit ?? drafts.length);
 
   const listingPlans = filteredListings.map((record) =>
@@ -465,6 +540,7 @@ export function createMigrationPlan(
       existingIds: existing.listingIds,
       skipImages: opts.skipImages,
       overwrite: opts.overwrite,
+      dealerIdMap: opts.dealerIdMap,
     })
   );
   const draftPlans = filteredDrafts.map((record) =>
@@ -476,10 +552,18 @@ export function createMigrationPlan(
       existingIds: existing.draftIds,
       skipImages: opts.skipImages,
       overwrite: opts.overwrite,
+      dealerIdMap: opts.dealerIdMap,
     })
   );
   const imageStats = imageFolderStats(imageRoot);
   const allPlans = [...listingPlans, ...draftPlans];
+  const readiness = buildReadinessReport({
+    marketplace,
+    drafts,
+    imageRoot,
+    plans: allPlans,
+    dealerIdMap: opts.dealerIdMap,
+  });
   const warnings = allPlans.flatMap((plan) => plan.warnings);
   const errors: string[] = [];
 
@@ -491,6 +575,7 @@ export function createMigrationPlan(
       confirmStaging: opts.confirmStaging,
       allowProductionWrite: opts.allowProductionWrite,
       dealerId: opts.dealerId,
+      dealerIdMap: opts.dealerIdMap,
       limit: opts.limit,
       skipImages: opts.skipImages,
       skipListings: opts.skipListings,
@@ -516,6 +601,10 @@ export function createMigrationPlan(
         .length,
       listingsPlanned: listingPlans.filter((plan) => plan.status === "planned").length,
       draftsPlanned: draftPlans.filter((plan) => plan.status === "planned").length,
+      recordsPointingToMissingImageFiles:
+        readiness.recordsPointingToMissingImageFiles.length,
+      imageFoldersWithoutMatchingRecord: readiness.imageFoldersWithoutMatchingRecord.length,
+      duplicateStoragePathGroups: readiness.duplicateStoragePaths.length,
       recordsExisting: allPlans.filter((plan) => plan.status === "exists").length,
       recordsSkipped: allPlans.filter((plan) =>
         ["skipped", "exists"].includes(plan.status)
@@ -537,8 +626,103 @@ export function createMigrationPlan(
       }),
     listings: listingPlans,
     drafts: draftPlans,
+    readiness,
     warnings: [...warnings, ...(safety?.warnings ?? [])],
     errors: [...errors, ...(safety?.errors ?? [])],
+  };
+}
+
+function buildReadinessReport(params: {
+  marketplace: MarketplaceCarRecord[];
+  drafts: DealerDraftRecord[];
+  imageRoot: string;
+  plans: MigrationRecordPlan[];
+  dealerIdMap: Record<string, string>;
+}): MigrationReadinessReport {
+  const dealerRows = new Map<string, MigrationDealerDistributionRow>();
+  const touchDealer = (
+    sourceDealerId: string,
+    targetType: ListingImageTargetType
+  ): void => {
+    const key = sourceDealerId || "(missing)";
+    const existing =
+      dealerRows.get(key) ??
+      ({
+        dealerId: key,
+        listings: 0,
+        drafts: 0,
+        total: 0,
+        ...(sourceDealerId && params.dealerIdMap[sourceDealerId]
+          ? { mappedTo: params.dealerIdMap[sourceDealerId] }
+          : {}),
+      } satisfies MigrationDealerDistributionRow);
+    if (targetType === "listing") existing.listings += 1;
+    else existing.drafts += 1;
+    existing.total += 1;
+    dealerRows.set(key, existing);
+  };
+
+  for (const record of params.marketplace) touchDealer(explicitDealerId(record), "listing");
+  for (const record of params.drafts) touchDealer(explicitDealerId(record), "draft");
+
+  const sourceIds = new Set(
+    [...params.marketplace, ...params.drafts]
+      .map((record) => String(record.id ?? "").trim())
+      .filter(Boolean)
+  );
+  const imageFoldersWithoutMatchingRecord = fs.existsSync(params.imageRoot)
+    ? fs
+        .readdirSync(params.imageRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && !sourceIds.has(entry.name))
+        .map((entry) => entry.name)
+        .sort()
+    : [];
+
+  const recordsPointingToMissingImageFiles = params.plans
+    .filter((plan) => plan.status === "planned")
+    .filter((plan) => plan.sourceImageCount > 0 && plan.images.length === 0)
+    .map((plan) => ({
+      id: plan.id,
+      targetType: plan.targetType,
+      ...(plan.dealerId ? { dealerId: plan.dealerId } : {}),
+      ...(plan.sourceDealerId ? { sourceDealerId: plan.sourceDealerId } : {}),
+      sourceImageCount: plan.sourceImageCount,
+    }));
+
+  const storagePathCounts = new Map<string, number>();
+  for (const image of params.plans.flatMap((plan) => plan.images)) {
+    for (const storagePath of [image.storagePath, image.thumbnailStoragePath]) {
+      storagePathCounts.set(storagePath, (storagePathCounts.get(storagePath) ?? 0) + 1);
+    }
+  }
+  const duplicateStoragePaths = [...storagePathCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([storagePath, count]) => ({ storagePath, count }))
+    .sort((a, b) => b.count - a.count || a.storagePath.localeCompare(b.storagePath));
+
+  const mappedRecords = new Map<string, MigrationDealerMappingReport>();
+  for (const plan of params.plans) {
+    if (!plan.sourceDealerId || !plan.dealerId || plan.sourceDealerId === plan.dealerId) continue;
+    const key = `${plan.sourceDealerId}=>${plan.dealerId}`;
+    const existing =
+      mappedRecords.get(key) ??
+      ({
+        sourceDealerId: plan.sourceDealerId,
+        targetDealerId: plan.dealerId,
+        records: 0,
+      } satisfies MigrationDealerMappingReport);
+    existing.records += 1;
+    mappedRecords.set(key, existing);
+  }
+
+  return {
+    dealerIds: [...dealerRows.values()].sort(
+      (a, b) => b.total - a.total || a.dealerId.localeCompare(b.dealerId)
+    ),
+    dealerIdMappings: [...mappedRecords.values()],
+    recordsPointingToMissingImageFiles,
+    imageFoldersWithoutMatchingRecord,
+    duplicateStoragePaths,
   };
 }
 
@@ -660,13 +844,15 @@ async function uploadImagesForRecord(
 
 function recordWithMigratedImages(
   source: SourceRecord,
-  imageMetadata: StoredListingImageMetadata[]
+  imageMetadata: StoredListingImageMetadata[],
+  targetDealerId: string
 ): Record<string, unknown> {
   const sourceRecord = source as unknown as Record<string, unknown>;
-  if (imageMetadata.length === 0) return { ...sourceRecord };
+  if (imageMetadata.length === 0) return { ...sourceRecord, dealerId: targetDealerId };
   const imageUrls = imageMetadata.map((item) => item.imageUrl);
   const next = {
     ...sourceRecord,
+    dealerId: targetDealerId,
     images: imageUrls,
     sourceImageUrls: Array.isArray(source.images) ? [...source.images] : [],
     imageMetadata,
@@ -708,7 +894,7 @@ async function writePlan(plan: MigrationPlan): Promise<MigrationPlan> {
     const imageMetadata = plan.options.skipImages
       ? []
       : await uploadImagesForRecord(recordPlan);
-    await doc.set(recordWithMigratedImages(source, imageMetadata));
+    await doc.set(recordWithMigratedImages(source, imageMetadata, recordPlan.dealerId));
     recordPlan.status = "written";
     recordPlan.migratedImageCount = imageMetadata.length;
   }
@@ -739,6 +925,13 @@ function printHuman(plan: MigrationPlan): void {
   console.log(`Source images: ${plan.sources.imageRoot}`);
   console.log(`Target Firestore: ${plan.targets.listingsCollection}, ${plan.targets.draftsCollection}`);
   console.log(`Target Storage: ${plan.targets.listingImagePath}, ${plan.targets.draftImagePath}`);
+  if (Object.keys(plan.options.dealerIdMap).length > 0) {
+    console.log(
+      `Dealer ID mappings: ${Object.entries(plan.options.dealerIdMap)
+        .map(([source, target]) => `${source}=>${target}`)
+        .join(", ")}`
+    );
+  }
   if (plan.mode === "write") {
     console.log(`Firebase project: ${plan.safety.projectId || "(missing)"}`);
     console.log(`Firebase target kind: ${plan.safety.targetKind}`);
@@ -753,6 +946,13 @@ function printHuman(plan: MigrationPlan): void {
   console.log(`Listings planned: ${plan.counts.listingsPlanned}`);
   console.log(`Drafts planned: ${plan.counts.draftsPlanned}`);
   console.log(`Images planned: ${plan.counts.imageFilesPlanned}`);
+  console.log(
+    `Records pointing to missing image files: ${plan.counts.recordsPointingToMissingImageFiles}`
+  );
+  console.log(
+    `Image folders without matching record: ${plan.counts.imageFoldersWithoutMatchingRecord}`
+  );
+  console.log(`Duplicate planned Storage path groups: ${plan.counts.duplicateStoragePathGroups}`);
   console.log(`Existing/skipped: ${plan.counts.recordsExisting}/${plan.counts.recordsSkipped}`);
   if (plan.warnings.length) {
     console.log("");

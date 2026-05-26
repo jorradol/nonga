@@ -18,6 +18,9 @@ Required migration checks:
 10. Image paths match Storage rules:
    - `listing-images/{dealerId}/{listingId}/{fileName}`
    - `draft-images/{dealerId}/{draftId}/{fileName}`
+11. Optional dealer ID mapping can map a reviewed source dealer to a staging dealer:
+   - `--map-dealer-id source-dealer=nonga-dealer`
+12. Readiness output reports orphan image folders, records pointing to missing local image files, and duplicate planned Storage path groups.
 
 Automated coverage:
 
@@ -77,16 +80,22 @@ npm run migrate:v50-file-data -- --dry-run --json
 npm run migrate:v50-file-data -- --dry-run --dealer-id thor-auto --limit 1 --json
 ```
 
-10. If dry-runs look correct, run a limited staging write only:
+10. If the source dealer ID must be rehearsed as the staging dealer, use a reviewed mapping in dry-run first:
 
 ```bash
-npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id thor-auto --limit 1 --skip-images
+npm run migrate:v50-file-data -- --dry-run --dealer-id nonga-dealer --map-dealer-id thor-auto=nonga-dealer --limit 1 --json
 ```
 
-11. Then test image write with a very small limit:
+11. If dry-runs look correct, run a limited staging write only:
 
 ```bash
-npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id thor-auto --limit 1
+npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id nonga-dealer --map-dealer-id thor-auto=nonga-dealer --limit 1 --skip-images
+```
+
+12. Then test image write with a very small limit:
+
+```bash
+npm run migrate:v50-file-data -- --write --confirm-staging --dealer-id nonga-dealer --map-dealer-id thor-auto=nonga-dealer --limit 1
 ```
 
 Do not use `--overwrite` in the first staging rehearsal.
@@ -101,6 +110,7 @@ The migration script has write safety gates:
 - Project IDs that look production-like, such as containing `prod`, `production`, or `live`, are blocked unless `--allow-production-write` is explicitly provided.
 - The human output logs Firebase project ID, target kind, and Storage bucket before write.
 - Missing `dealerId` records are always skipped and reported.
+- `--map-dealer-id` only rewrites a reviewed source dealer ID to a target dealer ID; it does not bypass `--write`, `--confirm-staging`, no-overwrite behavior, or production project guards.
 - Source `data/*.json` and `data/listing-images/*` are never deleted.
 
 Production guard policy:

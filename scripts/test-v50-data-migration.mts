@@ -123,15 +123,28 @@ try {
   writeImage(tmp, "car-a", "01-car-a.webp");
   writeImage(tmp, "car-a", "thumb-01-car-a.webp");
   writeImage(tmp, "draft-a", "01-draft-a.webp");
+  writeImage(tmp, "orphan-folder", "01-orphan.webp");
 
   const dryRun = createMigrationPlan({ dataDir: tmp });
   assert(dryRun.mode === "dry-run", "default migration mode should be dry-run");
   assert(dryRun.counts.marketplaceListingsFound === 3, "should read marketplace data");
   assert(dryRun.counts.draftsFound === 1, "should read draft data");
-  assert(dryRun.counts.imageFoldersFound === 2, "should count image folders");
-  assert(dryRun.counts.imageFilesFound === 3, "should count all image files");
+  assert(dryRun.counts.imageFoldersFound === 3, "should count image folders");
+  assert(dryRun.counts.imageFilesFound === 4, "should count all image files");
   assert(dryRun.counts.imageFilesPlanned === 2, "should plan non-thumbnail images only");
   assert(dryRun.counts.recordsMissingDealerId === 1, "missing dealerId should be warned/skipped");
+  assert(
+    dryRun.counts.imageFoldersWithoutMatchingRecord === 1,
+    "orphan image folders should be reported"
+  );
+  assert(
+    dryRun.readiness.imageFoldersWithoutMatchingRecord.includes("orphan-folder"),
+    "orphan folder should be listed in readiness report"
+  );
+  assert(
+    dryRun.counts.duplicateStoragePathGroups === 0,
+    "duplicate Storage path count should be reported"
+  );
   assert(
     dryRun.warnings.some((warning) => warning.includes("explicit dealerId is missing")),
     "missing dealerId warning should be present"
@@ -156,6 +169,32 @@ try {
   assert(limited.listings.length === 1, "--limit should limit listings");
   assert(limited.drafts.length === 1, "--limit should still allow first draft");
   console.log("PASS --limit works");
+
+  const mapped = createMigrationPlan({
+    dataDir: tmp,
+    dealerId: "staging-dealer",
+    dealerIdMap: { "dealer-a": "staging-dealer" },
+  });
+  assert(mapped.counts.listingsPlanned === 2, "--dealer-id should match mapped target dealerId");
+  assert(mapped.counts.draftsPlanned === 1, "mapped target dealer should include drafts");
+  const mappedCar = mapped.listings.find((item) => item.id === "car-a");
+  assert(mappedCar?.dealerId === "staging-dealer", "record plan should use mapped dealerId");
+  assert(mappedCar?.sourceDealerId === "dealer-a", "record plan should preserve source dealerId");
+  assert(
+    mappedCar?.images[0]?.storagePath ===
+      "listing-images/staging-dealer/car-a/01-car-a.webp",
+    "mapped dealerId should be used in Storage path"
+  );
+  assert(
+    mapped.readiness.dealerIdMappings.some(
+      (item) =>
+        item.sourceDealerId === "dealer-a" &&
+        item.targetDealerId === "staging-dealer" &&
+        item.records === 3
+    ),
+    "readiness report should summarize dealerId mappings"
+  );
+  console.log("PASS dealerId mapping supports target dealer subset dry-run");
 
   const carImage = dryRun.listings.find((item) => item.id === "car-a")?.images[0];
   assert(
