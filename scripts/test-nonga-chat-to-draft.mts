@@ -4,6 +4,10 @@ import {
   getPublishMissingLabelsThai,
   validateDraftForPublish,
 } from "../src/utils/dealerPublishGuard";
+import {
+  getChatDraftSaveMissingLabels,
+  resolveMissingFieldsAfterChatImageUpload,
+} from "../src/services/ai/chat/chatDraftSaveResult";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -105,6 +109,32 @@ if (
   console.error(missingMileageNoImageCheck);
   process.exit(1);
 }
+
+const afterChatImageUpload = resolveMissingFieldsAfterChatImageUpload(
+  ["image"],
+  ["https://firebasestorage.googleapis.com/v0/b/nonga-ce93c.firebasestorage.app/o/draft-images%2Fdealer%2Fdraft%2F01.webp?alt=media"]
+);
+const afterChatImageLabels = getChatDraftSaveMissingLabels(afterChatImageUpload);
+assertEqual(
+  afterChatImageUpload,
+  [],
+  "Chat save removes missing image after successful upload"
+);
+assertEqual(
+  afterChatImageLabels,
+  [],
+  "Chat save should not show missing image label after successful upload"
+);
+
+const partialInfoAfterUpload = resolveMissingFieldsAfterChatImageUpload(
+  ["image", "mileage"],
+  ["/storage/listings/draft-chat/01.webp"]
+);
+assertEqual(
+  partialInfoAfterUpload,
+  ["mileage"],
+  "Chat save preserves non-image missing fields after image upload"
+);
 
 // Test 7: Tab-separated showroom paste (Toyota Camry)
 const CAMRY_TAB =

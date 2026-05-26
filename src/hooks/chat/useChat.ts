@@ -22,6 +22,10 @@ import {
   buildDealerDraftPayloadFromChat,
   logChatDraftSave,
 } from "../../services/ai/chat/chatDraftActions";
+import {
+  getChatDraftSaveMissingLabels,
+  resolveMissingFieldsAfterChatImageUpload,
+} from "../../services/ai/chat/chatDraftSaveResult";
 import { isSellIntent } from "../../services/ai/chat/sellIntentParser";
 import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
 import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
@@ -43,7 +47,6 @@ import {
   findLatestPendingListingContext,
   findLatestSavedDraftId,
 } from "../../features/chat-image-attachment-v1/followUpImageIntent";
-import { getPublishMissingLabelsThai } from "../../utils/dealerPublishGuard";
 
 let lastHydratedChatScopeKey: string | null = null;
 
@@ -86,6 +89,15 @@ async function uploadChatImagesToDraft(
     draftId,
     "draft",
     payloads
+  );
+}
+
+function notifyDealerDraftSaved(draftId: string | undefined): void {
+  if (!draftId || typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("nonga-dealer-draft-saved", {
+      detail: { draftId },
+    })
   );
 }
 
@@ -400,12 +412,18 @@ export function useChat() {
                       );
                       clearChatImagesForDraft(storageScopeKey, sessionId);
                       const failedCount = uploadResult.failed?.length ?? 0;
-                      if (failedCount > 0) {
+                      if (uploadResult.storedUrls.length > 0) {
+                        missingFields = resolveMissingFieldsAfterChatImageUpload(
+                          missingFields,
+                          uploadResult.storedUrls
+                        );
                         uploadNote =
-                          "\n\nมีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบรูปภาพในหน้า Draft อีกครั้ง";
-                      } else if (uploadResult.storedUrls.length > 0) {
-                        missingFields = missingFields.filter((field) => field !== "image");
-                        uploadNote = "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                          failedCount > 0
+                            ? "\n\nแนบรูปที่อัปโหลดสำเร็จไปกับประกาศแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบในหน้าประกาศที่ยังไม่ลงขายอีกครั้ง"
+                            : "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
+                      } else if (failedCount > 0) {
+                        uploadNote =
+                          "\n\nมีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบรูปภาพในหน้าประกาศที่ยังไม่ลงขายอีกครั้ง";
                       }
                     } catch (uploadErr) {
                       console.error("[chat-image-attachment-v1-upload]", {
@@ -421,16 +439,14 @@ export function useChat() {
                     }
                   }
 
-                  const missingLabels =
-                    missingFields.length > 0
-                      ? getPublishMissingLabelsThai(missingFields)
-                      : result.data?.missingLabelsThai ?? missing;
+                  const missingLabels = getChatDraftSaveMissingLabels(missingFields);
                   const saveText =
                     missingLabels.length > 0
-                      ? `บันทึก Draft แล้วครับ แต่ยังต้องเติมก่อนส่งเข้าตลาด:\n${missingLabels.map((item) => `- ${item}`).join("\n")}\n\nกรุณาเติมข้อมูลเหล่านี้ในหน้า Draft ก่อนกดลงขายครับ${uploadNote}`
-                      : `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! สามารถเข้าไปเพิ่มรูป แก้ไขข้อมูล หรือกดลงขายได้ที่รายการประกาศนี้ ปังปุริเย่!${uploadNote}`;
+                      ? `บันทึกฉบับร่างแล้วครับ แต่ยังต้องเติมก่อนส่งเข้าตลาด:\n${missingLabels.map((item) => `- ${item}`).join("\n")}\n\nกรุณาเติมข้อมูลเหล่านี้ในหน้าประกาศที่ยังไม่ลงขายก่อนกดลงขายครับ${uploadNote}`
+                      : `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! กดปุ่ม “ดูประกาศที่บันทึกไว้” เพื่อเปิดรายการที่เพิ่งบันทึก หรือเข้าไปเพิ่มรูป แก้ไขข้อมูล และกดลงขายได้เลย ปังปุริเย่!${uploadNote}`;
                   orchestrated.text = saveText;
                   orchestrated.savedDraftId = newDraftId;
+                  notifyDealerDraftSaved(newDraftId);
                 } else {
                   logChatDraftSave("error", {
                     status: res.status,

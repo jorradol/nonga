@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft } from "lucide-react";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Car } from "lucide-react";
 import { ChatImageAttachmentInput } from "./ChatImageAttachmentInput";
 import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
@@ -258,6 +258,15 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setView("marketplace")}
+              className="text-xs bg-slate-900 border border-slate-800 text-slate-300 px-2.5 sm:px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:text-white hover:bg-slate-850 active:scale-95 transition-all cursor-pointer"
+              title="ไปที่ตลาดรถ"
+            >
+              <Car className="w-3.5 h-3.5 text-orange-400" />
+              <span>ไปที่ตลาดรถ</span>
+            </button>
             <button
               onClick={() => setShowMobileProps(!showMobileProps)}
               className="xl:hidden text-xs bg-slate-800 border border-slate-700 text-orange-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:bg-slate-700/80 transition cursor-pointer"

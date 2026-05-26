@@ -420,7 +420,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 </button>
                 {showDraftIdDebug && (
                   <p className="text-[9px] text-slate-600 font-mono">
-                    Draft ID: {message.savedDraftId}
+                    รหัสฉบับร่าง: {message.savedDraftId}
                   </p>
                 )}
               </div>

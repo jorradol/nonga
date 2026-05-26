@@ -74,6 +74,14 @@ export function DealerDraftsPage({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+
+  const scrollToStatus = () => {
+    requestAnimationFrame(() => {
+      statusRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +98,26 @@ export function DealerDraftsPage({
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
+    const onDraftSaved = (event: Event) => {
+      const draftId =
+        event instanceof CustomEvent && typeof event.detail?.draftId === "string"
+          ? event.detail.draftId
+          : null;
+      void load().then(() => {
+        if (draftId) {
+          requestAnimationFrame(() => {
+            document
+              .getElementById(`dealer-draft-card-${draftId}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+        }
+      });
+    };
+    window.addEventListener("nonga-dealer-draft-saved", onDraftSaved);
+    return () => window.removeEventListener("nonga-dealer-draft-saved", onDraftSaved);
   }, [load]);
 
   useEffect(() => {
@@ -148,6 +176,7 @@ export function DealerDraftsPage({
 
   const tryPublish = async (id: string) => {
     setPublishError(null);
+    setSaveSuccess(null);
     const draft = drafts.find((d) => d.id === id);
     if (draft) {
       const guard = draftPublishCheck(draft);
@@ -172,6 +201,7 @@ export function DealerDraftsPage({
       }
       logTechnicalError("DealerDraftsPage.publish", e);
       setPublishError(toUserFacingError(e, "ลงขายไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง"));
+      scrollToStatus();
     }
   };
 
@@ -179,6 +209,7 @@ export function DealerDraftsPage({
     if (!deleteConfirmId || deleting) return;
     setDeleting(true);
     setDeleteError(null);
+    setSaveSuccess(null);
     try {
       await deleteDealerDraft(apiHeaders, deleteConfirmId);
       if (imageEdit && editingId === deleteConfirmId) {
@@ -189,6 +220,7 @@ export function DealerDraftsPage({
       setDrafts((prev) => prev.filter((x) => x.id !== deleteConfirmId));
       setDeleteConfirmId(null);
       setDeleteSuccess("ลบประกาศเรียบร้อยแล้วครับ");
+      scrollToStatus();
       onFocusDraftConsumed?.();
       if (typeof window !== "undefined") {
         window.history.replaceState(null, "", DEALER_DRAFTS_PATH);
@@ -199,6 +231,7 @@ export function DealerDraftsPage({
           ? e.message
           : "ลบประกาศไม่สำเร็จครับ รบกวนลองใหม่อีกครั้ง";
       setDeleteError(msg);
+      scrollToStatus();
       try {
         const env = (import.meta as { env?: { DEV?: boolean } }).env;
         if (env?.DEV) console.error("[DealerDraftsPage] delete failed", e);
@@ -213,6 +246,8 @@ export function DealerDraftsPage({
   const saveDraft = async (d: DealerDraftRecord) => {
     setSaving(true);
     setError(null);
+    setSaveSuccess(null);
+    setDeleteSuccess(null);
     try {
       const patch: Record<string, unknown> = {
         brand: String(form.brand ?? d.brand),
@@ -230,9 +265,12 @@ export function DealerDraftsPage({
       setImageEdit(null);
       setImageEditDirty(false);
       await load();
+      setSaveSuccess("บันทึกประกาศเรียบร้อยแล้วครับ");
+      scrollToStatus();
     } catch (e) {
       logTechnicalError("DealerDraftsPage.save", e);
       setError(toUserFacingError(e, "บันทึกประกาศไม่สำเร็จครับ"));
+      scrollToStatus();
     } finally {
       setSaving(false);
     }
@@ -268,24 +306,26 @@ export function DealerDraftsPage({
         เติมรูป ยี่ห้อ รุ่น ราคา และปีรถให้ครบก่อนกดลงขาย — ระบบจะบอกว่ายังขาดอะไร
       </p>
 
-      {deleteSuccess && (
-        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-sm">
-          {deleteSuccess}
-        </div>
-      )}
-      {publishError && (
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm flex gap-2">
-          <AlertTriangle className="w-5 h-5 shrink-0" />
-          {publishError}
-        </div>
-      )}
-      {deleteError && (
-        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-200 text-sm flex gap-2">
-          <AlertTriangle className="w-5 h-5 shrink-0" />
-          {deleteError}
-        </div>
-      )}
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      <div ref={statusRef} className="scroll-mt-24 space-y-2">
+        {(saveSuccess || deleteSuccess) && (
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-sm">
+            {saveSuccess || deleteSuccess}
+          </div>
+        )}
+        {publishError && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm flex gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            {publishError}
+          </div>
+        )}
+        {deleteError && (
+          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-200 text-sm flex gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            {deleteError}
+          </div>
+        )}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+      </div>
 
       {loading ? (
         <Loader2 className="w-6 h-6 animate-spin text-orange-400 mx-auto" />
