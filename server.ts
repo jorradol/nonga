@@ -108,6 +108,17 @@ app.use(
   express.static(getListingImagesRoot(), { maxAge: "7d", fallthrough: false })
 );
 
+app.get("/api/health", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "nonga",
+    dataBackend: process.env.NONGA_DATA_BACKEND ?? "file",
+    imageBackend: process.env.NONGA_IMAGE_BACKEND ?? "file",
+    publicSignupEnabled:
+      process.env.VITE_NONGA_PUBLIC_SIGNUP_ENABLED === "true",
+  });
+});
+
 // Initialize Gemini Client
 function hasGeminiApiKey(): boolean {
   const key = (process.env.GEMINI_API_KEY ?? "").trim();
