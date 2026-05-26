@@ -28,7 +28,8 @@ export async function uploadListingImagesApi(
     name: string;
     originalFileName?: string;
     source?: "chat-image-attachment-v1" | "draft-upload";
-  }>
+  }>,
+  options: { throwIfNone?: boolean } = {}
 ): Promise<{
   storedUrls: string[];
   thumbnails: string[];
@@ -41,11 +42,18 @@ export async function uploadListingImagesApi(
   const failed: Array<{ name: string; error: string }> = [];
 
   for (const file of files) {
-    const res = await fetch(uploadPath(target, listingId), {
-      method: "POST",
-      headers: await headers(h),
-      body: JSON.stringify({ files: [file], source: file.source }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(uploadPath(target, listingId), {
+        method: "POST",
+        headers: await headers(h),
+        body: JSON.stringify({ files: [file], source: file.source }),
+      });
+    } catch {
+      warnings.push(`${file.name}: ${UPLOAD_FAIL_THAI}`);
+      failed.push({ name: file.name, error: UPLOAD_FAIL_THAI });
+      continue;
+    }
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       const raw =
@@ -80,7 +88,7 @@ export async function uploadListingImagesApi(
     if (data.failed?.length) failed.push(...data.failed);
   }
 
-  if (storedUrls.length === 0 && files.length > 0) {
+  if ((options.throwIfNone ?? true) && storedUrls.length === 0 && files.length > 0) {
     throw new Error(
       warnings.length > 0 ? warnings.join(" · ") : UPLOAD_FAIL_THAI
     );

@@ -88,7 +88,8 @@ async function uploadChatImagesToDraft(
     { dealerId, role },
     draftId,
     "draft",
-    payloads
+    payloads,
+    { throwIfNone: false }
   );
 }
 
@@ -412,18 +413,20 @@ export function useChat() {
                       );
                       clearChatImagesForDraft(storageScopeKey, sessionId);
                       const failedCount = uploadResult.failed?.length ?? 0;
-                      if (uploadResult.storedUrls.length > 0) {
+                      const uploadedCount = uploadResult.storedUrls.length;
+                      const totalCount = imagesToUpload.length;
+                      if (uploadedCount > 0) {
                         missingFields = resolveMissingFieldsAfterChatImageUpload(
                           missingFields,
                           uploadResult.storedUrls
                         );
                         uploadNote =
                           failedCount > 0
-                            ? "\n\nแนบรูปที่อัปโหลดสำเร็จไปกับประกาศแล้วครับ แต่มีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบในหน้าประกาศที่ยังไม่ลงขายอีกครั้ง"
-                            : "\n\nแนบรูปจากแชทไปกับประกาศแล้วครับ";
-                      } else if (failedCount > 0) {
+                            ? `\n\nแนบรูปสำเร็จ ${uploadedCount} จาก ${totalCount} รูปครับ มีบางรูปอัปโหลดไม่สำเร็จ กรุณาตรวจสอบในหน้าประกาศที่ยังไม่ลงขายอีกครั้ง`
+                            : `\n\nแนบรูปภาพแล้ว ${uploadedCount} รูปครับ`;
+                      } else if (failedCount > 0 || totalCount > 0) {
                         uploadNote =
-                          "\n\nมีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบรูปภาพในหน้าประกาศที่ยังไม่ลงขายอีกครั้ง";
+                          `\n\nแนบรูปไม่สำเร็จทั้งหมด ${totalCount} รูป กรุณาลองอัปโหลดใหม่ในหน้าประกาศที่ยังไม่ลงขาย`;
                       }
                     } catch (uploadErr) {
                       console.error("[chat-image-attachment-v1-upload]", {
@@ -435,7 +438,7 @@ export function useChat() {
                             : String(uploadErr),
                       });
                       uploadNote =
-                        "\n\nมีบางรูปที่อัปโหลดไม่สำเร็จ กรุณาตรวจสอบรูปภาพในหน้า Draft อีกครั้ง";
+                        `\n\nแนบรูปไม่สำเร็จทั้งหมด ${imagesToUpload.length} รูป กรุณาลองอัปโหลดใหม่ในหน้าประกาศที่ยังไม่ลงขาย`;
                     }
                   }
 

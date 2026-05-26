@@ -449,43 +449,68 @@ export function registerDealerPortalRoutes(
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
 
-    const result = await persistPasteUploadedImages(
-      ctx.dealerId,
-      req.params.id,
-      req.body?.files
-    );
-    if (result.ok === false) {
-      return res.status(result.status).json({
+    try {
+      const result = await persistPasteUploadedImages(
+        ctx.dealerId,
+        req.params.id,
+        req.body?.files
+      );
+      if (result.ok === false) {
+        return res.status(result.status).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      if (result.storedUrls.length > 0) {
+        const uploadSource =
+          req.body?.source === "chat-image-attachment-v1"
+            ? "chat-image-attachment-v1"
+            : "draft-upload";
+        const merged = [...(draft.images ?? []), ...result.storedUrls];
+        const existingMetadata = draft.imageMetadata ?? [];
+        const nextMetadata = [
+          ...existingMetadata,
+          ...(result.metadata ?? []).map((item, index) => ({
+            ...item,
+            dealerId: ctx.dealerId,
+            draftId: req.params.id,
+            source: uploadSource,
+            sortOrder: existingMetadata.length + index,
+          })),
+        ];
+        const missingFields = validateDraftForPublish({
+          id: draft.id,
+          brand: draft.brand,
+          model: draft.model,
+          year: draft.year,
+          price: draft.price,
+          mileage: draft.mileage,
+          images: merged,
+          sourceImageUrls: merged,
+        }).missingFields;
+        await inventoryRepository.drafts.updateDraft(ctx.dealerId, req.params.id, {
+          images: merged,
+          sourceImageUrls: merged,
+          imageMetadata: nextMetadata,
+          missingFields,
+        });
+      }
+
+      res.json({ success: true, data: result });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "อัปโหลดรูปไม่สำเร็จครับ กรุณาลองใหม่อีกครั้ง";
+      console.error("[POST /api/dealer/drafts/:id/upload-images]", {
+        draftId: req.params.id,
+        dealerId: ctx.dealerId,
+        error: message,
+      });
+      res.status(500).json({
         success: false,
-        message: result.message,
+        message: "อัปโหลดรูปไม่สำเร็จครับ กรุณาลองใหม่อีกครั้ง",
       });
     }
-
-    if (result.storedUrls.length > 0) {
-      const uploadSource =
-        req.body?.source === "chat-image-attachment-v1"
-          ? "chat-image-attachment-v1"
-          : "draft-upload";
-      const merged = [...(draft.images ?? []), ...result.storedUrls];
-      const existingMetadata = draft.imageMetadata ?? [];
-      const nextMetadata = [
-        ...existingMetadata,
-        ...(result.metadata ?? []).map((item, index) => ({
-          ...item,
-          dealerId: ctx.dealerId,
-          draftId: req.params.id,
-          source: uploadSource,
-          sortOrder: existingMetadata.length + index,
-        })),
-      ];
-      await inventoryRepository.drafts.updateDraft(ctx.dealerId, req.params.id, {
-        images: merged,
-        sourceImageUrls: merged,
-        imageMetadata: nextMetadata,
-      });
-    }
-
-    res.json({ success: true, data: result });
   });
 
   app.post("/api/dealer/drafts/:id/publish", async (req, res) => {

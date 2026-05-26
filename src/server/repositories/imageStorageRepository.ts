@@ -143,6 +143,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function resolveConfiguredStorageBucket(projectId?: string): string {
+  return (
+    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
+    process.env.VITE_FIREBASE_STORAGE_BUCKET?.trim() ||
+    (projectId ? `${projectId}.${DEFAULT_FIREBASE_BUCKET_SUFFIX}` : "")
+  );
+}
+
 function filenameFromUrl(url: string): string {
   return url.split("/").pop() ?? "";
 }
@@ -646,10 +654,7 @@ function initializeImageStorageAdminApp() {
     process.env.NONGA_FIREBASE_PROJECT_ID?.trim() ||
     process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
     process.env.GCLOUD_PROJECT?.trim();
-  const storageBucket =
-    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
-    process.env.VITE_FIREBASE_STORAGE_BUCKET?.trim() ||
-    (projectId ? `${projectId}.${DEFAULT_FIREBASE_BUCKET_SUFFIX}` : "");
+  const storageBucket = resolveConfiguredStorageBucket(projectId);
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
   if (serviceAccountJson) {
     return initializeApp({
@@ -684,8 +689,12 @@ export function createImageStorageRepository(
 ): ImageStorageRepository {
   if (backend === "firebase-storage") {
     const app = initializeImageStorageAdminApp();
+    const bucketName = resolveConfiguredStorageBucket(app.options.projectId);
+    if (!bucketName) {
+      throw new Error("FIREBASE_STORAGE_BUCKET is required for firebase-storage image uploads");
+    }
     return new FirebaseStorageImageRepository(
-      getStorage(app).bucket() as unknown as FirebaseBucketLike
+      getStorage(app).bucket(bucketName) as unknown as FirebaseBucketLike
     );
   }
   return new FileImageStorageRepository();
