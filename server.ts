@@ -20,6 +20,7 @@ import {
   addMarketplaceCar,
   buildAIInventoryContext,
   devMarketplaceLog,
+  resolveCarDealerId,
   type MarketplaceCarRecord,
 } from "./src/server/marketplaceInventory";
 import {
@@ -47,6 +48,7 @@ import {
   registerJsonBodyParsers,
   registerPayloadTooLargeHandler,
 } from "./src/server/httpBodyLimits";
+import { createInventoryRepository } from "./src/server/repositories/inventoryRepository";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
   return getPublishedMarketplaceCars();
@@ -99,6 +101,7 @@ dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
+const inventoryRepository = createInventoryRepository();
 
 registerJsonBodyParsers(app);
 
@@ -140,25 +143,23 @@ if (hasGeminiApiKey()) {
   });
 }
 
-// 1. API: Get marketplace listings (persisted file — source of truth)
-app.get("/api/cars", (req, res) => {
+// 1. API: Get marketplace listings
+app.get("/api/cars", async (req, res) => {
   const ownerId =
     typeof req.query.ownerId === "string" ? req.query.ownerId : undefined;
-  let data = getLiveInventory();
+  let data = await inventoryRepository.listings.listPublished();
   const dealerId =
     typeof req.query.dealerId === "string" ? req.query.dealerId : undefined;
   if (ownerId) {
-    data = getOwnerMarketplaceCars(ownerId);
+    data = data.filter((c) => c.ownerId === ownerId);
   }
   if (dealerId) {
-    data = data.filter(
-      (c) => (c.dealerId ?? c.ownerId) === dealerId
-    );
+    data = data.filter((c) => resolveCarDealerId(c) === dealerId);
   }
   devMarketplaceLog("GET /api/cars", {
     count: data.length,
     ownerId: ownerId ?? "all",
-    source: "data/marketplace-inventory.json",
+    source: inventoryRepository.backend,
   });
   res.json({ success: true, count: data.length, data });
 });
@@ -219,8 +220,11 @@ app.post("/api/cars", async (req, res) => {
     console.log(`[POST /api/cars] payload ~${approxSize} bytes, images=${safeImages.length}`);
   }
 
-  addMarketplaceCar(newCar);
-  res.json({ success: true, data: newCar });
+  const created = await inventoryRepository.listings.createListing(
+    ownership.dealerId || ownership.ownerId,
+    newCar
+  );
+  res.json({ success: true, data: created });
 });
 
 // API auth guards (stub — เตรียมต่อ Firebase ID token)
@@ -350,7 +354,7 @@ app.delete("/api/admin/draft-inventory/:id", (req, res) => {
   res.json({ success: true });
 });
 
-registerDealerPortalRoutes(app);
+registerDealerPortalRoutes(app, { inventoryRepository });
 registerDuplicateRoutes(app);
 registerOwnerListingRoutes(app);
 registerPayloadTooLargeHandler(app);

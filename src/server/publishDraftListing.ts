@@ -13,6 +13,7 @@ import {
   duplicateFieldsFromMeta,
 } from "./duplicateDetectionService";
 import { migrateListingImagesToCarId } from "./listingImageStorage";
+import { resolveImageStorageBackend } from "./repositories/imageStorageRepository";
 import {
   validateDraftForPublish,
   type PublishRequiredFieldKey,
@@ -63,11 +64,10 @@ export async function publishDealerDraftToMarketplace(
       : new Date().getFullYear();
 
   const carId = `car-${Date.now()}`;
-  const images = migrateListingImagesToCarId(
-    draftId,
-    carId,
-    draft.images ?? []
-  );
+  const images =
+    resolveImageStorageBackend() === "firebase-storage"
+      ? draft.images ?? []
+      : migrateListingImagesToCarId(draftId, carId, draft.images ?? []);
 
   const car: MarketplaceCarRecord = {
     id: carId,
@@ -85,6 +85,7 @@ export async function publishDealerDraftToMarketplace(
     mileage: draft.mileage || 0,
     fuelType: draft.fuelType || "petrol",
     images,
+    imageMetadata: draft.imageMetadata,
     description: draft.description?.trim() || draft.title || "",
     dealerId: normalizeDealerId(draft.dealerId),
     ownerId: `owner-${normalizeDealerId(draft.dealerId)}`,

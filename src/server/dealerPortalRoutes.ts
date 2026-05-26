@@ -1,19 +1,15 @@
 import type { Express, Request, Response } from "express";
 import {
-  getDealerInventoryCars,
   getMarketplaceCarById,
-  updateMarketplaceCar,
-  removeMarketplaceCar,
-  setMarketplaceCarListingStatus,
 } from "./marketplaceInventory";
 import {
   getDealerDraftById,
-  getDealerDraftsSorted,
-  updateDealerDraft,
-  bulkAddDealerDrafts,
-  removeDealerDraft,
+  type DealerDraftRecord,
 } from "./dealerDraftInventory";
-import { publishDealerDraftToMarketplace } from "./publishDraftListing";
+import {
+  createInventoryRepository,
+  type InventoryRepository,
+} from "./repositories/inventoryRepository";
 import { getDealerProfile, upsertDealerProfile } from "./dealerProfile";
 import {
   parseDealerRequestScope,
@@ -31,7 +27,6 @@ import {
 import { persistPasteUploadedImages } from "./pasteUploadedImageStorage";
 import type { ImageLinkCandidate } from "../utils/inventoryImport/imageLinkExtractor";
 import {
-  isMissingFieldsPublishError,
   publishGuardApiBody,
   validateDraftForPublish,
 } from "../utils/dealerPublishGuard";
@@ -53,22 +48,23 @@ function scopeOr403(req: Request, res: Response) {
   return { scope, dealerId: auth.dealerId };
 }
 
-function listingIdBelongsToDealer(
+async function listingIdBelongsToDealer(
+  inventoryRepository: InventoryRepository,
   listingId: string,
   dealerId: string
-): { ok: true } | { ok: false; status: number; message: string } {
+): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
   if (/^draft-import-[0-9]+-d\d+$/.test(listingId)) {
     return { ok: true };
   }
 
-  const car = getMarketplaceCarById(listingId);
+  const car = await inventoryRepository.listings.getById(listingId);
   if (car) {
     return carBelongsToDealer(car, dealerId)
       ? { ok: true }
       : { ok: false, status: 403, message: "ไม่มีสิทธิ์จัดการรูปของประกาศนี้" };
   }
 
-  const draft = getDealerDraftById(listingId);
+  const draft = await inventoryRepository.drafts.getById(dealerId, listingId);
   if (draft) {
     return draftBelongsToDealer(draft, dealerId)
       ? { ok: true }
@@ -82,8 +78,18 @@ function listingIdBelongsToDealer(
   return { ok: false, status: 400, message: "รหัสประกาศไม่ถูกต้อง" };
 }
 
-export function registerDealerPortalRoutes(app: Express): void {
-  app.post("/api/dealer/drafts/new", (req, res) => {
+export interface DealerPortalRouteOptions {
+  inventoryRepository?: InventoryRepository;
+}
+
+export function registerDealerPortalRoutes(
+  app: Express,
+  options: DealerPortalRouteOptions = {}
+): void {
+  const inventoryRepository =
+    options.inventoryRepository ?? createInventoryRepository();
+
+  app.post("/api/dealer/drafts/new", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
     const body = req.body ?? {};
@@ -161,16 +167,16 @@ export function registerDealerPortalRoutes(app: Express): void {
     };
 
     try {
-      bulkAddDealerDrafts([newDraft]);
+      const created = await inventoryRepository.drafts.createDraft(ctx.dealerId, newDraft);
       if (process.env.NODE_ENV !== "production") {
         console.log("[POST /api/dealer/drafts/new] created", {
-          id: newDraft.id,
+          id: created.id,
           dealerId: ctx.dealerId,
           brand,
           model,
         });
       }
-      res.json({ success: true, data: newDraft });
+      res.json({ success: true, data: created });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create draft";
       console.error("[POST /api/dealer/drafts/new] Error:", err);
@@ -178,11 +184,14 @@ export function registerDealerPortalRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/dealer/dashboard", (req, res) => {
+  app.get("/api/dealer/dashboard", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const cars = filterCarsForDealer(getDealerInventoryCars(ctx.dealerId), ctx.dealerId);
-    const drafts = getDealerDraftsSorted(ctx.dealerId);
+    const cars = filterCarsForDealer(
+      await inventoryRepository.listings.listByDealer(ctx.dealerId),
+      ctx.dealerId
+    );
+    const drafts = await inventoryRepository.drafts.listByDealer(ctx.dealerId);
     const published = cars.filter((c) => c.listingStatus !== "hidden").length;
     const hidden = cars.filter((c) => c.listingStatus === "hidden").length;
     const noImages = cars.filter(
@@ -216,10 +225,10 @@ export function registerDealerPortalRoutes(app: Express): void {
     });
   });
 
-  app.get("/api/dealer/inventory", (req, res) => {
+  app.get("/api/dealer/inventory", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    let cars = getDealerInventoryCars(ctx.dealerId);
+    let cars = await inventoryRepository.listings.listByDealer(ctx.dealerId);
     const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
     if (q) {
       cars = cars.filter(
@@ -232,15 +241,15 @@ export function registerDealerPortalRoutes(app: Express): void {
     res.json({ success: true, count: cars.length, data: cars });
   });
 
-  app.patch("/api/dealer/inventory/:id", (req, res) => {
+  app.patch("/api/dealer/inventory/:id", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const car = getMarketplaceCarById(req.params.id);
+    const car = await inventoryRepository.listings.getById(req.params.id);
     if (!car || !carBelongsToDealer(car, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบรถ" });
     }
     const body = req.body ?? {};
-    const updated = updateMarketplaceCar(req.params.id, {
+    const updated = await inventoryRepository.listings.updateListing(ctx.dealerId, req.params.id, {
       brand: body.brand,
       model: body.model,
       year: body.year != null ? Number(body.year) : undefined,
@@ -257,7 +266,7 @@ export function registerDealerPortalRoutes(app: Express): void {
   app.post("/api/dealer/inventory/:id/upload-images", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const car = getMarketplaceCarById(req.params.id);
+    const car = await inventoryRepository.listings.getById(req.params.id);
     if (!car || !carBelongsToDealer(car, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบรถ" });
     }
@@ -283,43 +292,44 @@ export function registerDealerPortalRoutes(app: Express): void {
     res.json({ success: true, data: result });
   });
 
-  app.patch("/api/dealer/inventory/:id/visibility", (req, res) => {
+  app.patch("/api/dealer/inventory/:id/visibility", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const car = getMarketplaceCarById(req.params.id);
+    const car = await inventoryRepository.listings.getById(req.params.id);
     if (!car || !carBelongsToDealer(car, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบรถ" });
     }
     const hidden = Boolean(req.body?.hidden);
-    const updated = setMarketplaceCarListingStatus(
+    const updated = await inventoryRepository.listings.updateVisibility(
+      ctx.dealerId,
       req.params.id,
       hidden ? "hidden" : "published"
     );
     res.json({ success: true, data: updated });
   });
 
-  app.delete("/api/dealer/inventory/:id", (req, res) => {
+  app.delete("/api/dealer/inventory/:id", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const car = getMarketplaceCarById(req.params.id);
+    const car = await inventoryRepository.listings.getById(req.params.id);
     if (!car || !carBelongsToDealer(car, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบรถ" });
     }
-    removeMarketplaceCar(req.params.id);
+    await inventoryRepository.listings.deleteListing(ctx.dealerId, req.params.id);
     res.json({ success: true });
   });
 
-  app.get("/api/dealer/drafts", (req, res) => {
+  app.get("/api/dealer/drafts", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const data = getDealerDraftsSorted(ctx.dealerId);
+    const data = await inventoryRepository.drafts.listByDealer(ctx.dealerId);
     res.json({ success: true, count: data.length, data });
   });
 
-  app.patch("/api/dealer/drafts/:id", (req, res) => {
+  app.patch("/api/dealer/drafts/:id", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const draft = getDealerDraftById(req.params.id);
+    const draft = await inventoryRepository.drafts.getById(ctx.dealerId, req.params.id);
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
@@ -341,7 +351,7 @@ export function registerDealerPortalRoutes(app: Express): void {
         : draft.normalizedData.imageUrls;
     }
 
-    const patch: Parameters<typeof updateDealerDraft>[1] = {
+    const patch: Partial<DealerDraftRecord> = {
       normalizedData: normalized,
     };
     if (has("brand")) patch.brand = String(body.brand ?? "");
@@ -375,11 +385,11 @@ export function registerDealerPortalRoutes(app: Express): void {
       sourceImageUrls: nextDraft.sourceImageUrls,
     }).missingFields;
 
-    const updated = updateDealerDraft(req.params.id, patch);
+    const updated = await inventoryRepository.drafts.updateDraft(ctx.dealerId, req.params.id, patch);
     res.json({ success: true, data: updated });
   });
 
-  app.delete("/api/dealer/drafts/:id", (req, res) => {
+  app.delete("/api/dealer/drafts/:id", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
 
@@ -388,7 +398,7 @@ export function registerDealerPortalRoutes(app: Express): void {
       return res.status(400).json({ success: false, message: "ไม่พบรหัสประกาศ" });
     }
 
-    const draft = getDealerDraftById(draftId);
+    const draft = await inventoryRepository.drafts.getById(ctx.dealerId, draftId);
     if (!draft) {
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
@@ -406,7 +416,7 @@ export function registerDealerPortalRoutes(app: Express): void {
       });
     }
 
-    const removed = removeDealerDraft(draftId);
+    const removed = await inventoryRepository.drafts.deleteDraft(ctx.dealerId, draftId);
     if (!removed) {
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
@@ -434,7 +444,7 @@ export function registerDealerPortalRoutes(app: Express): void {
   app.post("/api/dealer/drafts/:id/upload-images", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const draft = getDealerDraftById(req.params.id);
+    const draft = await inventoryRepository.drafts.getById(ctx.dealerId, req.params.id);
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
@@ -468,7 +478,7 @@ export function registerDealerPortalRoutes(app: Express): void {
           sortOrder: existingMetadata.length + index,
         })),
       ];
-      updateDealerDraft(req.params.id, {
+      await inventoryRepository.drafts.updateDraft(ctx.dealerId, req.params.id, {
         images: merged,
         sourceImageUrls: merged,
         imageMetadata: nextMetadata,
@@ -481,7 +491,7 @@ export function registerDealerPortalRoutes(app: Express): void {
   app.post("/api/dealer/drafts/:id/publish", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
-    const draft = getDealerDraftById(req.params.id);
+    const draft = await inventoryRepository.drafts.getById(ctx.dealerId, req.params.id);
     if (!draft || !draftBelongsToDealer(draft, ctx.dealerId)) {
       return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
     }
@@ -499,15 +509,15 @@ export function registerDealerPortalRoutes(app: Express): void {
       return res.status(400).json(publishGuardApiBody(guard));
     }
     try {
-      const result = await publishDealerDraftToMarketplace(req.params.id);
+      const result = await inventoryRepository.publishDraft(ctx.dealerId, req.params.id);
       if ("error" in result) {
-        if (isMissingFieldsPublishError(result)) {
+        if (result.error === "missing_required_fields") {
           return res.status(400).json({
             success: false,
             error: result.error,
             message: result.message,
-            missingFields: result.missingFields,
-            missingLabelsThai: result.missingLabelsThai,
+            missingFields: result.missingFields ?? [],
+            missingLabelsThai: result.missingLabelsThai ?? [],
           });
         }
         return res.status(400).json({ success: false, message: result.error });
@@ -657,7 +667,11 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!listingId) {
       return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
     }
-    const listingScope = listingIdBelongsToDealer(listingId, ctx.dealerId);
+    const listingScope = await listingIdBelongsToDealer(
+      inventoryRepository,
+      listingId,
+      ctx.dealerId
+    );
     if (listingScope.ok === false) {
       return res
         .status(listingScope.status)
@@ -687,7 +701,11 @@ export function registerDealerPortalRoutes(app: Express): void {
     if (!listingId) {
       return res.status(400).json({ success: false, message: "ต้องระบุ listingId" });
     }
-    const listingScope = listingIdBelongsToDealer(listingId, ctx.dealerId);
+    const listingScope = await listingIdBelongsToDealer(
+      inventoryRepository,
+      listingId,
+      ctx.dealerId
+    );
     if (listingScope.ok === false) {
       return res
         .status(listingScope.status)

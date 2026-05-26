@@ -62,6 +62,7 @@ export interface PublishDraftResult {
   error?: string;
   message?: string;
   missingFields?: string[];
+  missingLabelsThai?: string[];
 }
 
 export interface InventoryRepository {
@@ -395,6 +396,7 @@ export class FirestoreInventoryRepository implements InventoryRepository {
         error: "missing_required_fields",
         message: "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด",
         missingFields: [...guard.missingFields],
+        missingLabelsThai: [...guard.missingLabelsThai],
       };
     }
 
@@ -419,6 +421,7 @@ export class FirestoreInventoryRepository implements InventoryRepository {
       mileage: draft.mileage || 0,
       fuelType: draft.fuelType || "petrol",
       images: draft.images ?? [],
+      imageMetadata: draft.imageMetadata,
       description: draft.description?.trim() || draft.title || "",
       dealerId: normalizeScope(draft.dealerId),
       ownerId: `owner-${normalizeScope(draft.dealerId)}`,

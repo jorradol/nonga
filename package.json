@@ -39,6 +39,7 @@
     "test:v50-image-storage-repository": "tsx scripts/test-v50-image-storage-repository.mts",
     "test:v50-data-migration": "tsx scripts/test-v50-data-migration.mts",
     "test:v50-migration-integration": "tsx scripts/test-v50-migration-integration.mts",
+    "test:v53-clean-storage-readiness": "tsx scripts/test-v53-clean-firestore-storage-readiness.mts",
     "migrate:v50-file-data": "tsx scripts/migrate-v50-file-data-to-firestore-storage.mts",
     "seed:v50-firebase-role-test-users": "tsx scripts/seed-v50-firebase-role-test-users.mts",
     "test:dealer-demo-login": "tsx scripts/test-dealer-demo-login.mts",

@@ -20,6 +20,7 @@ export interface MarketplaceCarRecord {
   transmission?: string;
   color?: string;
   images: string[];
+  imageMetadata?: unknown[];
   description: string;
   ownerId: string;
   ownerName: string;
