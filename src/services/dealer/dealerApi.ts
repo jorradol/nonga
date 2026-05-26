@@ -52,6 +52,7 @@ export interface DealerDraftRecord {
   year: number;
   price: number;
   mileage: number;
+  description?: string;
   images: string[];
   imageMetadata?: Array<{
     dealerId: string;

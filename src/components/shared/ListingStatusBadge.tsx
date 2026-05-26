@@ -54,9 +54,8 @@ export function ListingStatusBadge({ variant, className = "" }: Props) {
   );
 }
 
-/** สถานะประกาศร่างจาก record ใน Dealer Portal */
-export function draftRecordStatusVariant(
-  status: "draft" | "needs_review",
+/** สถานะประกาศร่างต้องอิง publish guard เป็นหลัก ไม่ใช่ record status เดิม */
+export function draftPublishReadinessStatusVariant(
   publishReady: boolean,
   missingImage: boolean
 ): ListingStatusVariant {

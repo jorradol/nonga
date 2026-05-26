@@ -4,7 +4,7 @@ import { Loader2, Send, AlertTriangle, ImagePlus, Trash2, FileEdit } from "lucid
 import { EmptyState } from "../shared/EmptyState";
 import {
   ListingStatusBadge,
-  draftRecordStatusVariant,
+  draftPublishReadinessStatusVariant,
 } from "../shared/ListingStatusBadge";
 import { logTechnicalError, toUserFacingError } from "../../utils/userFacingErrors";
 import type { DealerApiHeaders, DealerDraftRecord } from "../../services/dealer/dealerApi";
@@ -346,8 +346,9 @@ export function DealerDraftsPage({
             );
             const needsConfidenceReview =
               publishCheck.ok && Number(d.confidenceScore) < 90;
-            const statusVariant = draftRecordStatusVariant(
-              d.status,
+            const needsSalesCopyReview =
+              publishCheck.ok && !String(d.description ?? "").trim();
+            const statusVariant = draftPublishReadinessStatusVariant(
               publishCheck.ok,
               missingImage
             );
@@ -397,6 +398,11 @@ export function DealerDraftsPage({
                       <p className="text-[10px] text-emerald-400/90">
                         ข้อมูลพร้อมเผยแพร่
                       </p>
+                      {needsSalesCopyReview && (
+                        <p className="text-[10px] text-amber-300/90">
+                          ยังไม่มีข้อความโพสต์ขาย แนะนำให้ให้น้องเอช่วยเขียนก่อนลงขาย
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="mt-1.5 space-y-1">
