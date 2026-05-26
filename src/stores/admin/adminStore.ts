@@ -72,12 +72,12 @@ interface AdminState {
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
-  // Default Session Admin is Super Admin to provide all keys in play immediately!
+  // Default to the least-privileged admin view until real auth state is applied.
   adminProfile: {
     id: "admin-101",
-    displayName: "คุณนันตวัฒน์ ชัยดี (Nong A Superadmin)",
-    email: "super.nong@gmail.com",
-    role: "superadmin"
+    displayName: "Nong A Admin",
+    email: "admin@local.invalid",
+    role: "admin"
   },
   
   activeTab: "dashboard",

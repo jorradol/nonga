@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAdmin } from "../../hooks/admin/useAdmin";
+import { useAuth } from "../../hooks/auth/useAuth";
+import { useRole } from "../../hooks/auth/useRole";
 import { useAppStore } from "../../store";
 import { AdminRole, PlatformUser, SupportTicket, ReportedItem } from "../../types";
 import { 
@@ -38,7 +40,32 @@ const aiRequestData = [
 
 export default function AdminDashboardView() {
   const adminState = useAdmin();
+  const { user, isSimulatedState } = useAuth();
+  const { role } = useRole();
   const { setView } = useAppStore();
+  const effectiveAdminRole: AdminRole =
+    role === "superadmin" ? "superadmin" : "admin";
+  const displayedAdminProfile = useMemo(
+    () => ({
+      displayName: user?.displayName || adminState.adminProfile.displayName,
+      email: user?.email || adminState.adminProfile.email,
+      role: effectiveAdminRole,
+    }),
+    [
+      adminState.adminProfile.displayName,
+      adminState.adminProfile.email,
+      effectiveAdminRole,
+      user?.displayName,
+      user?.email,
+    ]
+  );
+  const showRoleSwitcher = isSimulatedState;
+
+  useEffect(() => {
+    if (adminState.adminProfile.role !== effectiveAdminRole) {
+      adminState.setAdminRole(effectiveAdminRole);
+    }
+  }, [adminState.adminProfile.role, adminState.setAdminRole, effectiveAdminRole]);
   
   // Local active item details modal (for ticket replies & reports dialog)
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
@@ -93,23 +120,36 @@ export default function AdminDashboardView() {
             </div>
           </div>
 
-          {/* SIMULATED ROLE SELECTOR - Critical for developers sandbox auditing! */}
-          <div className="p-3.5 rounded-2xl bg-orange-500/5 border border-orange-550/15 space-y-2 text-left">
-            <span className="text-[9.5px] uppercase font-mono tracking-widest text-slate-500 font-extrabold block">บทบาทจำลอง (Interactive Role):</span>
-            <select
-              value={adminState.adminProfile.role}
-              onChange={(e) => adminState.setAdminRole(e.target.value as AdminRole)}
-              className="w-full p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-black tracking-wide text-orange-400 cursor-pointer focus:outline-none focus:border-orange-500"
-            >
-              <option value="superadmin">👑 Superadmin (Full Access)</option>
-              <option value="admin">💼 Admin (Operations)</option>
-              <option value="moderator">🛡️ Moderator (Compliance)</option>
-              <option value="AI manager">🤖 AI Manager (System Co-pilot)</option>
-            </select>
-            <p className="text-[9.5px] text-slate-450 leading-relaxed font-sans">
-              * แนะนำสลับลองเปลี่ยน เพื่อทดสอบสิทธิ์การจำกัดและการเข้าถึงปุ่มต่างๆ ในระบบ
-            </p>
-          </div>
+          {showRoleSwitcher ? (
+            <div className="p-3.5 rounded-2xl bg-orange-500/5 border border-orange-550/15 space-y-2 text-left">
+              <span className="text-[9.5px] uppercase font-mono tracking-widest text-slate-500 font-extrabold block">บทบาทจำลอง (Interactive Role):</span>
+              <select
+                value={adminState.adminProfile.role}
+                onChange={(e) => adminState.setAdminRole(e.target.value as AdminRole)}
+                className="w-full p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-black tracking-wide text-orange-400 cursor-pointer focus:outline-none focus:border-orange-500"
+              >
+                <option value="superadmin">Superadmin (Full Access)</option>
+                <option value="admin">Admin (Operations)</option>
+                <option value="moderator">Moderator (Compliance)</option>
+                <option value="AI manager">AI Manager (System Co-pilot)</option>
+              </select>
+              <p className="text-[9.5px] text-slate-450 leading-relaxed font-sans">
+                * ใช้เฉพาะโหมดจำลอง/พัฒนา เพื่อทดสอบสิทธิ์การจำกัดและการเข้าถึงปุ่มต่างๆ ในระบบ
+              </p>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-white/[0.06] space-y-1.5 text-left">
+              <span className="text-[9.5px] uppercase font-mono tracking-widest text-slate-500 font-extrabold block">บทบาทจริงจาก Firebase Profile</span>
+              <p className="text-[12px] font-black text-orange-400">
+                {displayedAdminProfile.role === "superadmin"
+                  ? "Superadmin"
+                  : "Admin"}
+              </p>
+              <p className="text-[9.5px] text-slate-450 leading-relaxed font-sans">
+                บทบาทนี้อ่านจากบัญชีที่เข้าสู่ระบบจริง ไม่เปิดให้สลับ role ใน staging
+              </p>
+            </div>
+          )}
 
           {/* Navigation Items stack */}
           <nav className="flex flex-col gap-1.5 pt-2">
@@ -257,14 +297,14 @@ export default function AdminDashboardView() {
               <img src="https://api.dicebear.com/7.x/bottts/svg?seed=NongBot" alt="admin avatar" className="w-full h-full object-cover" />
             </div>
             <div className="min-w-0">
-              <p className="text-white text-[12px] font-bold truncate leading-none mb-0.5">{adminState.adminProfile.displayName}</p>
-              <span className="text-[9px] text-slate-500 font-semibold font-mono tracking-wide block truncate">{adminState.adminProfile.email}</span>
+              <p className="text-white text-[12px] font-bold truncate leading-none mb-0.5">{displayedAdminProfile.displayName}</p>
+              <span className="text-[9px] text-slate-500 font-semibold font-mono tracking-wide block truncate">{displayedAdminProfile.email}</span>
             </div>
           </div>
           
           <div className="p-2 bg-slate-900 rounded-lg border border-slate-800 text-[10px] text-slate-400 flex items-center gap-1.5 leading-none">
             <ShieldCheck className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-            <span>ระดับ: <strong>{adminState.adminProfile.role.toUpperCase()}</strong></span>
+            <span>ระดับ: <strong>{displayedAdminProfile.role.toUpperCase()}</strong></span>
           </div>
         </div>
 
