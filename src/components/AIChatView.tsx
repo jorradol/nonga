@@ -8,7 +8,9 @@ import { ChatContainer } from "./chat/ChatContainer";
  * wrapping core panels under the ChatProvider state engine.
  */
 export default function AIChatView() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window === "undefined" ? true : window.innerWidth >= 768
+  );
 
   return (
     <ChatProvider>
