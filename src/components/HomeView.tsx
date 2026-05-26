@@ -13,6 +13,7 @@ import {
   AnimatedCard, 
   GlassToolbar 
 } from "./LayoutSystem";
+import { queuePendingChatMessage } from "../utils/pendingChatMessage";
 
 // Mock Trending Cars (Dynamic Highlight Showcase for Home Page)
 const TRENDING_CARS_SHOWCASE = [
@@ -120,6 +121,19 @@ export default function HomeView() {
     ]);
   };
 
+  const startNongAChat = (intent: "general" | "buyer" | "seller") => {
+    const prompts = {
+      general:
+        "สวัสดีน้องเอ ช่วยแนะนำหน่อยครับว่าถ้าอยากซื้อรถ ขายรถ หรือฝากขายรถ ควรเริ่มจากตรงไหน",
+      buyer:
+        "สวัสดีน้องเอ ผมต้องการซื้อรถ ช่วยถามงบประมาณ ไลฟ์สไตล์ และแนะนำประเภทรถที่เหมาะกับผมหน่อยครับ",
+      seller:
+        "สวัสดีน้องเอ ผมต้องการขายรถหรือฝากขายรถ ช่วยแนะนำข้อมูลที่ต้องเตรียม และช่วยร่างประกาศขายรถให้หน่อยครับ",
+    } satisfies Record<typeof intent, string>;
+    queuePendingChatMessage(prompts[intent]);
+    setView("chat");
+  };
+
   return (
     <div className="space-y-16 sm:space-y-24 pb-20 overflow-hidden relative">
       
@@ -139,7 +153,7 @@ export default function HomeView() {
           <h1 className={`font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.1] ${
             isDarkMode ? "text-white" : "text-slate-900"
           }`}>
-            ขายรถง่ายขึ้น ด้วย{" "}
+            คุยกับน้องเอ แล้วซื้อขายรถง่ายขึ้นด้วย{" "}
             <span className="relative inline-block text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-red-500">
               AI ผู้ช่วยมืออาชีพ
               <span className="absolute left-0 bottom-1 w-full h-[3px] bg-gradient-to-r from-orange-500 to-red-500 rounded-full opacity-60"></span>
@@ -149,30 +163,76 @@ export default function HomeView() {
           <p className={`text-base sm:text-xl font-sans max-w-2xl mx-auto leading-relaxed ${
             isDarkMode ? "text-slate-400" : "text-slate-600"
           }`}>
-            อัปโหลดรูปรถ แล้วให้น้องเอช่วยวิเคราะห์ประเมินราคา ตกแต่งเขียนโพสต์ลงขายรถด้วยลายเซ็นลายพรางสุดปังได้ทันที ปังปุริเย่ชัวร์! 🚗✨
+            อยากซื้อรถ ขายรถ หรือฝากขายรถ ให้คุยกับน้องเอได้เลย น้องเอช่วยถามต่อ แนะนำทางเลือก และพาไปขั้นตอนถัดไปแบบเข้าใจง่าย
           </p>
         </div>
 
         {/* Interactive CTA Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xl mx-auto">
           <button
-            onClick={() => setView("sell")}
-            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold text-sm sm:text-base rounded-2xl shadow-lg shadow-orange-600/20 hover:shadow-orange-600/35 hover:scale-[1.02] transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-orange-400/10 cursor-pointer"
+            onClick={() => startNongAChat("general")}
+            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-black text-base sm:text-lg rounded-2xl shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 hover:scale-[1.02] transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-orange-400/10 cursor-pointer"
           >
-            <PlusCircle className="w-5 h-5" />
-            <span>Start Selling / ลงทะเบียนขาย</span>
+            <MessageSquare className="w-5 h-5" />
+            <span>คุยกับน้องเอ</span>
           </button>
 
           <button
-            onClick={() => setView("chat")}
+            onClick={() => setView("marketplace")}
             className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-sm sm:text-base border transition-all flex items-center justify-center gap-2 cursor-pointer ${
               isDarkMode 
                 ? "bg-[#111113] border-white/10 text-slate-200 hover:text-white hover:bg-[#18181b] hover:border-orange-500/30" 
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-orange-500/40"
             }`}
           >
-            <Bot className="w-5 h-5 text-orange-500" />
-            <span>Talk with AI น้องเอ</span>
+            <Car className="w-5 h-5 text-orange-500" />
+            <span>ดูรถในตลาด</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
+          <button
+            type="button"
+            onClick={() => startNongAChat("buyer")}
+            className={`group text-left p-5 rounded-3xl border transition-all hover:-translate-y-0.5 active:scale-[0.99] ${
+              isDarkMode
+                ? "bg-white/[0.04] border-white/[0.08] hover:border-orange-500/35 hover:bg-orange-500/[0.07]"
+                : "bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-lg"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="h-11 w-11 rounded-2xl bg-orange-500/15 text-orange-500 flex items-center justify-center shrink-0">
+                <Search className="w-5 h-5" />
+              </span>
+              <span className="space-y-1.5">
+                <span className="block font-display font-black text-base">ฉันต้องการซื้อรถ</span>
+                <span className="block text-xs leading-relaxed text-slate-500">
+                  ให้น้องเอช่วยถามงบ ไลฟ์สไตล์ และแนะนำรถที่เหมาะกับคุณ
+                </span>
+              </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => startNongAChat("seller")}
+            className={`group text-left p-5 rounded-3xl border transition-all hover:-translate-y-0.5 active:scale-[0.99] ${
+              isDarkMode
+                ? "bg-white/[0.04] border-white/[0.08] hover:border-orange-500/35 hover:bg-orange-500/[0.07]"
+                : "bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-lg"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="h-11 w-11 rounded-2xl bg-orange-500/15 text-orange-500 flex items-center justify-center shrink-0">
+                <PlusCircle className="w-5 h-5" />
+              </span>
+              <span className="space-y-1.5">
+                <span className="block font-display font-black text-base">ฉันต้องการขายรถ / ฝากขายรถ</span>
+                <span className="block text-xs leading-relaxed text-slate-500">
+                  เริ่มคุยเพื่อเตรียมข้อมูลรถ รูปภาพ และร่างประกาศขาย
+                </span>
+              </span>
+            </div>
           </button>
         </div>
 
