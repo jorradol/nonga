@@ -15,6 +15,7 @@ import {
 import { publishDealerDraftToMarketplace } from "../src/server/publishDraftListing.ts";
 import { createEmptyNormalizedRow } from "../src/utils/inventoryImport/inventoryImportSchema.ts";
 import { THOR_AUTO_DEALER_ID } from "../src/utils/dealerIdentity.ts";
+import { resolveDraftCardStatusUi } from "../src/components/shared/ListingStatusBadge.tsx";
 
 const BASE = process.env.APP_URL ?? "http://localhost:3000";
 const TOKEN = process.env.NONGA_DEALER_API_TOKEN ?? "nonga-v4-dev-dealer-token";
@@ -110,6 +111,30 @@ async function main() {
 
   const v6 = validateDraftForPublish(completeDraft("x6"));
   ok("6-complete", v6.ok, v6.missingFields.join(","));
+
+  const readyDraftWithOldStatus = {
+    ...completeDraft("x6b"),
+    status: "needs_review" as const,
+    confidenceScore: 70,
+    description: "",
+  };
+  const readyDraftWithOldStatusGuard =
+    validateDraftForPublish(readyDraftWithOldStatus);
+  const readyNeedsReviewUi = resolveDraftCardStatusUi({
+    publishReady: readyDraftWithOldStatusGuard.ok,
+    missingImage: false,
+    confidenceScore: readyDraftWithOldStatus.confidenceScore,
+    description: readyDraftWithOldStatus.description,
+  });
+  ok(
+    "6b-ready-low-confidence-status",
+    readyDraftWithOldStatus.status === "needs_review" &&
+      readyNeedsReviewUi.variant === "ready-publish" &&
+      readyNeedsReviewUi.publishEnabled &&
+      readyNeedsReviewUi.needsConfidenceReview &&
+      readyNeedsReviewUi.needsSalesCopyReview,
+    JSON.stringify(readyNeedsReviewUi)
+  );
 
   const v7 = validateDraftForPublish({
     id: "x7",

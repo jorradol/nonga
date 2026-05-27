@@ -4,7 +4,7 @@ import { Loader2, Send, AlertTriangle, ImagePlus, Trash2, FileEdit } from "lucid
 import { EmptyState } from "../shared/EmptyState";
 import {
   ListingStatusBadge,
-  draftPublishReadinessStatusVariant,
+  resolveDraftCardStatusUi,
 } from "../shared/ListingStatusBadge";
 import { logTechnicalError, toUserFacingError } from "../../utils/userFacingErrors";
 import type { DealerApiHeaders, DealerDraftRecord } from "../../services/dealer/dealerApi";
@@ -344,14 +344,12 @@ export function DealerDraftsPage({
             const missingImage = publishCheck.missingLabelsThai.includes(
               "ขาดรูปภาพสินค้า"
             );
-            const needsConfidenceReview =
-              publishCheck.ok && Number(d.confidenceScore) < 90;
-            const needsSalesCopyReview =
-              publishCheck.ok && !String(d.description ?? "").trim();
-            const statusVariant = draftPublishReadinessStatusVariant(
-              publishCheck.ok,
-              missingImage
-            );
+            const cardStatus = resolveDraftCardStatusUi({
+              publishReady: publishCheck.ok,
+              missingImage,
+              confidenceScore: d.confidenceScore,
+              description: d.description,
+            });
             const fieldLabels: Record<string, string> = {
               brand: "ยี่ห้อ",
               model: "รุ่น",
@@ -373,7 +371,11 @@ export function DealerDraftsPage({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-sm">{d.title}</h3>
-                    <ListingStatusBadge variant={statusVariant} />
+                    <ListingStatusBadge
+                      variant={cardStatus.variant}
+                      publishReady={publishCheck.ok}
+                      missingImage={missingImage}
+                    />
                     <DuplicateBadge
                       status={
                         (d.duplicateStatus as
@@ -387,18 +389,18 @@ export function DealerDraftsPage({
                   </div>
                   <p
                     className={`text-[11px] ${
-                      needsConfidenceReview ? "text-amber-300/90" : "text-slate-500"
+                      cardStatus.needsConfidenceReview ? "text-amber-300/90" : "text-slate-500"
                     }`}
                   >
                     ความมั่นใจของข้อมูล {d.confidenceScore}%
-                    {needsConfidenceReview ? " — ควรตรวจทานก่อนลงขาย" : ""}
+                    {cardStatus.needsConfidenceReview ? " — ควรตรวจทานก่อนลงขาย" : ""}
                   </p>
                   {publishCheck.ok ? (
                     <div className="mt-1.5 space-y-1">
                       <p className="text-[10px] text-emerald-400/90">
                         ข้อมูลพร้อมเผยแพร่
                       </p>
-                      {needsSalesCopyReview && (
+                      {cardStatus.needsSalesCopyReview && (
                         <p className="text-[10px] text-amber-300/90">
                           ยังไม่มีข้อความโพสต์ขาย แนะนำให้ให้น้องเอช่วยเขียนก่อนลงขาย
                         </p>
@@ -443,15 +445,15 @@ export function DealerDraftsPage({
                   </button>
                   <button
                     type="button"
-                    disabled={!publishCheck.ok}
+                    disabled={!cardStatus.publishEnabled}
                     onClick={() => tryPublish(d.id)}
                     title={
-                      publishCheck.ok
+                      cardStatus.publishEnabled
                         ? "ลงขายประกาศนี้"
                         : "กรุณาแก้ไขข้อมูลที่ขาดก่อนลงขาย"
                     }
                     className={`min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-bold ${
-                      publishCheck.ok
+                      cardStatus.publishEnabled
                         ? "bg-green-600 hover:bg-green-500"
                         : "bg-slate-700/70 cursor-not-allowed opacity-60"
                     }`}

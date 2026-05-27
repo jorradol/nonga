@@ -40,11 +40,22 @@ const STYLES: Record<
 
 interface Props {
   variant: ListingStatusVariant;
+  publishReady?: boolean;
+  missingImage?: boolean;
   className?: string;
 }
 
-export function ListingStatusBadge({ variant, className = "" }: Props) {
-  const s = STYLES[variant];
+export function ListingStatusBadge({
+  variant,
+  publishReady,
+  missingImage = false,
+  className = "",
+}: Props) {
+  const effectiveVariant =
+    typeof publishReady === "boolean"
+      ? draftPublishReadinessStatusVariant(publishReady, missingImage)
+      : variant;
+  const s = STYLES[effectiveVariant];
   return (
     <span
       className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.className} ${className}`}
@@ -62,4 +73,31 @@ export function draftPublishReadinessStatusVariant(
   if (publishReady) return "ready-publish";
   if (missingImage) return "needs-images";
   return "needs-review";
+}
+
+export interface DraftCardStatusUi {
+  variant: ListingStatusVariant;
+  publishEnabled: boolean;
+  needsConfidenceReview: boolean;
+  needsSalesCopyReview: boolean;
+}
+
+export function resolveDraftCardStatusUi(input: {
+  publishReady: boolean;
+  missingImage: boolean;
+  confidenceScore?: number;
+  description?: string | null;
+}): DraftCardStatusUi {
+  const publishReady = input.publishReady === true;
+  return {
+    variant: draftPublishReadinessStatusVariant(
+      publishReady,
+      input.missingImage
+    ),
+    publishEnabled: publishReady,
+    needsConfidenceReview:
+      publishReady && Number(input.confidenceScore ?? 100) < 90,
+    needsSalesCopyReview:
+      publishReady && !String(input.description ?? "").trim(),
+  };
 }
