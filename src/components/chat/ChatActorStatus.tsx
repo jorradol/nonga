@@ -33,7 +33,9 @@ export function ChatActorStatus() {
             {chatActor.title}
           </p>
           {chatActor.subtitle && !isDealer && (
-            <p className="text-[10px] text-slate-500 truncate">{chatActor.subtitle}</p>
+            <p className="text-[10px] text-slate-500 truncate leading-snug">
+              {chatActor.subtitle}
+            </p>
           )}
           {isDealer && (
             <p className="text-[10px] text-orange-400/90">เต็นท์รถ — บันทึกประกาศได้จากแชท</p>

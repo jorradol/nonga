@@ -45,6 +45,20 @@ const ACTIVE_STATUS: ChatSession["status"] = "active";
 
 let storageForTest: StorageLike | null = null;
 
+const ephemeralGuestSnapshots = new Map<string, ChatHistorySnapshot>();
+
+export function isEphemeralGuestHistoryScope(scope: ChatHistoryScope): boolean {
+  return scope.scope === "user" && scope.uid.startsWith("guest-");
+}
+
+export function resetEphemeralGuestChatMemory(): void {
+  ephemeralGuestSnapshots.clear();
+}
+
+function emptySnapshot(): ChatHistorySnapshot {
+  return { sessions: [], messages: {} };
+}
+
 function randomId(prefix: string): string {
   const suffix =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -178,8 +192,11 @@ function normalizeMessage(
 }
 
 function readLocalSnapshot(scope: ChatHistoryScope): ChatHistorySnapshot {
+  if (isEphemeralGuestHistoryScope(scope)) {
+    return ephemeralGuestSnapshots.get(scope.storageKey) ?? emptySnapshot();
+  }
   const storage = getLocalStorage();
-  if (!storage) return { sessions: [], messages: {} };
+  if (!storage) return emptySnapshot();
   const sessions = safeJsonParse<ChatSession[]>(
     storage.getItem(chatSessionsLocalKey(scope.storageKey)),
     []
@@ -210,6 +227,10 @@ function writeLocalSnapshot(
   scope: ChatHistoryScope,
   snapshot: ChatHistorySnapshot
 ): void {
+  if (isEphemeralGuestHistoryScope(scope)) {
+    ephemeralGuestSnapshots.set(scope.storageKey, snapshot);
+    return;
+  }
   const storage = getLocalStorage();
   if (!storage) return;
   const safeMessages: Record<string, ChatMessage[]> = {};
@@ -343,6 +364,9 @@ export async function loadChatSessions(
 ): Promise<ChatSession[]> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  if (isEphemeralGuestHistoryScope(scope)) {
+    return readLocalSnapshot(scope).sessions;
+  }
   if (shouldUseLocalStorage()) return readLocalSnapshot(scope).sessions;
   const localSessions = readLocalSnapshot(scope).sessions;
   try {
@@ -362,7 +386,7 @@ export async function loadChatMessages(
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
   const localSnapshot = readLocalSnapshot(scope);
   const localSession = localSnapshot.sessions.find((session) => session.id === sessionId);
-  if (shouldUseLocalStorage()) {
+  if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     return localSession ? localSnapshot.messages[sessionId] ?? [] : [];
   }
 
@@ -432,7 +456,9 @@ export async function createChatSession(
     });
   };
 
-  if (shouldUseLocalStorage()) {
+  if (isEphemeralGuestHistoryScope(scope)) {
+    mirrorLocalSession();
+  } else if (shouldUseLocalStorage()) {
     mirrorLocalSession();
   } else {
     try {
@@ -475,7 +501,7 @@ export async function appendChatMessage(
     ...(message.savedDraftId ? { savedDraftId: message.savedDraftId } : {}),
   };
 
-  if (shouldUseLocalStorage()) {
+  if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     appendLocalMessage(scope, sessionId, message, patch);
   } else {
     try {
@@ -510,7 +536,7 @@ export async function updateChatSessionMetadata(
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
   const updatedAt = nowIso();
 
-  if (shouldUseLocalStorage()) {
+  if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     const snapshot = readLocalSnapshot(scope);
     writeLocalSnapshot(scope, {
       ...snapshot,
@@ -536,7 +562,7 @@ export async function updateChatMessageText(
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
 
-  if (shouldUseLocalStorage()) {
+  if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     const snapshot = readLocalSnapshot(scope);
     writeLocalSnapshot(scope, {
       ...snapshot,
@@ -562,7 +588,7 @@ export async function deleteChatSession(
 ): Promise<void> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
-  if (shouldUseLocalStorage()) {
+  if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     const snapshot = readLocalSnapshot(scope);
     const nextMessages = { ...snapshot.messages };
     delete nextMessages[sessionId];

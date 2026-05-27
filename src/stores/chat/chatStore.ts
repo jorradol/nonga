@@ -5,7 +5,10 @@ import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from 
 import {
   chatPrefsLocalKey,
 } from "../../utils/chatStorageScope";
-import type { ChatStorageScope } from "../../utils/chatStorageScope";
+import {
+  isEphemeralGuestChatScope,
+  type ChatStorageScope,
+} from "../../utils/chatStorageScope";
 import { db, isMockConfig } from "../../lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
@@ -116,6 +119,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   loadSessions: async (scope) => {
     try {
+      if (isEphemeralGuestChatScope(scope)) {
+        const current = get();
+        if (current.sessions.length > 0) {
+          return;
+        }
+        set({ sessions: [], messages: {}, activeSessionId: null });
+        return;
+      }
+
       let sessions = await loadChatSessions(scope);
 
       if (sessions.length === 0) {

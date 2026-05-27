@@ -10,18 +10,22 @@ import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrches
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
 import {
   getChatStorageScope,
+  isEphemeralGuestChatScope,
   logChatStorageDebug,
   resolveChatActorDisplay,
 } from "../../utils/chatStorageScope";
+import { resetEphemeralGuestChatMemory } from "../../services/chat/chatHistoryService";
 import { logDealerDraftEditUrl } from "../../utils/dealer/dealerDraftNavigation";
 import { resolveDealerIdFromUser } from "../../utils/dealerIdentity";
 import { dealerAuthHeadersAsync } from "../../utils/apiAuthHeaders";
+import { useAuth } from "../auth/useAuth";
 import { useRole } from "../auth/useRole";
 import {
   isSaveListingChatAction,
   buildDealerDraftPayloadFromChat,
   logChatDraftSave,
 } from "../../services/ai/chat/chatDraftActions";
+import { resolveChatDraftSaveBlockMessage } from "../../services/ai/chat/chatDraftAccess";
 import {
   getChatDraftSaveMissingLabels,
   resolveMissingFieldsAfterChatImageUpload,
@@ -132,26 +136,40 @@ export function useChat() {
     updatePersonalityInstruction,
   } = useChatStore();
 
-  const { user } = useAppStore();
+  const { user, setView } = useAppStore();
+  const { isSignedIn } = useAuth();
   const { isDealer, isAdmin, role } = useRole();
 
   const chatScope = useMemo(() => getChatStorageScope(user), [user]);
   const storageScopeKey = chatScope.storageKey;
 
   const hydrateChatForScope = useCallback(async (force = false) => {
+    const guestEphemeral = isEphemeralGuestChatScope(chatScope);
     const isNewScope = lastHydratedChatScopeKey !== storageScopeKey;
     const chatState = useChatStore.getState();
-    const needsInitialLoad =
-      chatState.sessions.length === 0 && chatState.activeSessionId === null;
-    if (!isNewScope && !force && !needsInitialLoad) return;
+    const hasInMemoryGuestThread =
+      guestEphemeral && chatState.sessions.length > 0;
 
-    if (isNewScope) {
-      if (lastHydratedChatScopeKey) {
-        clearChatImageAttachmentScope(lastHydratedChatScopeKey);
-      }
-      resetChatState();
-      lastHydratedChatScopeKey = storageScopeKey;
+    // Same visit + scope: keep guest in-memory thread (do not wipe on every effect run).
+    if (!isNewScope && !force) {
+      return;
     }
+
+    // Forced refresh on same scope: reload prefs/personalities only; never clear an active guest chat.
+    if (!isNewScope && force) {
+      await loadUserPreferences(storageScopeKey);
+      await loadPersonalitiesList();
+      return;
+    }
+
+    if (lastHydratedChatScopeKey) {
+      clearChatImageAttachmentScope(lastHydratedChatScopeKey);
+    }
+    if (guestEphemeral && !hasInMemoryGuestThread) {
+      resetEphemeralGuestChatMemory();
+    }
+    resetChatState();
+    lastHydratedChatScopeKey = storageScopeKey;
 
     await loadSessions(chatScope);
     await loadUserPreferences(storageScopeKey);
@@ -228,6 +246,18 @@ export function useChat() {
       const isListingCreateWithImages = hasImages && trimmed && isSellIntent(trimmed);
 
       if (hasImages && latestSavedDraftId && !isListingCreateWithImages) {
+        const draftImageBlock = resolveChatDraftSaveBlockMessage({
+          isSignedIn,
+          chatScope,
+          isDealer,
+          isAdmin,
+        });
+        if (draftImageBlock) {
+          updateStreamedReply(draftImageBlock);
+          await finalizeStreamedReply(sessionId);
+          setGenerating(false);
+          return;
+        }
         const draftDealerId = resolveDealerIdFromUser(user);
         const apiRole = isAdmin ? "admin" : "dealer";
         const imagesForMessage = getChatImagesForMessage(
@@ -326,12 +356,20 @@ export function useChat() {
             const { payload, missing } = buildDealerDraftPayloadFromChat(
               lastDraftMsg.draftFields
             );
-            const canSaveDealerDraft =
-              chatScope.mode === "dealer" || isDealer || isAdmin;
+            const draftSaveBlock = resolveChatDraftSaveBlockMessage({
+              isSignedIn,
+              chatScope,
+              isDealer,
+              isAdmin,
+            });
 
-            if (!canSaveDealerDraft) {
-              orchestrated.text =
-                "ต้องเข้าใช้งานในนามดีลเลอร์ก่อนจึงจะบันทึกประกาศได้ครับ — เปิดสิทธิ์ดีลเลอร์จากโปรไฟล์แล้วลองใหม่";
+            if (draftSaveBlock) {
+              orchestrated.text = draftSaveBlock;
+              if (!isSignedIn) {
+                setView("login");
+              } else if (chatScope.mode === "consumer") {
+                setView("my-listings");
+              }
             } else {
               const draftDealerId = resolveDealerIdFromUser(user);
               const apiRole = isAdmin ? "admin" : "dealer";
@@ -628,6 +666,8 @@ export function useChat() {
       storageScopeKey,
       isDealer,
       isAdmin,
+      isSignedIn,
+      setView,
       role,
       addMessage,
       createSession,

@@ -513,7 +513,7 @@ async function browserPhase(focusDraftId?: string) {
     await chatPage.waitForTimeout(500);
   }
 
-  await chatPage.goto(`${BASE}/#chat`, { waitUntil: "domcontentloaded" }).catch(() => {});
+  await chatPage.goto(`${BASE}/chat`, { waitUntil: "domcontentloaded" }).catch(() => {});
   await chatPage.waitForTimeout(2000);
 
   const actor = chatPage.locator("#chat-actor-status");

@@ -10,6 +10,15 @@ import {
   devClientMarketplaceLog,
 } from "./utils/marketplaceCarMapper";
 import { addRecentlyViewedCarId } from "./utils/chatCarContext";
+import {
+  bootstrapAppRouteState,
+  resolvePathnameForView,
+  resolveViewFromPathname,
+} from "./utils/appRouteSync";
+
+if (typeof window !== "undefined") {
+  bootstrapAppRouteState();
+}
 
 interface MarketplaceFilters {
   search: string;
@@ -35,6 +44,7 @@ interface AppState {
   selectedCarId: string | null;
   selectedDealerId: string | null;
   setView: (view: AppState["currentView"], carId?: string | null, dealerId?: string | null) => void;
+  enforcePathnameView: () => void;
   setSelectedDealerId: (dealerId: string | null) => void;
 
   // Follow dealer foundation
@@ -95,61 +105,6 @@ const initialFilters: MarketplaceFilters = {
   sortBy: "latest",
 };
 
-function resolveViewFromPath(pathname: string): AppState["currentView"] {
-  const path = pathname.toLowerCase();
-  if (path === "/" || path === "/chat") return "chat";
-  if (path === "/home") return "home";
-  if (path === "/marketplace") return "marketplace";
-  if (path === "/dealers") return "dealers";
-  if (path === "/sell") return "sell";
-  if (path === "/saved") return "saved";
-  if (path === "/search") return "search";
-  if (path === "/login") return "login";
-  if (path === "/register") return "register";
-  if (path === "/forgot-password") return "forgot-password";
-  if (path === "/admin/inventory-import") return "inventory-import";
-  if (path === "/admin/draft-inventory") return "dealer-draft-inventory";
-  if (path.startsWith("/dealer")) return "dealer-portal";
-  return "chat";
-}
-
-function resolvePathFromView(
-  view: AppState["currentView"],
-  currentPath: string
-): string | null {
-  if (view === "dealer-portal") {
-    return currentPath.startsWith("/dealer") ? currentPath : "/dealer";
-  }
-  switch (view) {
-    case "home":
-      return "/home";
-    case "chat":
-      return "/";
-    case "marketplace":
-      return "/marketplace";
-    case "dealers":
-      return "/dealers";
-    case "sell":
-      return "/sell";
-    case "saved":
-      return "/saved";
-    case "search":
-      return "/search";
-    case "login":
-      return "/login";
-    case "register":
-      return "/register";
-    case "forgot-password":
-      return "/forgot-password";
-    case "inventory-import":
-      return "/admin/inventory-import";
-    case "dealer-draft-inventory":
-      return "/admin/draft-inventory";
-    default:
-      return null;
-  }
-}
-
 export const useAppStore = create<AppState>((set, get) => ({
   // Auth state defaults to a pre-signed guest so testing is completely instant and fun
   user: {
@@ -178,25 +133,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentView:
     typeof window === "undefined"
       ? "chat"
-      : resolveViewFromPath(window.location.pathname),
+      : resolveViewFromPathname(window.location.pathname),
   selectedCarId: null,
   selectedDealerId: null,
+  enforcePathnameView: () => {
+    if (typeof window === "undefined") return;
+    bootstrapAppRouteState();
+    const pathname = window.location.pathname;
+    const viewFromPath = resolveViewFromPathname(pathname);
+    if (get().currentView !== viewFromPath) {
+      set({ currentView: viewFromPath });
+    }
+  },
   setView: (view, carId = null, dealerId = null) => {
     if (view === "car-details" && carId) {
       addRecentlyViewedCarId(carId);
     }
-    set({ 
-      currentView: view, 
-      selectedCarId: carId, 
-      selectedDealerId: dealerId || (view === "dealer-showroom" ? carId : get().selectedDealerId) 
+    set({
+      currentView: view,
+      selectedCarId: carId,
+      selectedDealerId:
+        dealerId || (view === "dealer-showroom" ? carId : get().selectedDealerId),
     });
     if (typeof window !== "undefined") {
-      const nextPath = resolvePathFromView(view, window.location.pathname);
-      if (nextPath && nextPath !== window.location.pathname) {
+      const pathname = window.location.pathname;
+      const nextPath = resolvePathnameForView(view, pathname);
+      if (nextPath && nextPath !== pathname) {
         window.history.replaceState(null, "", nextPath);
       }
     }
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
   setSelectedDealerId: (dealerId) => set({ selectedDealerId: dealerId }),

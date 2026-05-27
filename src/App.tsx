@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useAppStore } from "./store";
 import { getListingPrimaryImage } from "./utils/listingImages";
 import { useRole } from "./hooks/auth/useRole";
@@ -57,8 +57,9 @@ import {
 
 export default function App() {
   const { 
-    currentView, 
-    setView, 
+    currentView,
+    setView,
+    enforcePathnameView,
     isDarkMode, 
     fetchCars, 
     cars, 
@@ -96,46 +97,30 @@ export default function App() {
     fetchCars();
   }, [fetchCars]);
 
-  // Deep link / default route handling
+  // Pathname is the source of truth (before paint + on back/forward).
+  useLayoutEffect(() => {
+    enforcePathnameView();
+  }, [enforcePathnameView]);
+
+  useEffect(() => {
+    const onPopState = () => enforcePathnameView();
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [enforcePathnameView]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const path = window.location.pathname.toLowerCase();
-    if (path === "/" || path === "/chat") {
-      setView("chat");
-      return;
+    const viewForPath =
+      path === "/home"
+        ? "home"
+        : path === "/" || path === "/chat"
+          ? "chat"
+          : null;
+    if (viewForPath && currentView !== viewForPath) {
+      enforcePathnameView();
     }
-    if (path === "/home") {
-      setView("home");
-      return;
-    }
-    if (path === "/marketplace") {
-      setView("marketplace");
-      return;
-    }
-    if (path === "/admin/inventory-import") {
-      setView("inventory-import");
-      return;
-    }
-    if (path === "/admin/draft-inventory") {
-      setView("dealer-draft-inventory");
-      return;
-    }
-    if (path.startsWith("/dealer")) {
-      setView("dealer-portal");
-      return;
-    }
-    if (path === "/login") {
-      setView("login");
-      return;
-    }
-    if (path === "/register") {
-      setView("register");
-      return;
-    }
-    if (path === "/forgot-password") {
-      setView("forgot-password");
-    }
-  }, [setView]);
+  }, [currentView, enforcePathnameView]);
 
   // Client-side visual for Saved Favorites panel
   const renderSavedFavorites = () => {
@@ -265,11 +250,7 @@ export default function App() {
           </RequireMember>
         );
       case "chat":
-        return (
-          <RequireDealer>
-            <AIChatView />
-          </RequireDealer>
-        );
+        return <AIChatView />;
       case "sell":
         return (
           <RequireDealer>

@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAppStore } from "../store";
+import { useAuth } from "../hooks/auth/useAuth";
+import { useRole } from "../hooks/auth/useRole";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Sparkles, Car, MessageSquare, PlusCircle, Search, 
@@ -62,7 +64,9 @@ const TRENDING_CARS_SHOWCASE = [
 ];
 
 export default function HomeView() {
-  const { isDarkMode, setView, createChatSession, sendChatMessage, favorites, toggleFavorite } = useAppStore();
+  const { isDarkMode, setView, favorites, toggleFavorite } = useAppStore();
+  const { isSignedIn } = useAuth();
+  const { isDealer, isAdmin } = useRole();
   
   // Interactive Chat Simulator State
   const [simulatorStep, setSimulatorStep] = useState(0);
@@ -121,24 +125,40 @@ export default function HomeView() {
     ]);
   };
 
-  const startNongAChat = (intent: "general" | "buyer" | "seller") => {
-    const prompts = {
-      general:
-        "สวัสดีน้องเอ ช่วยแนะนำหน่อยครับว่าถ้าอยากซื้อรถ ขายรถ หรือฝากขายรถ ควรเริ่มจากตรงไหน",
-      buyer:
-        "สวัสดีน้องเอ ผมต้องการซื้อรถ ช่วยถามงบประมาณ ไลฟ์สไตล์ และแนะนำประเภทรถที่เหมาะกับผมหน่อยครับ",
-      seller:
-        "สวัสดีน้องเอ ผมต้องการขายรถหรือฝากขายรถ ช่วยแนะนำข้อมูลที่ต้องเตรียม และช่วยร่างประกาศขายรถให้หน่อยครับ",
-    } satisfies Record<typeof intent, string>;
-    queuePendingChatMessage(prompts[intent]);
+  const goToFullChat = (pendingMessage?: string) => {
+    if (pendingMessage?.trim()) {
+      queuePendingChatMessage(pendingMessage);
+    }
     setView("chat");
   };
 
+  const goToSellFlow = () => {
+    if (!isSignedIn) {
+      setView("login");
+      return;
+    }
+    if (isDealer || isAdmin) {
+      setView("sell");
+      return;
+    }
+    goToFullChat(
+      "สวัสดีน้องเอ ผมต้องการขายรถหรือฝากขายรถ ช่วยแนะนำข้อมูลที่ต้องเตรียม และช่วยร่างประกาศขายรถให้หน่อยครับ"
+    );
+  };
+
   return (
-    <div className="space-y-16 sm:space-y-24 pb-20 overflow-hidden relative">
+    <div
+      id="home-landing-root"
+      className="space-y-16 sm:space-y-24 pb-20 overflow-hidden relative"
+      data-testid="home-landing"
+    >
       
-      {/* 1. HERO SECTION WITH SAAS VIBES */}
-      <section className="relative text-center space-y-8 pt-6 sm:pt-12">
+      {/* Chat First welcome — not full ChatContainer (that is only on /chat) */}
+      <section
+        id="home-landing-hero"
+        data-testid="home-landing-hero"
+        className="relative text-center space-y-8 pt-6 sm:pt-12"
+      >
         {/* Ambient background light circle */}
         <div className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-[80%] max-w-4xl h-[350px] rounded-full bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-red-600/5 blur-[120px] pointer-events-none -z-10" />
 
@@ -148,52 +168,64 @@ export default function HomeView() {
           <span>Nong A by NongBot v2.8 PRO</span>
         </div>
 
-        {/* Master Heading */}
-        <div className="space-y-4 max-w-4xl mx-auto">
-          <h1 className={`font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.1] ${
-            isDarkMode ? "text-white" : "text-slate-900"
-          }`}>
-            คุยกับน้องเอ แล้วซื้อขายรถง่ายขึ้นด้วย{" "}
-            <span className="relative inline-block text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-red-500">
-              AI ผู้ช่วยมืออาชีพ
-              <span className="absolute left-0 bottom-1 w-full h-[3px] bg-gradient-to-r from-orange-500 to-red-500 rounded-full opacity-60"></span>
+        {/* Welcome hero — shown on "/" only; full chat UI is on /chat */}
+        <div className="space-y-5 max-w-3xl mx-auto">
+          <h1
+            className={`font-display font-black text-3xl sm:text-5xl tracking-tight leading-[1.15] ${
+              isDarkMode ? "text-white" : "text-slate-900"
+            }`}
+          >
+            <span className="block">คุยรถยนต์สับๆ กับ</span>
+            <span className="relative inline-block mt-2 text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-red-500">
+              น้องเอ
+              <span className="absolute left-0 bottom-1 w-full h-[3px] bg-gradient-to-r from-orange-500 to-red-500 rounded-full opacity-60" />
             </span>
           </h1>
-          
-          <p className={`text-base sm:text-xl font-sans max-w-2xl mx-auto leading-relaxed ${
-            isDarkMode ? "text-slate-400" : "text-slate-600"
-          }`}>
-            อยากซื้อรถ ขายรถ หรือฝากขายรถ ให้คุยกับน้องเอได้เลย น้องเอช่วยถามต่อ แนะนำทางเลือก และพาไปขั้นตอนถัดไปแบบเข้าใจง่าย
+
+          <p
+            className={`text-base sm:text-lg font-sans max-w-2xl mx-auto leading-relaxed ${
+              isDarkMode ? "text-slate-300" : "text-slate-600"
+            }`}
+          >
+            สวัสดีครับ ผมคือน้องเอ อยากซื้อรถแบบไหน บอกงบ รุ่น หรือการใช้งานมาได้เลยครับ
+            — ค้นหารถในตลาดและปรึกษาได้ทันทีโดยไม่ต้องล็อกอิน
           </p>
         </div>
 
-        {/* Interactive CTA Controls */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xl mx-auto">
           <button
-            onClick={() => startNongAChat("general")}
+            type="button"
+            data-testid="home-cta-start-chat"
+            onClick={() => goToFullChat()}
             className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-black text-base sm:text-lg rounded-2xl shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 hover:scale-[1.02] transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-orange-400/10 cursor-pointer"
           >
             <MessageSquare className="w-5 h-5" />
-            <span>คุยกับน้องเอ</span>
+            <span>เริ่มคุยกับน้องเอ</span>
           </button>
 
           <button
+            type="button"
+            data-testid="home-cta-marketplace"
             onClick={() => setView("marketplace")}
             className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-sm sm:text-base border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              isDarkMode 
-                ? "bg-[#111113] border-white/10 text-slate-200 hover:text-white hover:bg-[#18181b] hover:border-orange-500/30" 
+              isDarkMode
+                ? "bg-[#111113] border-white/10 text-slate-200 hover:text-white hover:bg-[#18181b] hover:border-orange-500/30"
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-orange-500/40"
             }`}
           >
             <Car className="w-5 h-5 text-orange-500" />
-            <span>ดูรถในตลาด</span>
+            <span>ไปที่ตลาดรถ</span>
           </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
           <button
             type="button"
-            onClick={() => startNongAChat("buyer")}
+            onClick={() =>
+              goToFullChat(
+                "สวัสดีน้องเอ ผมต้องการซื้อรถ ช่วยถามงบประมาณ ไลฟ์สไตล์ และแนะนำประเภทรถที่เหมาะกับผมหน่อยครับ"
+              )
+            }
             className={`group text-left p-5 rounded-3xl border transition-all hover:-translate-y-0.5 active:scale-[0.99] ${
               isDarkMode
                 ? "bg-white/[0.04] border-white/[0.08] hover:border-orange-500/35 hover:bg-orange-500/[0.07]"
@@ -215,7 +247,7 @@ export default function HomeView() {
 
           <button
             type="button"
-            onClick={() => startNongAChat("seller")}
+            onClick={goToSellFlow}
             className={`group text-left p-5 rounded-3xl border transition-all hover:-translate-y-0.5 active:scale-[0.99] ${
               isDarkMode
                 ? "bg-white/[0.04] border-white/[0.08] hover:border-orange-500/35 hover:bg-orange-500/[0.07]"
@@ -638,9 +670,9 @@ export default function HomeView() {
                   <button
                     onClick={() => {
                       const sessionTitle = `นัดคุยเรื่อง ${car.brand} 🤖`;
-                      createChatSession(sessionTitle);
-                      setView("chat");
-                      sendChatMessage(`สวัสดีจ้าน้องเอ! พี่สนใจคุยรายละเอียดตารางผ่อนรถยนต์คันยอดฮิต ${car.title} ปี ${car.year} นะครับ รบกวนช่วยประเมินการต่อรองให้ทีสิ! 🚗`);
+                      goToFullChat(
+                        `สวัสดีจ้าน้องเอ! พี่สนใจคุยรายละเอียดตารางผ่อนรถยนต์คันยอดฮิต ${car.title} ปี ${car.year} นะครับ รบกวนช่วยประเมินการต่อรองให้ทีสิ! 🚗`
+                      );
                     }}
                     className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-orange-600/15"
                   >

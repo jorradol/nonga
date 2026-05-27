@@ -3,10 +3,16 @@ import {
   createChatSession,
   loadChatMessages,
   loadChatSessions,
+  resetEphemeralGuestChatMemory,
   setChatHistoryStorageForTest,
+  updateChatSessionMetadata,
 } from "../src/services/chat/chatHistoryService.ts";
 import { useChatStore } from "../src/stores/chat/chatStore.ts";
-import type { ChatStorageScope } from "../src/utils/chatStorageScope.ts";
+import {
+  getChatStorageScope,
+  resetEphemeralGuestVisitForTest,
+  type ChatStorageScope,
+} from "../src/utils/chatStorageScope.ts";
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message);
@@ -163,6 +169,57 @@ assert(
 );
 console.log("PASS reload/load session restores user, AI, and saved draft messages");
 
-setChatHistoryStorageForTest(null);
-useChatStore.getState().resetChatState();
 console.log("PASS local/mock mode works with scoped localStorage");
+
+resetEphemeralGuestVisitForTest();
+resetEphemeralGuestChatMemory();
+const guestScopeA = getChatStorageScope({ uid: "guest-user-100", role: "guest" });
+assert(guestScopeA.userId.startsWith("guest-"), "guest scope uses ephemeral guest id");
+const guestStorageKeyA = guestScopeA.storageKey;
+resetEphemeralGuestVisitForTest();
+resetEphemeralGuestChatMemory();
+const guestScopeB = getChatStorageScope({ uid: "guest-user-100", role: "guest" });
+assert(
+  guestStorageKeyA !== guestScopeB.storageKey,
+  "each visit gets a new guest storage partition"
+);
+const guestSession = await createChatSession(guestScopeA, "Visit A chat");
+await appendChatMessage(guestScopeA, guestSession.id, {
+  sender: "user",
+  text: "ข้อความเก่าที่ต้องไม่โผล่รอบถัดไป",
+});
+await updateChatSessionMetadata(guestScopeA, guestSession.id, {
+  title: "หารถเก๋งงบไม่เกิน 300,000",
+});
+const guestSessionsAfterTitle = await loadChatSessions(guestScopeA);
+assert(
+  guestSessionsAfterTitle[0]?.title === "หารถเก๋งงบไม่เกิน 300,000",
+  "guest session title update stays in ephemeral memory (no Firestore)"
+);
+resetEphemeralGuestVisitForTest();
+resetEphemeralGuestChatMemory();
+const guestScopeNextVisit = getChatStorageScope({ uid: "guest-user-100", role: "guest" });
+const nextSessions = await loadChatSessions(guestScopeNextVisit);
+assert(nextSessions.length === 0, "next guest visit does not reload prior guest sessions");
+assert(
+  !storage.getItem(`nong-a-chat-sessions:user:${guestScopeA.userId}`),
+  "guest chat is not persisted to localStorage"
+);
+useChatStore.getState().resetChatState();
+await useChatStore.getState().loadSessions(guestScopeNextVisit);
+assert(
+  useChatStore.getState().sessions.length === 0 &&
+    useChatStore.getState().activeSessionId === null,
+  "guest store load starts empty"
+);
+const memberSessionsAfterGuest = await loadChatSessions(memberScope);
+assert(
+  memberSessionsAfterGuest.length === 1,
+  "member history still loads after guest ephemeral test"
+);
+console.log("PASS ephemeral guest chat is visit-scoped only");
+
+resetEphemeralGuestVisitForTest();
+resetEphemeralGuestChatMemory();
+useChatStore.getState().resetChatState();
+setChatHistoryStorageForTest(null);

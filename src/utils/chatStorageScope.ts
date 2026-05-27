@@ -8,11 +8,91 @@ export type ChatStorageScope = {
   mode: "dealer" | "consumer";
 };
 
-const GUEST_FALLBACK_UID = "guest-user-100";
+export const GUEST_FALLBACK_UID = "guest-user-100";
+
+/** @deprecated Legacy key — cleared on guest bootstrap; no longer used for scope identity */
+const ANONYMOUS_CHAT_SCOPE_SESSION_KEY = "nonga_anonymous_chat_scope_id";
+
+/** One ephemeral guest id per full page load (refresh gets a clean chat). */
+let ephemeralAnonymousGuestUserId: string | null = null;
+
+export function isAnonymousChatVisitor(
+  user: { uid?: string; role?: string } | null | undefined
+): boolean {
+  const uid = user?.uid?.trim();
+  if (!uid) return true;
+  const role = (user?.role ?? "guest").toLowerCase();
+  return uid === GUEST_FALLBACK_UID && role === "guest";
+}
+
+export function isEphemeralGuestChatScope(
+  scope: Pick<ChatStorageScope, "userId" | "mode"> | null | undefined
+): boolean {
+  if (!scope || scope.mode !== "consumer") return false;
+  return scope.userId.startsWith("guest-");
+}
+
+function createEphemeralAnonymousGuestUserId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? `guest-${crypto.randomUUID()}`
+    : `guest-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function resolveAnonymousChatUserId(): string {
+  if (!ephemeralAnonymousGuestUserId) {
+    prepareEphemeralGuestChatVisit();
+  }
+  return ephemeralAnonymousGuestUserId ?? GUEST_FALLBACK_UID;
+}
+
+/** Remove stale guest localStorage from older builds; does not touch member/dealer keys. */
+export function pruneStaleGuestChatLocalStorage(): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (
+        key.startsWith("nong-a-chat-sessions:user:guest-") ||
+        key.startsWith("nong-a-chat-messages:user:guest-") ||
+        key.startsWith("nong-a-chat-prefs:user:guest-")
+      ) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+let guestVisitPrepared = false;
+
+/** Test-only: simulate a new browser visit for guest chat. */
+export function resetEphemeralGuestVisitForTest(): void {
+  guestVisitPrepared = false;
+  ephemeralAnonymousGuestUserId = null;
+}
+
+/** Fresh guest chat on each full page load — no cross-visit history in sidebar. */
+export function prepareEphemeralGuestChatVisit(): void {
+  if (guestVisitPrepared) return;
+  guestVisitPrepared = true;
+  ephemeralAnonymousGuestUserId = createEphemeralAnonymousGuestUserId();
+  if (typeof window === "undefined") return;
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      sessionStorage.removeItem(ANONYMOUS_CHAT_SCOPE_SESSION_KEY);
+    } catch {
+      // ignore
+    }
+  }
+  pruneStaleGuestChatLocalStorage();
+}
 
 export function resolveChatUserId(
-  user: { uid?: string } | null | undefined
+  user: { uid?: string; role?: string } | null | undefined
 ): string {
+  if (isAnonymousChatVisitor(user)) {
+    return resolveAnonymousChatUserId();
+  }
   const uid = user?.uid?.trim();
   return uid && uid.length > 0 ? uid : GUEST_FALLBACK_UID;
 }
@@ -88,9 +168,16 @@ export function resolveChatActorDisplay(
       dealerId: scope.dealerId,
     };
   }
+  if (scope.userId.startsWith("guest-") && scope.userId !== GUEST_FALLBACK_UID) {
+    return {
+      title: "ผู้เยี่ยมชม",
+      subtitle: "คุยหาน้องเอได้เลย — บันทึกประกาศต้องเข้าสู่ระบบ",
+      dealerId: null,
+    };
+  }
   return {
-    title: user?.displayName?.trim() || "ผู้ใช้ทั่วไป",
-    subtitle: scope.userId,
+    title: user?.displayName?.trim() || "สมาชิกทั่วไป",
+    subtitle: "ค้นหารถและปรึกษาน้องเอได้ — บันทึกประกาศดีลเลอร์ต้องมีสิทธิ์เต็นท์",
     dealerId: null,
   };
 }

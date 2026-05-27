@@ -35,6 +35,7 @@
     "test:v50-real-login-role-flow": "tsx scripts/test-v50-real-login-role-flow.mts",
     "test:v50-security-rules": "tsx scripts/test-v50-security-rules.mts",
     "test:v50-chat-history-storage": "tsx scripts/test-v50-chat-history-storage.mts",
+    "test:v50-chat-guest-access": "tsx scripts/test-v50-chat-guest-access.mts",
     "test:v50-staging-readiness": "tsx scripts/test-v50-staging-readiness.mts",
     "test:v50-firestore-repository": "tsx scripts/test-v50-firestore-repository.mts",
     "test:v50-image-storage-repository": "tsx scripts/test-v50-image-storage-repository.mts",

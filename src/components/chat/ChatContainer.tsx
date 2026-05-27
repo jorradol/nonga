@@ -1,9 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, ArrowLeft, Car } from "lucide-react";
+import { Send, Menu, Sparkles, Sliders, ChevronDown, Car } from "lucide-react";
 import { ChatImageAttachmentInput } from "./ChatImageAttachmentInput";
 import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
+import { useAuth } from "../../hooks/auth/useAuth";
 import { ChatMessageBubble } from "./ChatMessageBubble";
 import { SuggestionsGrid } from "./SuggestionsGrid";
 import { MemoryPanel } from "./MemoryPanel";
@@ -38,6 +39,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   } = useChatContext();
 
   const { setView } = useAppStore();
+  const { isSignedIn } = useAuth();
 
   const [inputText, setInputText] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<
@@ -227,15 +229,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         >
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setView("home")}
-              className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5"
-              title="กลับหน้าแรก"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="hidden sm:inline text-sm font-semibold">กลับหน้าแรก</span>
-            </button>
-            <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block"></div>
-            <button
               onClick={onToggleSidebar}
               className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
               title="สลับเมนูประวัติแชท"
@@ -301,8 +294,14 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                     คุยรถยนต์สับๆ กับ <span className="text-orange-400">น้องเอ</span>
                   </h1>
                   <p className="text-sm text-slate-400 mt-3 max-w-md mx-auto leading-relaxed">
-                    ผู้ช่วยส่วนตัวของคุณ แนะนำรถจากข้อมูลจริงใน Marketplace พร้อมเปรียบเทียบและวิเคราะห์สเป็ก
+                    สวัสดีครับ ผมคือน้องเอ อยากซื้อรถแบบไหน บอกงบ รุ่น หรือการใช้งานมาได้เลยครับ
+                    — ค้นหารถในตลาดและปรึกษาได้ทันทีโดยไม่ต้องล็อกอิน
                   </p>
+                  {!isSignedIn && (
+                    <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+                      ถ้าต้องการบันทึกประกาศขายรถ น้องเอขอให้เข้าสู่ระบบก่อนนะครับ เพื่อยืนยันตัวตนผู้ขายและเพิ่มความน่าเชื่อถือให้ประกาศ
+                    </p>
+                  )}
                 </div>
                 <div className="w-full mt-4">
                   <SuggestionsGrid onSelectSuggestion={handleSuggestionSelect} />
