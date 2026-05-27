@@ -26,6 +26,10 @@ import {
   probePasteImageCandidates,
 } from "./pasteImageImportService";
 import { persistPasteUploadedImages } from "./pasteUploadedImageStorage";
+import {
+  mapDraftImageMetadataInput,
+  mapStoredListingImageToDealerDraftMetadata,
+} from "./dealerDraftImageMetadata.ts";
 import type { ImageLinkCandidate } from "../utils/inventoryImport/imageLinkExtractor";
 import {
   publishGuardApiBody,
@@ -86,23 +90,11 @@ async function loadDraftImageMetadata(dealerId: string, draftId: string) {
   try {
     const imageStorage = createImageStorageRepository();
     const metadata = await imageStorage.listListingImages(dealerId, draftId, "draft");
-    return metadata.map((item) => ({
-      dealerId: item.dealerId,
-      draftId,
-      fileName: item.fileName,
-      originalFileName: item.originalFileName,
-      mimeType: item.mimeType,
-      width: item.width,
-      height: item.height,
-      size: item.size,
-      imagePath: item.imagePath,
-      imageUrl: item.imageUrl,
-      thumbnailPath: item.thumbnailPath ?? "",
-      thumbnailUrl: item.thumbnailUrl ?? "",
-      createdAt: item.createdAt,
-      sortOrder: item.sortOrder,
-      source: "paste-import",
-    }));
+    return metadata.map((item, index) =>
+      mapStoredListingImageToDealerDraftMetadata(item, draftId, index, {
+        source: "paste-import",
+      })
+    );
   } catch (err) {
     console.warn("[paste-import/save-draft] image metadata lookup failed", err);
     return [];
@@ -532,13 +524,29 @@ export function registerDealerPortalRoutes(
         const existingMetadata = draft.imageMetadata ?? [];
         const nextMetadata = [
           ...existingMetadata,
-          ...(result.metadata ?? []).map((item, index) => ({
-            ...item,
-            dealerId: ctx.dealerId,
-            draftId: req.params.id,
-            source: uploadSource,
-            sortOrder: existingMetadata.length + index,
-          })),
+          ...(result.metadata ?? []).map((item, index) =>
+            mapDraftImageMetadataInput(
+              {
+                dealerId: ctx.dealerId,
+                draftId: req.params.id,
+                fileName: item.fileName,
+                imageId: item.imageId,
+                originalFileName: item.originalFileName,
+                mimeType: item.mimeType,
+                width: item.width,
+                height: item.height,
+                size: item.size,
+                imagePath: item.imagePath,
+                imageUrl: item.imageUrl,
+                thumbnailPath: item.thumbnailPath,
+                thumbnailUrl: item.thumbnailUrl,
+                createdAt: item.createdAt,
+                sortOrder: existingMetadata.length + index,
+                source: uploadSource,
+              },
+              existingMetadata.length + index
+            )
+          ),
         ];
         const missingFields = validateDraftForPublish({
           id: draft.id,
@@ -726,6 +734,13 @@ export function registerDealerPortalRoutes(
     const profile = getDealerProfile(ctx.dealerId);
     const images = toStringList(payload.images);
     const sourceImageUrls = toStringList(payload.sourceImageUrls);
+    const imageMetadata = await loadDraftImageMetadata(ctx.dealerId, draftId);
+    const imagesForPublish = [
+      ...new Set([
+        ...images,
+        ...imageMetadata.map((item) => item.imageUrl).filter(Boolean),
+      ]),
+    ];
     const brand = String(payload.brand ?? "").trim();
     const model = String(payload.model ?? "").trim();
     const year = Number(payload.year) || 0;
@@ -740,10 +755,9 @@ export function registerDealerPortalRoutes(
       year,
       price,
       mileage,
-      images,
+      images: imagesForPublish,
       sourceImageUrls,
     });
-    const imageMetadata = await loadDraftImageMetadata(ctx.dealerId, draftId);
     const warnings = uniqueWarnings([
       ...(payload.warnings ?? []),
       ...(publishCheck.missingFields.length > 0
@@ -777,7 +791,7 @@ export function registerDealerPortalRoutes(
       warnings,
       confidenceScore: Number(payload.confidenceScore ?? 0) || 0,
       status: publishCheck.ok ? "draft" : "needs_review",
-      images,
+      images: imagesForPublish.length > 0 ? imagesForPublish : images,
       sourceImageUrls,
       ...(imageMetadata.length > 0 ? { imageMetadata } : {}),
       title:

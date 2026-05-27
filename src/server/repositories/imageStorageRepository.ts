@@ -598,6 +598,7 @@ export class FirebaseStorageImageRepository implements ImageStorageRepository {
   ): StoredListingImageMetadata {
     const fileName = file.name.split("/").pop() ?? file.name;
     const token = file.metadata?.metadata?.firebaseStorageDownloadTokens;
+    const storedOriginal = String(file.metadata?.metadata?.originalFileName ?? "").trim();
     const url = token
       ? firebaseDownloadUrl(this.bucket.name, file.name, token)
       : firebaseMediaUrl(this.bucket.name, file.name);
@@ -607,6 +608,7 @@ export class FirebaseStorageImageRepository implements ImageStorageRepository {
       listingId: safeListingId(listingId),
       targetType,
       fileName,
+      ...(storedOriginal ? { originalFileName: storedOriginal } : {}),
       mimeType: file.metadata?.contentType ?? mimeFromFileName(fileName),
       size: Number(file.metadata?.size ?? 0),
       width: Number(file.metadata?.metadata?.width ?? 0),

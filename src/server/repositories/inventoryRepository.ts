@@ -23,6 +23,7 @@ import { publishDealerDraftToMarketplace } from "../publishDraftListing";
 import { normalizeDealerId } from "../../utils/dealerIdentity";
 import { inferMarketplaceCategoryType } from "../../utils/marketplaceCarMapper";
 import { validateDraftForPublish } from "../../utils/dealerPublishGuard";
+import { sanitizeFirestoreDocument } from "../firestoreDocumentSanitize.ts";
 
 export type NongaDataBackend = "file" | "firestore";
 export type ListingVisibility = "published" | "hidden";
@@ -332,11 +333,11 @@ export class FirestoreDraftRepository implements DraftRepository {
   }
 
   async createDraft(dealerId: string, record: DealerDraftRecord): Promise<DealerDraftRecord> {
-    const draft = {
+    const draft = sanitizeFirestoreDocument({
       ...record,
       dealerId: normalizeScope(dealerId),
       updatedAt: record.updatedAt || new Date().toISOString(),
-    };
+    });
     await this.collection().doc(draft.id).set(draft as unknown as FirestoreDocumentData);
     return draft;
   }
@@ -349,11 +350,11 @@ export class FirestoreDraftRepository implements DraftRepository {
     const existing = await this.getById(dealerId, id);
     if (!existing) return null;
     await this.collection().doc(id).set(
-      {
+      sanitizeFirestoreDocument({
         ...patch,
         dealerId: existing.dealerId,
         updatedAt: new Date().toISOString(),
-      } as FirestoreDocumentData,
+      }) as FirestoreDocumentData,
       { merge: true }
     );
     return this.getById(dealerId, id);

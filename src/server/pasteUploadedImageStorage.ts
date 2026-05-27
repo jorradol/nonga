@@ -254,10 +254,12 @@ export async function persistPasteUploadedImages(
 
     storedUrls.push(saved.storedUrl);
     if (saved.thumbnailUrl) thumbnails.push(saved.thumbnailUrl);
+    const resolvedOriginal =
+      saved.metadata.originalFileName ?? originalFileName ?? name;
     metadata.push({
       imageId: saved.metadata.imageId,
       fileName: saved.metadata.fileName,
-      originalFileName: saved.metadata.originalFileName ?? originalFileName ?? name,
+      originalFileName: resolvedOriginal,
       mimeType: saved.metadata.mimeType,
       width: saved.metadata.width,
       height: saved.metadata.height,

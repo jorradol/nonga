@@ -19,7 +19,20 @@ import {
   type FirestoreDbLike,
 } from "../src/server/repositories/inventoryRepository.ts";
 import { registerDealerPortalRoutes } from "../src/server/dealerPortalRoutes.ts";
+import {
+  mapDraftImageMetadataInput,
+  mapStoredListingImageToDealerDraftMetadata,
+  resolveDraftImageOriginalFileName,
+} from "../src/server/dealerDraftImageMetadata.ts";
+import {
+  documentContainsUndefined,
+  sanitizeFirestoreDocument,
+} from "../src/server/firestoreDocumentSanitize.ts";
+import { persistPasteUploadedImages } from "../src/server/pasteUploadedImageStorage.ts";
 import { validateDraftForPublish } from "../src/utils/dealerPublishGuard.ts";
+
+const TINY_PNG_B64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 const OWNER = {
   dealerId: THOR_AUTO_DEALER_ID,
@@ -77,6 +90,12 @@ class MemoryDoc {
   }
 
   async set(data: DocData, options?: { merge?: boolean }) {
+    const undefinedPath = documentContainsUndefined(data);
+    if (undefinedPath) {
+      throw new Error(
+        `Cannot use "undefined" as a Firestore value (found in field "${undefinedPath}").`
+      );
+    }
     this.collection.setData(this.id, data, options?.merge === true);
   }
 
@@ -284,6 +303,76 @@ async function main() {
     String(edited.payload?.disposition)
   );
 
+  const firebaseListedImage = {
+    imageId: "01-abc.webp",
+    dealerId: THOR_AUTO_DEALER_ID,
+    listingId: "draft-import-test-d0",
+    targetType: "draft" as const,
+    fileName: "01-abc.webp",
+    mimeType: "image/webp",
+    size: 1200,
+    width: 100,
+    height: 80,
+    storagePath: "draft-images/thor-auto/draft-import-test-d0/01-abc.webp",
+    publicUrl: "https://example.com/01-abc.webp",
+    imagePath: "draft-images/thor-auto/draft-import-test-d0/01-abc.webp",
+    imageUrl: "https://example.com/01-abc.webp",
+    createdAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const mappedFromListing = mapStoredListingImageToDealerDraftMetadata(
+    firebaseListedImage,
+    "draft-import-test-d0",
+    0,
+    { source: "paste-import" }
+  );
+  ok(
+    "28b-metadata-fallback-original-name",
+    mappedFromListing.originalFileName === "01-abc.webp",
+    mappedFromListing.originalFileName ?? "(missing)"
+  );
+  ok(
+    "28c-metadata-no-undefined",
+    documentContainsUndefined(mappedFromListing) === null,
+    documentContainsUndefined(mappedFromListing) ?? ""
+  );
+  const dirty = {
+    imageMetadata: [{ fileName: "01.webp", originalFileName: undefined }],
+  };
+  const cleaned = sanitizeFirestoreDocument(dirty);
+  ok(
+    "28d-sanitize-strips-undefined",
+    documentContainsUndefined(cleaned) === null &&
+      !("originalFileName" in (cleaned.imageMetadata as object[])[0]),
+    JSON.stringify(cleaned)
+  );
+  ok(
+    "28e-resolve-original-fallback",
+    resolveDraftImageOriginalFileName({
+      dealerId: THOR_AUTO_DEALER_ID,
+      draftId: "d1",
+      fileName: "01.webp",
+    }) === "01.webp",
+    ""
+  );
+  const explicitUndefined = mapDraftImageMetadataInput(
+    {
+      dealerId: THOR_AUTO_DEALER_ID,
+      draftId: "draft-import-test-d0",
+      fileName: "01-abc.webp",
+      originalFileName: undefined,
+      mimeType: "image/webp",
+      imageUrl: "https://example.com/01-abc.webp",
+      source: "paste-import",
+    },
+    0
+  );
+  ok(
+    "28f-explicit-undefined-uses-fileName",
+    explicitUndefined.originalFileName === "01-abc.webp",
+    explicitUndefined.originalFileName ?? "(missing)"
+  );
+
   if (edited.payload) {
     const db = new MemoryFirestore();
     const inventoryRepository = new FirestoreInventoryRepository(db);
@@ -298,8 +387,22 @@ async function main() {
       }
       const baseUrl = `http://127.0.0.1:${address.port}`;
       const draftId = `draft-import-${Date.now()}-d0`;
+      const upload = await persistPasteUploadedImages(THOR_AUTO_DEALER_ID, draftId, [
+        {
+          mimeType: "image/png",
+          dataBase64: TINY_PNG_B64,
+          name: "paste-photo.png",
+        },
+      ]);
+      ok(
+        "28g-upload-before-save-draft",
+        upload.ok === true && upload.storedUrls.length === 1,
+        upload.ok === false ? upload.message : String(upload.storedUrls.length)
+      );
       const storedImage =
-        `https://firebasestorage.googleapis.com/v0/b/test/o/draft-images%2F${THOR_AUTO_DEALER_ID}%2F${draftId}%2F01.webp?alt=media`;
+        upload.ok === true
+          ? upload.storedUrls[0]
+          : `https://firebasestorage.googleapis.com/v0/b/test/o/draft-images%2F${THOR_AUTO_DEALER_ID}%2F${draftId}%2F01.webp?alt=media`;
       const draftPayload = {
         ...edited.payload,
         commitDraftId: draftId,
@@ -334,6 +437,27 @@ async function main() {
 
       const storedSnap = await db.collection(DEALER_DRAFTS_COLLECTION).doc(draftId).get();
       ok("33-created-in-dealerDrafts", storedSnap.exists, draftId);
+      const storedData = storedSnap.data() as {
+        imageMetadata?: Array<Record<string, unknown>>;
+        missingFields?: string[];
+      } | undefined;
+      ok(
+        "33b-stored-doc-no-undefined",
+        documentContainsUndefined(storedData) === null,
+        documentContainsUndefined(storedData) ?? ""
+      );
+      ok(
+        "33c-stored-has-image-metadata",
+        (storedData?.imageMetadata?.length ?? 0) >= 1,
+        String(storedData?.imageMetadata?.length ?? 0)
+      );
+      if (storedData?.imageMetadata?.length) {
+        ok(
+          "33d-stored-metadata-original-name",
+          typeof storedData.imageMetadata[0]?.originalFileName === "string",
+          JSON.stringify(storedData.imageMetadata[0])
+        );
+      }
 
       const list = await requestJson(baseUrl, "/api/dealer/drafts", {
         headers: apiHeaders(),
