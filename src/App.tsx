@@ -96,17 +96,44 @@ export default function App() {
     fetchCars();
   }, [fetchCars]);
 
-  // Deep link: /admin/inventory-import
+  // Deep link / default route handling
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.pathname === "/admin/inventory-import") {
+    const path = window.location.pathname.toLowerCase();
+    if (path === "/" || path === "/chat") {
+      setView("chat");
+      return;
+    }
+    if (path === "/home") {
+      setView("home");
+      return;
+    }
+    if (path === "/marketplace") {
+      setView("marketplace");
+      return;
+    }
+    if (path === "/admin/inventory-import") {
       setView("inventory-import");
+      return;
     }
-    if (window.location.pathname === "/admin/draft-inventory") {
+    if (path === "/admin/draft-inventory") {
       setView("dealer-draft-inventory");
+      return;
     }
-    if (window.location.pathname.startsWith("/dealer")) {
+    if (path.startsWith("/dealer")) {
       setView("dealer-portal");
+      return;
+    }
+    if (path === "/login") {
+      setView("login");
+      return;
+    }
+    if (path === "/register") {
+      setView("register");
+      return;
+    }
+    if (path === "/forgot-password") {
+      setView("forgot-password");
     }
   }, [setView]);
 
