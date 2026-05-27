@@ -30,6 +30,8 @@ interface ImportConfirmationSectionProps {
   onConfirmImport: () => void;
   onGoToMarketplace: () => void;
   onGoToDraftInventory?: () => void;
+  commitEnabled?: boolean;
+  commitDisabledMessage?: string;
 }
 
 export function ImportConfirmationSection({
@@ -42,6 +44,8 @@ export function ImportConfirmationSection({
   onConfirmImport,
   onGoToMarketplace,
   onGoToDraftInventory,
+  commitEnabled = true,
+  commitDisabledMessage,
 }: ImportConfirmationSectionProps) {
   const border = isDarkMode ? "border-slate-800" : "border-slate-200";
   const panel = isDarkMode
@@ -49,7 +53,7 @@ export function ImportConfirmationSection({
     : "bg-white border-slate-200";
 
   const canConfirm =
-    preparation.importableCount > 0 && phase !== "loading";
+    preparation.importableCount > 0 && phase !== "loading" && commitEnabled;
 
   const stats = [
     { label: "แถวทั้งหมด", value: preparation.totalRows, color: "text-slate-200" },
@@ -103,6 +107,13 @@ export function ImportConfirmationSection({
           ))}
         </div>
 
+        {!commitEnabled && commitDisabledMessage && (
+          <div className="flex items-start gap-2 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <span>{commitDisabledMessage}</span>
+          </div>
+        )}
+
         {phase !== "success" && (
           <div className="flex flex-wrap gap-2">
             <button
@@ -125,7 +136,7 @@ export function ImportConfirmationSection({
               ) : (
                 <CheckCircle2 className="w-4 h-4" />
               )}
-              Confirm Import
+              {commitEnabled ? "Confirm Import" : "นำเข้าสต๊อกจริง (ยังไม่เปิด)"}
             </button>
           </div>
         )}

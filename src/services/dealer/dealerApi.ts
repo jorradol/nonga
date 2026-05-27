@@ -318,3 +318,19 @@ export async function commitDealerImport(
   }
   return body;
 }
+
+export async function saveDealerPasteImportDraft(
+  h: DealerApiHeaders,
+  draft: MarketplaceImportPayload
+): Promise<ImportCommitResult> {
+  const res = await fetch("/api/dealer/paste-import/save-draft", {
+    method: "POST",
+    headers: await headers(h),
+    body: JSON.stringify({ draft }),
+  });
+  const body = await res.json();
+  if (!res.ok || !body.success) {
+    throw new Error(body.message ?? "บันทึก Draft ไม่สำเร็จ");
+  }
+  return body;
+}

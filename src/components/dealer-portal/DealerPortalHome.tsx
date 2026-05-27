@@ -93,7 +93,7 @@ export function DealerPortalHome({ apiHeaders, isDarkMode }: Props) {
           className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-orange-600 text-white text-xs font-bold"
         >
           <Upload className="w-4 h-4" />
-          นำเข้ารถเพิ่ม
+          นำเข้าสต๊อก
         </button>
         <button
           type="button"

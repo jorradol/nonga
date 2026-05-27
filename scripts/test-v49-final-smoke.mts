@@ -24,7 +24,8 @@ const VIOS_MSG =
   "Toyota Vios ปี 2018 สีขาว เกียร์ออโต้ ไมล์ 85,000 ราคา 279,000 รถบ้านมือเดียว สภาพดี ลงประกาศขาย";
 
 const FORBIDDEN_UI = [
-  /\bDraft\b/i,
+  /** ตัวใหญ่เท่านั้น — อย่าใช้ /i เพราะจะจับ draft-xxx ในรหัสฉบับร่าง */
+  /\bDraft\b/,
   /\bdealerId\b/i,
   /\btoken\b/i,
   /\bmock\b/i,
@@ -397,10 +398,22 @@ async function seedThorDemo(page: Page) {
   );
 }
 
+function sanitizeUiTextForForbiddenScan(text: string): string {
+  return text
+    .replace(/\[dev\][^\n]*/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/\bDraft\b/.test(line))
+    .join("\n");
+}
+
 function scanForbiddenText(text: string, context: string): string[] {
+  const sanitized = sanitizeUiTextForForbiddenScan(text);
   const hits: string[] = [];
   for (const re of FORBIDDEN_UI) {
-    if (re.test(text)) hits.push(`${context}: ${re.source}`);
+    const flags = re.flags.includes("g") ? re.flags : `${re.flags}g`;
+    const matcher = new RegExp(re.source, flags);
+    if (matcher.test(sanitized)) hits.push(`${context}: ${re.source}`);
   }
   return hits;
 }
@@ -435,10 +448,7 @@ async function browserPhase(focusDraftId?: string) {
         layoutText.includes("Thor"),
       layoutText.slice(0, 80)
     );
-    const forbiddenPortal = scanForbiddenText(
-      portalText.replace(/\[dev\][^\n]*/g, ""),
-      "portal"
-    );
+    const forbiddenPortal = scanForbiddenText(portalText, "portal");
     ok(`13-ui-portal-${label}`, forbiddenPortal.length === 0, forbiddenPortal.join("; "));
 
     await page.goto(`${BASE}/dealer/inventory`, { waitUntil: "domcontentloaded" });
@@ -471,10 +481,7 @@ async function browserPhase(focusDraftId?: string) {
       draftsText.includes("ยังไม่ลงขาย") || draftsText.includes("ประกาศ"),
       draftsText.slice(0, 80)
     );
-    const forbiddenDrafts = scanForbiddenText(
-      draftsText.replace(/\[dev\][^\n]*/g, ""),
-      "drafts"
-    );
+    const forbiddenDrafts = scanForbiddenText(draftsText, "drafts");
     ok(`13-ui-drafts-${label}`, forbiddenDrafts.length === 0, forbiddenDrafts.join("; "));
 
     const editBtn = page.getByRole("button", { name: /^แก้ไข$/ }).first();

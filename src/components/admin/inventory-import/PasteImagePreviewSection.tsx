@@ -36,9 +36,10 @@ import {
 import {
   canSelectMore,
   countTotalSelected,
-  createQueuedUpload,
   isAllowedPasteUploadFile,
+  preparePasteQueuedUpload,
   PASTE_MAX_IMAGES_TOTAL,
+  PASTE_MAX_UPLOAD_FILE_BYTES,
   PASTE_UPLOAD_HELP_TEXT,
   PASTE_UPLOAD_STATUS_LABEL,
   revokeQueuedUploadPreview,
@@ -125,6 +126,7 @@ export function PasteImagePreviewSection({
   );
   const [primaryKey, setPrimaryKey] = useState<PasteImagePrimaryKey | null>(null);
   const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
+  const [isPreparingUploads, setIsPreparingUploads] = useState(false);
 
   const totalSelected = countTotalSelected(
     selectedSourceUrls.size,
@@ -196,23 +198,39 @@ export function PasteImagePreviewSection({
     onSelectionChange,
   ]);
 
-  const addFiles = (fileList: FileList | File[]) => {
+  const addFiles = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList);
     const warnings: string[] = [];
     const added: PasteQueuedUpload[] = [];
 
-    for (const file of files) {
-      const err = isAllowedPasteUploadFile(file);
-      if (err) {
-        warnings.push(`${file.name}: ${err}`);
-        continue;
+    setIsPreparingUploads(true);
+    try {
+      for (const file of files) {
+        const err = isAllowedPasteUploadFile(file);
+        if (err) {
+          warnings.push(`${file.name}: ${err}`);
+          continue;
+        }
+        if (uploads.length + added.length >= PASTE_MAX_IMAGES_TOTAL) {
+          warnings.push(`จำนวนรูปเกิน ${PASTE_MAX_IMAGES_TOTAL} รูปต่อคัน`);
+          break;
+        }
+
+        const item = await preparePasteQueuedUpload(file);
+        if (item.clientStatus === "converted") {
+          added.push(item);
+          continue;
+        }
+
+        revokeQueuedUploadPreview(item);
+        const detail =
+          item.clientStatus === "too_large"
+            ? `ไฟล์ใหญ่เกิน ${Math.round(PASTE_MAX_UPLOAD_FILE_BYTES / (1024 * 1024))}MB — กรุณาเลือกรูปที่เล็กลง`
+            : item.statusMessage;
+        warnings.push(`${file.name}: ${detail}`);
       }
-      if (uploads.length + added.length >= PASTE_MAX_IMAGES_TOTAL) {
-        warnings.push(`จำนวนรูปเกิน ${PASTE_MAX_IMAGES_TOTAL} รูปต่อคัน`);
-        break;
-      }
-      const item = createQueuedUpload(file);
-      added.push(item);
+    } finally {
+      setIsPreparingUploads(false);
     }
 
     if (warnings.length) setUploadWarnings((w) => [...w, ...warnings]);
@@ -421,7 +439,7 @@ export function PasteImagePreviewSection({
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
-            บันทึก Draft แล้วอัปโหลดรูปภายหลัง
+            บันทึกฉบับร่างแล้วอัปโหลดรูปภายหลัง
           </button>
         )}
       </div>
@@ -540,16 +558,25 @@ export function PasteImagePreviewSection({
             setDragOver(false);
             if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
           }}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (!isPreparingUploads) fileInputRef.current?.click();
+          }}
           role="button"
           tabIndex={0}
+          aria-busy={isPreparingUploads}
           onKeyDown={(e) => {
             if (e.key === "Enter") fileInputRef.current?.click();
           }}
         >
-          <Upload className="w-8 h-8 mx-auto text-slate-500 mb-2" />
+          {isPreparingUploads ? (
+            <Loader2 className="w-8 h-8 mx-auto text-orange-400 mb-2 animate-spin" />
+          ) : (
+            <Upload className="w-8 h-8 mx-auto text-slate-500 mb-2" />
+          )}
           <p className="text-xs text-slate-400">
-            ลากไฟล์มาวาง หรือคลิกเพื่อเลือกรูปจากเครื่อง
+            {isPreparingUploads
+              ? "กำลังย่อและบีบอัดรูปก่อนอัปโหลด…"
+              : "ลากไฟล์มาวาง หรือคลิกเพื่อเลือกรูปจากเครื่อง"}
           </p>
           <input
             ref={fileInputRef}
@@ -557,8 +584,9 @@ export function PasteImagePreviewSection({
             accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
             multiple
             className="hidden"
+            disabled={isPreparingUploads}
             onChange={(e) => {
-              if (e.target.files?.length) addFiles(e.target.files);
+              if (e.target.files?.length) void addFiles(e.target.files);
               e.target.value = "";
             }}
           />
@@ -606,7 +634,8 @@ export function PasteImagePreviewSection({
                         className={`text-[10px] font-medium ${
                           saveDraftLaterLoading && selected
                             ? "text-amber-300"
-                            : u.clientStatus === "pending"
+                            : u.clientStatus === "converted" ||
+                                u.clientStatus === "pending"
                               ? "text-emerald-400"
                               : "text-slate-400"
                         }`}

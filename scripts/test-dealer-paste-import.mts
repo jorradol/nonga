@@ -2,6 +2,7 @@
  * Dealer paste import — ThorAuto tab-separated row parser
  * npm run test:dealer-paste-import
  */
+import express from "express";
 import {
   parseThorAutoPasteRow,
   splitPasteRawLine,
@@ -12,6 +13,13 @@ import {
   editablePasteDraftToPayload,
 } from "../src/utils/inventoryImport/editablePasteDraft.ts";
 import { THOR_AUTO_DEALER_ID } from "../src/utils/dealerIdentity.ts";
+import {
+  DEALER_DRAFTS_COLLECTION,
+  FirestoreInventoryRepository,
+  type FirestoreDbLike,
+} from "../src/server/repositories/inventoryRepository.ts";
+import { registerDealerPortalRoutes } from "../src/server/dealerPortalRoutes.ts";
+import { validateDraftForPublish } from "../src/utils/dealerPublishGuard.ts";
 
 const OWNER = {
   dealerId: THOR_AUTO_DEALER_ID,
@@ -49,6 +57,130 @@ const SAMPLE_ROW = [
 function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
   if (!pass) process.exitCode = 1;
+}
+
+type DocData = Record<string, unknown>;
+
+class MemoryDoc {
+  constructor(
+    private readonly collection: MemoryCollection,
+    private readonly id: string
+  ) {}
+
+  async get() {
+    const data = this.collection.getData(this.id);
+    return {
+      id: this.id,
+      exists: Boolean(data),
+      data: () => (data ? { ...data } : undefined),
+    };
+  }
+
+  async set(data: DocData, options?: { merge?: boolean }) {
+    this.collection.setData(this.id, data, options?.merge === true);
+  }
+
+  async delete() {
+    this.collection.deleteData(this.id);
+  }
+}
+
+class MemoryQuery {
+  protected filters: Array<{ field: string; value: unknown }> = [];
+  protected collection: MemoryCollection;
+
+  constructor(collection?: MemoryCollection) {
+    this.collection = collection ?? (this as unknown as MemoryCollection);
+  }
+
+  where(field: string, _op: string, value: unknown): MemoryQuery {
+    const next = new MemoryQuery(this.collection);
+    next.filters = [...this.filters, { field, value }];
+    return next;
+  }
+
+  orderBy(): MemoryQuery {
+    return this;
+  }
+
+  async get() {
+    const docs = this.collection
+      .entries()
+      .filter(([, data]) =>
+        this.filters.every((filter) => data[filter.field] === filter.value)
+      )
+      .map(([id, data]) => ({
+        id,
+        exists: true,
+        data: () => ({ ...data }),
+      }));
+    return { docs };
+  }
+}
+
+class MemoryCollection extends MemoryQuery {
+  private docs = new Map<string, DocData>();
+
+  constructor(readonly name: string) {
+    super();
+  }
+
+  doc(id: string): MemoryDoc {
+    return new MemoryDoc(this, id);
+  }
+
+  getData(id: string): DocData | undefined {
+    return this.docs.get(id);
+  }
+
+  setData(id: string, data: DocData, merge: boolean): void {
+    const prev = merge ? this.docs.get(id) ?? {} : {};
+    this.docs.set(id, { ...prev, ...data });
+  }
+
+  deleteData(id: string): void {
+    this.docs.delete(id);
+  }
+
+  entries(): Array<[string, DocData]> {
+    return [...this.docs.entries()];
+  }
+}
+
+class MemoryFirestore implements FirestoreDbLike {
+  collections = new Map<string, MemoryCollection>();
+
+  collection(name: string): MemoryCollection {
+    const existing = this.collections.get(name);
+    if (existing) return existing;
+    const created = new MemoryCollection(name);
+    this.collections.set(name, created);
+    return created;
+  }
+}
+
+function apiHeaders(dealerId = THOR_AUTO_DEALER_ID, role = "dealer") {
+  return {
+    "Content-Type": "application/json",
+    "X-Dealer-Id": dealerId,
+    "X-User-Role": role,
+  };
+}
+
+async function requestJson(
+  baseUrl: string,
+  path: string,
+  options: RequestInit = {}
+) {
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
+  });
+  const body = await res.json();
+  return { status: res.status, body };
 }
 
 async function main() {
@@ -152,8 +284,116 @@ async function main() {
     String(edited.payload?.disposition)
   );
 
+  if (edited.payload) {
+    const db = new MemoryFirestore();
+    const inventoryRepository = new FirestoreInventoryRepository(db);
+    const app = express();
+    app.use(express.json({ limit: "2mb" }));
+    registerDealerPortalRoutes(app, { inventoryRepository });
+    const server = app.listen(0);
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("test server should listen on a port");
+      }
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      const draftId = `draft-import-${Date.now()}-d0`;
+      const storedImage =
+        `https://firebasestorage.googleapis.com/v0/b/test/o/draft-images%2F${THOR_AUTO_DEALER_ID}%2F${draftId}%2F01.webp?alt=media`;
+      const draftPayload = {
+        ...edited.payload,
+        commitDraftId: draftId,
+        images: [storedImage],
+        sourceImageUrls: [],
+      };
+
+      const guest = await requestJson(baseUrl, "/api/dealer/paste-import/save-draft", {
+        method: "POST",
+        body: JSON.stringify({ draft: draftPayload }),
+      });
+      ok("29-guest-save-blocked", guest.status === 403, String(guest.status));
+
+      const member = await requestJson(baseUrl, "/api/dealer/paste-import/save-draft", {
+        method: "POST",
+        headers: apiHeaders(THOR_AUTO_DEALER_ID, "member"),
+        body: JSON.stringify({ draft: draftPayload }),
+      });
+      ok("30-member-save-blocked", member.status === 403, String(member.status));
+
+      const saved = await requestJson(baseUrl, "/api/dealer/paste-import/save-draft", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify({ draft: draftPayload }),
+      });
+      ok(
+        "31-save-draft-api",
+        saved.status === 200 && saved.body.success === true,
+        JSON.stringify(saved.body).slice(0, 160)
+      );
+      ok("32-save-draft-id", saved.body.drafts?.[0]?.id === draftId, saved.body.drafts?.[0]?.id);
+
+      const storedSnap = await db.collection(DEALER_DRAFTS_COLLECTION).doc(draftId).get();
+      ok("33-created-in-dealerDrafts", storedSnap.exists, draftId);
+
+      const list = await requestJson(baseUrl, "/api/dealer/drafts", {
+        headers: apiHeaders(),
+      });
+      const drafts = (list.body.data ?? []) as Array<{
+        id: string;
+        dealerId: string;
+        images: string[];
+        missingFields: string[];
+        brand: string;
+        model: string;
+        year: number;
+        price: number;
+        mileage: number;
+      }>;
+      const created = drafts.find((item) => item.id === draftId);
+      ok("34-draft-list-sees-new", Boolean(created), `count=${drafts.length}`);
+      ok("35-draft-dealer-scope", created?.dealerId === THOR_AUTO_DEALER_ID, created?.dealerId);
+      ok("36-draft-image-attached", created?.images?.[0] === storedImage, created?.images?.[0]);
+      const publishCheck = created
+        ? validateDraftForPublish({
+            id: created.id,
+            brand: created.brand,
+            model: created.model,
+            year: created.year,
+            price: created.price,
+            mileage: created.mileage,
+            images: created.images,
+          })
+        : null;
+      ok(
+        "37-image-not-missing",
+        Boolean(publishCheck && !publishCheck.missingFields.includes("image")),
+        publishCheck?.missingFields.join(",") ?? "no draft"
+      );
+
+      const otherList = await requestJson(baseUrl, "/api/dealer/drafts", {
+        headers: apiHeaders("other-dealer"),
+      });
+      const otherDrafts = (otherList.body.data ?? []) as Array<{ id: string }>;
+      ok(
+        "38-other-dealer-isolated",
+        !otherDrafts.some((item) => item.id === draftId),
+        `otherCount=${otherDrafts.length}`
+      );
+    } finally {
+      server.close();
+    }
+  }
+
   const BASE = process.env.APP_URL ?? "http://localhost:3000";
   const TOKEN = process.env.NONGA_DEALER_API_TOKEN ?? "nonga-v4-dev-dealer-token";
+  const allowImportWrite = process.env.NONGA_ALLOW_IMPORT_WRITE_SMOKE === "true";
+
+  if (!allowImportWrite) {
+    console.log(
+      "\nSkip API draft commit — set NONGA_ALLOW_IMPORT_WRITE_SMOKE=true only for file-backend write smoke"
+    );
+    process.exit(process.exitCode === 1 ? 1 : 0);
+  }
 
   try {
     const ping = await fetch(BASE);

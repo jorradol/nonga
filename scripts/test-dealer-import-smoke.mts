@@ -141,6 +141,8 @@ Toyota,Vios,2021,"529,000",62000,https://images.unsplash.com/photo-1609521263047
     `mazda=${mazda?.disposition}`
   );
 
+  const allowImportWrite = process.env.NONGA_ALLOW_IMPORT_WRITE_SMOKE === "true";
+
   async function dealerInventoryCount() {
     const res = await fetch(`${BASE}/api/dealer/inventory`, {
       headers: dealerHeaders(),
@@ -156,104 +158,110 @@ Toyota,Vios,2021,"529,000",62000,https://images.unsplash.com/photo-1609521263047
     return (body.data as unknown[])?.length ?? body.count ?? 0;
   }
 
-  const beforeInv = await dealerInventoryCount();
-  const beforeDrafts = await dealerDraftCount();
-  const marketBeforeRes = await fetch(`${BASE}/api/cars`);
-  const marketBeforeBody = await marketBeforeRes.json();
-  const beforeMarket = ((marketBeforeBody.data ?? marketBeforeBody) as unknown[]).length;
+  if (!allowImportWrite) {
+    console.log(
+      "\nSkip API import commit — set NONGA_ALLOW_IMPORT_WRITE_SMOKE=true only for file-backend write smoke"
+    );
+  } else {
+    const beforeInv = await dealerInventoryCount();
+    const beforeDrafts = await dealerDraftCount();
+    const marketBeforeRes = await fetch(`${BASE}/api/cars`);
+    const marketBeforeBody = await marketBeforeRes.json();
+    const beforeMarket = ((marketBeforeBody.data ?? marketBeforeBody) as unknown[]).length;
 
-  const commitRes = await fetch(`${BASE}/api/dealer/import/commit`, {
-    method: "POST",
-    headers: dealerHeaders(),
-    body: JSON.stringify({
-      published: flat.published,
-      drafts: flat.drafts,
-      owner: OWNER,
-    }),
-  });
-  const commitBody = await commitRes.json();
-  ok(
-    "7-confirm-import",
-    commitRes.ok && commitBody.success,
-    `status=${commitRes.status} published=${commitBody.publishedCount} draft=${commitBody.draftCount}`
-  );
+    const commitRes = await fetch(`${BASE}/api/dealer/import/commit`, {
+      method: "POST",
+      headers: dealerHeaders(),
+      body: JSON.stringify({
+        published: flat.published,
+        drafts: flat.drafts,
+        owner: OWNER,
+      }),
+    });
+    const commitBody = await commitRes.json();
+    ok(
+      "7-confirm-import",
+      commitRes.ok && commitBody.success,
+      `status=${commitRes.status} published=${commitBody.publishedCount} draft=${commitBody.draftCount}`
+    );
 
-  const publishedN = commitBody.publishedCount ?? 0;
-  const draftN = commitBody.draftCount ?? 0;
-  const rejectedN = commitBody.failed?.length ?? 0;
-  const imgDown = commitBody.imageStats?.downloaded ?? 0;
-  const imgFail = commitBody.imageStats?.failed ?? 0;
+    const publishedN = commitBody.publishedCount ?? 0;
+    const draftN = commitBody.draftCount ?? 0;
+    const rejectedN = commitBody.failed?.length ?? 0;
+    const imgDown = commitBody.imageStats?.downloaded ?? 0;
+    const imgFail = commitBody.imageStats?.failed ?? 0;
 
-  console.log("\n--- Import counts ---");
-  console.log("published:", publishedN);
-  console.log("draft:", draftN);
-  console.log("rejected/failed:", rejectedN);
-  console.log("images downloaded:", imgDown, "failed:", imgFail);
+    console.log("\n--- Import counts ---");
+    console.log("published:", publishedN);
+    console.log("draft:", draftN);
+    console.log("rejected/failed:", rejectedN);
+    console.log("images downloaded:", imgDown, "failed:", imgFail);
 
-  const afterInv = await dealerInventoryCount();
-  const afterDrafts = await dealerDraftCount();
-  ok(
-    "8-inventory-delta",
-    afterInv >= beforeInv + publishedN,
-    `before=${beforeInv} after=${afterInv} (+${afterInv - beforeInv})`
-  );
-  ok(
-    "8-drafts-delta",
-    afterDrafts >= beforeDrafts + draftN,
-    `before=${beforeDrafts} after=${afterDrafts} (+${afterDrafts - beforeDrafts})`
-  );
+    const afterInv = await dealerInventoryCount();
+    const afterDrafts = await dealerDraftCount();
+    ok(
+      "8-inventory-delta",
+      afterInv >= beforeInv + publishedN,
+      `before=${beforeInv} after=${afterInv} (+${afterInv - beforeInv})`
+    );
+    ok(
+      "8-drafts-delta",
+      afterDrafts >= beforeDrafts + draftN,
+      `before=${beforeDrafts} after=${afterDrafts} (+${afterDrafts - beforeDrafts})`
+    );
 
-  const importedIds = new Set(
-    (commitBody.imported as { id: string }[] | undefined)?.map((i) => i.id) ?? []
-  );
-  const invRes = await fetch(`${BASE}/api/dealer/inventory`, {
-    headers: dealerHeaders(),
-  });
-  const invBody = await invRes.json();
-  const newCars = ((invBody.data as { id: string; dealerId?: string; images?: string[] }[]) ?? []).filter(
-    (c) => importedIds.has(c.id)
-  );
-  const allThor = newCars.every((c) => c.dealerId === THOR_AUTO_DEALER_ID);
-  ok("8-dealer-id", allThor && newCars.length >= publishedN, `cars=${newCars.length}`);
+    const importedIds = new Set(
+      (commitBody.imported as { id: string }[] | undefined)?.map((i) => i.id) ?? []
+    );
+    const invRes = await fetch(`${BASE}/api/dealer/inventory`, {
+      headers: dealerHeaders(),
+    });
+    const invBody = await invRes.json();
+    const newCars = ((invBody.data as { id: string; dealerId?: string; images?: string[] }[]) ?? []).filter(
+      (c) => importedIds.has(c.id)
+    );
+    const allThor = newCars.every((c) => c.dealerId === THOR_AUTO_DEALER_ID);
+    ok("8-dealer-id", allThor && newCars.length >= publishedN, `cars=${newCars.length}`);
 
-  let storagePrimary = 0;
-  let unsplashPrimary = 0;
-  for (const car of newCars) {
-    const primary = car.images?.[0] ?? "";
-    if (primary.includes("/storage/listings/")) storagePrimary++;
-    if (primary.includes("unsplash.com")) unsplashPrimary++;
+    let storagePrimary = 0;
+    let unsplashPrimary = 0;
+    for (const car of newCars) {
+      const primary = car.images?.[0] ?? "";
+      if (primary.includes("/storage/listings/")) storagePrimary++;
+      if (primary.includes("unsplash.com")) unsplashPrimary++;
+    }
+    ok(
+      "8-images-storage",
+      storagePrimary >= Math.min(publishedN, 1) || imgDown > 0,
+      `storagePrimary=${storagePrimary} unsplashPrimary=${unsplashPrimary} downloaded=${imgDown}`
+    );
+
+    const dupRes = await fetch(`${BASE}/api/dealer/duplicates`, {
+      headers: dealerHeaders(),
+    });
+    const dupBody = await dupRes.json();
+    ok(
+      "9-duplicate-api",
+      dupRes.ok && dupBody.success,
+      `groups=${dupBody.data?.length ?? 0}`
+    );
+
+    const marketRes = await fetch(`${BASE}/api/cars`);
+    const marketBody = await marketRes.json();
+    const marketCars = (marketBody.data ?? marketBody) as { id: string }[];
+    const marketAfter = marketCars.length;
+    ok(
+      "10-marketplace-visible",
+      marketAfter >= beforeMarket,
+      `marketplace=${marketAfter} (was ${beforeMarket})`
+    );
+    const visibleImported = marketCars.filter((c) => importedIds.has(c.id));
+    ok(
+      "10-imported-on-marketplace",
+      visibleImported.length >= Math.min(publishedN, 1),
+      `visible=${visibleImported.length}`
+    );
   }
-  ok(
-    "8-images-storage",
-    storagePrimary >= Math.min(publishedN, 1) || imgDown > 0,
-    `storagePrimary=${storagePrimary} unsplashPrimary=${unsplashPrimary} downloaded=${imgDown}`
-  );
-
-  const dupRes = await fetch(`${BASE}/api/dealer/duplicates`, {
-    headers: dealerHeaders(),
-  });
-  const dupBody = await dupRes.json();
-  ok(
-    "9-duplicate-api",
-    dupRes.ok && dupBody.success,
-    `groups=${dupBody.data?.length ?? 0}`
-  );
-
-  const marketRes = await fetch(`${BASE}/api/cars`);
-  const marketBody = await marketRes.json();
-  const marketCars = (marketBody.data ?? marketBody) as { id: string }[];
-  const marketAfter = marketCars.length;
-  ok(
-    "10-marketplace-visible",
-    marketAfter >= beforeMarket,
-    `marketplace=${marketAfter} (was ${beforeMarket})`
-  );
-  const visibleImported = marketCars.filter((c) => importedIds.has(c.id));
-  ok(
-    "10-imported-on-marketplace",
-    visibleImported.length >= Math.min(publishedN, 1),
-    `visible=${visibleImported.length}`
-  );
 
   // Browser: /dealer/import loads
   try {
@@ -284,10 +292,34 @@ Toyota,Vios,2021,"529,000",62000,https://images.unsplash.com/photo-1609521263047
     await page.waitForTimeout(3000);
     const pathOk = (await page.evaluate(() => location.pathname)) === "/dealer/import";
     const h1 = (await page.locator("h1").first().textContent()) ?? "";
+    const bodyText = await page.locator("body").innerText();
+    const fileBanner = page.locator('[data-testid="dealer-final-import-disabled-banner"]');
     ok(
       "1-ui-dealer-import",
-      pathOk && /นำเข้า/.test(h1),
+      pathOk &&
+        /นำเข้าสต๊อกรถ/.test(h1) &&
+        bodyText.includes("อัปโหลดไฟล์ Excel/CSV") &&
+        bodyText.includes("วางข้อมูลแบบข้อความ"),
       `path=${await page.evaluate(() => location.pathname)} h1=${h1.slice(0, 40)}`
+    );
+    ok(
+      "1b-file-tab-final-import-banner",
+      await fileBanner.isVisible(),
+      "final import disabled banner on file tab"
+    );
+    await page.getByRole("tab", { name: "วางข้อมูลแบบข้อความ" }).click();
+    await page.waitForTimeout(400);
+    ok(
+      "1c-paste-tab-hides-final-import-banner",
+      !(await fileBanner.isVisible()),
+      "paste tab must not show bulk final-import banner"
+    );
+    const pasteHelp = await page.locator("body").innerText();
+    ok(
+      "1d-paste-tab-save-draft-copy",
+      pasteHelp.includes("บันทึกฉบับร่าง") &&
+        pasteHelp.includes("ประกาศที่ยังไม่ลงขาย"),
+      ""
     );
     await browser.close();
   } catch (e) {

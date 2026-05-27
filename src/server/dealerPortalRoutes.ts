@@ -10,6 +10,7 @@ import {
   createInventoryRepository,
   type InventoryRepository,
 } from "./repositories/inventoryRepository";
+import { createImageStorageRepository } from "./repositories/imageStorageRepository";
 import { getDealerProfile, upsertDealerProfile } from "./dealerProfile";
 import {
   parseDealerRequestScope,
@@ -31,6 +32,7 @@ import {
   validateDraftForPublish,
 } from "../utils/dealerPublishGuard";
 import { createEmptyNormalizedRow } from "../utils/inventoryImport/inventoryImportSchema";
+import type { MarketplaceImportPayload } from "../utils/inventoryImport/import/types";
 import {
   applyDuplicateReview,
   listDuplicateGroups,
@@ -40,12 +42,71 @@ import type { DuplicateReviewAction } from "../utils/duplicateDetection/types";
 
 function scopeOr403(req: Request, res: Response) {
   const scope = parseDealerRequestScope(req);
+  if (!scope.isAdmin && scope.role !== "dealer") {
+    res.status(403).json({
+      success: false,
+      message: "บัญชีนี้ยังไม่ได้เปิดใช้งานเป็นสมาชิกดีลเลอร์ครับ",
+    });
+    return null;
+  }
   const auth = requireDealerId(scope);
   if (auth.ok === false) {
     res.status(403).json({ success: false, message: auth.message });
     return null;
   }
   return { scope, dealerId: auth.dealerId };
+}
+
+function toStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.map((item) => String(item ?? "").trim()).filter(Boolean))]
+    : [];
+}
+
+function toRawRow(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+      key,
+      String(val ?? ""),
+    ])
+  );
+}
+
+function safePasteDraftId(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  return /^draft-import-[0-9]+-d\d+$/.test(raw) ? raw : `draft-${Date.now()}`;
+}
+
+function uniqueWarnings(items: unknown[]): string[] {
+  return [...new Set(items.map((item) => String(item ?? "").trim()).filter(Boolean))];
+}
+
+async function loadDraftImageMetadata(dealerId: string, draftId: string) {
+  try {
+    const imageStorage = createImageStorageRepository();
+    const metadata = await imageStorage.listListingImages(dealerId, draftId, "draft");
+    return metadata.map((item) => ({
+      dealerId: item.dealerId,
+      draftId,
+      fileName: item.fileName,
+      originalFileName: item.originalFileName,
+      mimeType: item.mimeType,
+      width: item.width,
+      height: item.height,
+      size: item.size,
+      imagePath: item.imagePath,
+      imageUrl: item.imageUrl,
+      thumbnailPath: item.thumbnailPath ?? "",
+      thumbnailUrl: item.thumbnailUrl ?? "",
+      createdAt: item.createdAt,
+      sortOrder: item.sortOrder,
+      source: "paste-import",
+    }));
+  } catch (err) {
+    console.warn("[paste-import/save-draft] image metadata lookup failed", err);
+    return [];
+  }
 }
 
 async function listingIdBelongsToDealer(
@@ -653,6 +714,125 @@ export function registerDealerPortalRoutes(
     }
   });
 
+  app.post("/api/dealer/paste-import/save-draft", async (req, res) => {
+    const ctx = scopeOr403(req, res);
+    if (!ctx) return;
+    const payload = req.body?.draft as MarketplaceImportPayload | undefined;
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ success: false, message: "ไม่มีข้อมูล Draft" });
+    }
+
+    const draftId = safePasteDraftId(payload.commitDraftId);
+    const profile = getDealerProfile(ctx.dealerId);
+    const images = toStringList(payload.images);
+    const sourceImageUrls = toStringList(payload.sourceImageUrls);
+    const brand = String(payload.brand ?? "").trim();
+    const model = String(payload.model ?? "").trim();
+    const year = Number(payload.year) || 0;
+    const price = Number(payload.price) || 0;
+    const mileage = Number(payload.mileage) || 0;
+    const description = String(payload.description ?? "").trim();
+    const now = new Date().toISOString();
+    const publishCheck = validateDraftForPublish({
+      id: draftId,
+      brand,
+      model,
+      year,
+      price,
+      mileage,
+      images,
+      sourceImageUrls,
+    });
+    const imageMetadata = await loadDraftImageMetadata(ctx.dealerId, draftId);
+    const warnings = uniqueWarnings([
+      ...(payload.warnings ?? []),
+      ...(publishCheck.missingFields.length > 0
+        ? ["บันทึกเป็นฉบับร่างแล้ว แต่ยังขาดข้อมูลก่อนส่งเข้าตลาด"]
+        : []),
+    ]);
+    const rawRow = toRawRow(payload.rawRow);
+    const normalizedData = {
+      ...createEmptyNormalizedRow(),
+      brand,
+      model,
+      year: year > 0 ? String(year) : "",
+      price: price > 0 ? String(price) : "",
+      mileage: Number.isFinite(mileage) && mileage >= 0 ? String(mileage) : "",
+      fuelType: String(payload.fuelType ?? "").trim(),
+      description,
+      imageUrls: [...images, ...sourceImageUrls].join(","),
+      notes: rawRow.notes ?? rawRow["หมายเหตุ"] ?? "",
+    };
+
+    const draft: DealerDraftRecord = {
+      id: draftId,
+      dealerId: ctx.dealerId,
+      dealerName: profile?.showroomName || profile?.ownerName || "Dealer",
+      ownerName: profile?.ownerName || String(payload.ownerName ?? ""),
+      phone: profile?.phone || String(payload.ownerPhone ?? ""),
+      showroomName: profile?.showroomName || String(payload.showroomName ?? ""),
+      rawRow,
+      normalizedData,
+      missingFields: publishCheck.missingFields,
+      warnings,
+      confidenceScore: Number(payload.confidenceScore ?? 0) || 0,
+      status: publishCheck.ok ? "draft" : "needs_review",
+      images,
+      sourceImageUrls,
+      ...(imageMetadata.length > 0 ? { imageMetadata } : {}),
+      title:
+        String(payload.title ?? "").trim() ||
+        `${brand} ${model} ${year || ""}`.trim() ||
+        "ร่างประกาศนำเข้า",
+      brand,
+      model,
+      year,
+      price,
+      mileage,
+      fuelType: String(payload.fuelType ?? "petrol").trim() || "petrol",
+      condition: String(payload.condition ?? "มือสอง").trim() || "มือสอง",
+      description,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      const created = await inventoryRepository.drafts.createDraft(ctx.dealerId, draft);
+      return res.json({
+        success: true,
+        importedCount: 1,
+        publishedCount: 0,
+        draftCount: 1,
+        skippedCount: 0,
+        warningCount: warnings.length,
+        errorCount: 0,
+        imported: [
+          {
+            id: created.id,
+            title: created.title,
+            sourceRowIndex: payload.sourceRowIndex ?? 1,
+            bucket: "draft",
+          },
+        ],
+        drafts: [
+          {
+            id: created.id,
+            title: created.title,
+            sourceRowIndex: payload.sourceRowIndex ?? 1,
+            status: created.status,
+            confidenceScore: created.confidenceScore,
+          },
+        ],
+        failed: [],
+        data: created,
+      });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "บันทึก Draft ไม่สำเร็จ";
+      res.status(500).json({ success: false, message });
+    }
+  });
+
   app.post("/api/dealer/paste-import/image-probe", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
@@ -708,7 +888,8 @@ export function registerDealerPortalRoutes(
         listingId,
         candidates,
         selectedSourceUrls,
-        primarySourceUrl
+        primarySourceUrl,
+        ctx.dealerId
       );
       res.json({ success: true, data });
     } catch (err: unknown) {

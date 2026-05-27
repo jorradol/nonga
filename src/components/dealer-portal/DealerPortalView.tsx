@@ -12,7 +12,10 @@ import { DealerInventoryPage } from "./DealerInventoryPage";
 import { DealerDraftsPage } from "./DealerDraftsPage";
 import { DealerProfilePage } from "./DealerProfilePage";
 import InventoryImportView from "../admin/inventory-import/InventoryImportView";
-import { commitDealerImport } from "../../services/dealer/dealerApi";
+import {
+  commitDealerImport,
+  saveDealerPasteImportDraft,
+} from "../../services/dealer/dealerApi";
 import { navigateToDealerDraftsAfterPasteSave } from "../../utils/dealer/dealerPasteSaveRedirect";
 import { parseDealerDraftFocusFromLocation } from "../../utils/dealer/dealerDraftNavigation";
 import { AlertCircle } from "lucide-react";
@@ -94,6 +97,10 @@ export default function DealerPortalView() {
           commitImport={async (published, drafts, owner) =>
             commitDealerImport(apiHeaders, published, drafts, owner)
           }
+          savePasteDraft={async (draft) =>
+            saveDealerPasteImportDraft(apiHeaders, draft)
+          }
+          finalCommitEnabled={false}
           onGoToDrafts={() => navigateToDealerDraftsAfterPasteSave(setTab)}
           compact
         />

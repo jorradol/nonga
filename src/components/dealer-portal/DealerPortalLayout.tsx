@@ -24,7 +24,7 @@ const NAV: { id: DealerPortalTab; label: string; path: string; icon: React.Eleme
   { id: "inventory", label: "รถในตลาด", path: "/dealer/inventory", icon: Car },
   { id: "drafts", label: "ยังไม่ลงขาย", path: "/dealer/drafts", icon: FileEdit },
   { id: "duplicates", label: "รถซ้ำ", path: "/dealer/duplicates", icon: Copy },
-  { id: "import", label: "นำเข้า", path: "/dealer/import", icon: Upload },
+  { id: "import", label: "นำเข้าสต๊อก", path: "/dealer/import", icon: Upload },
   { id: "profile", label: "โปรไฟล์", path: "/dealer/profile", icon: User },
 ];
 

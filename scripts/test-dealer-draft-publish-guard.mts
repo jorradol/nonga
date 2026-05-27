@@ -238,7 +238,7 @@ async function main() {
     method: "POST",
     headers: hdrs,
     body: JSON.stringify({
-      title: "Incomplete Draft Smoke",
+      title: "ทดสอบฉบับร่างไม่ครบ",
       brand: "Honda",
       model: "Civic",
       price: 350000,

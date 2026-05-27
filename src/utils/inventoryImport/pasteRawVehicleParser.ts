@@ -243,7 +243,7 @@ export function parseThorAutoPasteRow(rawText: string): ParsedPasteVehicle {
   }
 
   if (priceParsed.confidence !== "high") {
-    warnings.push("ราคาดูไม่ชัดเจน — บันทึกเป็น Draft เพื่อตรวจสอบ");
+    warnings.push("ราคาดูไม่ชัดเจน — บันทึกเป็นฉบับร่างเพื่อตรวจสอบ");
   }
 
   const base = {

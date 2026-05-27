@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ClipboardPaste,
@@ -21,6 +21,7 @@ import type {
   ImportOwnerContext,
   MarketplaceImportPayload,
 } from "../../../utils/inventoryImport/import/types";
+import { DEALER_PASTE_DRAFT_UNAVAILABLE_MESSAGE } from "../../../utils/dealer/dealerImportMessages";
 import type { DealerApiHeaders } from "../../../services/dealer/dealerApi";
 import {
   importSelectedPasteImagesApi,
@@ -38,13 +39,17 @@ import { shouldRedirectAfterPasteDraftSave } from "../../../utils/dealer/dealerP
 export interface DealerPasteImportSectionProps {
   ownerContext: ImportOwnerContext;
   dealerApiHeaders: DealerApiHeaders;
-  commitImport: (
-    published: MarketplaceImportPayload[],
-    drafts: MarketplaceImportPayload[],
+  savePasteDraft?: (
+    draft: MarketplaceImportPayload,
     owner: ImportOwnerContext
   ) => Promise<ImportCommitResult>;
   onGoToDrafts?: () => void;
   isDarkMode: boolean;
+}
+
+function scrollToPasteStatus(el: HTMLElement | null): void {
+  if (!el || typeof el.scrollIntoView !== "function") return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function confidenceBadge(level: string) {
@@ -115,10 +120,12 @@ function Field({
 export function DealerPasteImportSection({
   ownerContext,
   dealerApiHeaders,
-  commitImport,
+  savePasteDraft,
   onGoToDrafts,
   isDarkMode,
 }: DealerPasteImportSectionProps) {
+  const statusRef = useRef<HTMLDivElement>(null);
+  const canSaveDraft = Boolean(savePasteDraft);
   const [rawText, setRawText] = useState("");
   const [sourceParsed, setSourceParsed] = useState<ParsedPasteVehicle | null>(
     null
@@ -128,6 +135,7 @@ export function DealerPasteImportSection({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  const [savedDraftId, setSavedDraftId] = useState<string | null>(null);
   const notifySuccess = useNotifyStore((s) => s.notifySuccess);
   const [imageSelection, setImageSelection] =
     useState<PasteImageSelectionState | null>(null);
@@ -139,6 +147,14 @@ export function DealerPasteImportSection({
     },
     []
   );
+
+  const scrollStatusIntoView = useCallback(() => {
+    requestAnimationFrame(() => scrollToPasteStatus(statusRef.current));
+  }, []);
+
+  useEffect(() => {
+    if (parseError || saveError || saveOk) scrollStatusIntoView();
+  }, [parseError, saveError, saveOk, scrollStatusIntoView]);
 
   const panel = isDarkMode
     ? "bg-slate-950/80 border-slate-800 text-white"
@@ -153,17 +169,20 @@ export function DealerPasteImportSection({
     setSourceParsed(null);
     setEditable(null);
     setSaveOk(false);
+    setSavedDraftId(null);
     setSaveError(null);
   };
 
   const onParse = () => {
     setParseError(null);
     setSaveOk(false);
+      setSavedDraftId(null);
     setSaveError(null);
     const t = rawText.trim();
     if (!t) {
       setParseError("กรุณาวางข้อมูลจาก Excel / Google Sheet ก่อน");
       resetPreview();
+      scrollStatusIntoView();
       return;
     }
     if (!t.includes("\t") && t.split("\t").length < 8) {
@@ -203,6 +222,11 @@ export function DealerPasteImportSection({
 
   const onSaveDraft = async () => {
     if (!editable || !sourceParsed) return;
+    if (!savePasteDraft) {
+      setSaveError(DEALER_PASTE_DRAFT_UNAVAILABLE_MESSAGE);
+      scrollStatusIntoView();
+      return;
+    }
     setIsSaving(true);
     setSaveError(null);
     setSaveOk(false);
@@ -249,7 +273,7 @@ export function DealerPasteImportSection({
         imageImportWarnings.push(
           e instanceof Error
             ? e.message
-            : "ดาวน์โหลดรูปจากลิงก์ไม่สำเร็จ — Draft ยังบันทึกได้"
+            : "ดาวน์โหลดรูปจากลิงก์ไม่สำเร็จ — ยังบันทึกฉบับร่างได้"
         );
       }
     }
@@ -279,7 +303,7 @@ export function DealerPasteImportSection({
         imageImportWarnings.push(
           e instanceof Error
             ? e.message
-            : "อัปโหลดรูปจากเครื่องไม่สำเร็จ — Draft ยังบันทึกได้"
+            : "อัปโหลดรูปจากเครื่องไม่สำเร็จ — ยังบันทึกฉบับร่างได้"
         );
       }
     }
@@ -315,31 +339,46 @@ export function DealerPasteImportSection({
       }
     );
     if (!payload) {
-      setSaveError("สร้างข้อมูล Draft ไม่ได้ — ตรวจสอบยี่ห้อและรุ่น");
+      setSaveError("สร้างข้อมูลฉบับร่างไม่ได้ — ตรวจสอบยี่ห้อและรุ่น");
       setIsSaving(false);
+      scrollStatusIntoView();
       return;
     }
     if (!v.canSaveDraft) {
-      setSaveError("ไม่สามารถบันทึก Draft ได้");
+      setSaveError("ไม่สามารถบันทึกฉบับร่างได้");
       setIsSaving(false);
+      scrollStatusIntoView();
       return;
     }
 
     try {
-      const result = await commitImport([], [payload], ownerContext);
+      const result = await savePasteDraft(payload, ownerContext);
       if (!result.success) {
-        setSaveError(result.message ?? "บันทึก Draft ไม่สำเร็จ");
+        setSaveError(result.message ?? "บันทึกฉบับร่างไม่สำเร็จ");
+        scrollStatusIntoView();
         return;
       }
+      const draftId =
+        result.drafts?.[0]?.id ?? result.imported?.[0]?.id ?? payload.commitDraftId ?? null;
+      setSavedDraftId(draftId);
       setSaveOk(true);
-      notifySuccess("บันทึก Draft สำเร็จ", "กำลังพาไปหน้า Draft / รอเติมข้อมูล");
+      if (draftId && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("nonga-dealer-draft-saved", { detail: { draftId } })
+        );
+      }
+      notifySuccess(
+        "บันทึกฉบับร่างสำเร็จ",
+        "กำลังพาไปหน้าประกาศที่ยังไม่ลงขาย"
+      );
       if (shouldRedirectAfterPasteDraftSave(true)) {
         onGoToDrafts?.();
       }
     } catch (e) {
       setSaveError(
-        e instanceof Error ? e.message : "บันทึก Draft ไม่สำเร็จ"
+        e instanceof Error ? e.message : "บันทึกฉบับร่างไม่สำเร็จ"
       );
+      scrollStatusIntoView();
     } finally {
       setIsSaving(false);
     }
@@ -350,12 +389,56 @@ export function DealerPasteImportSection({
       <div>
         <h2 className="font-bold text-base sm:text-lg flex items-center gap-2">
           <ClipboardPaste className="w-5 h-5 text-orange-400" />
-          วางข้อมูลดิบจาก Excel (ThorAuto)
+          วางข้อมูลแบบข้อความ / Paste Text
         </h2>
         <p className="text-xs text-slate-400 mt-1">
-          คัดลอก 1 แถวจาก Sheet แล้ววาง — แปลง → แก้ไขใน Preview → บันทึกเป็น
-          Draft เท่านั้น (ยังไม่เผยแพร่)
+          คัดลอกจาก Excel, Google Sheet หรือฐานข้อมูลเดิม แล้วให้ระบบแปลงเป็นข้อมูลรถ — กด{" "}
+          <span className="text-amber-300/90 font-semibold">บันทึกฉบับร่าง</span>{" "}
+          เพื่อไปหน้า ประกาศที่ยังไม่ลงขาย (ไม่ใช่นำเข้าสต๊อกจริงหลายคัน)
         </p>
+      </div>
+
+      <div ref={statusRef} className="scroll-mt-4 space-y-2" data-testid="paste-import-status">
+        {parseError && (
+          <p className="text-sm text-rose-400 flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {parseError}
+          </p>
+        )}
+        {saveError && (
+          <p className="text-sm text-rose-400 flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {saveError}
+          </p>
+        )}
+        {saveImageSummary && (
+          <p className="text-xs text-amber-300/90 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            {saveImageSummary}
+          </p>
+        )}
+        {saveOk && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <p className="text-sm text-emerald-400 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              บันทึกฉบับร่างสำเร็จ — ไปดูที่ ประกาศที่ยังไม่ลงขาย
+            </p>
+            {onGoToDrafts && (
+              <button
+                type="button"
+                onClick={onGoToDrafts}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+              >
+                ดูประกาศที่บันทึกไว้
+              </button>
+            )}
+          </div>
+        )}
+        {!canSaveDraft && (
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{DEALER_PASTE_DRAFT_UNAVAILABLE_MESSAGE}</span>
+          </div>
+        )}
       </div>
 
       <textarea
@@ -386,16 +469,23 @@ export function DealerPasteImportSection({
           <>
             <button
               type="button"
-              disabled={isSaving}
-              onClick={onSaveDraft}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-300 text-sm font-bold disabled:opacity-60"
+              disabled={isSaving || !canSaveDraft}
+              onClick={() => void onSaveDraft()}
+              title="บันทึกไปหน้า ประกาศที่ยังไม่ลงขาย"
+              className="flex flex-col items-start gap-0.5 px-5 py-2.5 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-300 text-sm font-bold disabled:opacity-60"
+              data-testid="paste-save-draft-btn"
             >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              บันทึกเป็น Draft
+              <span className="flex items-center gap-2">
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                บันทึกฉบับร่าง
+              </span>
+              <span className="text-[10px] font-normal text-amber-200/70">
+                → ประกาศที่ยังไม่ลงขาย
+              </span>
             </button>
             <button
               type="button"
@@ -410,19 +500,6 @@ export function DealerPasteImportSection({
       </div>
 
       <AnimatePresence>
-        {parseError && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-sm text-rose-400 flex items-center gap-2"
-          >
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            {parseError}
-          </motion.p>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
         {editable && sourceParsed && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -434,11 +511,11 @@ export function DealerPasteImportSection({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h3 className="font-bold text-sm">
-                  แก้ไขข้อมูลก่อนบันทึก Draft
+                  แก้ไขข้อมูลก่อนบันทึกฉบับร่าง
                 </h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-xl">
                   ระบบแปลงข้อมูลให้เบื้องต้นแล้ว กรุณาตรวจสอบและแก้ไขก่อนบันทึกเป็น
-                  Draft
+                  ฉบับร่าง
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -543,8 +620,8 @@ export function DealerPasteImportSection({
               dealerApiHeaders={dealerApiHeaders}
               isDarkMode={isDarkMode}
               onSelectionChange={handleImageSelectionChange}
-              onSaveDraftLater={onSaveDraft}
-              saveDraftLaterDisabled={isSaving}
+              onSaveDraftLater={() => void onSaveDraft()}
+              saveDraftLaterDisabled={isSaving || !canSaveDraft}
               saveDraftLaterLoading={isSaving}
             />
 
@@ -614,27 +691,6 @@ export function DealerPasteImportSection({
         )}
       </AnimatePresence>
 
-      {saveError && <p className="text-sm text-rose-400">{saveError}</p>}
-      {saveImageSummary && (
-        <p className="text-xs text-amber-300/90">{saveImageSummary}</p>
-      )}
-      {saveOk && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-          <p className="text-sm text-emerald-400 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            บันทึกเป็น Draft แล้ว (dealer: {ownerContext.dealerId})
-          </p>
-          {onGoToDrafts && (
-            <button
-              type="button"
-              onClick={onGoToDrafts}
-              className="text-xs font-bold text-emerald-300 underline"
-            >
-              ไปหน้า Draft
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

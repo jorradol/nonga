@@ -51,6 +51,7 @@ import { ImportConfirmationSection } from "./ImportConfirmationSection";
 import { DealerImportHelpSection } from "./DealerImportHelpSection";
 import { DealerPasteImportSection } from "./DealerPasteImportSection";
 import { SmartImportReviewSection } from "./SmartImportReviewSection";
+import { DEALER_FINAL_IMPORT_DISABLED_MESSAGE } from "../../../utils/dealer/dealerImportMessages";
 
 type DealerImportSourceTab = "file" | "paste";
 
@@ -70,6 +71,12 @@ export interface InventoryImportViewProps {
     drafts: MarketplaceImportPayload[],
     owner: ImportOwnerContext
   ) => Promise<ImportCommitResult>;
+  savePasteDraft?: (
+    draft: MarketplaceImportPayload,
+    owner: ImportOwnerContext
+  ) => Promise<ImportCommitResult>;
+  finalCommitEnabled?: boolean;
+  finalCommitDisabledMessage?: string;
   onGoToDrafts?: () => void;
   compact?: boolean;
   dealerApiHeaders?: DealerApiHeaders;
@@ -79,6 +86,9 @@ export default function InventoryImportView({
   mode = "admin",
   ownerContextOverride,
   commitImport: commitImportFn,
+  savePasteDraft,
+  finalCommitEnabled,
+  finalCommitDisabledMessage,
   onGoToDrafts,
   compact = false,
   dealerApiHeaders,
@@ -105,6 +115,9 @@ export default function InventoryImportView({
     useState<DealerImportSourceTab>("file");
 
   const accept = ".csv,.xlsx";
+  const canCommitImport = finalCommitEnabled ?? mode !== "dealer";
+  const commitDisabledMessage =
+    finalCommitDisabledMessage ?? DEALER_FINAL_IMPORT_DISABLED_MESSAGE;
   const doCommit =
     commitImportFn ??
     ((published, drafts, owner) =>
@@ -243,6 +256,11 @@ export default function InventoryImportView({
 
   const handleConfirmImport = useCallback(async () => {
     if (!smartPrep || smartPrep.importableCount === 0) return;
+    if (!canCommitImport) {
+      setImportPhase("error");
+      setImportError(commitDisabledMessage);
+      return;
+    }
 
     setImportPhase("loading");
     setImportError(null);
@@ -267,7 +285,7 @@ export default function InventoryImportView({
         err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการนำเข้า"
       );
     }
-  }, [smartPrep, ownerContext, fetchCars]);
+  }, [smartPrep, ownerContext, fetchCars, canCommitImport, commitDisabledMessage]);
 
   const handleGoToDraftInventory = useCallback(() => {
     if (onGoToDrafts) {
@@ -341,18 +359,33 @@ export default function InventoryImportView({
             Phase 5 — AI Smart Import
           </div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight">
-            นำเข้าคลังรถ (Inventory Import)
+            {mode === "dealer" ? "นำเข้าสต๊อกรถ" : "นำเข้าคลังรถ (Inventory Import)"}
           </h1>
           <p className="text-sm text-slate-400 mt-1 max-w-xl">
-            อัปโหลด → Preview → Column Mapping → Clean → Confirm (ดาวน์โหลดรูปเข้า storage) → Marketplace
+            {mode === "dealer"
+              ? "นำเข้าสต๊อกรถจากไฟล์ Excel/CSV หรือวางข้อมูลจากแหล่งเดิมของเต็นท์ เพื่อให้ระบบช่วยจัดข้อมูลก่อนบันทึกเข้าสต๊อก"
+              : "อัปโหลด → Preview → Column Mapping → Clean → Confirm (ดาวน์โหลดรูปเข้า storage) → Marketplace"}
           </p>
         </div>
         <div className="text-[11px] font-mono text-slate-500 border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/50">
-          /admin/inventory-import
+          {mode === "dealer" ? "/dealer/import" : "/admin/inventory-import"}
         </div>
       </div>
 
       <DealerImportHelpSection isDarkMode={isDarkMode} />
+
+      {mode === "dealer" && !canCommitImport && dealerSourceTab === "file" && (
+        <div
+          className="flex items-start gap-2 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm"
+          data-testid="dealer-final-import-disabled-banner"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-amber-100/95">นำเข้าสต๊อกจริง (หลายคันจากไฟล์) — ยังไม่เปิดใช้งาน</p>
+            <p className="mt-1 text-amber-200/90">{commitDisabledMessage}</p>
+          </div>
+        </div>
+      )}
 
       {mode === "dealer" && (
         <div
@@ -371,7 +404,7 @@ export default function InventoryImportView({
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Import CSV/XLSX
+            อัปโหลดไฟล์ Excel/CSV
           </button>
           <button
             type="button"
@@ -384,7 +417,7 @@ export default function InventoryImportView({
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Paste Raw Text
+            วางข้อมูลแบบข้อความ
           </button>
         </div>
       )}
@@ -394,7 +427,7 @@ export default function InventoryImportView({
           <DealerPasteImportSection
             ownerContext={ownerContext}
             dealerApiHeaders={dealerApiHeaders}
-            commitImport={doCommit}
+            savePasteDraft={savePasteDraft}
             onGoToDrafts={onGoToDrafts}
             isDarkMode={isDarkMode}
           />
@@ -690,6 +723,8 @@ export default function InventoryImportView({
                   onConfirmImport={handleConfirmImport}
                   onGoToMarketplace={handleGoToMarketplace}
                   onGoToDraftInventory={handleGoToDraftInventory}
+                  commitEnabled={canCommitImport}
+                  commitDisabledMessage={commitDisabledMessage}
                 />
               </motion.div>
             )}

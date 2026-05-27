@@ -280,7 +280,7 @@ async function main() {
 
   // Case 6: draft edit upload uses same resize pipeline (HTTP)
   const draftRouteId = `draft-import-${Date.now()}-d9`;
-  await commitDraft(draftRouteId, [], "Case6 Draft Route");
+  await commitDraft(draftRouteId, [], "ทดสอบอัปโหลดรูปเส้นทางแก้ไข");
   const draftUpRes = await fetch(
     `${BASE}/api/dealer/drafts/${encodeURIComponent(draftRouteId)}/upload-images`,
     {

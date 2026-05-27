@@ -1,9 +1,11 @@
 import fs from "fs";
 import path from "path";
+import { getListingImagesRoot } from "./listingImageStorage";
+import { processListingImageUpload } from "./listingImageProcessor";
 import {
-  downloadListingImagesForCar,
-  getListingImagesRoot,
-} from "./listingImageStorage";
+  createImageStorageRepository,
+  type ListingImageTargetType,
+} from "./repositories/imageStorageRepository";
 import {
   extractImageLinkCandidates,
   type ImageLinkCandidate,
@@ -105,7 +107,8 @@ export async function importSelectedPasteImages(
   listingId: string,
   candidates: ImageLinkCandidate[],
   selectedSourceUrls: string[],
-  primarySourceUrl?: string
+  primarySourceUrl?: string,
+  dealerId = "legacy-dealer"
 ): Promise<SelectedImageImportResult> {
   if (!SAFE_LISTING_ID.test(listingId)) {
     return {
@@ -139,29 +142,72 @@ export async function importSelectedPasteImages(
     };
   }
 
-  const report = await downloadListingImagesForCar(listingId, 1, fetchUrls);
+  const imageStorage = createImageStorageRepository();
+  const targetType: ListingImageTargetType = listingId.startsWith("draft-")
+    ? "draft"
+    : "listing";
+  let storedUrls: string[] = [];
+  const thumbnails: string[] = [];
+  const storedBySource = new Map<string, string>();
 
-  for (const item of report.items) {
-    const original = sourceByFetch.get(item.sourceUrl) ?? item.sourceUrl;
-    if (item.status === "failed") {
-      failed.push({ sourceUrl: original, error: item.error ?? "ล้มเหลว" });
+  for (const fetchUrl of fetchUrls) {
+    const original = sourceByFetch.get(fetchUrl) ?? fetchUrl;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), PREVIEW_PROXY_TIMEOUT_MS);
+      const res = await fetch(fetchUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "NongA-PasteImageImport/1.0",
+          Accept: "image/*",
+        },
+        redirect: "follow",
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const mimeType =
+        res.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
+      if (!mimeType.startsWith("image/")) {
+        throw new Error(`ไม่ใช่ไฟล์รูป (${mimeType})`);
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const processed = await processListingImageUpload(buffer, mimeType, original);
+      if (processed.ok === false) {
+        throw new Error(processed.error);
+      }
+      const saved = await imageStorage.uploadListingImagePair(
+        dealerId,
+        listingId,
+        {
+          mainBuffer: processed.data.mainBuffer,
+          thumbBuffer: processed.data.thumbBuffer,
+          ext: processed.data.mainExt,
+          mimeType:
+            processed.data.mainExt === ".webp" ? "image/webp" : "image/jpeg",
+          width: processed.data.mainWidth,
+          height: processed.data.mainHeight,
+          originalFileName: original.split("/").pop() || "paste-image",
+          seed: original,
+          sortOrder: storedUrls.length,
+          targetType,
+        }
+      );
+      storedUrls.push(saved.storedUrl);
+      storedBySource.set(original, saved.storedUrl);
+      if (saved.thumbnailUrl) thumbnails.push(saved.thumbnailUrl);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : "ล้มเหลว";
+      failed.push({ sourceUrl: original, error });
       warnings.push(`รูปบางรายการโหลดไม่ได้: ${original.slice(0, 80)}`);
     }
   }
 
-  let storedUrls = [...report.storedUrls];
-  const thumbnails = createThumbnailSiblingFiles(listingId, storedUrls);
-
   let primaryImage: string | undefined;
   if (primarySourceUrl) {
-    const idx = [...sourceByFetch.entries()].findIndex(
-      ([, src]) => src === primarySourceUrl
-    );
-    const matchFetch = [...sourceByFetch.keys()][idx];
-    const itemIdx = report.items.findIndex((i) => i.sourceUrl === matchFetch);
-    if (itemIdx >= 0 && report.items[itemIdx]?.storedUrl) {
-      primaryImage = report.items[itemIdx].storedUrl;
-    }
+    primaryImage = storedBySource.get(primarySourceUrl);
   }
   if (!primaryImage && storedUrls.length > 0) {
     primaryImage = storedUrls[0];
@@ -169,9 +215,9 @@ export async function importSelectedPasteImages(
     storedUrls = primaryImage ? [primaryImage, ...rest] : storedUrls;
   }
 
-  if (report.failed > 0) {
+  if (failed.length > 0) {
     warnings.push(
-      `โหลดรูปสำเร็จ ${report.downloaded}/${report.totalUrls} รูป — Draft ยังบันทึกได้`
+      `โหลดรูปสำเร็จ ${storedUrls.length}/${fetchUrls.length} รูป — Draft ยังบันทึกได้`
     );
   }
 
@@ -180,7 +226,7 @@ export async function importSelectedPasteImages(
     thumbnails,
     primaryImage,
     failed,
-    warnings: [...warnings, ...report.warnings],
+    warnings,
   };
 }
 

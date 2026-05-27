@@ -1,7 +1,15 @@
 /** คิวรูปอัปโหลดจากเครื่อง — Dealer Paste Import + Draft edit */
 
+import {
+  CHAT_IMAGE_ATTACHMENT_MAX_SOURCE_BYTES,
+  CHAT_IMAGE_ATTACHMENT_OPTIMIZE_FAILED,
+  CHAT_IMAGE_ATTACHMENT_TOO_LARGE,
+  CHAT_IMAGE_ATTACHMENT_UNSUPPORTED,
+} from "../../features/chat-image-attachment-v1/types";
+import { optimizeChatImageAttachment } from "../../features/chat-image-attachment-v1/imageOptimizer";
+
 export const PASTE_MAX_IMAGES_TOTAL = 12;
-export const PASTE_MAX_UPLOAD_FILE_BYTES = 15 * 1024 * 1024;
+export const PASTE_MAX_UPLOAD_FILE_BYTES = CHAT_IMAGE_ATTACHMENT_MAX_SOURCE_BYTES;
 
 export const PASTE_UPLOAD_HELP_TEXT =
   "รองรับ JPG, PNG, WEBP สูงสุด 15MB ต่อรูป ระบบจะย่อและบีบอัดให้อัตโนมัติก่อนบันทึก";
@@ -41,6 +49,11 @@ export interface PasteQueuedUpload {
   name: string;
   clientStatus: PasteUploadClientStatus;
   statusMessage: string;
+  /** ชื่อไฟล์ต้นฉบับก่อนย่อ (paste import หลัง optimize) */
+  originalFileName?: string;
+  originalSize?: number;
+  width?: number;
+  height?: number;
 }
 
 export type PasteImagePrimaryKey = `link:${string}` | `upload:${string}`;
@@ -119,6 +132,80 @@ export function createQueuedUpload(file: File): PasteQueuedUpload {
     clientStatus: status.clientStatus,
     statusMessage: status.statusMessage,
   };
+}
+
+function mapOptimizeError(file: File, err: unknown): {
+  clientStatus: PasteUploadClientStatus;
+  statusMessage: string;
+  error: string;
+} {
+  const msg = err instanceof Error ? err.message : CHAT_IMAGE_ATTACHMENT_OPTIMIZE_FAILED;
+  if (msg === CHAT_IMAGE_ATTACHMENT_TOO_LARGE) {
+    return {
+      clientStatus: "too_large",
+      statusMessage: PASTE_UPLOAD_STATUS_LABEL.too_large,
+      error: `ไฟล์ใหญ่เกิน ${Math.round(PASTE_MAX_UPLOAD_FILE_BYTES / (1024 * 1024))}MB — กรุณาเลือกรูปที่เล็กลง`,
+    };
+  }
+  if (msg === CHAT_IMAGE_ATTACHMENT_UNSUPPORTED) {
+    return {
+      clientStatus: "unsupported",
+      statusMessage: PASTE_UPLOAD_STATUS_LABEL.unsupported,
+      error: "ประเภทไฟล์ไม่รองรับ — ใช้ .jpg .jpeg .png .webp เท่านั้น",
+    };
+  }
+  return {
+    clientStatus: "failed",
+    statusMessage: PASTE_UPLOAD_STATUS_LABEL.failed,
+    error: `${file.name}: ${msg}`,
+  };
+}
+
+/**
+ * ย่อ/บีบอัดรูปฝั่ง browser ก่อนเข้าคิวอัปโหลด (ใช้ pipeline เดียวกับ Chat-to-Draft)
+ */
+export async function preparePasteQueuedUpload(
+  file: File
+): Promise<PasteQueuedUpload> {
+  const id = nextUploadId();
+  const precheck = pasteUploadStatusForFile(file);
+  if (precheck.clientStatus !== "pending") {
+    return {
+      id,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+      clientStatus: precheck.clientStatus,
+      statusMessage: precheck.statusMessage,
+    };
+  }
+
+  try {
+    const optimized = await optimizeChatImageAttachment(file);
+    const convertedMessage = `${PASTE_UPLOAD_STATUS_LABEL.converted} (${Math.round(optimized.size / 1024)} KB)`;
+    return {
+      id,
+      file: optimized.optimizedFile,
+      previewUrl: optimized.previewUrl,
+      name: optimized.fileName,
+      originalFileName: optimized.originalFileName,
+      originalSize: file.size,
+      width: optimized.width,
+      height: optimized.height,
+      clientStatus: "converted",
+      statusMessage: convertedMessage,
+    };
+  } catch (err) {
+    const mapped = mapOptimizeError(file, err);
+    return {
+      id,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+      clientStatus: mapped.clientStatus,
+      statusMessage: mapped.statusMessage,
+    };
+  }
 }
 
 export function revokeQueuedUploadPreview(item: PasteQueuedUpload): void {

@@ -106,7 +106,7 @@ async function main() {
 
   await page.goto(`${BASE}/dealer`, { waitUntil: "domcontentloaded" });
   await waitPortal(page);
-  await page.locator("button").filter({ hasText: /^Draft$/ }).click();
+  await page.locator("button").filter({ hasText: /ยังไม่ลงขาย|Draft/ }).first().click();
   await page.waitForTimeout(1500);
   ok(
     "sidebar-draft-url",
@@ -131,7 +131,7 @@ async function main() {
   await memberPage.goto(`${BASE}/dealer/profile`, { waitUntil: "domcontentloaded" });
   await waitPortal(memberPage);
   const blocked = await memberPage
-    .getByText(/เฉพาะบัญชี Dealer/)
+    .getByText(/เฉพาะบัญชี Dealer|บัญชีนี้ยังไม่ได้เปิดใช้งานเป็นสมาชิกดีลเลอร์/)
     .isVisible()
     .catch(() => false);
   const dealerForm = await memberPage
