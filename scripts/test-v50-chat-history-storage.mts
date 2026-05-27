@@ -155,7 +155,13 @@ assert(
   state.messages[dealerASession.id]?.some((message) => message.text.includes("Toyota")),
   "switching should load selected session messages"
 );
-console.log("PASS switching session changes activeSessionId and messages");
+assert(
+  state.messages[dealerASession.id]?.some(
+    (message) => message.sender === "assistant" && message.savedDraftId === "draft-a"
+  ),
+  "reloaded chat history should keep AI draft confirmation"
+);
+console.log("PASS reload/load session restores user, AI, and saved draft messages");
 
 setChatHistoryStorageForTest(null);
 useChatStore.getState().resetChatState();
