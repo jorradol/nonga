@@ -1,11 +1,26 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { execSync } from 'node:child_process';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+function firebaseProductionConfigGuard() {
+  return {
+    name: 'firebase-production-config-guard',
+    apply: 'build' as const,
+    buildStart() {
+      if (process.env.SKIP_FIREBASE_PRODUCTION_GUARD === 'true') return;
+      execSync('tsx scripts/verify-vite-production-firebase.mts', {
+        stdio: 'inherit',
+        env: process.env,
+      });
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), firebaseProductionConfigGuard()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
