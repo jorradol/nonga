@@ -25,6 +25,8 @@ export interface ChatPrecheckContext {
   publicRefCode?: string;
   visionSummary?: VisionObservationSummary;
   hasRequestedCreateFlow?: boolean;
+  /** หลัง login: รอแนบรูปใหม่แล้ว auto-save จาก confirm เดิม */
+  awaitingImageReattachForConfirmedDraft?: boolean;
 }
 
 const bySession = new Map<string, ChatPrecheckContext>();
@@ -63,6 +65,27 @@ export function getPrecheckContext(sessionId: string): ChatPrecheckContext | nul
 
 export function clearPrecheckContext(sessionId: string): void {
   bySession.delete(sessionId);
+}
+
+export function restorePrecheckContext(
+  sessionId: string,
+  data: {
+    fields: ExtractedCarFields;
+    visionSummary?: VisionObservationSummary;
+    publicRefCode?: string;
+    stage?: PrecheckStage;
+    awaitingImageReattachForConfirmedDraft?: boolean;
+  }
+): void {
+  bySession.set(sessionId, {
+    stage: data.stage ?? "draft_copy_ready",
+    fields: data.fields,
+    visionSummary: data.visionSummary,
+    publicRefCode: data.publicRefCode,
+    hasRequestedCreateFlow: true,
+    awaitingImageReattachForConfirmedDraft:
+      data.awaitingImageReattachForConfirmedDraft,
+  });
 }
 
 export function isStartCreateListingIntent(message: string): boolean {

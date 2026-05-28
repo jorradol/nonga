@@ -185,6 +185,15 @@ function normalizeMessage(
     ...(raw.isDraftPreview ? { isDraftPreview: Boolean(raw.isDraftPreview) } : {}),
     ...(raw.draftFields ? { draftFields: raw.draftFields } : {}),
     ...(typeof raw.savedDraftId === "string" ? { savedDraftId: raw.savedDraftId } : {}),
+    ...(typeof raw.savedMemberListingId === "string"
+      ? { savedMemberListingId: raw.savedMemberListingId }
+      : {}),
+    ...(raw.isPendingListingCard && raw.pendingListingCard
+      ? {
+          isPendingListingCard: true,
+          pendingListingCard: raw.pendingListingCard as ChatMessage["pendingListingCard"],
+        }
+      : {}),
     ...(Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? { attachments: raw.attachments as ChatMessageAttachment[] }
       : {}),
@@ -310,6 +319,15 @@ function messageToFirestoreData(message: ChatMessage) {
     ...(safe.isDraftPreview ? { isDraftPreview: safe.isDraftPreview } : {}),
     ...(safe.draftFields ? { draftFields: safe.draftFields } : {}),
     ...(safe.savedDraftId ? { savedDraftId: safe.savedDraftId } : {}),
+    ...(safe.savedMemberListingId
+      ? { savedMemberListingId: safe.savedMemberListingId }
+      : {}),
+    ...(safe.isPendingListingCard && safe.pendingListingCard
+      ? {
+          isPendingListingCard: true,
+          pendingListingCard: safe.pendingListingCard,
+        }
+      : {}),
     ...(safe.attachments && safe.attachments.length > 0
       ? { attachments: safe.attachments }
       : {}),
@@ -490,6 +508,15 @@ export async function appendChatMessage(
     ...(input.isDraftPreview ? { isDraftPreview: input.isDraftPreview } : {}),
     ...(input.draftFields ? { draftFields: input.draftFields } : {}),
     ...(input.savedDraftId ? { savedDraftId: input.savedDraftId } : {}),
+    ...(input.savedMemberListingId
+      ? { savedMemberListingId: input.savedMemberListingId }
+      : {}),
+    ...(input.isPendingListingCard && input.pendingListingCard
+      ? {
+          isPendingListingCard: true,
+          pendingListingCard: input.pendingListingCard,
+        }
+      : {}),
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),
@@ -499,6 +526,9 @@ export async function appendChatMessage(
     updatedAt,
     lastMessagePreview: toPreview(message.text),
     ...(message.savedDraftId ? { savedDraftId: message.savedDraftId } : {}),
+    ...(message.savedMemberListingId
+      ? { savedMemberListingId: message.savedMemberListingId }
+      : {}),
   };
 
   if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
@@ -514,6 +544,9 @@ export async function appendChatMessage(
         {
           ...patch,
           ...(message.savedDraftId ? { savedDraftId: message.savedDraftId } : {}),
+    ...(message.savedMemberListingId
+      ? { savedMemberListingId: message.savedMemberListingId }
+      : {}),
         },
         { merge: true }
       );

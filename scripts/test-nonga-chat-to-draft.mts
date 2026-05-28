@@ -19,7 +19,29 @@ import {
   isConfirmCreateListingIntent,
   setPrecheckStage,
   upsertPrecheckFromMessage,
+  restorePrecheckContext,
 } from "../src/services/ai/chat/chatPrecheckLayer";
+import {
+  clearPendingChatDraftSnapshot,
+  consumePendingChatDraftSnapshot,
+  peekPendingChatDraftSnapshot,
+  savePendingChatDraftSnapshot,
+  serializeMessagesForSnapshot,
+  buildPostLoginDraftSavedText,
+} from "../src/utils/chatPendingDraftSnapshot";
+import {
+  buildPendingListingCardData,
+  extractMarketingCopyFromDraftText,
+  isMemberConsumerSellerFlow,
+  isMemberListingChatAction,
+  CHAT_MEMBER_PENDING_CARD_INTRO,
+} from "../src/services/chat/chatMemberPendingListing";
+import {
+  buildMemberListingApiPayload,
+  buildMemberListingSuccessMessage,
+  chatFlowExpectsListingImages,
+  CHAT_MEMBER_NEED_IMAGES_BEFORE_SAVE_MESSAGE,
+} from "../src/services/chat/saveMemberListingFromChat";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -283,6 +305,202 @@ assertEqual(
   ),
   true,
   "Core complete when vision supplies brand/model"
+);
+
+console.log("--- Testing pending draft snapshot (post-login restore) ---");
+
+const sessionStore = new Map<string, string>();
+const mockSessionStorage = {
+  getItem: (key: string) => sessionStore.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    sessionStore.set(key, value);
+  },
+  removeItem: (key: string) => {
+    sessionStore.delete(key);
+  },
+  clear: () => sessionStore.clear(),
+  length: 0,
+  key: () => null,
+} as Storage;
+
+(globalThis as { sessionStorage?: Storage }).sessionStorage = mockSessionStorage;
+
+const snapFields = {
+  brand: "Honda",
+  model: "HR-V",
+  year: 2020,
+  price: 789000,
+  mileage: 58000,
+  transmission: "ออโต้",
+};
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-2026-SNAP",
+  fields: snapFields,
+  visionSummary: { bodyType: "SUV", color: "ดำ" },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda HR-V",
+  messages: serializeMessagesForSnapshot([
+    {
+      id: "u1",
+      sender: "user",
+      text: "ช่วยสร้างประกาศ",
+      timestamp: Date.now(),
+    },
+  ] as any),
+  imageCount: 2,
+  thumbnailsPersisted: true,
+  userAlreadyConfirmedCreateDraft: true,
+  draftPreviewAttachments: [
+    {
+      id: "img-1",
+      kind: "image",
+      name: "car.jpg",
+      size: 1000,
+      mimeType: "image/jpeg",
+      previewDataUrl: "data:image/jpeg;base64,/9j/4AAQ",
+    },
+  ],
+});
+
+const peeked = peekPendingChatDraftSnapshot();
+assertEqual(peeked?.publicRefCode, "NA-2026-SNAP", "Snapshot save/load ref code");
+assertEqual(peeked?.fields.brand, "Honda", "Snapshot save/load fields");
+
+const consumed = consumePendingChatDraftSnapshot();
+assertEqual(consumed?.publicRefCode, "NA-2026-SNAP", "Snapshot consume");
+assertEqual(peekPendingChatDraftSnapshot(), null, "Snapshot cleared after consume");
+
+const restoreSid = "restore-precheck-session";
+restorePrecheckContext(restoreSid, {
+  fields: snapFields,
+  publicRefCode: "NA-2026-RESTORE",
+  stage: "draft_copy_ready",
+});
+const restoredCtx = getPrecheckContext(restoreSid);
+assertEqual(restoredCtx?.stage, "draft_copy_ready", "restorePrecheckContext stage");
+assertEqual(restoredCtx?.publicRefCode, "NA-2026-RESTORE", "restorePrecheckContext ref");
+
+assertEqual(
+  peeked?.userAlreadyConfirmedCreateDraft,
+  true,
+  "Snapshot stores userAlreadyConfirmedCreateDraft"
+);
+
+const savedMsg = buildPostLoginDraftSavedText("NA-2026-TEST");
+if (
+  savedMsg.includes("บันทึกเป็นประกาศร่างเรียบร้อยแล้ว") &&
+  savedMsg.includes("NA-2026-TEST") &&
+  savedMsg.includes("ตรวจทานประกาศ")
+) {
+  console.log("✅ PASS: Post-login draft saved message format");
+} else {
+  console.error("❌ FAIL: Post-login draft saved message");
+  process.exit(1);
+}
+
+clearPendingChatDraftSnapshot();
+sessionStore.clear();
+
+console.log("--- Testing member in-chat pending listing card ---");
+
+const draftText =
+  "[โพสต์ตัวอย่าง]\nHonda HR-V 2020 สภาพดี\n\n[ข้อมูลสำหรับตรวจสอบก่อนยืนยัน]\nปี: 2020";
+const marketing = extractMarketingCopyFromDraftText(draftText);
+assertEqual(
+  marketing.includes("Honda HR-V 2020"),
+  true,
+  "extractMarketingCopyFromDraftText"
+);
+assertEqual(
+  marketing.includes("[ข้อมูลสำหรับตรวจสอบ"),
+  false,
+  "extractMarketingCopy strips verification section"
+);
+
+const card = buildPendingListingCardData({
+  fields: snapFields,
+  publicRefCode: "NA-2026-CARD",
+  draftPreviewText: draftText,
+  visionSummary: { color: "ดำ" },
+});
+assertEqual(card.publicRefCode, "NA-2026-CARD", "pending card ref code");
+assertEqual(card.statusLabel, "ร่างประกาศ รอตรวจทาน", "pending card status");
+assertEqual(card.fields.brand, "Honda", "pending card fields");
+
+assertEqual(
+  isMemberConsumerSellerFlow({
+    isSignedIn: true,
+    isDealer: false,
+    isAdmin: false,
+    chatScopeMode: "consumer",
+  }),
+  true,
+  "member consumer seller flow"
+);
+assertEqual(
+  isMemberConsumerSellerFlow({
+    isSignedIn: true,
+    isDealer: true,
+    isAdmin: false,
+    chatScopeMode: "consumer",
+  }),
+  false,
+  "dealer excluded from member consumer flow"
+);
+
+assertEqual(isMemberListingChatAction("ยืนยันบันทึกประกาศ"), true, "member confirm action");
+assertEqual(isMemberListingChatAction("ยังไม่ลงตลาดตอนนี้"), true, "member not-now action");
+assertEqual(
+  CHAT_MEMBER_PENDING_CARD_INTRO.includes("ไม่ต้องย้ายหน้า"),
+  true,
+  "member card intro stays in chat"
+);
+
+const memberPayload = buildMemberListingApiPayload({
+  fields: snapFields,
+  visionSummary: { bodyType: "SUV", color: "ดำ" },
+  ownerId: "member-uid-1",
+  ownerName: "ลุงทดสอบ",
+  ownerPhone: "0812345678",
+});
+assertEqual(memberPayload.missing.length, 0, "member payload core fields complete");
+assertEqual(memberPayload.payload.brand, "Honda", "member payload brand");
+
+assertEqual(
+  chatFlowExpectsListingImages(
+    [
+      {
+        id: "m1",
+        sender: "user",
+        text: "x",
+        createdAt: "",
+        attachments: [
+          {
+            id: "a1",
+            kind: "image",
+            name: "c.jpg",
+            size: 1000,
+            mimeType: "image/jpeg",
+          },
+        ],
+      },
+    ],
+    undefined
+  ),
+  true,
+  "chat flow expects images when user attached"
+);
+
+const successMsg = buildMemberListingSuccessMessage({
+  publicRefCode: "NA-2026-CARD",
+  listingId: "car-123",
+});
+assertEqual(successMsg.includes("บันทึกประกาศร่างเรียบร้อยแล้ว"), true, "member success message");
+assertEqual(successMsg.includes("NA-2026-CARD"), true, "member success ref code");
+assertEqual(
+  CHAT_MEMBER_NEED_IMAGES_BEFORE_SAVE_MESSAGE.includes("แนบรูป"),
+  true,
+  "need-images message asks re-attach"
 );
 
 console.log("--- All Chat to Draft tests passed! ---");

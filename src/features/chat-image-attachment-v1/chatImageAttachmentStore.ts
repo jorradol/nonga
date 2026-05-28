@@ -156,6 +156,78 @@ function findStoredImageByAttachmentId(
   return undefined;
 }
 
+async function dataUrlToFile(
+  dataUrl: string,
+  fileName: string,
+  mimeType?: string
+): Promise<File | null> {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    return new File([blob], fileName, {
+      type: mimeType || blob.type || "image/jpeg",
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** กู้ไฟล์จาก previewDataUrl ใน snapshot เพื่อ upload หลัง login (same tab) */
+export async function registerSnapshotAttachmentsForDraftSave(
+  storageScopeKey: string,
+  sessionId: string,
+  messageId: string,
+  attachments: ChatMessageAttachment[]
+): Promise<number> {
+  const pending: PendingChatImageAttachment[] = [];
+  const metadata: ChatMessageAttachment[] = [];
+
+  for (let i = 0; i < attachments.length; i++) {
+    const att = attachments[i];
+    if (att.kind !== "image") continue;
+    const dataUrl = att.previewDataUrl;
+    if (!dataUrl?.startsWith("data:")) continue;
+
+    const file = await dataUrlToFile(
+      dataUrl,
+      att.originalFileName ?? att.name ?? `chat-image-${i + 1}.jpg`,
+      att.mimeType
+    );
+    if (!file) continue;
+
+    const previewUrl = URL.createObjectURL(file);
+    pending.push({
+      id: att.id,
+      kind: "image",
+      originalFileName: att.originalFileName ?? att.name,
+      fileName: att.fileName ?? att.name,
+      optimizedFile: file,
+      previewUrl,
+      mimeType: att.mimeType || file.type,
+      size: att.size || file.size,
+      width: att.width ?? 0,
+      height: att.height ?? 0,
+    });
+    metadata.push({
+      ...att,
+      previewUrl,
+      previewDataUrl: dataUrl,
+    });
+  }
+
+  if (pending.length === 0) return 0;
+
+  registerChatImageMessageFiles(
+    storageScopeKey,
+    sessionId,
+    messageId,
+    pending,
+    metadata
+  );
+  markChatImageMessageForPendingListing(storageScopeKey, sessionId, messageId);
+  return pending.length;
+}
+
 /**
  * รวม thumbnail สำหรับ draft preview — สร้าง previewUrl ใหม่จากไฟล์ใน store
  * (metadata.previewUrl อาจเป็น blob ที่ revoke แล้ว จึงไม่พอสำหรับแสดงผล)

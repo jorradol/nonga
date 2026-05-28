@@ -97,8 +97,21 @@ export interface ChatMessage {
   isDraftPreview?: boolean;
   /** หลังบันทึกประกาศจากแชท — ใช้ปุ่มไปหน้า Draft */
   savedDraftId?: string;
+  /** หลัง member บันทึกผ่าน POST /api/cars — ใช้ปุ่มไปประกาศของฉัน */
+  savedMemberListingId?: string;
+  /** การ์ดประกาศร่างสำหรับ member (in-chat pending listing) */
+  isPendingListingCard?: boolean;
+  pendingListingCard?: PendingListingCardData;
   /** ไฟล์แนบจากผู้ใช้ */
   attachments?: ChatMessageAttachment[];
+}
+
+export interface PendingListingCardData {
+  publicRefCode: string;
+  statusLabel: string;
+  marketingCopy: string;
+  fields: Record<string, unknown>;
+  visionSummary?: Record<string, unknown>;
 }
 
 /** ข้อมูลการ์ดรถในแชท — จาก database เท่านั้น */

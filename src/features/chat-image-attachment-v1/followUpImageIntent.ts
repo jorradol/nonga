@@ -14,6 +14,19 @@ function listingLabel(fields: ExtractedCarFields): string {
 export function findLatestPendingListingContext(
   messages: ChatMessage[]
 ): PendingListingContext | null {
+  const cardMessage = messages
+    .slice()
+    .reverse()
+    .find((m) => m.isPendingListingCard && m.pendingListingCard);
+  if (cardMessage?.pendingListingCard) {
+    const fields = cardMessage.pendingListingCard.fields as ExtractedCarFields;
+    return {
+      draftMessage: cardMessage,
+      fields,
+      label: listingLabel(fields),
+    };
+  }
+
   const draftMessage = messages
     .slice()
     .reverse()

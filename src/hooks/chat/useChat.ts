@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useChatStore } from "../../stores/chat/chatStore";
 import { useAppStore } from "../../store";
 import { aiService } from "../../services/ai/aiService";
@@ -31,7 +31,10 @@ import {
   getChatDraftSaveMissingLabels,
   resolveMissingFieldsAfterChatImageUpload,
 } from "../../services/ai/chat/chatDraftSaveResult";
-import { isSellIntent } from "../../services/ai/chat/sellIntentParser";
+import {
+  isSellIntent,
+  type ExtractedCarFields,
+} from "../../services/ai/chat/sellIntentParser";
 import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
 import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
 import {
@@ -55,6 +58,28 @@ import {
 } from "../../features/chat-image-attachment-v1/followUpImageIntent";
 import { aiVisionService } from "../../services/ai/vision/visionEngine";
 import { setChatLoginReturnView } from "../../utils/chatLoginReturn";
+import {
+  clearPendingChatDraftSnapshot,
+  peekPendingChatDraftSnapshot,
+  persistAttachmentsForSnapshot,
+  savePendingChatDraftSnapshot,
+  serializeMessagesForSnapshot,
+  buildPostLoginDraftSavedText,
+} from "../../utils/chatPendingDraftSnapshot";
+import { tryRestorePendingChatDraftAfterLogin } from "../../services/chat/restorePendingChatDraft";
+import {
+  appendMemberPendingListingCardMessage,
+  CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
+  CHAT_MEMBER_NOT_NOW_LISTING_ACTION,
+  CHAT_MEMBER_NOT_NOW_ACK,
+  findLatestPendingListingCardMessage,
+  isMemberConsumerSellerFlow,
+  isMemberListingChatAction,
+} from "../../services/chat/chatMemberPendingListing";
+import {
+  CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE,
+  saveMemberListingFromChat,
+} from "../../services/chat/saveMemberListingFromChat";
 import {
   bootstrapPrecheckFields,
   buildDraftCopyReadyReply,
@@ -166,6 +191,25 @@ export function useChat() {
 
   const chatScope = useMemo(() => getChatStorageScope(user), [user]);
   const storageScopeKey = chatScope.storageKey;
+  const memberConsumerSellerFlow = useMemo(
+    () =>
+      isMemberConsumerSellerFlow({
+        isSignedIn,
+        isDealer,
+        isAdmin,
+        chatScopeMode: chatScope.mode === "dealer" ? "dealer" : "consumer",
+      }),
+    [isSignedIn, isDealer, isAdmin, chatScope.mode]
+  );
+
+  const saveDraftRef = useRef<
+    (params: {
+      sessionId: string;
+      fields: Record<string, unknown>;
+    }) => Promise<{ text: string; savedDraftId?: string }>
+  >(async () => ({
+    text: "กำลังเตรียมระบบบันทึกประกาศครับ กรุณารอสักครู่",
+  }));
 
   const hydrateChatForScope = useCallback(async (force = false) => {
     const guestEphemeral = isEphemeralGuestChatScope(chatScope);
@@ -201,6 +245,21 @@ export function useChat() {
     logChatStorageDebug(chatScope, {
       draftDealerId: chatScope.dealerId,
     });
+
+    if (isSignedIn && peekPendingChatDraftSnapshot()) {
+      await tryRestorePendingChatDraftAfterLogin(chatScope, {
+        storageScopeKey,
+        saveDraft: (params) => saveDraftRef.current(params),
+        resolveBlock: () =>
+          resolveChatDraftSaveBlockMessage({
+            isSignedIn,
+            chatScope,
+            isDealer,
+            isAdmin,
+          }),
+        isMemberConsumerSeller: () => memberConsumerSellerFlow,
+      });
+    }
   }, [
     storageScopeKey,
     chatScope,
@@ -208,6 +267,10 @@ export function useChat() {
     loadSessions,
     loadUserPreferences,
     loadPersonalitiesList,
+    isSignedIn,
+    isDealer,
+    isAdmin,
+    memberConsumerSellerFlow,
   ]);
 
   useEffect(() => {
@@ -313,6 +376,7 @@ export function useChat() {
             : `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! กดปุ่ม “ดูประกาศที่บันทึกไว้” เพื่อเปิดรายการที่เพิ่งบันทึก หรือเข้าไปเพิ่มรูป แก้ไขข้อมูล และกดลงขายได้เลย ปังปุริเย่!${uploadNote}`;
 
         notifyDealerDraftSaved(newDraftId);
+        clearPendingChatDraftSnapshot();
         return { text: saveText, savedDraftId: newDraftId };
       } catch (e) {
         logChatDraftSave("error", {
@@ -334,6 +398,8 @@ export function useChat() {
       user,
     ]
   );
+
+  saveDraftRef.current = saveDealerDraftFromFields;
 
   const sendMessage = useCallback(
     async (
@@ -375,6 +441,72 @@ export function useChat() {
         attachmentMeta
       );
 
+      const reattachPrecheck = getPrecheckContext(sessionId);
+      if (
+        reattachPrecheck?.awaitingImageReattachForConfirmedDraft &&
+        hasImages &&
+        isSignedIn
+      ) {
+        markChatImageMessageForPendingListing(
+          storageScopeKey,
+          sessionId,
+          userMsg.id
+        );
+        setGenerating(true);
+        updateStreamedReply("");
+        setPrecheckStage(sessionId, "confirmed_create_draft");
+        const saved = await saveDealerDraftFromFields({
+          sessionId,
+          fields: reattachPrecheck.fields as Record<string, unknown>,
+        });
+        if (memberConsumerSellerFlow && !saved.savedDraftId) {
+          const refCode = reattachPrecheck.publicRefCode ?? ensurePublicRefCode(sessionId);
+          await appendMemberPendingListingCardMessage(sessionId, {
+            fields: reattachPrecheck.fields as ExtractedCarFields,
+            visionSummary: reattachPrecheck.visionSummary,
+            publicRefCode: refCode,
+            draftPreviewText: buildDraftCopyReadyReply(
+              reattachPrecheck.fields as ExtractedCarFields,
+              refCode,
+              CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+              reattachPrecheck.visionSummary,
+              attachmentMeta.length
+            ),
+            attachments: attachmentMeta.length > 0 ? attachmentMeta : undefined,
+          });
+          clearPrecheckContext(sessionId);
+          clearPendingChatDraftSnapshot();
+          setGenerating(false);
+          return;
+        }
+        const refCode = reattachPrecheck.publicRefCode ?? "";
+        const replyText = saved.savedDraftId
+          ? `${buildPostLoginDraftSavedText(refCode)}${
+              saved.text.includes("แต่ยังต้องเติม")
+                ? `\n\n${saved.text}`
+                : saved.text.includes("แนบรูปภาพแล้ว")
+                  ? `\n\n${saved.text.split("\n\n").slice(-1)[0]}`
+                  : ""
+            }`
+          : saved.text;
+        updateStreamedReply(replyText);
+        await finalizeStreamedReply(
+          sessionId,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          saved.savedDraftId,
+          attachmentMeta.length > 0 ? attachmentMeta : undefined
+        );
+        clearPrecheckContext(sessionId);
+        if (saved.savedDraftId) {
+          clearPendingChatDraftSnapshot();
+        }
+        setGenerating(false);
+        return;
+      }
+
       setGenerating(true);
       updateStreamedReply("", []);
 
@@ -384,6 +516,98 @@ export function useChat() {
       const pendingListingContext =
         findLatestPendingListingContext(historyAfterUser);
       const latestSavedDraftId = findLatestSavedDraftId(historyAfterUser);
+
+      if (isMemberListingChatAction(trimmed) && memberConsumerSellerFlow) {
+        if (trimmed === CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION) {
+          const cardMsg = findLatestPendingListingCardMessage(historyAfterUser);
+          const card = cardMsg?.pendingListingCard;
+          const precheck = getPrecheckContext(sessionId);
+          const fields = (card?.fields ?? precheck?.fields) as ExtractedCarFields | undefined;
+
+          if (!fields) {
+            updateStreamedReply(
+              "ยังไม่พบข้อมูลประกาศที่จะบันทึกครับ ลองเริ่มสร้างประกาศจากแชทใหม่อีกครั้งนะครับ"
+            );
+            await finalizeStreamedReply(sessionId);
+            setGenerating(false);
+            return;
+          }
+
+          updateStreamedReply(CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE);
+          await finalizeStreamedReply(sessionId);
+
+          const saveResult = await saveMemberListingFromChat({
+            fields,
+            visionSummary: (card?.visionSummary ??
+              precheck?.visionSummary) as VisionObservationSummary | undefined,
+            publicRefCode:
+              card?.publicRefCode ?? precheck?.publicRefCode ?? ensurePublicRefCode(sessionId),
+            ownerId: user?.uid ?? "",
+            ownerName:
+              (user as { displayName?: string; name?: string } | null)?.displayName ??
+              (user as { name?: string } | null)?.name ??
+              "",
+            ownerPhone: (user as { phone?: string } | null)?.phone ?? "",
+            storageScopeKey,
+            sessionId,
+            messages: historyAfterUser,
+            cardAttachments: cardMsg?.attachments,
+          });
+
+          if (!saveResult.ok) {
+            updateStreamedReply(saveResult.message);
+            await finalizeStreamedReply(sessionId);
+            setGenerating(false);
+            return;
+          }
+
+          updateStreamedReply(saveResult.message);
+          await finalizeStreamedReply(
+            sessionId,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            saveResult.listingId
+          );
+          clearPrecheckContext(sessionId);
+          clearPendingChatDraftSnapshot();
+          setGenerating(false);
+          return;
+        }
+        if (trimmed === CHAT_MEMBER_NOT_NOW_LISTING_ACTION) {
+          updateStreamedReply(CHAT_MEMBER_NOT_NOW_ACK);
+          await finalizeStreamedReply(sessionId);
+          setGenerating(false);
+          return;
+        }
+      }
+
+      if (trimmed === "แก้ไขข้อมูล") {
+        const cardMsg = findLatestPendingListingCardMessage(historyAfterUser);
+        if (cardMsg?.pendingListingCard) {
+          bootstrapPrecheckFields(
+            sessionId,
+            cardMsg.pendingListingCard.fields as ExtractedCarFields
+          );
+          if (cardMsg.pendingListingCard.visionSummary) {
+            setPrecheckVisionSummary(
+              sessionId,
+              cardMsg.pendingListingCard.visionSummary as VisionObservationSummary
+            );
+          }
+          setPrecheckStage(sessionId, "collecting_missing_fields");
+          updateStreamedReply(
+            "ลุงพิมพ์ข้อมูลที่ต้องการแก้ไขมาได้เลยครับ เช่น 'เปลี่ยนราคาเป็น 400000' หรือ 'เพิ่มจุดเด่น: ยางใหม่'"
+          );
+          await finalizeStreamedReply(sessionId);
+          setGenerating(false);
+          return;
+        }
+      }
+
       const isListingCreateWithImages = hasImages && trimmed && isSellIntent(trimmed);
       const activePrecheck = getPrecheckContext(sessionId);
       const precheckActive =
@@ -447,11 +671,64 @@ export function useChat() {
             return;
           }
 
+          if (!isSignedIn) {
+            const refCode = ensurePublicRefCode(sessionId);
+            const rawAttachments = resolvePrecheckDraftAttachments();
+            const { attachments: draftPreviewAttachments, thumbnailsPersisted } =
+              await persistAttachmentsForSnapshot(rawAttachments);
+            savePendingChatDraftSnapshot({
+              publicRefCode: refCode,
+              fields: confirmFields as ExtractedCarFields,
+              visionSummary: confirmVision,
+              draftPreviewText: buildDraftCopyReadyReply(
+                confirmFields as ExtractedCarFields,
+                refCode,
+                CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+                confirmVision,
+                rawAttachments?.length ?? 0
+              ),
+              messages: serializeMessagesForSnapshot(
+                useChatStore.getState().messages[sessionId] || []
+              ),
+              draftPreviewAttachments,
+              imageCount: rawAttachments?.length ?? 0,
+              thumbnailsPersisted,
+              userAlreadyConfirmedCreateDraft: true,
+            });
+            setChatLoginReturnView("chat");
+          }
+
           setPrecheckStage(sessionId, "confirmed_create_draft");
           const saved = await saveDealerDraftFromFields({
             sessionId,
             fields: confirmFields as Record<string, unknown>,
           });
+
+          if (memberConsumerSellerFlow && !saved.savedDraftId) {
+            const refCode =
+              confirmPrecheck?.publicRefCode ?? ensurePublicRefCode(sessionId);
+            const draftAttachments = resolvePrecheckDraftAttachments();
+            await appendMemberPendingListingCardMessage(sessionId, {
+              fields: confirmFields as ExtractedCarFields,
+              visionSummary: confirmVision,
+              publicRefCode: refCode,
+              draftPreviewText: buildDraftCopyReadyReply(
+                confirmFields as ExtractedCarFields,
+                refCode,
+                CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+                confirmVision,
+                draftAttachments?.length ?? 0
+              ),
+              attachments: draftAttachments,
+            });
+            clearPrecheckContext(sessionId);
+            if (isSignedIn) {
+              clearPendingChatDraftSnapshot();
+            }
+            setGenerating(false);
+            return;
+          }
+
           updateStreamedReply(saved.text);
           await finalizeStreamedReply(
             sessionId,
@@ -463,6 +740,9 @@ export function useChat() {
             resolvePrecheckDraftAttachments()
           );
           clearPrecheckContext(sessionId);
+          if (saved.savedDraftId) {
+            clearPendingChatDraftSnapshot();
+          }
           setGenerating(false);
           return;
         }

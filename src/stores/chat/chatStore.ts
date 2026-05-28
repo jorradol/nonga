@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatSession, ChatMessage, ChatCarCardData, ChatMessageAttachment } from "../../types";
+import { ChatSession, ChatMessage, ChatCarCardData, ChatMessageAttachment, PendingListingCardData } from "../../types";
 import { AIPersonality, PersonalityPresetId } from "../../types/ai";
 import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from "../../services/ai/personality/personalityConfig";
 import {
@@ -32,6 +32,11 @@ export interface AIUserProfile {
   userNotes: string | null;
 }
 
+export type AddMessageListingExtras = {
+  isPendingListingCard?: boolean;
+  pendingListingCard?: PendingListingCardData;
+};
+
 interface ChatState {
   sessions: ChatSession[];
   activeSessionId: string | null;
@@ -63,7 +68,9 @@ interface ChatState {
     isDraftPreview?: boolean,
     draftFields?: any,
     savedDraftId?: string,
-    attachments?: ChatMessageAttachment[]
+    attachments?: ChatMessageAttachment[],
+    listingExtras?: AddMessageListingExtras,
+    savedMemberListingId?: string
   ) => Promise<ChatMessage>;
   editMessage: (sessionId: string, messageId: string, text: string) => Promise<void>;
   updateStreamedReply: (text: string, carCards?: ChatCarCardData[], hasMoreCars?: boolean, isDraftPreview?: boolean, draftFields?: any) => void;
@@ -74,7 +81,8 @@ interface ChatState {
     isDraftPreview?: boolean,
     draftFields?: any,
     savedDraftId?: string,
-    attachments?: ChatMessageAttachment[]
+    attachments?: ChatMessageAttachment[],
+    savedMemberListingId?: string
   ) => Promise<void>;
   setGenerating: (generating: boolean) => void;
   analyzeUserPreferences: (messages: ChatMessage[]) => Promise<void>;
@@ -226,7 +234,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
-  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments) => {
+  addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments, listingExtras, savedMemberListingId) => {
     const activeSession = get().sessions.find((s) => s.id === sessionId);
     if (!activeSession) {
       throw new Error("chat_session_not_found");
@@ -246,7 +254,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(isDraftPreview ? { isDraftPreview } : {}),
       ...(draftFields ? { draftFields } : {}),
       ...(savedDraftId ? { savedDraftId } : {}),
+      ...(savedMemberListingId ? { savedMemberListingId } : {}),
       ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      ...(listingExtras?.isPendingListingCard
+        ? { isPendingListingCard: true, pendingListingCard: listingExtras.pendingListingCard }
+        : {}),
     });
 
     set((state) => ({
@@ -316,7 +328,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments) => {
+  finalizeStreamedReply: async (sessionId, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments, savedMemberListingId) => {
     const totalReply = get().streamedReply;
     if (!totalReply) return;
 
@@ -340,7 +352,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isDraftPreview,
       draftFields,
       savedDraftId,
-      attachments
+      attachments,
+      undefined,
+      savedMemberListingId
     );
     
     // Core AI memory loop: Trigger preference extraction in background for memory

@@ -15,6 +15,11 @@ import {
 } from "../../services/ai/chat/chatDraftActions";
 import { ChatCarCard } from "./ChatCarCard";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
+import { ChatPendingListingCard } from "./ChatPendingListingCard";
+import {
+  CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
+  CHAT_MEMBER_NOT_NOW_LISTING_ACTION,
+} from "../../services/chat/chatMemberPendingListing";
 import { useAppStore } from "../../store";
 import { navigateToSavedDealerDraft } from "../../utils/dealer/dealerDraftNavigation";
 import { ExternalLink } from "lucide-react";
@@ -408,6 +413,19 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
+            {message.savedMemberListingId && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setView("my-listings")}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  ดูในประกาศของฉัน
+                </button>
+              </div>
+            )}
+
             {message.savedDraftId && (
               <div className="mt-4 flex flex-col items-center gap-2">
                 <button
@@ -428,7 +446,30 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
-            {message.isDraftPreview && (
+            {message.isPendingListingCard && message.pendingListingCard && (
+              <ChatPendingListingCard
+                card={message.pendingListingCard}
+                attachments={message.attachments}
+                messageId={message.id}
+                onEdit={() => {
+                  if (activeSessionId) {
+                    void sendMessage("แก้ไขข้อมูล");
+                  }
+                }}
+                onConfirmSave={() => {
+                  if (activeSessionId) {
+                    void sendMessage(CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION);
+                  }
+                }}
+                onNotNow={() => {
+                  if (activeSessionId) {
+                    void sendMessage(CHAT_MEMBER_NOT_NOW_LISTING_ACTION);
+                  }
+                }}
+              />
+            )}
+
+            {message.isDraftPreview && !message.isPendingListingCard && (
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 <button
                   type="button"
