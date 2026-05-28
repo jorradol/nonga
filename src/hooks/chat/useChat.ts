@@ -22,6 +22,7 @@ import { useAuth } from "../auth/useAuth";
 import { useRole } from "../auth/useRole";
 import {
   isSaveListingChatAction,
+  CHAT_CONFIRM_CREATE_DRAFT_ACTION,
   buildDealerDraftPayloadFromChat,
   logChatDraftSave,
 } from "../../services/ai/chat/chatDraftActions";
@@ -38,6 +39,7 @@ import {
   clearChatImagesForDraft,
   collectChatImagesForDraft,
   getChatImagesForMessage,
+  collectDraftPreviewDisplayAttachments,
   markChatImageMessageForPendingListing,
   registerChatImageMessageFiles,
   toChatImageMessageAttachments,
@@ -51,6 +53,28 @@ import {
   findLatestPendingListingContext,
   findLatestSavedDraftId,
 } from "../../features/chat-image-attachment-v1/followUpImageIntent";
+import { aiVisionService } from "../../services/ai/vision/visionEngine";
+import { setChatLoginReturnView } from "../../utils/chatLoginReturn";
+import {
+  bootstrapPrecheckFields,
+  buildDraftCopyReadyReply,
+  buildKnownVisionHints,
+  buildMissingFieldsPrompt,
+  buildPrecheckVisionReply,
+  clearPrecheckContext,
+  ensurePublicRefCode,
+  getMissingCoreFieldLabels,
+  getPrecheckContext,
+  hasCoreFieldsComplete,
+  mergeEffectivePrecheckFields,
+  isConfirmCreateListingIntent,
+  isPrecheckAwaitingConfirm,
+  isStartCreateListingIntent,
+  setPrecheckStage,
+  setPrecheckVisionSummary,
+  upsertPrecheckFromMessage,
+  type VisionObservationSummary,
+} from "../../services/ai/chat/chatPrecheckLayer";
 
 let lastHydratedChatScopeKey: string | null = null;
 
@@ -194,6 +218,123 @@ export function useChat() {
     await hydrateChatForScope(true);
   }, [hydrateChatForScope]);
 
+  const saveDealerDraftFromFields = useCallback(
+    async (params: {
+      sessionId: string;
+      fields: Record<string, unknown>;
+    }): Promise<{ text: string; savedDraftId?: string }> => {
+      const { payload } = buildDealerDraftPayloadFromChat(
+        params.fields as Parameters<typeof buildDealerDraftPayloadFromChat>[0]
+      );
+      const draftSaveBlock = resolveChatDraftSaveBlockMessage({
+        isSignedIn,
+        chatScope,
+        isDealer,
+        isAdmin,
+      });
+      if (draftSaveBlock) {
+        if (!isSignedIn) {
+          setChatLoginReturnView("chat");
+          setView("login");
+        }
+        return { text: draftSaveBlock };
+      }
+
+      const draftDealerId = resolveDealerIdFromUser(user);
+      const apiRole = isAdmin ? "admin" : "dealer";
+      const endpoint = "/api/dealer/drafts/new";
+      const sessionMessages = useChatStore.getState().messages[params.sessionId] || [];
+
+      try {
+        const headers = await dealerAuthHeadersAsync(draftDealerId, apiRole);
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const responseText = await res.text();
+        let result: {
+          data?: { id?: string; missingFields?: string[] };
+          message?: string;
+        } = {};
+        try {
+          result = JSON.parse(responseText) as typeof result;
+        } catch {
+          result = { message: responseText.slice(0, 200) };
+        }
+
+        if (!res.ok) {
+          logChatDraftSave("error", {
+            status: res.status,
+            statusText: res.statusText,
+            endpoint,
+            dealerId: draftDealerId,
+            body: result,
+          });
+          return {
+            text: "เกิดข้อผิดพลาดในการบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง",
+          };
+        }
+
+        const newDraftId = result.data?.id;
+        let missingFields = [...(result.data?.missingFields ?? [])];
+        let uploadNote = "";
+        const imagesToUpload = newDraftId
+          ? collectChatImagesForDraft(storageScopeKey, params.sessionId, sessionMessages)
+          : [];
+
+        if (newDraftId && imagesToUpload.length > 0) {
+          try {
+            const uploadResult = await uploadChatImagesToDraft(
+              imagesToUpload,
+              newDraftId,
+              draftDealerId,
+              apiRole
+            );
+            clearChatImagesForDraft(storageScopeKey, params.sessionId);
+            missingFields = resolveMissingFieldsAfterChatImageUpload(
+              missingFields,
+              uploadResult.storedUrls
+            );
+            if (uploadResult.storedUrls.length > 0) {
+              uploadNote = `\n\nแนบรูปภาพแล้ว ${uploadResult.storedUrls.length} รูปครับ`;
+            }
+          } catch (uploadErr) {
+            console.error("[chat-image-attachment-v1-upload]", uploadErr);
+            uploadNote =
+              "\n\nแนบรูปไม่สำเร็จทั้งหมด กรุณาลองอัปโหลดใหม่ในหน้าประกาศที่ยังไม่ลงขาย";
+          }
+        }
+
+        const missingLabels = getChatDraftSaveMissingLabels(missingFields);
+        const saveText =
+          missingLabels.length > 0
+            ? `บันทึกฉบับร่างแล้วครับ แต่ยังต้องเติมก่อนส่งเข้าตลาด:\n${missingLabels.map((item) => `- ${item}`).join("\n")}\n\nกรุณาเติมข้อมูลเหล่านี้ในหน้าประกาศที่ยังไม่ลงขายก่อนกดลงขายครับ${uploadNote}`
+            : `บันทึกประกาศสำเร็จเรียบร้อยแล้วครับ! กดปุ่ม “ดูประกาศที่บันทึกไว้” เพื่อเปิดรายการที่เพิ่งบันทึก หรือเข้าไปเพิ่มรูป แก้ไขข้อมูล และกดลงขายได้เลย ปังปุริเย่!${uploadNote}`;
+
+        notifyDealerDraftSaved(newDraftId);
+        return { text: saveText, savedDraftId: newDraftId };
+      } catch (e) {
+        logChatDraftSave("error", {
+          endpoint,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return {
+          text: "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง",
+        };
+      }
+    },
+    [
+      chatScope,
+      isAdmin,
+      isDealer,
+      isSignedIn,
+      setView,
+      storageScopeKey,
+      user,
+    ]
+  );
+
   const sendMessage = useCallback(
     async (
       text: string,
@@ -244,6 +385,210 @@ export function useChat() {
         findLatestPendingListingContext(historyAfterUser);
       const latestSavedDraftId = findLatestSavedDraftId(historyAfterUser);
       const isListingCreateWithImages = hasImages && trimmed && isSellIntent(trimmed);
+      const activePrecheck = getPrecheckContext(sessionId);
+      const precheckActive =
+        activePrecheck?.stage &&
+        activePrecheck.stage !== "idle" &&
+        activePrecheck.stage !== "confirmed_create_draft";
+      const startCreateIntent = isStartCreateListingIntent(trimmed) || isListingCreateWithImages;
+      const confirmCreateIntent =
+        isConfirmCreateListingIntent(trimmed) || isSaveListingChatAction(trimmed);
+      const continuePrecheckIntent =
+        precheckActive && !startCreateIntent && !confirmCreateIntent;
+
+      if (startCreateIntent || confirmCreateIntent || continuePrecheckIntent) {
+        const resolvePrecheckDraftAttachments = ():
+          | ReturnType<typeof toChatImageMessageAttachments>
+          | undefined => {
+          const msgs = useChatStore.getState().messages[sessionId] || [];
+          const display = collectDraftPreviewDisplayAttachments(
+            storageScopeKey,
+            sessionId,
+            msgs
+          );
+          if (display.length > 0) return display;
+          if (attachmentMeta.length > 0) return attachmentMeta;
+          return undefined;
+        };
+
+        const isPureConfirmMessage =
+          isConfirmCreateListingIntent(trimmed) ||
+          trimmed === CHAT_CONFIRM_CREATE_DRAFT_ACTION ||
+          trimmed === "ตกลง สร้างเลย" ||
+          trimmed === "เอาเลย" ||
+          trimmed === "บันทึกประกาศ";
+
+        if (confirmCreateIntent) {
+          if (
+            !hasCoreFieldsComplete(
+              activePrecheck?.fields ?? {},
+              activePrecheck?.visionSummary
+            ) &&
+            pendingListingContext?.fields
+          ) {
+            bootstrapPrecheckFields(sessionId, pendingListingContext.fields);
+          }
+          if (!isPureConfirmMessage) {
+            upsertPrecheckFromMessage(sessionId, trimmed);
+          }
+
+          const confirmPrecheck = getPrecheckContext(sessionId);
+          const confirmFields = confirmPrecheck?.fields ?? {};
+          const confirmVision = confirmPrecheck?.visionSummary;
+          const missingCore = getMissingCoreFieldLabels(
+            mergeEffectivePrecheckFields(confirmFields, confirmVision)
+          );
+
+          if (missingCore.length > 0) {
+            setPrecheckStage(sessionId, "collecting_missing_fields");
+            updateStreamedReply(buildMissingFieldsPrompt(missingCore));
+            await finalizeStreamedReply(sessionId);
+            setGenerating(false);
+            return;
+          }
+
+          setPrecheckStage(sessionId, "confirmed_create_draft");
+          const saved = await saveDealerDraftFromFields({
+            sessionId,
+            fields: confirmFields as Record<string, unknown>,
+          });
+          updateStreamedReply(saved.text);
+          await finalizeStreamedReply(
+            sessionId,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            saved.savedDraftId,
+            resolvePrecheckDraftAttachments()
+          );
+          clearPrecheckContext(sessionId);
+          setGenerating(false);
+          return;
+        }
+
+        if (startCreateIntent) {
+          upsertPrecheckFromMessage(sessionId, trimmed);
+          if (hasImages) {
+            markChatImageMessageForPendingListing(
+              storageScopeKey,
+              sessionId,
+              userMsg.id
+            );
+            setPrecheckStage(sessionId, "analyzing_images");
+            try {
+              const first = imageAttachments[0];
+              const imageBase64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result ?? ""));
+                reader.onerror = () => reject(new Error("image-read-failed"));
+                reader.readAsDataURL(first.optimizedFile);
+              });
+              const analysis = await aiVisionService.analyzeCarImage(imageBase64);
+              const visionSummary: VisionObservationSummary = {
+                brand: analysis.brand?.trim() || undefined,
+                model: analysis.model?.trim() || undefined,
+                color: analysis.color?.trim() || undefined,
+                bodyType: analysis.bodyType?.trim() || undefined,
+                condition: analysis.condition?.trim() || undefined,
+              };
+              setPrecheckVisionSummary(sessionId, visionSummary);
+              upsertPrecheckFromMessage(
+                sessionId,
+                [visionSummary.brand, visionSummary.model, visionSummary.color]
+                  .filter(Boolean)
+                  .join(" ")
+              );
+            } catch (visionErr) {
+              console.warn("[chat-precheck] vision analyze skipped:", visionErr);
+            }
+          }
+        } else if (continuePrecheckIntent) {
+          upsertPrecheckFromMessage(sessionId, trimmed);
+        }
+
+        const latestPrecheck = getPrecheckContext(sessionId);
+        if (!latestPrecheck) {
+          setGenerating(false);
+          return;
+        }
+
+        const refCode = ensurePublicRefCode(sessionId);
+        const missingCore = getMissingCoreFieldLabels(
+          mergeEffectivePrecheckFields(
+            latestPrecheck.fields,
+            latestPrecheck.visionSummary
+          )
+        );
+        const visionHints = buildKnownVisionHints(
+          latestPrecheck.fields,
+          latestPrecheck.visionSummary
+        );
+        const visionText = buildPrecheckVisionReply(latestPrecheck.visionSummary);
+        const draftPreviewAttachments = resolvePrecheckDraftAttachments();
+        const imageCount = draftPreviewAttachments?.length ?? 0;
+        const alreadyAwaitingConfirm = isPrecheckAwaitingConfirm(
+          latestPrecheck.stage
+        );
+
+        if (missingCore.length > 0) {
+          setPrecheckStage(sessionId, "collecting_missing_fields");
+          const askParts = [
+            buildMissingFieldsPrompt(missingCore, visionHints),
+          ];
+          if (startCreateIntent && hasImages && visionText) {
+            askParts.unshift(visionText, "");
+          }
+          updateStreamedReply(askParts.join("\n"));
+          await finalizeStreamedReply(sessionId);
+          setGenerating(false);
+          return;
+        }
+
+        if (alreadyAwaitingConfirm && continuePrecheckIntent) {
+          const refreshed = buildDraftCopyReadyReply(
+            latestPrecheck.fields,
+            refCode,
+            CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+            latestPrecheck.visionSummary,
+            imageCount
+          );
+          updateStreamedReply(refreshed);
+          await finalizeStreamedReply(
+            sessionId,
+            undefined,
+            undefined,
+            true,
+            latestPrecheck.fields,
+            undefined,
+            resolvePrecheckDraftAttachments()
+          );
+          setGenerating(false);
+          return;
+        }
+
+        setPrecheckStage(sessionId, "draft_copy_ready");
+        updateStreamedReply(
+          buildDraftCopyReadyReply(
+            latestPrecheck.fields,
+            refCode,
+            CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+            latestPrecheck.visionSummary,
+            imageCount
+          )
+        );
+        await finalizeStreamedReply(
+          sessionId,
+          undefined,
+          undefined,
+          true,
+          latestPrecheck.fields,
+          undefined,
+          resolvePrecheckDraftAttachments()
+        );
+        setGenerating(false);
+        return;
+      }
 
       if (hasImages && latestSavedDraftId && !isListingCreateWithImages) {
         const draftImageBlock = resolveChatDraftSaveBlockMessage({
@@ -366,9 +711,8 @@ export function useChat() {
             if (draftSaveBlock) {
               orchestrated.text = draftSaveBlock;
               if (!isSignedIn) {
+                setChatLoginReturnView("chat");
                 setView("login");
-              } else if (chatScope.mode === "consumer") {
-                setView("my-listings");
               }
             } else {
               const draftDealerId = resolveDealerIdFromUser(user);
@@ -674,6 +1018,7 @@ export function useChat() {
       setGenerating,
       updateStreamedReply,
       finalizeStreamedReply,
+      saveDealerDraftFromFields,
     ]
   );
 

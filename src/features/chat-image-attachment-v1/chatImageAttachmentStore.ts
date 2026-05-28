@@ -119,6 +119,119 @@ export function getChatImagesForMessage(
   );
 }
 
+/** ผูกรูปจากข้อความผู้ใช้ทุกข้อความใน session กับ draft ที่กำลังเตรียม */
+export function markSessionImagesForPendingListing(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): void {
+  for (const message of messages) {
+    if (message.sender !== "user") continue;
+    if (!message.attachments?.some((a) => a.kind === "image")) continue;
+    markChatImageMessageForPendingListing(storageScopeKey, sessionId, message.id);
+  }
+}
+
+export function collectPendingListingAttachmentMeta(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): ChatMessageAttachment[] {
+  return collectChatImagesForDraft(storageScopeKey, sessionId, messages)
+    .map((item) => item.metadata)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+function findStoredImageByAttachmentId(
+  storageScopeKey: string,
+  sessionId: string,
+  attachmentId: string
+): StoredChatImageAttachment | undefined {
+  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
+  if (!session) return undefined;
+  for (const items of session.values()) {
+    const hit = items.find((item) => item.id === attachmentId);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/**
+ * รวม thumbnail สำหรับ draft preview — สร้าง previewUrl ใหม่จากไฟล์ใน store
+ * (metadata.previewUrl อาจเป็น blob ที่ revoke แล้ว จึงไม่พอสำหรับแสดงผล)
+ */
+export function collectDraftPreviewDisplayAttachments(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): ChatMessageAttachment[] {
+  markSessionImagesForPendingListing(storageScopeKey, sessionId, messages);
+
+  const seen = new Set<string>();
+  const output: ChatMessageAttachment[] = [];
+  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
+
+  if (session) {
+    for (const message of messages) {
+      if (message.sender !== "user") continue;
+      const stored = session.get(message.id) ?? [];
+      for (const item of stored) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        output.push({
+          ...item.metadata,
+          previewUrl: URL.createObjectURL(item.file),
+        });
+      }
+    }
+  }
+
+  if (output.length === 0) {
+    for (const message of messages) {
+      if (message.sender !== "user") continue;
+      for (const att of message.attachments ?? []) {
+        if (att.kind !== "image" || seen.has(att.id)) continue;
+        seen.add(att.id);
+        const stored = findStoredImageByAttachmentId(
+          storageScopeKey,
+          sessionId,
+          att.id
+        );
+        if (stored?.file) {
+          output.push({
+            ...att,
+            previewUrl: URL.createObjectURL(stored.file),
+          });
+          continue;
+        }
+        const fallback =
+          att.previewUrl ?? att.previewDataUrl ?? att.thumbnailUrl ?? att.imageUrl;
+        if (fallback) {
+          output.push({ ...att, previewUrl: fallback });
+        }
+      }
+    }
+  }
+
+  return output.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+/** @deprecated ใช้ collectDraftPreviewDisplayAttachments */
+export function enrichDraftPreviewAttachments(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[],
+  attachments: ChatMessageAttachment[]
+): ChatMessageAttachment[] {
+  const fresh = collectDraftPreviewDisplayAttachments(
+    storageScopeKey,
+    sessionId,
+    messages
+  );
+  if (fresh.length > 0) return fresh;
+  return attachments;
+}
+
 export function markChatImageMessageForPendingListing(
   storageScopeKey: string,
   sessionId: string,

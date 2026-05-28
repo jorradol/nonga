@@ -60,9 +60,17 @@ export function ChatMessageAttachments({
                 isUser ? "border-white/30" : "border-slate-700"
               }`}
             >
-              {img.previewUrl || img.thumbnailUrl || img.imageUrl || img.previewDataUrl ? (
+              {img.previewUrl ||
+              img.previewDataUrl ||
+              img.thumbnailUrl ||
+              img.imageUrl ? (
                 <img
-                  src={img.previewUrl ?? img.thumbnailUrl ?? img.imageUrl ?? img.previewDataUrl}
+                  src={
+                    img.previewUrl ??
+                    img.previewDataUrl ??
+                    img.thumbnailUrl ??
+                    img.imageUrl
+                  }
                   alt={img.originalFileName ?? img.name}
                   className="w-14 h-14 sm:w-16 sm:h-16 object-cover block"
                   draggable={false}

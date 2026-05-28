@@ -2,12 +2,19 @@ import type { ExtractedCarFields } from "./sellIntentParser";
 
 /** ข้อความที่ผู้ใช้เห็นเมื่อกดปุ่มบันทึกจากแชท */
 export const CHAT_SAVE_LISTING_ACTION = "บันทึกประกาศ";
+export const CHAT_CONFIRM_CREATE_DRAFT_ACTION = "ยืนยันสร้างประกาศ";
 
 const LEGACY_SAVE_ACTIONS = ["บันทึกเป็น Draft"] as const;
+const CONFIRM_SAVE_ACTIONS = [
+  CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+  "ตกลง สร้างเลย",
+  "เอาเลย",
+] as const;
 
 export function isSaveListingChatAction(message: string): boolean {
   const t = message.trim();
   if (t === CHAT_SAVE_LISTING_ACTION) return true;
+  if ((CONFIRM_SAVE_ACTIONS as readonly string[]).includes(t)) return true;
   return (LEGACY_SAVE_ACTIONS as readonly string[]).includes(t);
 }
 

@@ -1,7 +1,14 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Send, Menu, Sparkles, Sliders, ChevronDown, Car } from "lucide-react";
-import { ChatImageAttachmentInput } from "./ChatImageAttachmentInput";
-import { useChatTextareaAutosize } from "../../hooks/chat/useChatTextareaAutosize";
+import {
+  ChatImageAttachmentInput,
+  ChatImageAttachmentPreview,
+} from "./ChatImageAttachmentInput";
+import {
+  useChatTextareaAutosize,
+  CHAT_TEXTAREA_MAX_HEIGHT_PX,
+  CHAT_TEXTAREA_MIN_HEIGHT_PX,
+} from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
 import { useAuth } from "../../hooks/auth/useAuth";
@@ -358,32 +365,47 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0" id="chat-input-toolbar">
+        <div
+          className="p-2 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0"
+          id="chat-input-toolbar"
+        >
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
             <div
               className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
               id="chat-composer-box"
             >
-              <textarea
-                ref={textareaRef}
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isGenerating
-                    ? "น้องเอกำลังพิมพ์คำตอบให้คุณอยู่ครับ..."
-                    : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
-                }
-                rows={1}
-                disabled={isGenerating}
-                className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-3 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px]"
-                style={{ minHeight: 38, maxHeight: 82 }}
-                id="chat-textarea-elt"
-              />
-              <div
-                className="composer-bottom-row flex items-center justify-end gap-1.5 px-1 pb-1 pt-0 shrink-0 min-h-[44px]"
-                id="chat-composer-bottom-row"
-              >
+              {pendingAttachments.length > 0 && (
+                <div
+                  className="px-2 pt-2 pb-1 border-b border-slate-800/60 shrink-0"
+                  id="chat-composer-attachment-preview"
+                >
+                  <ChatImageAttachmentPreview
+                    pending={pendingAttachments}
+                    onRemoveAt={handleRemoveAttachment}
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-1 px-1 py-0.5 shrink-0" id="chat-composer-input-row">
+                <textarea
+                  ref={textareaRef}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isGenerating
+                      ? "น้องเอกำลังพิมพ์คำตอบให้คุณอยู่ครับ..."
+                      : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
+                  }
+                  rows={1}
+                  disabled={isGenerating}
+                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] overflow-hidden box-border"
+                  style={{
+                    minHeight: CHAT_TEXTAREA_MIN_HEIGHT_PX,
+                    maxHeight: CHAT_TEXTAREA_MAX_HEIGHT_PX,
+                    height: CHAT_TEXTAREA_MIN_HEIGHT_PX,
+                  }}
+                  id="chat-textarea-elt"
+                />
                 {CHAT_IMAGE_ATTACHMENT_V1_ENABLED && (
                   <ChatImageAttachmentInput
                     pending={pendingAttachments}
@@ -391,6 +413,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                     isPreparing={isPreparingAttachments}
                     onFilesSelected={handleFilesSelected}
                     onRemoveAt={handleRemoveAttachment}
+                    showPreview={false}
                   />
                 )}
                 <button
@@ -400,7 +423,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                     isPreparingAttachments ||
                     (!inputText.trim() && pendingAttachments.length === 0)
                   }
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
+                  className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
                   id="send-message-btn"
                   title="ส่งข้อความ"
                 >
@@ -417,10 +440,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         </div>
       </div>
 
-      <div
-        className="hidden xl:flex p-4 flex-col gap-4 border-l border-slate-800/80 bg-slate-950/20 overflow-y-auto h-full w-80 relative shrink-0"
-        id="memory-rail"
-      >
+      <div className="hidden" id="memory-rail">
         <PersonalityPanel />
         <MemoryPanel />
       </div>

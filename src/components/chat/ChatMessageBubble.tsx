@@ -10,7 +10,9 @@ import { useClipboard } from "../../hooks/chat/useClipboard";
 import { useFavorites } from "../../hooks/chat/useFavorites";
 import { useEditableMessage } from "../../hooks/chat/useEditableMessage";
 import { useChat } from "../../hooks/chat/useChat";
-import { CHAT_SAVE_LISTING_ACTION } from "../../services/ai/chat/chatDraftActions";
+import {
+  CHAT_CONFIRM_CREATE_DRAFT_ACTION,
+} from "../../services/ai/chat/chatDraftActions";
 import { ChatCarCard } from "./ChatCarCard";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useAppStore } from "../../store";
@@ -432,12 +434,12 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   type="button"
                   onClick={() => {
                     if (activeSessionId) {
-                      void sendMessage(CHAT_SAVE_LISTING_ACTION);
+                      void sendMessage(CHAT_CONFIRM_CREATE_DRAFT_ACTION);
                     }
                   }}
                   className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
                 >
-                  บันทึกประกาศ
+                  ยืนยันสร้างประกาศ
                 </button>
                 <button
                   type="button"

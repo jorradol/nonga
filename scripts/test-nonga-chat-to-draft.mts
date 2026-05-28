@@ -8,6 +8,18 @@ import {
   getChatDraftSaveMissingLabels,
   resolveMissingFieldsAfterChatImageUpload,
 } from "../src/services/ai/chat/chatDraftSaveResult";
+import {
+  bootstrapPrecheckFields,
+  buildDraftCopyReadyReply,
+  clearPrecheckContext,
+  getMissingCoreFieldLabels,
+  getPrecheckContext,
+  hasCoreFieldsComplete,
+  mergeEffectivePrecheckFields,
+  isConfirmCreateListingIntent,
+  setPrecheckStage,
+  upsertPrecheckFromMessage,
+} from "../src/services/ai/chat/chatPrecheckLayer";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -166,5 +178,111 @@ if (camryPreview.includes("ปี: 2019") && camryPreview.includes("819,000 บ�
   console.error(camryPreview);
   process.exit(1);
 }
+
+console.log("--- Testing precheck confirm gate ---");
+
+const precheckSid = "test-precheck-confirm-gate";
+clearPrecheckContext(precheckSid);
+
+const coreOnly = {
+  brand: "Toyota",
+  model: "Camry",
+  year: 2019,
+  price: 819000,
+  mileage: 120384,
+  transmission: "เกียร์ AT",
+};
+assertEqual(
+  getMissingCoreFieldLabels(coreOnly).length,
+  0,
+  "Core fields complete without color or description"
+);
+assertEqual(hasCoreFieldsComplete(coreOnly), true, "hasCoreFieldsComplete");
+
+const missingDescOnly = { ...coreOnly, description: undefined };
+assertEqual(
+  getMissingCoreFieldLabels(missingDescOnly).length,
+  0,
+  "Description is optional for confirm gate"
+);
+
+assertEqual(isConfirmCreateListingIntent("ยืนยันสร้างประกาศ"), true, "Confirm: ยืนยันสร้างประกาศ");
+assertEqual(isConfirmCreateListingIntent("ตกลง สร้างเลย"), true, "Confirm: ตกลง สร้างเลย");
+assertEqual(isConfirmCreateListingIntent("เอาเลย"), true, "Confirm: เอาเลย");
+
+upsertPrecheckFromMessage(
+  precheckSid,
+  "Toyota Camry ปี 2019 ราคา 819000 ไมล์ 120384 เกียร์ AT"
+);
+setPrecheckStage(precheckSid, "draft_copy_ready");
+upsertPrecheckFromMessage(precheckSid, "จุดเด่น เบาะหนัง Sunroof");
+const afterOptional = getPrecheckContext(precheckSid);
+assertEqual(
+  afterOptional?.stage,
+  "draft_copy_ready",
+  "Optional highlights do not revert to collecting_missing_fields"
+);
+assertEqual(
+  getMissingCoreFieldLabels(afterOptional?.fields ?? {}).length,
+  0,
+  "Still core-complete after optional highlights"
+);
+
+clearPrecheckContext(precheckSid);
+bootstrapPrecheckFields(precheckSid, coreOnly);
+const bootstrapped = getPrecheckContext(precheckSid);
+assertEqual(bootstrapped?.stage, "draft_copy_ready", "Bootstrap with core fields reaches draft_copy_ready");
+
+const marketingCopy = buildDraftCopyReadyReply(
+  {
+    brand: "Honda",
+    model: "CR-V",
+    year: 2020,
+    price: 789000,
+    mileage: 58000,
+    transmission: "ออโต้",
+    color: "ดำ",
+  },
+  "NA-2026-TEST",
+  "ยืนยันสร้างประกาศ",
+  { bodyType: "SUV" },
+  1
+);
+if (
+  marketingCopy.includes("[โพสต์ตัวอย่าง]") &&
+  marketingCopy.includes("[ข้อมูลสำหรับตรวจสอบก่อนยืนยัน]") &&
+  marketingCopy.includes("ใครกำลังมองหา SUV") &&
+  marketingCopy.includes("Honda CR-V") &&
+  marketingCopy.includes("789,000") &&
+  marketingCopy.includes("• ยี่ห้อ/รุ่น: Honda CR-V") &&
+  marketingCopy.includes("• รูปภาพ: แนบ 1 รูป") &&
+  !marketingCopy.includes("ข้อมูลชุดนี้พร้อมนำไปต่อยอด") &&
+  !marketingCopy.includes("เจ้าของมือเดียว") &&
+  !marketingCopy.includes("น้ำท่วม")
+) {
+  console.log("✅ PASS: Draft preview has sales copy + verification sections");
+} else {
+  console.error("❌ FAIL: Draft preview dual sections");
+  console.error(marketingCopy);
+  process.exit(1);
+}
+
+const visionOnlyBrand = mergeEffectivePrecheckFields(
+  { year: 2020, price: 789000, mileage: 58000, transmission: "ออโต้" },
+  { brand: "Honda", model: "CR-V", color: "ดำ" }
+);
+assertEqual(
+  getMissingCoreFieldLabels(visionOnlyBrand).includes("ยี่ห้อ"),
+  false,
+  "Vision brand/model does not trigger missing brand/model prompts"
+);
+assertEqual(
+  hasCoreFieldsComplete(
+    { year: 2020, price: 789000, mileage: 58000, transmission: "ออโต้" },
+    { brand: "Honda", model: "CR-V" }
+  ),
+  true,
+  "Core complete when vision supplies brand/model"
+);
 
 console.log("--- All Chat to Draft tests passed! ---");

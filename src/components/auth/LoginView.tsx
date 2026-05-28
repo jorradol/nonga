@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { useAppStore } from "../../store";
+import { consumeChatLoginReturnView } from "../../utils/chatLoginReturn";
 import { motion } from "motion/react";
 import { 
   Mail, Lock, Eye, EyeOff, Bot, Sparkles, 
@@ -55,9 +56,9 @@ export default function LoginView() {
     try {
       await loginWithEmail(email, password);
       // Success toast trigger
-      setSuccessToast("เข้าสู่ระบบเรียบร้อยแล้วครับน้องบอต! กำลังพารุดหน้าสู่ศูนย์บัญชาการอัจฉริยะ ✨🎉");
+      setSuccessToast("เข้าสู่ระบบเรียบร้อยแล้วครับน้องบอต! กำลังพากลับไปต่องานที่ค้างไว้ ✨🎉");
       setTimeout(() => {
-        setView("home");
+        setView(consumeChatLoginReturnView() ?? "home");
       }, 1500);
     } catch (err: any) {
       setLocalError(err.message || "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์ผู้ใช้");
@@ -81,7 +82,7 @@ export default function LoginView() {
       }
       setSuccessToast(`ยินดีต้อนรับ! เข้าสู่ระบบเสร็จสิ้นผ่านบริการ ${provider.toUpperCase()} ปังปุริเย่!`);
       setTimeout(() => {
-        setView("home");
+        setView(consumeChatLoginReturnView() ?? "home");
       }, 1500);
     } catch (err: any) {
       setLocalError(err.message || "การเข้าสู่ระบบผ่านผู้ให้บริการภายนอกล้มเหลว");
