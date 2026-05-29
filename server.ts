@@ -363,7 +363,7 @@ app.delete("/api/admin/draft-inventory/:id", (req, res) => {
 
 registerDealerPortalRoutes(app, { inventoryRepository });
 registerDuplicateRoutes(app);
-registerOwnerListingRoutes(app);
+registerOwnerListingRoutes(app, { inventoryRepository });
 registerPayloadTooLargeHandler(app);
 
 // 4. API: AI Smart Chat Assistant (Nong A)

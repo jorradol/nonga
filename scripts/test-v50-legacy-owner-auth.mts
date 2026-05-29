@@ -5,6 +5,12 @@ import {
   type MarketplaceCarRecord,
 } from "../src/server/marketplaceInventory.ts";
 import { registerOwnerListingRoutes } from "../src/server/ownerListingRoutes.ts";
+import {
+  createInventoryRepository,
+  type InventoryRepository,
+  type ListingRepository,
+  type ListingVisibility,
+} from "../src/server/repositories/inventoryRepository.ts";
 
 const TOKEN_DEALER_A = "dev-firebase-token-owner-dealer-a";
 const TOKEN_DEALER_B = "dev-firebase-token-owner-dealer-b";
@@ -112,7 +118,8 @@ async function run() {
 
   const app = express();
   app.use(express.json({ limit: "10mb" }));
-  registerOwnerListingRoutes(app);
+  const inventoryRepository = createInventoryRepository("file");
+  registerOwnerListingRoutes(app, { inventoryRepository });
 
   const server = app.listen(0);
   const address = server.address();
@@ -176,6 +183,83 @@ async function run() {
     });
     if (!res.ok) throw new Error("dealer A visibility update failed");
     console.log("PASS visibility update uses auth scope");
+
+    /** Listing exists only in inventory repository (Firestore path) — must not 404 on image upload */
+    class RepoOnlyListingRepository implements ListingRepository {
+      private readonly inner = inventoryRepository.listings;
+      private readonly onlyInRepo = new Map<string, MarketplaceCarRecord>();
+
+      async listPublished() {
+        return this.inner.listPublished();
+      }
+      async listByDealer(dealerId: string) {
+        return this.inner.listByDealer(dealerId);
+      }
+      async getById(id: string) {
+        return this.onlyInRepo.get(id) ?? this.inner.getById(id);
+      }
+      async createListing(dealerId: string, record: MarketplaceCarRecord) {
+        const created = await this.inner.createListing(dealerId, record);
+        this.onlyInRepo.set(created.id, created);
+        return created;
+      }
+      async updateListing(
+        dealerId: string,
+        id: string,
+        patch: Partial<MarketplaceCarRecord>
+      ) {
+        return this.inner.updateListing(dealerId, id, patch);
+      }
+      async updateVisibility(
+        dealerId: string,
+        id: string,
+        visibility: ListingVisibility
+      ) {
+        return this.inner.updateVisibility(dealerId, id, visibility);
+      }
+      async deleteListing(dealerId: string, id: string) {
+        this.onlyInRepo.delete(id);
+        return this.inner.deleteListing(dealerId, id);
+      }
+    }
+
+    const repoOnlyId = `car-${Date.now()}303`;
+    const repoOnlyCar = makeCar(repoOnlyId, DEALER_A);
+    const repoOnlyListingRepo = new RepoOnlyListingRepository();
+    const repoOnlyInventory: InventoryRepository = {
+      backend: "firestore",
+      listings: repoOnlyListingRepo,
+      drafts: inventoryRepository.drafts,
+      publishDraft: inventoryRepository.publishDraft.bind(inventoryRepository),
+    };
+    await repoOnlyListingRepo.createListing(DEALER_A, repoOnlyCar);
+    removeMarketplaceCar(repoOnlyId);
+
+    const repoApp = express();
+    repoApp.use(express.json({ limit: "10mb" }));
+    registerOwnerListingRoutes(repoApp, { inventoryRepository: repoOnlyInventory });
+    const repoServer = repoApp.listen(0);
+    const repoAddress = repoServer.address();
+    if (!repoAddress || typeof repoAddress === "string") {
+      throw new Error("failed to start repo-only test server");
+    }
+    const repoBaseUrl = `http://127.0.0.1:${repoAddress.port}`;
+    try {
+      res = await fetch(`${repoBaseUrl}/api/cars/${repoOnlyId}/images`, {
+        method: "POST",
+        headers: authHeaders(TOKEN_DEALER_A),
+        body: JSON.stringify({ files: [] }),
+      });
+      if (res.status !== 400) {
+        throw new Error(
+          `repo-only listing should reach upload handler (400), got ${res.status}`
+        );
+      }
+      console.log("PASS image upload resolves listing via inventory repository");
+    } finally {
+      await new Promise<void>((resolve) => repoServer.close(() => resolve()));
+      await repoOnlyListingRepo.deleteListing(DEALER_A, repoOnlyId);
+    }
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     removeMarketplaceCar(carAId);

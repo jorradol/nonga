@@ -220,6 +220,24 @@ export async function uploadMyListingImagesDetailed(
           : err instanceof Error
             ? err.message
             : "อัปโหลดรูปไม่สำเร็จ";
+      const errorCategory =
+        err instanceof AppFriendlyError ? err.code : "unknown";
+      const httpStatus =
+        err instanceof AppFriendlyError ? err.status : undefined;
+      console.warn("[member-listing-image-upload] batch failed", {
+        carId,
+        endpoint: url,
+        batchIndex,
+        fileCount: batch.length,
+        errorCategory,
+        httpStatus,
+        technicalDetail:
+          err instanceof AppFriendlyError
+            ? err.technicalDetail
+            : err instanceof Error
+              ? err.message
+              : String(err),
+      });
       failedBatches.push({ batchIndex, fileNames, message });
     }
   }
