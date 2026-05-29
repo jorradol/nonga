@@ -166,65 +166,72 @@ app.get("/api/cars", async (req, res) => {
 
 // 2. API: Create car sale post (saves in-memory)
 app.post("/api/cars", async (req, res) => {
-  const body = req.body ?? {};
-  const access = await resolveOwnerRequestScope(req);
-  if (access.ok === false) {
-    return res.status(access.status).json({
-      success: false,
-      message: access.message,
+  try {
+    const body = req.body ?? {};
+    const access = await resolveOwnerRequestScope(req);
+    if (access.ok === false) {
+      return res.status(access.status).json({
+        success: false,
+        message: access.message,
+      });
+    }
+    const ownership = resolveCreateListingOwner(access.scope, body);
+    if ("error" in ownership) {
+      return res.status(403).json({ success: false, message: ownership.error });
+    }
+    const carId = `car-${Date.now()}`;
+    const safeImages = sanitizeListingImagesForId(body.images, carId);
+    const safeDescription = String(body.description ?? "").slice(0, 4000);
+
+    const categoryType = inferMarketplaceCategoryType({
+      type: body.type,
+      fuelType: body.fuelType,
+      bodyType: body.bodyType,
+      condition: body.condition,
+      price: Number(body.price) || 0,
     });
+
+    const newCar: MarketplaceCarRecord = {
+      id: carId,
+      title: String(body.title ?? ""),
+      brand: String(body.brand ?? ""),
+      model: String(body.model ?? ""),
+      year: Number(body.year) || new Date().getFullYear(),
+      price: Number(body.price) || 0,
+      type: categoryType,
+      condition: String(body.condition ?? ""),
+      mileage: Number(body.mileage) || 0,
+      fuelType: String(body.fuelType ?? "petrol"),
+      images: safeImages,
+      description: safeDescription,
+      ...(ownership.dealerId ? { dealerId: ownership.dealerId } : {}),
+      ownerId: ownership.ownerId,
+      ownerName: String(body.ownerName ?? ""),
+      ownerPhone: String(body.ownerPhone ?? ""),
+      ...(body.showroomName ? { showroomName: String(body.showroomName) } : {}),
+      isSold: false,
+      listingStatus: "published",
+      createdAt: new Date().toISOString(),
+      ...(body.boosted != null ? { boosted: Boolean(body.boosted) } : {}),
+      ...(body.featured != null ? { featured: Boolean(body.featured) } : {}),
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      const approxSize = Buffer.byteLength(JSON.stringify(newCar), "utf8");
+      console.log(`[POST /api/cars] payload ~${approxSize} bytes, images=${safeImages.length}`);
+    }
+
+    const created = await inventoryRepository.listings.createListing(
+      ownership.dealerId || ownership.ownerId,
+      newCar
+    );
+    res.json({ success: true, data: created });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "บันทึกประกาศไม่สำเร็จ";
+    console.error("[POST /api/cars] failed:", err);
+    res.status(500).json({ success: false, message });
   }
-  const ownership = resolveCreateListingOwner(access.scope, body);
-  if ("error" in ownership) {
-    return res.status(403).json({ success: false, message: ownership.error });
-  }
-  const carId = `car-${Date.now()}`;
-  const safeImages = sanitizeListingImagesForId(body.images, carId);
-  const safeDescription = String(body.description ?? "").slice(0, 4000);
-
-  const categoryType = inferMarketplaceCategoryType({
-    type: body.type,
-    fuelType: body.fuelType,
-    bodyType: body.bodyType,
-    condition: body.condition,
-    price: Number(body.price) || 0,
-  });
-
-  const newCar: MarketplaceCarRecord = {
-    id: carId,
-    title: String(body.title ?? ""),
-    brand: String(body.brand ?? ""),
-    model: String(body.model ?? ""),
-    year: Number(body.year) || new Date().getFullYear(),
-    price: Number(body.price) || 0,
-    type: categoryType,
-    condition: String(body.condition ?? ""),
-    mileage: Number(body.mileage) || 0,
-    fuelType: String(body.fuelType ?? "petrol"),
-    images: safeImages,
-    description: safeDescription,
-    dealerId: ownership.dealerId,
-    ownerId: ownership.ownerId,
-    ownerName: String(body.ownerName ?? ""),
-    ownerPhone: String(body.ownerPhone ?? ""),
-    showroomName: body.showroomName ? String(body.showroomName) : undefined,
-    isSold: false,
-    listingStatus: "published",
-    createdAt: new Date().toISOString(),
-    boosted: Boolean(body.boosted),
-    featured: Boolean(body.featured),
-  };
-
-  if (process.env.NODE_ENV !== "production") {
-    const approxSize = Buffer.byteLength(JSON.stringify(newCar), "utf8");
-    console.log(`[POST /api/cars] payload ~${approxSize} bytes, images=${safeImages.length}`);
-  }
-
-  const created = await inventoryRepository.listings.createListing(
-    ownership.dealerId || ownership.ownerId,
-    newCar
-  );
-  res.json({ success: true, data: created });
 });
 
 // API auth guards (stub — เตรียมต่อ Firebase ID token)

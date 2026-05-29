@@ -35,7 +35,14 @@ import {
   isMemberConsumerSellerFlow,
   isMemberListingChatAction,
   CHAT_MEMBER_PENDING_CARD_INTRO,
+  normalizeExtractedCarFields,
+  normalizePendingListingCardData,
+  resolveMemberPendingListingSaveContext,
 } from "../src/services/chat/chatMemberPendingListing";
+import {
+  sanitizeChatMessageForStorage,
+} from "../src/services/chat/chatHistoryService";
+import { sanitizeFirestoreDocument } from "../src/server/firestoreDocumentSanitize.ts";
 import {
   buildMemberListingApiPayload,
   buildMemberListingSuccessMessage,
@@ -438,6 +445,80 @@ const card = buildPendingListingCardData({
 assertEqual(card.publicRefCode, "NA-2026-CARD", "pending card ref code");
 assertEqual(card.statusLabel, "ร่างประกาศ รอตรวจทาน", "pending card status");
 assertEqual(card.fields.brand, "Honda", "pending card fields");
+
+const coercedFields = normalizeExtractedCarFields({
+  brand: "Toyota",
+  year: "2020",
+  price: "450000",
+  mileage: "50000",
+});
+assertEqual(coercedFields.year, 2020, "normalize fields year");
+assertEqual(coercedFields.price, 450000, "normalize fields price");
+
+const legacyCard = normalizePendingListingCardData({
+  publicRefCode: "NA-LEGACY",
+  statusLabel: "ร่างประกาศ รอตรวจทาน",
+  marketingCopy: "โพสต์",
+  fields: { brand: "Mazda", model: "2", year: "2019", price: "300000", mileage: "40000" },
+});
+assertEqual(legacyCard?.fields.brand, "Mazda", "normalize legacy pending card");
+
+const saveCtx = resolveMemberPendingListingSaveContext({
+  messages: [
+    {
+      id: "m-card",
+      sender: "ai",
+      text: CHAT_MEMBER_PENDING_CARD_INTRO,
+      createdAt: new Date().toISOString(),
+      isPendingListingCard: true,
+      pendingListingCard: card,
+    },
+  ],
+  precheck: null,
+  fallbackPublicRefCode: "NA-FALLBACK",
+});
+assertEqual(saveCtx.ok, true, "resolve save context ok");
+if (saveCtx.ok) {
+  assertEqual(saveCtx.fields.brand, "Honda", "resolve save context brand");
+}
+
+const memberFirestoreRecord = sanitizeFirestoreDocument({
+  id: "car-test",
+  title: "Honda City",
+  brand: "Honda",
+  model: "City",
+  year: 2020,
+  price: 400000,
+  type: "used",
+  condition: "มือสอง",
+  mileage: 50000,
+  fuelType: "petrol",
+  images: [],
+  description: "ทดสอบ",
+  ownerId: "member-uid",
+  ownerName: "ลุง",
+  ownerPhone: "",
+  isSold: false,
+  listingStatus: "published",
+  createdAt: new Date().toISOString(),
+  dealerId: undefined,
+  showroomName: undefined,
+});
+assertEqual(
+  "dealerId" in memberFirestoreRecord,
+  false,
+  "member listing firestore doc omits undefined dealerId"
+);
+
+const storedPending = sanitizeChatMessageForStorage({
+  id: "m-store",
+  sender: "ai",
+  text: "การ์ด",
+  createdAt: new Date().toISOString(),
+  isPendingListingCard: true,
+  pendingListingCard: card,
+});
+assertEqual(storedPending.pendingListingCard?.publicRefCode, "NA-2026-CARD", "sanitize keeps pending card");
 
 assertEqual(
   isMemberConsumerSellerFlow({

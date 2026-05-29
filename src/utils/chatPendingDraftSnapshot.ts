@@ -3,9 +3,13 @@ import type {
   ExtractedCarFields,
 } from "../services/ai/chat/sellIntentParser";
 import type { VisionObservationSummary } from "../services/ai/chat/chatPrecheckLayer";
+import {
+  normalizeExtractedCarFields,
+  normalizeVisionObservationSummary,
+} from "../services/chat/chatMemberPendingListing";
 
 const STORAGE_KEY = "nong-a-chat-pending-draft-v1";
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 const TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_PERSISTED_IMAGES = 8;
 const MAX_DATA_URL_BYTES = 450_000;
@@ -153,6 +157,32 @@ export function savePendingChatDraftSnapshot(
   }
 }
 
+function normalizePendingChatDraftSnapshot(
+  parsed: PendingChatDraftSnapshot
+): PendingChatDraftSnapshot | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  if (Date.now() - Number(parsed.createdAt) > TTL_MS) return null;
+  const publicRefCode = String(parsed.publicRefCode ?? "").trim();
+  if (!publicRefCode) return null;
+  const fields = normalizeExtractedCarFields(parsed.fields);
+  if (!fields.brand && !fields.model && !fields.year) return null;
+  return {
+    version: SNAPSHOT_VERSION,
+    createdAt: Number(parsed.createdAt) || Date.now(),
+    publicRefCode,
+    fields,
+    visionSummary: normalizeVisionObservationSummary(parsed.visionSummary),
+    draftPreviewText: String(parsed.draftPreviewText ?? ""),
+    messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+    draftPreviewAttachments: Array.isArray(parsed.draftPreviewAttachments)
+      ? parsed.draftPreviewAttachments
+      : undefined,
+    imageCount: Number(parsed.imageCount) || 0,
+    thumbnailsPersisted: Boolean(parsed.thumbnailsPersisted),
+    userAlreadyConfirmedCreateDraft: Boolean(parsed.userAlreadyConfirmedCreateDraft),
+  };
+}
+
 export function peekPendingChatDraftSnapshot(): PendingChatDraftSnapshot | null {
   const storage = getSessionStorage();
   if (!storage) return null;
@@ -160,15 +190,16 @@ export function peekPendingChatDraftSnapshot(): PendingChatDraftSnapshot | null 
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PendingChatDraftSnapshot;
-    if (parsed.version !== SNAPSHOT_VERSION) {
+    if (parsed.version !== SNAPSHOT_VERSION && parsed.version !== 1) {
       clearPendingChatDraftSnapshot();
       return null;
     }
-    if (Date.now() - parsed.createdAt > TTL_MS) {
+    const normalized = normalizePendingChatDraftSnapshot(parsed);
+    if (!normalized) {
       clearPendingChatDraftSnapshot();
       return null;
     }
-    return parsed;
+    return normalized;
   } catch {
     clearPendingChatDraftSnapshot();
     return null;

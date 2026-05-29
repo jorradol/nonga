@@ -24,6 +24,9 @@ import {
   setMyListingVisibility,
 } from "../listings/myListingsApi";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
+import { requireFirebaseAuthHeaders } from "../auth/firebaseAuthHeaders";
+import { mergeEffectivePrecheckFields } from "../ai/chat/chatPrecheckLayer";
+import { normalizeExtractedCarFields } from "./chatMemberPendingListing";
 
 export const CHAT_MEMBER_NEED_IMAGES_BEFORE_SAVE_MESSAGE =
   "ก่อนบันทึกประกาศจริง รบกวนแนบรูปรถในช่องแชทอีกครั้งนะครับ น้องเอจะใช้รูปนั้นกับประกาศนี้โดยตรง — ไม่ต้องพิมพ์ข้อมูลรถซ้ำครับ";
@@ -234,8 +237,13 @@ export async function saveMemberListingFromChat(params: {
     };
   }
 
+  const fields = mergeEffectivePrecheckFields(
+    normalizeExtractedCarFields(params.fields),
+    params.visionSummary
+  );
+
   const { payload, missing } = buildMemberListingApiPayload({
-    fields: params.fields,
+    fields,
     visionSummary: params.visionSummary,
     ownerId: params.ownerId,
     ownerName: params.ownerName,
@@ -280,6 +288,7 @@ export async function saveMemberListingFromChat(params: {
   }
 
   try {
+    await requireFirebaseAuthHeaders({ forceRefresh: true });
     const created = await createLegacyMarketplaceListing(payload);
     const listingId = created.id;
 
@@ -319,7 +328,7 @@ export async function saveMemberListingFromChat(params: {
     const savedCard = buildSavedMemberListingCardData({
       listingId,
       publicRefCode: params.publicRefCode,
-      fields: params.fields,
+      fields,
       visionSummary: params.visionSummary,
       marketingCopy: params.marketingCopy?.trim() ?? "",
       imageUrls: recordImageUrls,
@@ -351,6 +360,14 @@ export async function saveMemberListingFromChat(params: {
       savedCard,
     };
   } catch (err) {
+    if (err instanceof AppFriendlyError && err.code === "not_json") {
+      return {
+        ok: false,
+        code: "error",
+        message:
+          "ระบบบันทึกประกาศไม่สำเร็จชั่วคราวครับ ลองรอสักครู่แล้วกดยืนยันบันทึกอีกครั้ง หรือบันทึกจาก “ประกาศของฉัน” ได้ครับ",
+      };
+    }
     const message =
       err instanceof AppFriendlyError
         ? err.friendlyMessage

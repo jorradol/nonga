@@ -4,9 +4,11 @@ import {
   loadChatMessages,
   loadChatSessions,
   resetEphemeralGuestChatMemory,
+  sanitizeChatMessageForStorage,
   setChatHistoryStorageForTest,
   updateChatSessionMetadata,
 } from "../src/services/chat/chatHistoryService.ts";
+import { buildPendingListingCardData } from "../src/services/chat/chatMemberPendingListing.ts";
 import { useChatStore } from "../src/stores/chat/chatStore.ts";
 import {
   getChatStorageScope,
@@ -149,6 +151,38 @@ const dealerASessionAfterSave = (await loadChatSessions(dealerAScope)).find(
 );
 assert(dealerASessionAfterSave?.savedDraftId === "draft-a", "savedDraftId should persist on session");
 console.log("PASS message attachments metadata and savedDraftId persist");
+
+const pendingCard = buildPendingListingCardData({
+  fields: {
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 420000,
+    mileage: 30000,
+    transmission: "ออโต้",
+  },
+  publicRefCode: "NA-PENDING-1",
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda City สวย\n\n[ข้อมูลสำหรับตรวจสอบก่อนยืนยัน]",
+});
+await appendChatMessage(memberScope, memberSession.id, {
+  sender: "ai",
+  text: "การ์ดประกาศร่าง",
+  isPendingListingCard: true,
+  pendingListingCard: pendingCard,
+});
+const memberMessages = await loadChatMessages(memberScope, memberSession.id);
+const pendingMessage = memberMessages.find((message) => message.pendingListingCard);
+assert(Boolean(pendingMessage?.isPendingListingCard), "pending listing card flag should persist");
+assert(
+  pendingMessage?.pendingListingCard?.fields.brand === "Honda",
+  "pending listing card fields should persist"
+);
+const sanitizedPending = sanitizeChatMessageForStorage(pendingMessage!);
+assert(
+  sanitizedPending.pendingListingCard?.publicRefCode === "NA-PENDING-1",
+  "sanitize should keep pending listing card payload"
+);
+console.log("PASS pending listing card metadata persists");
 
 useChatStore.getState().resetChatState();
 await useChatStore.getState().loadSessions(dealerAScope);

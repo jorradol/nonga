@@ -19,6 +19,7 @@ import {
   chatMessagesLocalKey,
   chatSessionsLocalKey,
 } from "../../utils/chatStorageScope";
+import { normalizePendingListingCardData } from "./chatMemberPendingListing";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -102,12 +103,28 @@ function stripTransientAttachmentFields(
 }
 
 export function sanitizeChatMessageForStorage(message: ChatMessage): ChatMessage {
-  return {
+  const pendingListingCard = normalizePendingListingCardData(
+    message.pendingListingCard
+  );
+  const savedMemberListingCard = message.savedMemberListingCard;
+  const next: ChatMessage = {
     ...message,
     ...(message.attachments && message.attachments.length > 0
       ? { attachments: message.attachments.map(stripTransientAttachmentFields) }
       : {}),
   };
+  if (pendingListingCard) {
+    next.isPendingListingCard = true;
+    next.pendingListingCard = pendingListingCard;
+  } else {
+    delete next.isPendingListingCard;
+    delete next.pendingListingCard;
+  }
+  if (savedMemberListingCard) {
+    next.isSavedMemberListingCard = true;
+    next.savedMemberListingCard = savedMemberListingCard;
+  }
+  return next;
 }
 
 export function chatStorageScopeToHistoryScope(
@@ -188,12 +205,17 @@ function normalizeMessage(
     ...(typeof raw.savedMemberListingId === "string"
       ? { savedMemberListingId: raw.savedMemberListingId }
       : {}),
-    ...(raw.isPendingListingCard && raw.pendingListingCard
-      ? {
-          isPendingListingCard: true,
-          pendingListingCard: raw.pendingListingCard as ChatMessage["pendingListingCard"],
-        }
-      : {}),
+    ...(() => {
+      const pendingListingCard = normalizePendingListingCardData(
+        raw.pendingListingCard as ChatMessage["pendingListingCard"]
+      );
+      return pendingListingCard
+        ? {
+            isPendingListingCard: true,
+            pendingListingCard,
+          }
+        : {};
+    })(),
     ...(raw.isSavedMemberListingCard && raw.savedMemberListingCard
       ? {
           isSavedMemberListingCard: true,

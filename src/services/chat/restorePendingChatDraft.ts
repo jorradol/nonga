@@ -10,6 +10,8 @@ import {
 } from "../../utils/chatPendingDraftSnapshot";
 import {
   appendMemberPendingListingCardMessage,
+  normalizeExtractedCarFields,
+  normalizeVisionObservationSummary,
 } from "./chatMemberPendingListing";
 import {
   buildDraftCopyReadyReply,
@@ -128,6 +130,36 @@ function imagesReadyForDraftSave(
   return collectChatImagesForDraft(storageScopeKey, sessionId, messages).length > 0;
 }
 
+async function appendMemberPendingCardAfterLoginRestore(
+  sessionId: string,
+  snap: PendingChatDraftSnapshot,
+  storageScopeKey: string
+): Promise<void> {
+  const fields = normalizeExtractedCarFields(snap.fields);
+  const visionSummary = normalizeVisionObservationSummary(snap.visionSummary);
+  const draftPreviewText =
+    snap.draftPreviewText ||
+    buildDraftCopyReadyReply(
+      fields,
+      snap.publicRefCode,
+      "ยืนยันสร้างประกาศ",
+      visionSummary,
+      snap.imageCount
+    );
+  if (snap.draftPreviewAttachments?.length) {
+    await tryRegisterImagesFromSnapshot(storageScopeKey, sessionId, snap);
+  }
+  await appendMemberPendingListingCardMessage(sessionId, {
+    fields,
+    visionSummary,
+    publicRefCode: snap.publicRefCode,
+    draftPreviewText,
+    attachments: snap.draftPreviewAttachments,
+  });
+  setPrecheckStage(sessionId, "confirmed_create_draft");
+  clearPendingChatDraftSnapshot();
+}
+
 async function continueConfirmedDraftAfterLogin(
   sessionId: string,
   snap: PendingChatDraftSnapshot,
@@ -135,39 +167,26 @@ async function continueConfirmedDraftAfterLogin(
 ): Promise<void> {
   const store = useChatStore.getState();
   const block = deps.resolveBlock();
+  const fields = normalizeExtractedCarFields(snap.fields);
+  const visionSummary = normalizeVisionObservationSummary(snap.visionSummary);
 
   restorePrecheckContext(sessionId, {
-    fields: snap.fields,
-    visionSummary: snap.visionSummary,
+    fields,
+    visionSummary,
     publicRefCode: snap.publicRefCode,
     stage: "confirmed_create_draft",
   });
 
+  if (deps.isMemberConsumerSeller()) {
+    await appendMemberPendingCardAfterLoginRestore(
+      sessionId,
+      { ...snap, fields, visionSummary },
+      deps.storageScopeKey
+    );
+    return;
+  }
+
   if (block) {
-    if (deps.isMemberConsumerSeller()) {
-      const draftPreviewText =
-        snap.draftPreviewText ||
-        buildDraftCopyReadyReply(
-          snap.fields,
-          snap.publicRefCode,
-          "ยืนยันสร้างประกาศ",
-          snap.visionSummary,
-          snap.imageCount
-        );
-      if (snap.draftPreviewAttachments?.length) {
-        await tryRegisterImagesFromSnapshot(deps.storageScopeKey, sessionId, snap);
-      }
-      await appendMemberPendingListingCardMessage(sessionId, {
-        fields: snap.fields,
-        visionSummary: snap.visionSummary,
-        publicRefCode: snap.publicRefCode,
-        draftPreviewText,
-        attachments: snap.draftPreviewAttachments,
-      });
-      setPrecheckStage(sessionId, "confirmed_create_draft");
-      clearPendingChatDraftSnapshot();
-      return;
-    }
     await store.addMessage(sessionId, "ai", block);
     clearPrecheckContext(sessionId);
     clearPendingChatDraftSnapshot();
@@ -184,8 +203,8 @@ async function continueConfirmedDraftAfterLogin(
 
   if (needsImages && !imagesReady) {
     restorePrecheckContext(sessionId, {
-      fields: snap.fields,
-      visionSummary: snap.visionSummary,
+      fields,
+      visionSummary,
       publicRefCode: snap.publicRefCode,
       stage: "draft_copy_ready",
       awaitingImageReattachForConfirmedDraft: true,
@@ -197,7 +216,7 @@ async function continueConfirmedDraftAfterLogin(
   setPrecheckStage(sessionId, "confirmed_create_draft");
   const saved = await deps.saveDraft({
     sessionId,
-    fields: snap.fields as Record<string, unknown>,
+    fields: fields as Record<string, unknown>,
   });
 
   if (saved.savedDraftId) {
@@ -252,8 +271,8 @@ export async function tryRestorePendingChatDraftAfterLogin(
     }
 
     restorePrecheckContext(sessionId, {
-      fields: snap.fields,
-      visionSummary: snap.visionSummary,
+      fields: normalizeExtractedCarFields(snap.fields),
+      visionSummary: normalizeVisionObservationSummary(snap.visionSummary),
       publicRefCode: snap.publicRefCode,
       stage: "draft_copy_ready",
     });

@@ -276,11 +276,13 @@ export class FirestoreListingRepository implements ListingRepository {
     dealerId: string,
     record: MarketplaceCarRecord
   ): Promise<MarketplaceCarRecord> {
-    const safe = {
+    const safe = sanitizeFirestoreDocument({
       ...record,
-      dealerId: normalizeScope(dealerId),
+      dealerId: record.dealerId
+        ? normalizeScope(record.dealerId)
+        : normalizeScope(dealerId),
       ownerId: record.ownerId || `owner-${normalizeScope(dealerId)}`,
-    };
+    });
     await this.collection().doc(safe.id).set(safe as unknown as FirestoreDocumentData);
     return safe;
   }
@@ -292,7 +294,11 @@ export class FirestoreListingRepository implements ListingRepository {
   ): Promise<MarketplaceCarRecord | null> {
     const existing = await this.getById(id);
     if (!existing || !listingBelongsToDealer(existing, dealerId)) return null;
-    const safePatch = { ...patch, dealerId: existing.dealerId, ownerId: existing.ownerId };
+    const safePatch = sanitizeFirestoreDocument({
+      ...patch,
+      dealerId: existing.dealerId,
+      ownerId: existing.ownerId,
+    });
     await this.collection().doc(id).set(safePatch as FirestoreDocumentData, { merge: true });
     return this.getById(id);
   }

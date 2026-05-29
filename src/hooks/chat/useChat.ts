@@ -70,6 +70,7 @@ import { tryRestorePendingChatDraftAfterLogin } from "../../services/chat/restor
 import {
   appendMemberPendingListingCardMessage,
   CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
+  resolveMemberPendingListingSaveContext,
   CHAT_MEMBER_NOT_NOW_LISTING_ACTION,
   CHAT_MEMBER_NOT_NOW_ACK,
   findLatestPendingListingCardMessage,
@@ -534,14 +535,23 @@ export function useChat() {
           return;
         }
         if (trimmed === CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION) {
-          const cardMsg = findLatestPendingListingCardMessage(historyAfterUser);
-          const card = cardMsg?.pendingListingCard;
           const precheck = getPrecheckContext(sessionId);
-          const fields = (card?.fields ?? precheck?.fields) as ExtractedCarFields | undefined;
+          const saveContext = resolveMemberPendingListingSaveContext({
+            messages: historyAfterUser,
+            precheck,
+            fallbackPublicRefCode: ensurePublicRefCode(sessionId),
+          });
 
-          if (!fields) {
+          if (saveContext.ok === false) {
+            updateStreamedReply(saveContext.message);
+            await finalizeStreamedReply(sessionId);
+            setGenerating(false);
+            return;
+          }
+
+          if (!user?.uid?.trim()) {
             updateStreamedReply(
-              "ยังไม่พบข้อมูลประกาศที่จะบันทึกครับ ลองเริ่มสร้างประกาศจากแชทใหม่อีกครั้งนะครับ"
+              "กรุณาเข้าสู่ระบบก่อนบันทึกประกาศครับ ลองรีเฟรชหน้าแล้วเข้าสู่ระบบอีกครั้งนะครับ"
             );
             await finalizeStreamedReply(sessionId);
             setGenerating(false);
@@ -552,13 +562,11 @@ export function useChat() {
           await finalizeStreamedReply(sessionId);
 
           const saveResult = await saveMemberListingFromChat({
-            fields,
-            visionSummary: (card?.visionSummary ??
-              precheck?.visionSummary) as VisionObservationSummary | undefined,
-            publicRefCode:
-              card?.publicRefCode ?? precheck?.publicRefCode ?? ensurePublicRefCode(sessionId),
-            marketingCopy: card?.marketingCopy ?? "",
-            ownerId: user?.uid ?? "",
+            fields: saveContext.fields,
+            visionSummary: saveContext.visionSummary,
+            publicRefCode: saveContext.publicRefCode,
+            marketingCopy: saveContext.marketingCopy,
+            ownerId: user.uid,
             ownerName:
               (user as { displayName?: string; name?: string } | null)?.displayName ??
               (user as { name?: string } | null)?.name ??
@@ -567,7 +575,7 @@ export function useChat() {
             storageScopeKey,
             sessionId,
             messages: historyAfterUser,
-            cardAttachments: cardMsg?.attachments,
+            cardAttachments: saveContext.cardAttachments,
           });
 
           if (!saveResult.ok) {
