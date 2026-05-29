@@ -229,6 +229,14 @@ function normalizeMessage(
   };
 }
 
+export function readChatHistorySnapshot(
+  scopeInput: ChatStorageScope | ChatHistoryScope
+): ChatHistorySnapshot {
+  const scope =
+    "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  return readLocalSnapshot(scope);
+}
+
 function readLocalSnapshot(scope: ChatHistoryScope): ChatHistorySnapshot {
   if (isEphemeralGuestHistoryScope(scope)) {
     return ephemeralGuestSnapshots.get(scope.storageKey) ?? emptySnapshot();
@@ -259,6 +267,51 @@ function readLocalSnapshot(scope: ChatHistoryScope): ChatHistorySnapshot {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
   return { sessions, messages };
+}
+
+/** ย้าย guest session เดียวเข้า member local history — idempotent ตาม session id */
+export function mergeClaimedGuestSessionIntoMember(params: {
+  memberScope: ChatStorageScope;
+  guestSession: ChatSession;
+  guestMessages: ChatMessage[];
+}): ChatHistorySnapshot {
+  const memberHistory = chatStorageScopeToHistoryScope(params.memberScope);
+  const existing = readLocalSnapshot(memberHistory);
+  const sessionId = params.guestSession.id;
+
+  if (existing.sessions.some((session) => session.id === sessionId)) {
+    return existing;
+  }
+
+  const claimedSession: ChatSession = {
+    ...params.guestSession,
+    id: sessionId,
+    sessionId,
+    uid: memberHistory.uid,
+    userId: memberHistory.storageKey,
+    storageScopeKey: memberHistory.storageKey,
+    dealerId: memberHistory.dealerId,
+    scope: memberHistory.scope,
+    updatedAt: params.guestSession.updatedAt ?? params.guestSession.createdAt,
+  };
+
+  const sessions = [
+    claimedSession,
+    ...existing.sessions.filter((session) => session.id !== sessionId),
+  ].sort((a, b) =>
+    String(b.updatedAt ?? b.createdAt).localeCompare(String(a.updatedAt ?? a.createdAt))
+  );
+
+  const snapshot: ChatHistorySnapshot = {
+    sessions,
+    messages: {
+      ...existing.messages,
+      [sessionId]: params.guestMessages,
+    },
+  };
+
+  writeLocalSnapshot(memberHistory, snapshot);
+  return snapshot;
 }
 
 function writeLocalSnapshot(

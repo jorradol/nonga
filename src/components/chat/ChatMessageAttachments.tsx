@@ -81,8 +81,14 @@ export function ChatMessageAttachments({
                   draggable={false}
                 />
               ) : (
-                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-800/80 flex items-center justify-center text-[9px] px-1 text-center">
-                  {img.originalFileName ?? img.name}
+                <div
+                  className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-800/80 flex flex-col items-center justify-center text-[9px] px-1 text-center text-slate-400"
+                  title={img.originalFileName ?? img.name}
+                >
+                  <span>รูป</span>
+                  <span className="truncate max-w-full opacity-80">
+                    {img.originalFileName ?? img.name ?? "แนบใหม่"}
+                  </span>
                 </div>
               )}
             </div>

@@ -228,6 +228,36 @@ export async function recoverChatImagesFromMessageHistory(
   return total;
 }
 
+/** Map snapshot attachments → display-ready (previewUrl จาก previewDataUrl สำหรับ <img src>) */
+export function prepareSnapshotImageAttachmentsForDisplay(
+  attachments: ChatMessageAttachment[] | undefined
+): ChatMessageAttachment[] {
+  if (!attachments?.length) return [];
+  return attachments
+    .filter((att) => att.kind === "image")
+    .map((att, index) => {
+      const previewUrl =
+        att.previewUrl ??
+        (att.previewDataUrl?.startsWith("data:") ? att.previewDataUrl : undefined) ??
+        att.thumbnailUrl ??
+        att.imageUrl;
+      return {
+        ...att,
+        sortOrder: att.sortOrder ?? index,
+        ...(previewUrl ? { previewUrl } : {}),
+        ...(att.previewDataUrl ? { previewDataUrl: att.previewDataUrl } : {}),
+      };
+    });
+}
+
+export function countSnapshotAttachmentsWithDisplayablePreview(
+  attachments: ChatMessageAttachment[] | undefined
+): number {
+  return prepareSnapshotImageAttachmentsForDisplay(attachments).filter(
+    (att) => Boolean(att.previewUrl || att.previewDataUrl)
+  ).length;
+}
+
 /** กู้ไฟล์จาก previewDataUrl ใน snapshot เพื่อ upload หลัง login (same tab) */
 export async function registerSnapshotAttachmentsForDraftSave(
   storageScopeKey: string,
@@ -241,6 +271,7 @@ export async function registerSnapshotAttachmentsForDraftSave(
   for (let i = 0; i < attachments.length; i++) {
     const att = attachments[i];
     if (att.kind !== "image") continue;
+    if (sessionHasStoredImageId(storageScopeKey, sessionId, att.id)) continue;
     const dataUrl = att.previewDataUrl;
     if (!dataUrl?.startsWith("data:")) continue;
 
@@ -273,15 +304,32 @@ export async function registerSnapshotAttachmentsForDraftSave(
 
   if (pending.length === 0) return 0;
 
-  registerChatImageMessageFiles(
-    storageScopeKey,
-    sessionId,
-    messageId,
-    pending,
-    metadata
-  );
+  const byMessage = sessionMap(storageScopeKey, sessionId);
+  const existing = byMessage.get(messageId) ?? [];
+  const existingIds = new Set(existing.map((item) => item.id));
+  const newStored = pending
+    .map((item, index) => ({
+      id: item.id,
+      messageId,
+      sessionId,
+      file: item.optimizedFile,
+      metadata: metadata[index] ?? attachmentToMessageMeta(item, index),
+    }))
+    .filter((item) => !existingIds.has(item.id));
+
+  if (newStored.length === 0) return 0;
+
+  byMessage.set(messageId, [...existing, ...newStored]);
   markChatImageMessageForPendingListing(storageScopeKey, sessionId, messageId);
-  return pending.length;
+  return newStored.length;
+}
+
+function sessionHasStoredImageId(
+  storageScopeKey: string,
+  sessionId: string,
+  attachmentId: string
+): boolean {
+  return Boolean(findStoredImageByAttachmentId(storageScopeKey, sessionId, attachmentId));
 }
 
 /**

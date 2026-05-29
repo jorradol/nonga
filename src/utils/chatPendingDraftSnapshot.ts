@@ -4,15 +4,38 @@ import type {
 } from "../services/ai/chat/sellIntentParser";
 import type { VisionObservationSummary } from "../services/ai/chat/chatPrecheckLayer";
 import {
+  getMissingCoreFieldLabels,
+  hasCoreFieldsComplete,
+  mergeEffectivePrecheckFields,
+} from "../services/ai/chat/chatPrecheckLayer";
+import { chatRestoreLog } from "./chatRestoreDebug";
+import {
   normalizeExtractedCarFields,
   normalizeVisionObservationSummary,
 } from "../services/chat/chatMemberPendingListing";
 
 const STORAGE_KEY = "nong-a-chat-pending-draft-v1";
+const RESTORE_META_KEY = "nong-a-chat-pending-draft-restore-meta";
 const SNAPSHOT_VERSION = 2;
 const TTL_MS = 2 * 60 * 60 * 1000;
-const MAX_PERSISTED_IMAGES = 8;
+export const MAX_PERSISTED_SNAPSHOT_IMAGES = 8;
+const MAX_PERSISTED_IMAGES = MAX_PERSISTED_SNAPSHOT_IMAGES;
 const MAX_DATA_URL_BYTES = 450_000;
+
+export type PendingDraftRestoreStatus =
+  | "pending"
+  | "waiting_for_profile"
+  | "restoring"
+  | "restored"
+  | "failed";
+
+export interface PendingDraftRestoreMeta {
+  snapshotId: string;
+  status: PendingDraftRestoreStatus;
+  sessionId?: string;
+  fallbackShown?: boolean;
+  updatedAt: number;
+}
 
 export interface PendingChatDraftSnapshotMessage {
   sender: "user" | "ai";
@@ -32,9 +55,9 @@ export interface PendingChatDraftSnapshot {
   messages: PendingChatDraftSnapshotMessage[];
   draftPreviewAttachments?: ChatMessageAttachment[];
   imageCount: number;
-  /** มี previewDataUrl ใน snapshot พอแสดง thumbnail (อัปโหลดตอน save อาจต้องแนบใหม่) */
   thumbnailsPersisted: boolean;
-  /** ผู้ใช้กดยืนยันสร้างประกาศก่อนถูกพาไป login แล้ว */
+  /** จำนวนรูปที่มี previewDataUrl ใน snapshot จริง (อาจน้อยกว่า imageCount) */
+  persistedPreviewCount?: number;
   userAlreadyConfirmedCreateDraft?: boolean;
 }
 
@@ -71,15 +94,15 @@ function stripAttachmentForStorage(
   return { ...rest };
 }
 
-/** แปลง blob preview เป็น data URL สำหรับ sessionStorage (จำกัดจำนวน/ขนาด) */
 export async function persistAttachmentsForSnapshot(
   attachments: ChatMessageAttachment[] | undefined
 ): Promise<{
   attachments: ChatMessageAttachment[];
   thumbnailsPersisted: boolean;
+  persistedPreviewCount: number;
 }> {
   if (!attachments?.length) {
-    return { attachments: [], thumbnailsPersisted: false };
+    return { attachments: [], thumbnailsPersisted: false, persistedPreviewCount: 0 };
   }
 
   const output: ChatMessageAttachment[] = [];
@@ -119,6 +142,7 @@ export async function persistAttachmentsForSnapshot(
   return {
     attachments: output,
     thumbnailsPersisted: persisted > 0,
+    persistedPreviewCount: persisted,
   };
 }
 
@@ -140,11 +164,101 @@ export function serializeMessagesForSnapshot(
     .filter((m) => m.text?.trim() || (m.attachments?.length ?? 0) > 0);
 }
 
+export function readPendingDraftRestoreMeta(): PendingDraftRestoreMeta | null {
+  const storage = getSessionStorage();
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(RESTORE_META_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingDraftRestoreMeta;
+    if (!parsed?.snapshotId?.trim()) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function writePendingDraftRestoreMeta(meta: PendingDraftRestoreMeta): void {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(RESTORE_META_KEY, JSON.stringify(meta));
+  } catch (err) {
+    console.warn("[chat-pending-draft] restore meta write failed:", err);
+  }
+}
+
+export function clearPendingDraftRestoreMeta(): void {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(RESTORE_META_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function isPendingDraftSnapshotRestored(snapshotId: string): boolean {
+  const meta = readPendingDraftRestoreMeta();
+  return meta?.snapshotId === snapshotId && meta.status === "restored";
+}
+
+export function markPendingDraftRestoreWaitingForProfile(snapshotId: string): void {
+  writePendingDraftRestoreMeta({
+    snapshotId,
+    status: "waiting_for_profile",
+    updatedAt: Date.now(),
+  });
+}
+
+export function markPendingDraftRestoreInProgress(
+  snapshotId: string,
+  sessionId: string
+): void {
+  writePendingDraftRestoreMeta({
+    snapshotId,
+    status: "restoring",
+    sessionId,
+    updatedAt: Date.now(),
+  });
+}
+
+export function isPendingDraftRestoreFailed(snapshotId: string): boolean {
+  const meta = readPendingDraftRestoreMeta();
+  return meta?.snapshotId === snapshotId && meta.status === "failed";
+}
+
+export function markPendingDraftRestoreComplete(
+  snapshotId: string,
+  sessionId: string
+): void {
+  writePendingDraftRestoreMeta({
+    snapshotId,
+    status: "restored",
+    sessionId,
+    updatedAt: Date.now(),
+  });
+}
+
+export function markPendingDraftRestoreFailed(snapshotId: string): void {
+  const meta = readPendingDraftRestoreMeta();
+  writePendingDraftRestoreMeta({
+    snapshotId,
+    status: "failed",
+    sessionId: meta?.sessionId,
+    fallbackShown: meta?.fallbackShown,
+    updatedAt: Date.now(),
+  });
+}
+
 export function savePendingChatDraftSnapshot(
   snapshot: Omit<PendingChatDraftSnapshot, "version" | "createdAt">
 ): void {
   const storage = getSessionStorage();
-  if (!storage) return;
+  if (!storage) {
+    chatRestoreLog("savePendingChatDraftSnapshot: no sessionStorage");
+    return;
+  }
   const payload: PendingChatDraftSnapshot = {
     version: SNAPSHOT_VERSION,
     createdAt: Date.now(),
@@ -152,10 +266,38 @@ export function savePendingChatDraftSnapshot(
   };
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    writePendingDraftRestoreMeta({
+      snapshotId: payload.publicRefCode,
+      status: "pending",
+      updatedAt: Date.now(),
+    });
+    chatRestoreLog("savePendingChatDraftSnapshot: saved", {
+      snapshotId: payload.publicRefCode,
+      storageKey: STORAGE_KEY,
+      hasStorageKey: storage.getItem(STORAGE_KEY) != null,
+      fields: payload.fields,
+      visionSummary: payload.visionSummary,
+      userAlreadyConfirmedCreateDraft: payload.userAlreadyConfirmedCreateDraft,
+      imageCount: payload.imageCount,
+    });
   } catch (err) {
     console.warn("[chat-pending-draft] save failed:", err);
+    chatRestoreLog("savePendingChatDraftSnapshot: save failed", {
+      error: String(err),
+    });
   }
 }
+
+export type PendingSnapshotFailureReason =
+  | "missing"
+  | "expired"
+  | "invalid_version"
+  | "invalid_payload"
+  | "parse_error";
+
+export type PendingSnapshotReadResult =
+  | { ok: true; snapshot: PendingChatDraftSnapshot }
+  | { ok: false; reason: PendingSnapshotFailureReason };
 
 function normalizePendingChatDraftSnapshot(
   parsed: PendingChatDraftSnapshot
@@ -164,14 +306,18 @@ function normalizePendingChatDraftSnapshot(
   if (Date.now() - Number(parsed.createdAt) > TTL_MS) return null;
   const publicRefCode = String(parsed.publicRefCode ?? "").trim();
   if (!publicRefCode) return null;
-  const fields = normalizeExtractedCarFields(parsed.fields);
-  if (!fields.brand && !fields.model && !fields.year) return null;
+  const visionSummary = normalizeVisionObservationSummary(parsed.visionSummary);
+  const fields = mergeEffectivePrecheckFields(
+    normalizeExtractedCarFields(parsed.fields),
+    visionSummary
+  );
+  if (!hasCoreFieldsComplete(fields)) return null;
   return {
     version: SNAPSHOT_VERSION,
     createdAt: Number(parsed.createdAt) || Date.now(),
     publicRefCode,
     fields,
-    visionSummary: normalizeVisionObservationSummary(parsed.visionSummary),
+    visionSummary,
     draftPreviewText: String(parsed.draftPreviewText ?? ""),
     messages: Array.isArray(parsed.messages) ? parsed.messages : [],
     draftPreviewAttachments: Array.isArray(parsed.draftPreviewAttachments)
@@ -179,37 +325,108 @@ function normalizePendingChatDraftSnapshot(
       : undefined,
     imageCount: Number(parsed.imageCount) || 0,
     thumbnailsPersisted: Boolean(parsed.thumbnailsPersisted),
+    persistedPreviewCount:
+      Number(parsed.persistedPreviewCount) ||
+      countPersistedPreviewAttachments(parsed.draftPreviewAttachments),
     userAlreadyConfirmedCreateDraft: Boolean(parsed.userAlreadyConfirmedCreateDraft),
   };
 }
 
-export function peekPendingChatDraftSnapshot(): PendingChatDraftSnapshot | null {
+function countPersistedPreviewAttachments(
+  attachments: ChatMessageAttachment[] | undefined
+): number {
+  if (!attachments?.length) return 0;
+  return attachments.filter(
+    (att) => att.kind === "image" && att.previewDataUrl?.startsWith("data:")
+  ).length;
+}
+
+export function isPendingSnapshotReadFailure(
+  result: PendingSnapshotReadResult
+): result is { ok: false; reason: PendingSnapshotFailureReason } {
+  return result.ok === false;
+}
+
+export function hasPendingChatDraftSnapshotInStorage(): boolean {
   const storage = getSessionStorage();
-  if (!storage) return null;
+  if (!storage) return false;
   try {
-    const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PendingChatDraftSnapshot;
-    if (parsed.version !== SNAPSHOT_VERSION && parsed.version !== 1) {
-      clearPendingChatDraftSnapshot();
-      return null;
-    }
-    const normalized = normalizePendingChatDraftSnapshot(parsed);
-    if (!normalized) {
-      clearPendingChatDraftSnapshot();
-      return null;
-    }
-    return normalized;
+    return storage.getItem(STORAGE_KEY) != null;
   } catch {
-    clearPendingChatDraftSnapshot();
-    return null;
+    return false;
   }
 }
 
-export function consumePendingChatDraftSnapshot(): PendingChatDraftSnapshot | null {
-  const snap = peekPendingChatDraftSnapshot();
-  if (snap) clearPendingChatDraftSnapshot();
-  return snap;
+export function describePendingSnapshotNormalizeFailure(
+  parsed: PendingChatDraftSnapshot
+): Record<string, unknown> {
+  const visionSummary = normalizeVisionObservationSummary(parsed.visionSummary);
+  const fields = mergeEffectivePrecheckFields(
+    normalizeExtractedCarFields(parsed.fields),
+    visionSummary
+  );
+  return {
+    publicRefCode: parsed.publicRefCode,
+    missingCore: getMissingCoreFieldLabels(fields),
+    fields,
+    visionSummary,
+    expired: Date.now() - Number(parsed.createdAt) > TTL_MS,
+  };
+}
+
+export function readPendingChatDraftSnapshot(): PendingSnapshotReadResult {
+  const storage = getSessionStorage();
+  if (!storage) return { ok: false, reason: "missing" };
+  try {
+    const raw = storage.getItem(STORAGE_KEY);
+    if (!raw) return { ok: false, reason: "missing" };
+    const parsed = JSON.parse(raw) as PendingChatDraftSnapshot;
+    if (parsed.version !== SNAPSHOT_VERSION && parsed.version !== 1) {
+      chatRestoreLog("readPendingChatDraftSnapshot: invalid_version", {
+        version: parsed.version,
+      });
+      return { ok: false, reason: "invalid_version" };
+    }
+    const normalized = normalizePendingChatDraftSnapshot(parsed);
+    if (!normalized) {
+      chatRestoreLog("readPendingChatDraftSnapshot: normalize failed", {
+        reason: "invalid_payload",
+        ...describePendingSnapshotNormalizeFailure(parsed),
+      });
+      return { ok: false, reason: "invalid_payload" };
+    }
+    return { ok: true, snapshot: normalized };
+  } catch (err) {
+    chatRestoreLog("readPendingChatDraftSnapshot: parse_error", {
+      error: String(err),
+    });
+    return { ok: false, reason: "parse_error" };
+  }
+}
+
+export function peekPendingChatDraftSnapshot(): PendingChatDraftSnapshot | null {
+  const result = readPendingChatDraftSnapshot();
+  return result.ok ? result.snapshot : null;
+}
+
+export function hasPendingChatDraftSnapshot(): boolean {
+  return readPendingChatDraftSnapshot().ok;
+}
+
+export function isPendingDraftRestoreFallbackShown(snapshotId: string): boolean {
+  const meta = readPendingDraftRestoreMeta();
+  return meta?.snapshotId === snapshotId && meta.fallbackShown === true;
+}
+
+export function markPendingDraftRestoreFallbackShown(snapshotId: string): void {
+  const meta = readPendingDraftRestoreMeta();
+  writePendingDraftRestoreMeta({
+    snapshotId,
+    status: meta?.status === "restored" ? "restored" : "failed",
+    sessionId: meta?.sessionId,
+    fallbackShown: true,
+    updatedAt: Date.now(),
+  });
 }
 
 export function clearPendingChatDraftSnapshot(): void {
@@ -222,11 +439,36 @@ export function clearPendingChatDraftSnapshot(): void {
   }
 }
 
-export const POST_LOGIN_DRAFT_RESTORED_NOTE =
-  "ลุงเข้าสู่ระบบเรียบร้อยแล้วครับ น้องเอกู้ร่างประกาศที่ทำค้างไว้กลับมาให้แล้ว ถ้าข้อมูลถูกต้อง กด 'ยืนยันสร้างประกาศ' ได้เลยครับ";
+export function finalizePendingDraftAfterRestore(
+  snapshotId: string,
+  sessionId: string
+): void {
+  markPendingDraftRestoreComplete(snapshotId, sessionId);
+  clearPendingChatDraftSnapshot();
+}
+
+export const POST_LOGIN_PENDING_CARD_RESTORE_NOTE =
+  "ลุงเข้าสู่ระบบเรียบร้อยแล้วครับ น้องเอกู้ร่างประกาศที่ทำค้างไว้กลับมาให้แล้ว ตรวจการ์ดนี้ได้เลยครับ";
+
+export const POST_LOGIN_DRAFT_RESTORE_FAILED_NOTE =
+  "น้องเอพบข้อมูลประกาศที่ทำค้างไว้ แต่กู้คืนไม่สำเร็จครับ ลองเริ่มสร้างประกาศจากแชทใหม่อีกครั้ง หรือแจ้งทีมงานถ้าปัญหายังเกิดซ้ำครับ";
+
+export const POST_LOGIN_DRAFT_RESTORED_NOTE = POST_LOGIN_PENDING_CARD_RESTORE_NOTE;
 
 export const POST_LOGIN_IMAGES_REATTACH_NOTE =
-  "หมายเหตุ: รูปที่แนบก่อนเข้าสู่ระบบไม่สามารถนำไปบันทึกประกาศอัตโนมัติได้ รบกวนแนบรูปอีกครั้งก่อนกดยืนยันสร้างประกาศครับ";
+  "หมายเหตุ: รูปที่แนบก่อนเข้าสู่ระบบไม่สามารถนำไปบันทึกประกาศอัตโนมัติได้ รบกวนแนบรูปอีกครั้งก่อนกดยืนยันบันทึกประกาศครับ";
+
+export function buildPostLoginPartialImageRestoreNote(
+  imageCount: number,
+  persistedPreviewCount: number
+): string | null {
+  if (imageCount <= 0) return null;
+  if (persistedPreviewCount >= imageCount) return null;
+  if (persistedPreviewCount <= 0) {
+    return POST_LOGIN_IMAGES_REATTACH_NOTE;
+  }
+  return `หมายเหตุ: กู้คืนตัวอย่างรูปได้ ${persistedPreviewCount} จาก ${imageCount} รูป — รูปที่เหลือรบกวนแนบใหม่ก่อนกดยืนยันบันทึกประกาศครับ`;
+}
 
 export const POST_LOGIN_IMAGES_REATTACH_FOR_SAVE_NOTE =
   "น้องเอกู้ข้อมูลประกาศกลับมาได้แล้วครับ แต่รูปจริงที่แนบไว้ก่อนเข้าสู่ระบบไม่สามารถใช้บันทึกต่อได้ รบกวนแนบรูปอีกครั้ง แล้วน้องเอจะบันทึกเป็นประกาศร่างให้ทันทีครับ";

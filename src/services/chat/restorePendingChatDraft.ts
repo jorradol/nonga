@@ -1,142 +1,351 @@
 import { useChatStore } from "../../stores/chat/chatStore";
 import type { ChatStorageScope } from "../../utils/chatStorageScope";
 import {
-  clearPendingChatDraftSnapshot,
-  consumePendingChatDraftSnapshot,
-  buildPostLoginDraftSavedText,
-  POST_LOGIN_DRAFT_RESTORED_NOTE,
-  POST_LOGIN_IMAGES_REATTACH_FOR_SAVE_NOTE,
+  finalizePendingDraftAfterRestore,
+  hasPendingChatDraftSnapshotInStorage,
+  isPendingDraftRestoreFallbackShown,
+  isPendingDraftRestoreFailed,
+  isPendingDraftSnapshotRestored,
+  isPendingSnapshotReadFailure,
+  markPendingDraftRestoreFailed,
+  markPendingDraftRestoreFallbackShown,
+  markPendingDraftRestoreInProgress,
+  markPendingDraftRestoreWaitingForProfile,
+  readPendingChatDraftSnapshot,
+  readPendingDraftRestoreMeta,
+  POST_LOGIN_DRAFT_RESTORE_FAILED_NOTE,
+  POST_LOGIN_IMAGES_REATTACH_NOTE,
+  POST_LOGIN_PENDING_CARD_RESTORE_NOTE,
   type PendingChatDraftSnapshot,
+  type PendingSnapshotFailureReason,
 } from "../../utils/chatPendingDraftSnapshot";
+import { chatRestoreLog } from "../../utils/chatRestoreDebug";
+import {
+  readGuestChatClaimPointer,
+} from "../../utils/chatGuestClaim";
+import { shouldSkipSnapshotRestoreAfterClaim } from "./claimGuestChatAfterLogin";
 import {
   appendMemberPendingListingCardMessage,
+  findLatestPendingListingCardMessage,
   normalizeExtractedCarFields,
   normalizeVisionObservationSummary,
 } from "./chatMemberPendingListing";
 import {
   buildDraftCopyReadyReply,
-  clearPrecheckContext,
   restorePrecheckContext,
   setPrecheckStage,
 } from "../ai/chat/chatPrecheckLayer";
+import type { ChatMessageAttachment } from "../../types";
 import {
   collectChatImagesForDraft,
+  collectDraftPreviewDisplayAttachments,
+  countSnapshotAttachmentsWithDisplayablePreview,
+  prepareSnapshotImageAttachmentsForDisplay,
+  recoverChatImagesFromMessageHistory,
   registerSnapshotAttachmentsForDraftSave,
 } from "../../features/chat-image-attachment-v1/chatImageAttachmentStore";
+import {
+  buildPostLoginPartialImageRestoreNote,
+} from "../../utils/chatPendingDraftSnapshot";
 
 let restoreInFlight = false;
 
+function buildRestoreFallbackText(reason: PendingDraftRestoreFailureReason): string {
+  const suffix =
+    reason === "invalid_payload"
+      ? "\n\n(ข้อมูลร่างไม่ครบหรือหมดอายุ — ลองสร้างประกาศใหม่จากแชทได้ครับ)"
+      : reason === "not_member_flow"
+        ? "\n\n(บัญชีนี้ไม่ใช่ flow สมาชิกขายรถบ้าน — ใช้เมนูประกาศของฉันหรือแชทใหม่ได้ครับ)"
+        : "";
+  return `${POST_LOGIN_DRAFT_RESTORE_FAILED_NOTE}${suffix}`;
+}
+
+/** แสดงข้อความ fallback ครั้งเดียวใน active session — ไม่สร้าง session ใหม่ */
+export async function appendPendingRestoreFallbackMessage(
+  chatScope: ChatStorageScope,
+  reason: PendingDraftRestoreFailureReason,
+  snapshotId?: string
+): Promise<void> {
+  const ref = snapshotId ?? readPendingDraftRestoreMeta()?.snapshotId ?? "unknown";
+  if (isPendingDraftRestoreFallbackShown(ref)) {
+    chatRestoreLog("appendPendingRestoreFallbackMessage: skipped (already shown)", {
+      snapshotId: ref,
+    });
+    return;
+  }
+
+  const store = useChatStore.getState();
+  let sessionId = store.activeSessionId;
+  if (!sessionId || !store.sessions.some((session) => session.id === sessionId)) {
+    if (store.sessions[0]?.id) {
+      sessionId = store.sessions[0].id;
+    } else {
+      sessionId = await store.createSession(chatScope, "งานประกาศค้าง");
+    }
+  }
+  await store.selectSession(chatScope, sessionId);
+  await store.addMessage(sessionId, "ai", buildRestoreFallbackText(reason));
+  markPendingDraftRestoreFallbackShown(ref);
+  markPendingDraftRestoreFailed(ref);
+  chatRestoreLog("appendPendingRestoreFallbackMessage: shown", {
+    snapshotId: ref,
+    reason,
+    sessionId,
+    messageCount: (store.messages[sessionId] ?? []).length + 1,
+  });
+}
+
 export interface PostLoginDraftContinuationDeps {
   storageScopeKey: string;
-  saveDraft: (params: {
-    sessionId: string;
-    fields: Record<string, unknown>;
-  }) => Promise<{ text: string; savedDraftId?: string }>;
-  resolveBlock: () => string | null;
+  isDealer: () => boolean;
+  isAdmin: () => boolean;
   isMemberConsumerSeller: () => boolean;
 }
 
-export function buildPostLoginRestoreWelcomeText(
-  snap: PendingChatDraftSnapshot
-): string {
-  return POST_LOGIN_DRAFT_RESTORED_NOTE;
+export type PendingDraftRestoreFailureReason =
+  | PendingSnapshotFailureReason
+  | "in_flight"
+  | "deferred"
+  | "already_restored"
+  | "not_member_flow"
+  | "claimed"
+  | "error";
+
+export type PendingDraftRestoreResult =
+  | { restored: true; sessionId: string }
+  | { restored: false; reason: PendingDraftRestoreFailureReason };
+
+
+export function shouldDeferPendingDraftRestore(deps: {
+  isSignedIn: boolean;
+  isDealer: boolean;
+  isAdmin: boolean;
+  isMemberConsumerSeller: boolean;
+}): boolean {
+  if (!deps.isSignedIn) return true;
+  if (deps.isDealer || deps.isAdmin) return false;
+  return !deps.isMemberConsumerSeller;
 }
 
-async function replaySnapshotMessages(
+function sessionHasPendingCardForRef(
   sessionId: string,
-  snap: PendingChatDraftSnapshot
-): Promise<void> {
-  const store = useChatStore.getState();
-
-  for (const msg of snap.messages) {
-    const attachments =
-      msg.isDraftPreview && snap.draftPreviewAttachments?.length
-        ? snap.draftPreviewAttachments
-        : msg.attachments;
-
-    await store.addMessage(
-      sessionId,
-      msg.sender,
-      msg.text,
-      undefined,
-      undefined,
-      msg.isDraftPreview,
-      msg.draftFields,
-      undefined,
-      attachments?.length ? attachments : undefined
-    );
-  }
-
-  const hasDraftPreview = snap.messages.some((m) => m.isDraftPreview);
-  if (!hasDraftPreview && snap.draftPreviewText) {
-    await store.addMessage(
-      sessionId,
-      "ai",
-      snap.draftPreviewText,
-      undefined,
-      undefined,
-      true,
-      snap.fields,
-      undefined,
-      snap.draftPreviewAttachments?.length
-        ? snap.draftPreviewAttachments
-        : undefined
-    );
-  }
+  publicRefCode: string
+): boolean {
+  const messages = useChatStore.getState().messages[sessionId] ?? [];
+  return messages.some(
+    (message) =>
+      message.isPendingListingCard &&
+      message.pendingListingCard?.publicRefCode === publicRefCode
+  );
 }
 
-async function tryRegisterImagesFromSnapshot(
+function findSessionIdWithPendingCardForRef(publicRefCode: string): string | null {
+  const store = useChatStore.getState();
+  for (const session of store.sessions) {
+    if (sessionHasPendingCardForRef(session.id, publicRefCode)) {
+      return session.id;
+    }
+  }
+  return null;
+}
+
+export function countPendingListingCardsForRef(publicRefCode: string): number {
+  const store = useChatStore.getState();
+  let count = 0;
+  for (const session of store.sessions) {
+    const messages = store.messages[session.id] ?? [];
+    count += messages.filter(
+      (message) =>
+        message.isPendingListingCard &&
+        message.pendingListingCard?.publicRefCode === publicRefCode
+    ).length;
+  }
+  return count;
+}
+
+function resolveDisplayAttachmentsForRestore(
   storageScopeKey: string,
   sessionId: string,
   snap: PendingChatDraftSnapshot
-): Promise<number> {
-  if (!snap.draftPreviewAttachments?.length) return 0;
+): ChatMessageAttachment[] {
+  const fromSnapshot = prepareSnapshotImageAttachmentsForDisplay(
+    snap.draftPreviewAttachments
+  );
+  const messages = useChatStore.getState().messages[sessionId] ?? [];
+  const fromStore = collectDraftPreviewDisplayAttachments(
+    storageScopeKey,
+    sessionId,
+    messages
+  );
+  return fromStore.length > 0 ? fromStore : fromSnapshot;
+}
+
+function applyDisplayAttachmentsToRestoredSession(
+  sessionId: string,
+  displayAttachments: ChatMessageAttachment[]
+): void {
+  if (!displayAttachments.length) return;
+  useChatStore.setState((state) => {
+    const messages = state.messages[sessionId];
+    if (!messages?.length) return state;
+    const next = messages.map((message) => {
+      if (message.isPendingListingCard) {
+        return { ...message, attachments: displayAttachments };
+      }
+      if (message.isDraftPreview) {
+        return { ...message, attachments: displayAttachments };
+      }
+      if (
+        message.sender === "user" &&
+        (message.attachments?.some((att) => att.kind === "image") ||
+          message.text.includes("แนบรูป"))
+      ) {
+        return { ...message, attachments: displayAttachments };
+      }
+      return message;
+    });
+    return {
+      messages: {
+        ...state.messages,
+        [sessionId]: next,
+      },
+    };
+  });
+}
+
+async function registerSnapshotImagesOnce(
+  storageScopeKey: string,
+  sessionId: string,
+  snap: PendingChatDraftSnapshot,
+  displayAttachments: ChatMessageAttachment[]
+): Promise<void> {
+  const persistable =
+    snap.draftPreviewAttachments?.filter(
+      (att) => att.kind === "image" && att.previewDataUrl?.startsWith("data:")
+    ) ?? [];
+  if (!persistable.length) return;
 
   const store = useChatStore.getState();
-  const messages = store.messages[sessionId] || [];
-  let anchor = messages.find(
-    (m) =>
-      m.sender === "user" &&
-      m.attachments?.some((a) => a.kind === "image")
-  );
-
-  if (!anchor) {
-    anchor = await store.addMessage(
+  const messages = store.messages[sessionId] ?? [];
+  const anchor =
+    messages.find(
+      (message) =>
+        message.sender === "user" &&
+        message.attachments?.some((attachment) => attachment.kind === "image")
+    ) ??
+    (await store.addMessage(
       sessionId,
       "user",
-      "(แนบรูป)",
+      "(แนบรูปจากงานค้าง)",
       undefined,
       undefined,
       undefined,
       undefined,
       undefined,
-      snap.draftPreviewAttachments
-    );
-  }
+      displayAttachments.length > 0 ? displayAttachments : persistable
+    ));
 
-  return registerSnapshotAttachmentsForDraftSave(
+  await registerSnapshotAttachmentsForDraftSave(
     storageScopeKey,
     sessionId,
     anchor.id,
-    snap.draftPreviewAttachments
+    persistable
   );
 }
 
-function imagesReadyForDraftSave(
-  storageScopeKey: string,
-  sessionId: string
-): boolean {
-  const messages = useChatStore.getState().messages[sessionId] || [];
-  return collectChatImagesForDraft(storageScopeKey, sessionId, messages).length > 0;
+async function resolveRestoreSessionId(
+  chatScope: ChatStorageScope,
+  snap: PendingChatDraftSnapshot
+): Promise<string> {
+  const store = useChatStore.getState();
+  const meta = readPendingDraftRestoreMeta();
+  const snapshotId = snap.publicRefCode;
+
+  if (shouldSkipSnapshotRestoreAfterClaim(chatScope.storageKey)) {
+    const claim = readGuestChatClaimPointer();
+    if (
+      claim?.guestSessionId &&
+      store.sessions.some((session) => session.id === claim.guestSessionId)
+    ) {
+      await store.selectSession(chatScope, claim.guestSessionId);
+      return claim.guestSessionId;
+    }
+  }
+
+  const existingCardSession = findSessionIdWithPendingCardForRef(snapshotId);
+  if (existingCardSession) {
+    await store.selectSession(chatScope, existingCardSession);
+    return existingCardSession;
+  }
+
+  if (
+    meta?.sessionId &&
+    meta.snapshotId === snapshotId &&
+    (meta.status === "restored" || meta.status === "restoring") &&
+    store.sessions.some((session) => session.id === meta.sessionId)
+  ) {
+    await store.selectSession(chatScope, meta.sessionId);
+    return meta.sessionId;
+  }
+
+  const activeId = store.activeSessionId;
+  if (activeId && store.sessions.some((session) => session.id === activeId)) {
+    await store.selectSession(chatScope, activeId);
+    return activeId;
+  }
+
+  chatRestoreLog("resolveRestoreSessionId: no session to reuse — fallback only", {
+    snapshotId,
+  });
+  throw new Error("restore_session_unavailable_use_guest_claim");
 }
 
-async function appendMemberPendingCardAfterLoginRestore(
-  sessionId: string,
-  snap: PendingChatDraftSnapshot,
-  storageScopeKey: string
-): Promise<void> {
+async function restoreSinglePendingListingCard(
+  chatScope: ChatStorageScope,
+  deps: PostLoginDraftContinuationDeps,
+  snap: PendingChatDraftSnapshot
+): Promise<string> {
   const fields = normalizeExtractedCarFields(snap.fields);
   const visionSummary = normalizeVisionObservationSummary(snap.visionSummary);
+  const sessionId = await resolveRestoreSessionId(chatScope, snap);
+  markPendingDraftRestoreInProgress(snap.publicRefCode, sessionId);
+  const store = useChatStore.getState();
+
+  if (sessionHasPendingCardForRef(sessionId, snap.publicRefCode)) {
+    restorePrecheckContext(sessionId, {
+      fields,
+      visionSummary,
+      publicRefCode: snap.publicRefCode,
+      stage: "confirmed_create_draft",
+    });
+    await registerSnapshotImagesOnce(
+      deps.storageScopeKey,
+      sessionId,
+      snap,
+      prepareSnapshotImageAttachmentsForDisplay(snap.draftPreviewAttachments)
+    );
+    await recoverChatImagesFromMessageHistory(
+      deps.storageScopeKey,
+      sessionId,
+      store.messages[sessionId] ?? []
+    );
+    const displayAttachments = resolveDisplayAttachmentsForRestore(
+      deps.storageScopeKey,
+      sessionId,
+      snap
+    );
+    applyDisplayAttachmentsToRestoredSession(sessionId, displayAttachments);
+    await store.selectSession(chatScope, sessionId);
+    return sessionId;
+  }
+
+  restorePrecheckContext(sessionId, {
+    fields,
+    visionSummary,
+    publicRefCode: snap.publicRefCode,
+    stage: "confirmed_create_draft",
+  });
+
   const draftPreviewText =
     snap.draftPreviewText ||
     buildDraftCopyReadyReply(
@@ -146,147 +355,195 @@ async function appendMemberPendingCardAfterLoginRestore(
       visionSummary,
       snap.imageCount
     );
-  if (snap.draftPreviewAttachments?.length) {
-    await tryRegisterImagesFromSnapshot(storageScopeKey, sessionId, snap);
+
+  const snapshotDisplay = prepareSnapshotImageAttachmentsForDisplay(
+    snap.draftPreviewAttachments
+  );
+
+  if (draftPreviewText.trim()) {
+    const existingDraftPreview = (store.messages[sessionId] ?? []).some(
+      (message) => message.isDraftPreview
+    );
+    if (!existingDraftPreview) {
+      await store.addMessage(
+        sessionId,
+        "ai",
+        draftPreviewText,
+        undefined,
+        undefined,
+        true,
+        fields as Record<string, unknown>,
+        undefined,
+        snapshotDisplay.length > 0 ? snapshotDisplay : undefined
+      );
+    }
   }
+
+  await registerSnapshotImagesOnce(
+    deps.storageScopeKey,
+    sessionId,
+    snap,
+    snapshotDisplay
+  );
+
+  const displayAttachments = resolveDisplayAttachmentsForRestore(
+    deps.storageScopeKey,
+    sessionId,
+    snap
+  );
+
   await appendMemberPendingListingCardMessage(sessionId, {
     fields,
     visionSummary,
     publicRefCode: snap.publicRefCode,
     draftPreviewText,
-    attachments: snap.draftPreviewAttachments,
-  });
-  setPrecheckStage(sessionId, "confirmed_create_draft");
-  clearPendingChatDraftSnapshot();
-}
-
-async function continueConfirmedDraftAfterLogin(
-  sessionId: string,
-  snap: PendingChatDraftSnapshot,
-  deps: PostLoginDraftContinuationDeps
-): Promise<void> {
-  const store = useChatStore.getState();
-  const block = deps.resolveBlock();
-  const fields = normalizeExtractedCarFields(snap.fields);
-  const visionSummary = normalizeVisionObservationSummary(snap.visionSummary);
-
-  restorePrecheckContext(sessionId, {
-    fields,
-    visionSummary,
-    publicRefCode: snap.publicRefCode,
-    stage: "confirmed_create_draft",
+    attachments: displayAttachments.length > 0 ? displayAttachments : snapshotDisplay,
+    introText: POST_LOGIN_PENDING_CARD_RESTORE_NOTE,
   });
 
-  if (deps.isMemberConsumerSeller()) {
-    await appendMemberPendingCardAfterLoginRestore(
-      sessionId,
-      { ...snap, fields, visionSummary },
-      deps.storageScopeKey
-    );
-    return;
-  }
-
-  if (block) {
-    await store.addMessage(sessionId, "ai", block);
-    clearPrecheckContext(sessionId);
-    clearPendingChatDraftSnapshot();
-    return;
-  }
-
-  const needsImages = snap.imageCount > 0;
-  if (needsImages) {
-    await tryRegisterImagesFromSnapshot(deps.storageScopeKey, sessionId, snap);
-  }
-
-  const imagesReady =
-    !needsImages || imagesReadyForDraftSave(deps.storageScopeKey, sessionId);
-
-  if (needsImages && !imagesReady) {
-    restorePrecheckContext(sessionId, {
-      fields,
-      visionSummary,
-      publicRefCode: snap.publicRefCode,
-      stage: "draft_copy_ready",
-      awaitingImageReattachForConfirmedDraft: true,
-    });
-    await store.addMessage(sessionId, "ai", POST_LOGIN_IMAGES_REATTACH_FOR_SAVE_NOTE);
-    return;
-  }
-
-  setPrecheckStage(sessionId, "confirmed_create_draft");
-  const saved = await deps.saveDraft({
+  await recoverChatImagesFromMessageHistory(
+    deps.storageScopeKey,
     sessionId,
-    fields: fields as Record<string, unknown>,
-  });
+    useChatStore.getState().messages[sessionId] ?? []
+  );
 
-  if (saved.savedDraftId) {
-    let successText = buildPostLoginDraftSavedText(snap.publicRefCode);
-    if (saved.text.includes("แต่ยังต้องเติม")) {
-      successText = `${successText}\n\n${saved.text}`;
-    } else if (saved.text.includes("แนบรูปภาพแล้ว")) {
-      successText = `${successText}\n\n${saved.text.split("\n\n").slice(-1)[0]}`;
-    }
-    await store.addMessage(
+  const displayAfterRecover = resolveDisplayAttachmentsForRestore(
+    deps.storageScopeKey,
+    sessionId,
+    snap
+  );
+  applyDisplayAttachmentsToRestoredSession(
+    sessionId,
+    displayAfterRecover.length > 0 ? displayAfterRecover : snapshotDisplay
+  );
+
+  const persistedPreviewCount =
+    snap.persistedPreviewCount ??
+    countSnapshotAttachmentsWithDisplayablePreview(snap.draftPreviewAttachments);
+  const partialImageNote = buildPostLoginPartialImageRestoreNote(
+    snap.imageCount,
+    persistedPreviewCount
+  );
+  const needsImages = snap.imageCount > 0;
+  const imagesReady =
+    !needsImages ||
+    collectChatImagesForDraft(
+      deps.storageScopeKey,
       sessionId,
-      "ai",
-      successText,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      saved.savedDraftId
-    );
-    clearPrecheckContext(sessionId);
-    clearPendingChatDraftSnapshot();
-    return;
+      useChatStore.getState().messages[sessionId] ?? []
+    ).length > 0;
+
+  if (partialImageNote) {
+    await store.addMessage(sessionId, "ai", partialImageNote);
+  } else if (needsImages && !imagesReady) {
+    await store.addMessage(sessionId, "ai", POST_LOGIN_IMAGES_REATTACH_NOTE);
   }
 
-  await store.addMessage(sessionId, "ai", saved.text);
+  chatRestoreLog("restoreSinglePendingListingCard: images", {
+    imageCount: snap.imageCount,
+    persistedPreviewCount,
+    displayAttachmentCount: displayAfterRecover.length || snapshotDisplay.length,
+    imagesReady,
+  });
+
+  setPrecheckStage(sessionId, "confirmed_create_draft");
+  await store.selectSession(chatScope, sessionId);
+  return sessionId;
 }
 
 /**
- * หลัง login + hydrate scope ใหม่ — replay snapshot และ continue pending confirm
+ * Idempotent post-login restore: one welcome line + one pending listing card.
+ * Does not replay full chat history or create duplicate sidebar sessions.
  */
 export async function tryRestorePendingChatDraftAfterLogin(
   chatScope: ChatStorageScope,
   deps: PostLoginDraftContinuationDeps
-): Promise<boolean> {
-  if (restoreInFlight) return false;
-  const snap = consumePendingChatDraftSnapshot();
-  if (!snap) return false;
+): Promise<PendingDraftRestoreResult> {
+  if (shouldSkipSnapshotRestoreAfterClaim(deps.storageScopeKey)) {
+    chatRestoreLog("tryRestorePendingChatDraftAfterLogin: skipped — guest claim");
+    return { restored: false, reason: "claimed" };
+  }
+
+  chatRestoreLog("tryRestorePendingChatDraftAfterLogin: enter", {
+    storageScopeKey: deps.storageScopeKey,
+    restoreMeta: readPendingDraftRestoreMeta(),
+    hasStorageSnapshot: hasPendingChatDraftSnapshotInStorage(),
+    isDealer: deps.isDealer(),
+    isAdmin: deps.isAdmin(),
+    isMemberConsumerSeller: deps.isMemberConsumerSeller(),
+  });
+
+  if (restoreInFlight) {
+    chatRestoreLog("tryRestore: skipped in_flight");
+    return { restored: false, reason: "in_flight" };
+  }
+
+  const read = readPendingChatDraftSnapshot();
+  if (isPendingSnapshotReadFailure(read)) {
+    chatRestoreLog("tryRestore: read failed", { reason: read.reason });
+    return { restored: false, reason: read.reason };
+  }
+
+  const snap = read.snapshot;
+  const snapshotId = snap.publicRefCode;
+
+  if (isPendingDraftRestoreFailed(snapshotId)) {
+    chatRestoreLog("tryRestore: skipped prior failure", { snapshotId });
+    return { restored: false, reason: "error" };
+  }
+
+  if (isPendingDraftSnapshotRestored(snapshotId)) {
+    const meta = readPendingDraftRestoreMeta();
+    if (meta?.sessionId) {
+      await useChatStore.getState().selectSession(chatScope, meta.sessionId);
+      chatRestoreLog("tryRestore: already restored", { snapshotId, sessionId: meta.sessionId });
+      return { restored: true, sessionId: meta.sessionId };
+    }
+  }
+
+  if (
+    shouldDeferPendingDraftRestore({
+      isSignedIn: true,
+      isDealer: deps.isDealer(),
+      isAdmin: deps.isAdmin(),
+      isMemberConsumerSeller: deps.isMemberConsumerSeller(),
+    })
+  ) {
+    markPendingDraftRestoreWaitingForProfile(snapshotId);
+    chatRestoreLog("tryRestore: deferred waiting_for_profile", {
+      snapshotId,
+      isMemberConsumerSeller: deps.isMemberConsumerSeller(),
+    });
+    return { restored: false, reason: "deferred" };
+  }
+
+  if (!deps.isMemberConsumerSeller()) {
+    chatRestoreLog("tryRestore: not_member_flow", { snapshotId });
+    return { restored: false, reason: "not_member_flow" };
+  }
 
   restoreInFlight = true;
   try {
-    const store = useChatStore.getState();
-    const sessionId = await store.createSession(
-      chatScope,
-      "สร้างประกาศจากแชท (ต่อหลังเข้าสู่ระบบ)"
-    );
-
-    await replaySnapshotMessages(sessionId, snap);
-
-    if (snap.userAlreadyConfirmedCreateDraft) {
-      await continueConfirmedDraftAfterLogin(sessionId, snap, deps);
-      return true;
+    const sessionId = await restoreSinglePendingListingCard(chatScope, deps, snap);
+    const messages = useChatStore.getState().messages[sessionId] ?? [];
+    const cardMessage = findLatestPendingListingCardMessage(messages);
+    if (!cardMessage?.pendingListingCard) {
+      throw new Error("pending_listing_card_missing_after_restore");
     }
 
-    restorePrecheckContext(sessionId, {
-      fields: normalizeExtractedCarFields(snap.fields),
-      visionSummary: normalizeVisionObservationSummary(snap.visionSummary),
-      publicRefCode: snap.publicRefCode,
-      stage: "draft_copy_ready",
-    });
-
-    await store.addMessage(
+    finalizePendingDraftAfterRestore(snapshotId, sessionId);
+    chatRestoreLog("tryRestore: complete", {
+      snapshotId,
       sessionId,
-      "ai",
-      buildPostLoginRestoreWelcomeText(snap)
-    );
-
-    return true;
+      messageCount: messages.length,
+      sidebarSessionCount: useChatStore.getState().sessions.length,
+    });
+    return { restored: true, sessionId };
   } catch (err) {
     console.warn("[chat-pending-draft] restore failed:", err);
-    return false;
+    markPendingDraftRestoreFailed(snapshotId);
+    chatRestoreLog("tryRestore: error", { snapshotId, error: String(err) });
+    return { restored: false, reason: "error" };
   } finally {
     restoreInFlight = false;
   }

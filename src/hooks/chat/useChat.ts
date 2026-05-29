@@ -10,6 +10,7 @@ import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrches
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
 import {
   getChatStorageScope,
+  GUEST_FALLBACK_UID,
   isEphemeralGuestChatScope,
   logChatStorageDebug,
   resolveChatActorDisplay,
@@ -60,13 +61,28 @@ import { aiVisionService } from "../../services/ai/vision/visionEngine";
 import { setChatLoginReturnView } from "../../utils/chatLoginReturn";
 import {
   clearPendingChatDraftSnapshot,
-  peekPendingChatDraftSnapshot,
+  hasPendingChatDraftSnapshot,
+  hasPendingChatDraftSnapshotInStorage,
+  isPendingDraftSnapshotRestored,
+  isPendingSnapshotReadFailure,
   persistAttachmentsForSnapshot,
+  readPendingChatDraftSnapshot,
+  readPendingDraftRestoreMeta,
   savePendingChatDraftSnapshot,
   serializeMessagesForSnapshot,
   buildPostLoginDraftSavedText,
 } from "../../utils/chatPendingDraftSnapshot";
-import { tryRestorePendingChatDraftAfterLogin } from "../../services/chat/restorePendingChatDraft";
+import {
+  applyClaimedGuestSessionToChatStore,
+  shouldSkipSnapshotRestoreAfterClaim,
+  tryClaimGuestChatAfterLogin,
+} from "../../services/chat/claimGuestChatAfterLogin";
+import {
+  appendPendingRestoreFallbackMessage,
+  tryRestorePendingChatDraftAfterLogin,
+} from "../../services/chat/restorePendingChatDraft";
+import { chatRestoreLog } from "../../utils/chatRestoreDebug";
+import { saveGuestChatClaimPointer } from "../../utils/chatGuestClaim";
 import {
   appendMemberPendingListingCardMessage,
   CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
@@ -216,16 +232,101 @@ export function useChat() {
   >(async () => ({
     text: "กำลังเตรียมระบบบันทึกประกาศครับ กรุณารอสักครู่",
   }));
+  const runPendingLoginRestore = useCallback(async () => {
+    if (shouldSkipSnapshotRestoreAfterClaim(storageScopeKey)) {
+      chatRestoreLog("runPendingLoginRestore: skip — guest session already claimed");
+      return true;
+    }
+
+    const inStorage = hasPendingChatDraftSnapshotInStorage();
+    const read = readPendingChatDraftSnapshot();
+    chatRestoreLog("runPendingLoginRestore: called", {
+      isSignedIn,
+      inStorage,
+      readOk: read.ok,
+      readReason: isPendingSnapshotReadFailure(read) ? read.reason : undefined,
+      restoreMeta: readPendingDraftRestoreMeta(),
+      memberConsumerSellerFlow,
+      isDealer,
+      isAdmin,
+      storageScopeKey,
+      activeSessionId: useChatStore.getState().activeSessionId,
+      sessionCount: useChatStore.getState().sessions.length,
+    });
+
+    if (!isSignedIn) {
+      chatRestoreLog("runPendingLoginRestore: skip — not signed in");
+      return false;
+    }
+
+    if (isPendingSnapshotReadFailure(read)) {
+      if (inStorage) {
+        await appendPendingRestoreFallbackMessage(chatScope, read.reason);
+      }
+      return false;
+    }
+
+    const snapshotId = read.snapshot.publicRefCode;
+    if (isPendingDraftSnapshotRestored(snapshotId)) {
+      chatRestoreLog("runPendingLoginRestore: skip — already restored", { snapshotId });
+      return true;
+    }
+
+    try {
+      const restoreResult = await tryRestorePendingChatDraftAfterLogin(chatScope, {
+        storageScopeKey,
+        isDealer: () => isDealer,
+        isAdmin: () => isAdmin,
+        isMemberConsumerSeller: () => memberConsumerSellerFlow,
+      });
+      chatRestoreLog("runPendingLoginRestore: result", restoreResult);
+      if (restoreResult.restored === false) {
+        const { reason } = restoreResult;
+        if (
+          reason !== "deferred" &&
+          reason !== "in_flight" &&
+          reason !== "claimed"
+        ) {
+          await appendPendingRestoreFallbackMessage(chatScope, reason, snapshotId);
+        }
+      }
+      return restoreResult.restored;
+    } finally {
+      setGenerating(false);
+    }
+  }, [
+    chatScope,
+    storageScopeKey,
+    isSignedIn,
+    isDealer,
+    isAdmin,
+    memberConsumerSellerFlow,
+    setGenerating,
+  ]);
 
   const hydrateChatForScope = useCallback(async (force = false) => {
     const guestEphemeral = isEphemeralGuestChatScope(chatScope);
     const isNewScope = lastHydratedChatScopeKey !== storageScopeKey;
+    const previousScopeKey = lastHydratedChatScopeKey;
     const chatState = useChatStore.getState();
     const hasInMemoryGuestThread =
       guestEphemeral && chatState.sessions.length > 0;
+    const pendingBeforeReset = hasPendingChatDraftSnapshotInStorage();
+
+    chatRestoreLog("hydrateChatForScope: enter", {
+      force,
+      isNewScope,
+      previousScopeKey,
+      nextScopeKey: storageScopeKey,
+      isSignedIn,
+      guestEphemeral,
+      pendingBeforeReset,
+      restoreMeta: readPendingDraftRestoreMeta(),
+    });
 
     // Same visit + scope: keep guest in-memory thread (do not wipe on every effect run).
     if (!isNewScope && !force) {
+      chatRestoreLog("hydrateChatForScope: skip — same scope");
       return;
     }
 
@@ -233,7 +334,41 @@ export function useChat() {
     if (!isNewScope && force) {
       await loadUserPreferences(storageScopeKey);
       await loadPersonalitiesList();
+      chatRestoreLog("hydrateChatForScope: force prefs only");
       return;
+    }
+
+    const previousWasGuest =
+      Boolean(previousScopeKey?.startsWith("user:guest-")) &&
+      !previousScopeKey?.includes(GUEST_FALLBACK_UID);
+    let claimOutcome: Awaited<ReturnType<typeof tryClaimGuestChatAfterLogin>> | null =
+      null;
+
+    if (
+      isSignedIn &&
+      isNewScope &&
+      previousWasGuest &&
+      previousScopeKey &&
+      memberConsumerSellerFlow
+    ) {
+      const guestUserId = previousScopeKey.replace(/^user:/, "");
+      claimOutcome = await tryClaimGuestChatAfterLogin({
+        previousGuestScopeKey: previousScopeKey,
+        memberScope: chatScope,
+        guestScope: {
+          storageKey: previousScopeKey,
+          userId: guestUserId,
+          dealerId: null,
+          mode: "consumer",
+        },
+        inMemory: {
+          sessions: chatState.sessions,
+          messages: chatState.messages,
+          activeSessionId: chatState.activeSessionId,
+        },
+        isMemberConsumerSeller: memberConsumerSellerFlow,
+      });
+      chatRestoreLog("hydrateChatForScope: claim result", claimOutcome);
     }
 
     if (lastHydratedChatScopeKey) {
@@ -245,6 +380,11 @@ export function useChat() {
     resetChatState();
     lastHydratedChatScopeKey = storageScopeKey;
 
+    chatRestoreLog("hydrateChatForScope: after resetChatState", {
+      pendingAfterReset: hasPendingChatDraftSnapshotInStorage(),
+      restoreMeta: readPendingDraftRestoreMeta(),
+    });
+
     await loadSessions(chatScope);
     await loadUserPreferences(storageScopeKey);
     await loadPersonalitiesList();
@@ -252,18 +392,32 @@ export function useChat() {
       draftDealerId: chatScope.dealerId,
     });
 
-    if (isSignedIn && peekPendingChatDraftSnapshot()) {
-      await tryRestorePendingChatDraftAfterLogin(chatScope, {
-        storageScopeKey,
-        saveDraft: (params) => saveDraftRef.current(params),
-        resolveBlock: () =>
-          resolveChatDraftSaveBlockMessage({
-            isSignedIn,
-            chatScope,
-            isDealer,
-            isAdmin,
-          }),
-        isMemberConsumerSeller: () => memberConsumerSellerFlow,
+    if (claimOutcome?.claimed) {
+      await applyClaimedGuestSessionToChatStore(
+        chatScope,
+        claimOutcome.sessionId,
+        claimOutcome.messages
+      );
+    }
+
+    chatRestoreLog("hydrateChatForScope: after loadSessions", {
+      sessionCount: useChatStore.getState().sessions.length,
+      activeSessionId: useChatStore.getState().activeSessionId,
+      pendingInStorage: hasPendingChatDraftSnapshotInStorage(),
+      isSignedIn,
+      claimApplied: claimOutcome?.claimed ?? false,
+    });
+
+    if (
+      isSignedIn &&
+      !claimOutcome?.claimed &&
+      !shouldSkipSnapshotRestoreAfterClaim(storageScopeKey) &&
+      (hasPendingChatDraftSnapshot() || hasPendingChatDraftSnapshotInStorage())
+    ) {
+      await runPendingLoginRestore();
+    } else if (hasPendingChatDraftSnapshotInStorage()) {
+      chatRestoreLog("hydrateChatForScope: pending in storage but restore skipped", {
+        isSignedIn,
       });
     }
   }, [
@@ -274,9 +428,51 @@ export function useChat() {
     loadUserPreferences,
     loadPersonalitiesList,
     isSignedIn,
+    memberConsumerSellerFlow,
+    runPendingLoginRestore,
+  ]);
+
+  /** หลัง login / role พร้อม — restore แม้ scope hydrate ไปแล้ว (แก้ race isSignedIn ช้ากว่า scope) */
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (shouldSkipSnapshotRestoreAfterClaim(storageScopeKey)) return;
+    if (!hasPendingChatDraftSnapshot() && !hasPendingChatDraftSnapshotInStorage()) {
+      return;
+    }
+    const read = readPendingChatDraftSnapshot();
+    if (read.ok && isPendingDraftSnapshotRestored(read.snapshot.publicRefCode)) {
+      return;
+    }
+
+    chatRestoreLog("post-login restore effect: scheduling", {
+      storageScopeKey,
+      memberConsumerSellerFlow,
+      isDealer,
+      isAdmin,
+      restoreMeta: readPendingDraftRestoreMeta(),
+      lastHydratedChatScopeKey,
+      readOk: read.ok,
+      readReason: isPendingSnapshotReadFailure(read) ? read.reason : undefined,
+    });
+
+    void (async () => {
+      if (lastHydratedChatScopeKey !== storageScopeKey) {
+        return;
+      }
+      if (useChatStore.getState().sessions.length === 0) {
+        await loadSessions(chatScope);
+      }
+      await runPendingLoginRestore();
+    })();
+  }, [
+    isSignedIn,
+    storageScopeKey,
+    memberConsumerSellerFlow,
     isDealer,
     isAdmin,
-    memberConsumerSellerFlow,
+    chatScope,
+    loadSessions,
+    runPendingLoginRestore,
   ]);
 
   useEffect(() => {
@@ -690,11 +886,18 @@ export function useChat() {
           if (!isSignedIn) {
             const refCode = ensurePublicRefCode(sessionId);
             const rawAttachments = resolvePrecheckDraftAttachments();
-            const { attachments: draftPreviewAttachments, thumbnailsPersisted } =
-              await persistAttachmentsForSnapshot(rawAttachments);
+            const {
+              attachments: draftPreviewAttachments,
+              thumbnailsPersisted,
+              persistedPreviewCount,
+            } = await persistAttachmentsForSnapshot(rawAttachments);
+            const mergedConfirmFields = mergeEffectivePrecheckFields(
+              confirmFields as ExtractedCarFields,
+              confirmVision
+            );
             savePendingChatDraftSnapshot({
               publicRefCode: refCode,
-              fields: confirmFields as ExtractedCarFields,
+              fields: mergedConfirmFields,
               visionSummary: confirmVision,
               draftPreviewText: buildDraftCopyReadyReply(
                 confirmFields as ExtractedCarFields,
@@ -709,9 +912,18 @@ export function useChat() {
               draftPreviewAttachments,
               imageCount: rawAttachments?.length ?? 0,
               thumbnailsPersisted,
+              persistedPreviewCount,
               userAlreadyConfirmedCreateDraft: true,
             });
+            saveGuestChatClaimPointer({
+              guestStorageScopeKey: storageScopeKey,
+              guestSessionId: sessionId,
+              publicRefCode: refCode,
+            });
             setChatLoginReturnView("chat");
+            setView("login");
+            setGenerating(false);
+            return;
           }
 
           setPrecheckStage(sessionId, "confirmed_create_draft");

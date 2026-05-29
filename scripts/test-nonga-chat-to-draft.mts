@@ -23,12 +23,45 @@ import {
 } from "../src/services/ai/chat/chatPrecheckLayer";
 import {
   clearPendingChatDraftSnapshot,
-  consumePendingChatDraftSnapshot,
+  clearPendingDraftRestoreMeta,
+  finalizePendingDraftAfterRestore,
+  hasPendingChatDraftSnapshotInStorage,
+  isPendingDraftRestoreFailed,
+  isPendingDraftRestoreFallbackShown,
+  isPendingDraftSnapshotRestored,
+  markPendingDraftRestoreFailed,
   peekPendingChatDraftSnapshot,
+  readPendingChatDraftSnapshot,
+  readPendingDraftRestoreMeta,
   savePendingChatDraftSnapshot,
+  buildPostLoginPartialImageRestoreNote,
   serializeMessagesForSnapshot,
   buildPostLoginDraftSavedText,
+  POST_LOGIN_DRAFT_RESTORE_FAILED_NOTE,
+  POST_LOGIN_PENDING_CARD_RESTORE_NOTE,
 } from "../src/utils/chatPendingDraftSnapshot";
+import {
+  readChatHistorySnapshot,
+  setChatHistoryStorageForTest,
+} from "../src/services/chat/chatHistoryService";
+import {
+  tryClaimGuestChatAfterLogin,
+  shouldSkipSnapshotRestoreAfterClaim,
+} from "../src/services/chat/claimGuestChatAfterLogin";
+import {
+  saveGuestChatClaimPointer,
+  readGuestChatClaimPointer,
+  clearGuestChatClaimPointer,
+} from "../src/utils/chatGuestClaim";
+import {
+  appendPendingRestoreFallbackMessage,
+  countPendingListingCardsForRef,
+  tryRestorePendingChatDraftAfterLogin,
+} from "../src/services/chat/restorePendingChatDraft";
+import {
+  prepareSnapshotImageAttachmentsForDisplay,
+} from "../src/features/chat-image-attachment-v1/chatImageAttachmentStore";
+import { useChatStore } from "../src/stores/chat/chatStore";
 import {
   buildPendingListingCardData,
   extractMarketingCopyFromDraftText,
@@ -385,9 +418,37 @@ const peeked = peekPendingChatDraftSnapshot();
 assertEqual(peeked?.publicRefCode, "NA-2026-SNAP", "Snapshot save/load ref code");
 assertEqual(peeked?.fields.brand, "Honda", "Snapshot save/load fields");
 
-const consumed = consumePendingChatDraftSnapshot();
-assertEqual(consumed?.publicRefCode, "NA-2026-SNAP", "Snapshot consume");
-assertEqual(peekPendingChatDraftSnapshot(), null, "Snapshot cleared after consume");
+finalizePendingDraftAfterRestore("NA-2026-SNAP", "session-test-1");
+assertEqual(isPendingDraftSnapshotRestored("NA-2026-SNAP"), true, "restore meta marks restored");
+assertEqual(peekPendingChatDraftSnapshot(), null, "Snapshot cleared after finalize");
+assertEqual(readPendingDraftRestoreMeta()?.sessionId, "session-test-1", "restore meta keeps sessionId");
+
+clearPendingChatDraftSnapshot();
+clearPendingDraftRestoreMeta();
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-VISION-ONLY",
+  fields: {
+    year: 2020,
+    price: 450000,
+    mileage: 40000,
+    transmission: "ออโต้",
+  },
+  visionSummary: { brand: "Toyota", model: "Camry" },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nToyota Camry",
+  messages: [],
+  imageCount: 1,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+const visionOnlyRead = readPendingChatDraftSnapshot();
+assertEqual(visionOnlyRead.ok, true, "vision-only snapshot read ok");
+if (visionOnlyRead.ok) {
+  assertEqual(visionOnlyRead.snapshot.fields.brand, "Toyota", "vision merged into fields");
+}
+const visionPeek1 = peekPendingChatDraftSnapshot();
+const visionPeek2 = peekPendingChatDraftSnapshot();
+assertEqual(Boolean(visionPeek1 && visionPeek2), true, "peek does not clear snapshot");
+clearPendingChatDraftSnapshot();
 
 const restoreSid = "restore-precheck-session";
 restorePrecheckContext(restoreSid, {
@@ -418,6 +479,385 @@ if (
 }
 
 clearPendingChatDraftSnapshot();
+clearPendingDraftRestoreMeta();
+sessionStore.clear();
+
+console.log("--- Testing idempotent post-login restore (single card, no session spam) ---");
+
+function createMemoryStorageForChat(): Storage {
+  const data = new Map<string, string>();
+  return {
+    get length() {
+      return data.size;
+    },
+    clear() {
+      data.clear();
+    },
+    getItem(key: string) {
+      return data.has(key) ? data.get(key)! : null;
+    },
+    key(index: number) {
+      return [...data.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      data.delete(key);
+    },
+    setItem(key: string, value: string) {
+      data.set(key, value);
+    },
+  } as Storage;
+}
+
+const chatHistoryStorage = createMemoryStorageForChat();
+setChatHistoryStorageForTest(chatHistoryStorage);
+
+const restoreMemberScope = {
+  storageKey: "user:uid-restore-idem",
+  dealerId: null,
+  userId: "uid-restore-idem",
+  mode: "consumer" as const,
+};
+
+useChatStore.getState().resetChatState();
+await useChatStore.getState().loadSessions(restoreMemberScope);
+const sessionsBeforeRestore = useChatStore.getState().sessions.length;
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-IDEM-RESTORE",
+  fields: snapFields,
+  visionSummary: { bodyType: "SUV" },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda HR-V",
+  messages: [],
+  imageCount: 0,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+
+const restoreDeps = {
+  storageScopeKey: restoreMemberScope.storageKey,
+  isDealer: () => false,
+  isAdmin: () => false,
+  isMemberConsumerSeller: () => true,
+};
+
+const parallelResults = await Promise.all([
+  tryRestorePendingChatDraftAfterLogin(restoreMemberScope, restoreDeps),
+  tryRestorePendingChatDraftAfterLogin(restoreMemberScope, restoreDeps),
+  tryRestorePendingChatDraftAfterLogin(restoreMemberScope, restoreDeps),
+]);
+const restoredOk = parallelResults.filter((result) => result.restored).length;
+assertEqual(restoredOk >= 1, true, "parallel restore: at least one success");
+assertEqual(
+  countPendingListingCardsForRef("NA-IDEM-RESTORE"),
+  1,
+  "parallel restore: exactly one pending card"
+);
+assertEqual(
+  useChatStore.getState().sessions.length,
+  sessionsBeforeRestore,
+  "parallel restore: no extra sidebar sessions"
+);
+
+const activeId = useChatStore.getState().activeSessionId;
+const activeMessages = activeId
+  ? useChatStore.getState().messages[activeId] ?? []
+  : [];
+const welcomeCard = activeMessages.find((message) => message.isPendingListingCard);
+assertEqual(Boolean(welcomeCard?.pendingListingCard), true, "restore adds pending card");
+assertEqual(
+  activeMessages.some((message) => message.text.includes(POST_LOGIN_PENDING_CARD_RESTORE_NOTE)),
+  true,
+  "restore welcome note on card message"
+);
+
+const saveCtxAfterRestore = resolveMemberPendingListingSaveContext({
+  messages: activeMessages,
+});
+assertEqual(saveCtxAfterRestore.ok, true, "confirm save context ok after restore");
+if (saveCtxAfterRestore.ok) {
+  assertEqual(
+    saveCtxAfterRestore.publicRefCode,
+    "NA-IDEM-RESTORE",
+    "confirm save can read pending card after restore"
+  );
+}
+
+clearPendingChatDraftSnapshot();
+clearPendingDraftRestoreMeta();
+useChatStore.getState().resetChatState();
+await useChatStore.getState().loadSessions(restoreMemberScope);
+
+console.log("--- Testing guest chat claim after login (PR1) ---");
+
+clearGuestChatClaimPointer();
+const guestScopeKey = "user:guest-claim-test";
+const memberScopeKey = "user:uid-member-claim";
+const guestSessionId = "chat-guest-claim-1";
+const claimNowIso = new Date().toISOString();
+
+const guestSession = {
+  id: guestSessionId,
+  sessionId: guestSessionId,
+  userId: guestScopeKey,
+  uid: "guest-claim-test",
+  dealerId: null,
+  scope: "user" as const,
+  storageScopeKey: guestScopeKey,
+  title: "งานขายรถ (guest)",
+  createdAt: claimNowIso,
+  updatedAt: claimNowIso,
+  status: "active" as const,
+};
+const guestMessages = [
+  {
+    id: "msg-user-1",
+    sender: "user" as const,
+    text: "ช่วยสร้างประกาศ",
+    createdAt: claimNowIso,
+  },
+  {
+    id: "msg-ai-card",
+    sender: "ai" as const,
+    text: "การ์ดร่าง",
+    createdAt: claimNowIso,
+    isPendingListingCard: true,
+    pendingListingCard: buildPendingListingCardData({
+      fields: snapFields,
+      publicRefCode: "NA-CLAIM",
+      draftPreviewText: "preview",
+    }),
+  },
+];
+
+saveGuestChatClaimPointer({
+  guestStorageScopeKey: guestScopeKey,
+  guestSessionId,
+  publicRefCode: "NA-CLAIM",
+});
+
+const memberScope = {
+  storageKey: memberScopeKey,
+  userId: "uid-member-claim",
+  dealerId: null,
+  mode: "consumer" as const,
+};
+const guestScope = {
+  storageKey: guestScopeKey,
+  userId: "guest-claim-test",
+  dealerId: null,
+  mode: "consumer" as const,
+};
+
+const claimStorage = createMemoryStorageForChat();
+setChatHistoryStorageForTest(claimStorage);
+claimStorage.setItem(
+  `nong-a-chat-sessions:${memberScopeKey}`,
+  JSON.stringify([
+    {
+      id: "chat-member-existing",
+      sessionId: "chat-member-existing",
+      userId: memberScopeKey,
+      uid: "uid-member-claim",
+      dealerId: null,
+      scope: "user",
+      storageScopeKey: memberScopeKey,
+      title: "ประวัติเก่า",
+      createdAt: "2020-01-01T00:00:00.000Z",
+      updatedAt: "2020-01-01T00:00:00.000Z",
+      status: "active",
+    },
+  ])
+);
+claimStorage.setItem(
+  `nong-a-chat-messages:${memberScopeKey}`,
+  JSON.stringify({ "chat-member-existing": [] })
+);
+
+const claim1 = await tryClaimGuestChatAfterLogin({
+  previousGuestScopeKey: guestScopeKey,
+  memberScope,
+  guestScope,
+  inMemory: {
+    sessions: [guestSession],
+    messages: { [guestSessionId]: guestMessages },
+    activeSessionId: guestSessionId,
+  },
+  isMemberConsumerSeller: true,
+});
+assertEqual(claim1.claimed, true, "guest claim succeeds");
+if (claim1.claimed) {
+  assertEqual(claim1.sessionId, guestSessionId, "claim keeps same session id");
+}
+
+let memberSnap = readChatHistorySnapshot(memberScope);
+assertEqual(
+  memberSnap.sessions.filter((s) => s.id === guestSessionId).length,
+  1,
+  "member history has one claimed guest session"
+);
+assertEqual(memberSnap.sessions.length, 2, "member keeps old history plus claimed session");
+
+const claim2 = await tryClaimGuestChatAfterLogin({
+  previousGuestScopeKey: guestScopeKey,
+  memberScope,
+  guestScope,
+  inMemory: { sessions: [], messages: {}, activeSessionId: null },
+  isMemberConsumerSeller: true,
+});
+assertEqual(claim2.claimed, true, "second claim is idempotent");
+memberSnap = readChatHistorySnapshot(memberScope);
+assertEqual(
+  memberSnap.sessions.filter((s) => s.id === guestSessionId).length,
+  1,
+  "hydrate twice does not duplicate claimed session"
+);
+
+assertEqual(
+  shouldSkipSnapshotRestoreAfterClaim(memberScopeKey),
+  true,
+  "snapshot restore skipped after claim"
+);
+const restoreAfterClaim = await tryRestorePendingChatDraftAfterLogin(memberScope, {
+  storageScopeKey: memberScopeKey,
+  isDealer: () => false,
+  isAdmin: () => false,
+  isMemberConsumerSeller: () => true,
+});
+assertEqual(restoreAfterClaim.restored, false, "restore not primary after claim");
+if (restoreAfterClaim.restored === false) {
+  assertEqual(restoreAfterClaim.reason, "claimed", "restore returns claimed reason");
+}
+
+assertEqual(readGuestChatClaimPointer()?.status, "claimed", "claim pointer marked claimed");
+clearGuestChatClaimPointer();
+setChatHistoryStorageForTest(chatHistoryStorage);
+
+const sampleDataUrl = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD";
+const preparedPreview = prepareSnapshotImageAttachmentsForDisplay([
+  {
+    id: "snap-img-1",
+    kind: "image",
+    name: "car.jpg",
+    size: 1200,
+    mimeType: "image/jpeg",
+    previewDataUrl: sampleDataUrl,
+  },
+]);
+assertEqual(
+  preparedPreview[0]?.previewUrl?.startsWith("data:image"),
+  true,
+  "prepareSnapshotImageAttachmentsForDisplay maps previewDataUrl to previewUrl"
+);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-IMG-RESTORE",
+  fields: snapFields,
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda HR-V",
+  messages: [],
+  imageCount: 2,
+  persistedPreviewCount: 1,
+  thumbnailsPersisted: true,
+  userAlreadyConfirmedCreateDraft: true,
+  draftPreviewAttachments: [
+    {
+      id: "snap-img-1",
+      kind: "image",
+      name: "car.jpg",
+      size: 1200,
+      mimeType: "image/jpeg",
+      previewDataUrl: sampleDataUrl,
+    },
+  ],
+});
+const imgRestoreResult = await tryRestorePendingChatDraftAfterLogin(
+  restoreMemberScope,
+  restoreDeps
+);
+assertEqual(imgRestoreResult.restored, true, "restore with image snapshot succeeds");
+const imgSessionId =
+  imgRestoreResult.restored === true ? imgRestoreResult.sessionId : "";
+const imgMessages = useChatStore.getState().messages[imgSessionId] ?? [];
+const pendingWithImages = imgMessages.find((m) => m.isPendingListingCard);
+assertEqual(
+  (pendingWithImages?.attachments ?? []).some((a) =>
+    Boolean(a.previewUrl?.startsWith("data:image") || a.previewDataUrl?.startsWith("data:image"))
+  ),
+  true,
+  "restore pending card includes displayable image preview"
+);
+assertEqual(
+  imgMessages.some((m) => m.isDraftPreview),
+  true,
+  "restore brings back draft preview message"
+);
+const partialNote = buildPostLoginPartialImageRestoreNote(2, 1);
+assertEqual(
+  partialNote?.includes("1") && partialNote?.includes("2"),
+  true,
+  "partial image restore note mentions counts"
+);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-FAIL-LOOP",
+  fields: snapFields,
+  draftPreviewText: "draft",
+  messages: [],
+  imageCount: 0,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+markPendingDraftRestoreFailed("NA-FAIL-LOOP");
+assertEqual(
+  isPendingDraftRestoreFailed("NA-FAIL-LOOP"),
+  true,
+  "failed restore meta is recorded"
+);
+const failResult = await tryRestorePendingChatDraftAfterLogin(restoreMemberScope, restoreDeps);
+assertEqual(failResult.restored, false, "failed snapshot does not loop restore");
+assertEqual(
+  countPendingListingCardsForRef("NA-FAIL-LOOP"),
+  0,
+  "failed restore does not add cards"
+);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-INVALID-PAYLOAD",
+  fields: { year: 2020, price: 100000, mileage: 10000, transmission: "ออโต้" },
+  draftPreviewText: "draft",
+  messages: [],
+  imageCount: 0,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+const invalidRead = readPendingChatDraftSnapshot();
+assertEqual(invalidRead.ok, false, "incomplete snapshot fails normalize");
+assertEqual(
+  hasPendingChatDraftSnapshotInStorage(),
+  true,
+  "raw snapshot still in storage when normalize fails"
+);
+await appendPendingRestoreFallbackMessage(restoreMemberScope, "invalid_payload", "NA-INVALID-PAYLOAD");
+const fallbackSessionId = useChatStore.getState().activeSessionId;
+const fallbackMessages = fallbackSessionId
+  ? useChatStore.getState().messages[fallbackSessionId] ?? []
+  : [];
+assertEqual(
+  fallbackMessages.some((message) =>
+    message.text.includes(POST_LOGIN_DRAFT_RESTORE_FAILED_NOTE.slice(0, 20))
+  ),
+  true,
+  "normalize fail shows fallback message once"
+);
+assertEqual(
+  isPendingDraftRestoreFallbackShown("NA-INVALID-PAYLOAD"),
+  true,
+  "fallback shown flag set"
+);
+
+useChatStore.getState().resetChatState();
+setChatHistoryStorageForTest(null);
+clearPendingChatDraftSnapshot();
+clearPendingDraftRestoreMeta();
 sessionStore.clear();
 
 console.log("--- Testing member in-chat pending listing card ---");

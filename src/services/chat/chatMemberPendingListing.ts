@@ -245,6 +245,8 @@ export async function appendMemberPendingListingCardMessage(
     publicRefCode: string;
     draftPreviewText: string;
     attachments?: ChatMessageAttachment[];
+    /** ว่าง = ใช้ intro มาตรฐาน (restore หลัง login ส่ง welcome แยกแล้ว) */
+    introText?: string;
   }
 ): Promise<void> {
   const cardData = buildPendingListingCardData({
@@ -253,10 +255,14 @@ export async function appendMemberPendingListingCardMessage(
     publicRefCode: params.publicRefCode,
     draftPreviewText: params.draftPreviewText,
   });
+  const intro =
+    params.introText === ""
+      ? ""
+      : (params.introText ?? CHAT_MEMBER_PENDING_CARD_INTRO).trim();
   await useChatStore.getState().addMessage(
     sessionId,
     "ai",
-    CHAT_MEMBER_PENDING_CARD_INTRO,
+    intro || "(การ์ดประกาศร่าง)",
     undefined,
     undefined,
     undefined,

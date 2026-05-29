@@ -1,7 +1,16 @@
 import React, { useState } from "react";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { useAppStore } from "../../store";
-import { consumeChatLoginReturnView } from "../../utils/chatLoginReturn";
+import {
+  consumeChatLoginReturnView,
+  peekChatLoginReturnView,
+} from "../../utils/chatLoginReturn";
+import {
+  hasPendingChatDraftSnapshotInStorage,
+  isPendingSnapshotReadFailure,
+  readPendingChatDraftSnapshot,
+} from "../../utils/chatPendingDraftSnapshot";
+import { chatRestoreLog } from "../../utils/chatRestoreDebug";
 import { motion } from "motion/react";
 import { 
   Mail, Lock, Eye, EyeOff, Bot, Sparkles, 
@@ -55,10 +64,22 @@ export default function LoginView() {
     setLoading(true);
     try {
       await loginWithEmail(email, password);
+      const pendingRead = readPendingChatDraftSnapshot();
+      chatRestoreLog("LoginView: email login success", {
+        returnViewPeek: peekChatLoginReturnView(),
+        pendingInStorage: hasPendingChatDraftSnapshotInStorage(),
+        pendingReadOk: pendingRead.ok,
+        pendingReadReason: isPendingSnapshotReadFailure(pendingRead)
+          ? pendingRead.reason
+          : undefined,
+        snapshotId: pendingRead.ok ? pendingRead.snapshot.publicRefCode : undefined,
+      });
       // Success toast trigger
       setSuccessToast("เข้าสู่ระบบเรียบร้อยแล้วครับน้องบอต! กำลังพากลับไปต่องานที่ค้างไว้ ✨🎉");
       setTimeout(() => {
-        setView(consumeChatLoginReturnView() ?? "home");
+        const nextView = consumeChatLoginReturnView() ?? "home";
+        chatRestoreLog("LoginView: navigate after email login", { nextView });
+        setView(nextView);
       }, 1500);
     } catch (err: any) {
       setLocalError(err.message || "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์ผู้ใช้");
@@ -80,9 +101,18 @@ export default function LoginView() {
       } else {
         await loginWithLINE();
       }
+      const pendingRead = readPendingChatDraftSnapshot();
+      chatRestoreLog("LoginView: social login success", {
+        provider,
+        returnViewPeek: peekChatLoginReturnView(),
+        pendingInStorage: hasPendingChatDraftSnapshotInStorage(),
+        pendingReadOk: pendingRead.ok,
+      });
       setSuccessToast(`ยินดีต้อนรับ! เข้าสู่ระบบเสร็จสิ้นผ่านบริการ ${provider.toUpperCase()} ปังปุริเย่!`);
       setTimeout(() => {
-        setView(consumeChatLoginReturnView() ?? "home");
+        const nextView = consumeChatLoginReturnView() ?? "home";
+        chatRestoreLog("LoginView: navigate after social login", { nextView, provider });
+        setView(nextView);
       }, 1500);
     } catch (err: any) {
       setLocalError(err.message || "การเข้าสู่ระบบผ่านผู้ให้บริการภายนอกล้มเหลว");

@@ -5,6 +5,7 @@ import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser
 import type { VisionObservationSummary } from "../../services/ai/chat/chatPrecheckLayer";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useClipboard } from "../../hooks/chat/useClipboard";
+import { MAX_PERSISTED_SNAPSHOT_IMAGES } from "../../utils/chatPendingDraftSnapshot";
 
 interface ChatPendingListingCardProps {
   card: PendingListingCardData;
@@ -74,10 +75,17 @@ export function ChatPendingListingCard({
         </span>
       </div>
 
-      {attachments && attachments.length > 0 && (
+      {attachments && attachments.length > 0 ? (
         <div className="px-3 pt-3">
-          <ChatMessageAttachments attachments={attachments} />
+          <ChatMessageAttachments
+            attachments={attachments}
+            maxVisibleImages={MAX_PERSISTED_SNAPSHOT_IMAGES}
+          />
         </div>
+      ) : (
+        <p className="px-3 pt-3 text-[10px] text-slate-500">
+          ยังไม่มีตัวอย่างรูปในการ์ด — รบกวนแนบรูปในแชทก่อนกดยืนยันบันทึกประกาศครับ
+        </p>
       )}
 
       <div className="px-3 py-3 space-y-1.5">
