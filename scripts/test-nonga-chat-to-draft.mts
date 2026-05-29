@@ -47,6 +47,7 @@ import {
 import {
   tryClaimGuestChatAfterLogin,
   shouldSkipSnapshotRestoreAfterClaim,
+  rehydrateClaimedGuestChatImageStore,
 } from "../src/services/chat/claimGuestChatAfterLogin";
 import {
   saveGuestChatClaimPointer,
@@ -90,6 +91,11 @@ import {
 } from "../src/services/chat/chatSavedMemberListing";
 import {
   collectAllChatImageFilesForMemberListing,
+  collectChatImagesForDraft,
+  clearChatImageAttachmentScope,
+  countChatImageAttachmentsInSession,
+  markChatImageMessageForPendingListing,
+  migrateChatImageAttachmentScope,
   registerChatImageMessageFiles,
   toChatImageMessageAttachments,
 } from "../src/features/chat-image-attachment-v1/chatImageAttachmentStore";
@@ -731,6 +737,184 @@ if (restoreAfterClaim.restored === false) {
 assertEqual(readGuestChatClaimPointer()?.status, "claimed", "claim pointer marked claimed");
 clearGuestChatClaimPointer();
 setChatHistoryStorageForTest(chatHistoryStorage);
+
+console.log("--- Testing guest image store migrate on claim (PR2) ---");
+
+function makeTestPending(id: string): PendingChatImageAttachment {
+  const blob = new Blob([`guest-image-${id}`], { type: "image/jpeg" });
+  const file = new File([blob], `${id}.jpg`, { type: "image/jpeg" });
+  return {
+    id,
+    kind: "image",
+    originalFileName: `${id}.jpg`,
+    fileName: `${id}.jpg`,
+    optimizedFile: file,
+    previewUrl: `blob:guest-${id}`,
+    mimeType: "image/jpeg",
+    size: file.size,
+    width: 100,
+    height: 100,
+  };
+}
+
+const pr2GuestScope = "user:guest-pr2-images";
+const pr2MemberScope = "user:uid-member-pr2";
+const pr2SessionId = "chat-guest-pr2-images";
+const pr2MsgId = "msg-user-images";
+const pr2Pending = [
+  makeTestPending("pr2-img-1"),
+  makeTestPending("pr2-img-2"),
+  makeTestPending("pr2-img-3"),
+];
+const pr2Meta = toChatImageMessageAttachments(pr2Pending);
+const pr2UserMessages = [
+  {
+    id: pr2MsgId,
+    sender: "user" as const,
+    text: "(แนบรูป)",
+    createdAt: claimNowIso,
+    attachments: pr2Meta,
+  },
+];
+
+clearChatImageAttachmentScope(pr2GuestScope);
+clearChatImageAttachmentScope(pr2MemberScope);
+registerChatImageMessageFiles(
+  pr2GuestScope,
+  pr2SessionId,
+  pr2MsgId,
+  pr2Pending,
+  pr2Meta
+);
+markChatImageMessageForPendingListing(pr2GuestScope, pr2SessionId, pr2MsgId);
+
+assertEqual(
+  countChatImageAttachmentsInSession(pr2GuestScope, pr2SessionId),
+  3,
+  "guest scope starts with 3 images"
+);
+
+const migrate1 = migrateChatImageAttachmentScope({
+  fromStorageScopeKey: pr2GuestScope,
+  toStorageScopeKey: pr2MemberScope,
+  sessionId: pr2SessionId,
+});
+assertEqual(migrate1.migratedFileCount, 3, "migrate copies all optimized files");
+assertEqual(migrate1.migratedPendingIds, 3, "migrate copies pendingListingImageIds");
+
+clearChatImageAttachmentScope(pr2GuestScope);
+
+assertEqual(
+  countChatImageAttachmentsInSession(pr2GuestScope, pr2SessionId),
+  0,
+  "guest scope cleared after migrate"
+);
+assertEqual(
+  countChatImageAttachmentsInSession(pr2MemberScope, pr2SessionId),
+  3,
+  "member scope retains migrated images"
+);
+
+const memberCollected = collectAllChatImageFilesForMemberListing(
+  pr2MemberScope,
+  pr2SessionId,
+  pr2UserMessages as any
+);
+assertEqual(memberCollected.length, 3, "member collectAll after migrate keeps image count");
+
+const draftCollected = collectChatImagesForDraft(
+  pr2MemberScope,
+  pr2SessionId,
+  pr2UserMessages as any
+);
+assertEqual(draftCollected.length, 3, "pendingListingImageIds available on member scope");
+
+const migrate2 = migrateChatImageAttachmentScope({
+  fromStorageScopeKey: pr2GuestScope,
+  toStorageScopeKey: pr2MemberScope,
+  sessionId: pr2SessionId,
+});
+assertEqual(migrate2.migratedFileCount, 0, "second migrate is idempotent for files");
+assertEqual(migrate2.skippedDuplicateIds, 0, "second migrate from empty guest adds nothing");
+
+const rehydrate1 = await rehydrateClaimedGuestChatImageStore({
+  memberStorageScopeKey: pr2MemberScope,
+  sessionId: pr2SessionId,
+  messages: pr2UserMessages as any,
+});
+assertEqual(rehydrate1.skippedBecauseMemoryComplete, true, "rehydrate skips when memory complete");
+assertEqual(rehydrate1.fromSnapshot, 0, "rehydrate does not use snapshot when memory complete");
+assertEqual(rehydrate1.memoryCount, 3, "rehydrate reports full memory count");
+
+clearChatImageAttachmentScope(pr2MemberScope);
+assertEqual(
+  countChatImageAttachmentsInSession(pr2MemberScope, pr2SessionId),
+  0,
+  "member memory cleared for snapshot fallback test"
+);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-PR2-FALLBACK",
+  fields: snapFields,
+  draftPreviewText: "preview",
+  messages: [],
+  imageCount: 2,
+  persistedPreviewCount: 2,
+  thumbnailsPersisted: true,
+  draftPreviewAttachments: [
+    {
+      id: "pr2-img-1",
+      kind: "image",
+      name: "pr2-img-1.jpg",
+      originalFileName: "pr2-img-1.jpg",
+      mimeType: "image/jpeg",
+      size: 120,
+      previewDataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD",
+    },
+    {
+      id: "pr2-img-2",
+      kind: "image",
+      name: "pr2-img-2.jpg",
+      originalFileName: "pr2-img-2.jpg",
+      mimeType: "image/jpeg",
+      size: 120,
+      previewDataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD",
+    },
+  ],
+});
+
+const rehydrate2 = await rehydrateClaimedGuestChatImageStore({
+  memberStorageScopeKey: pr2MemberScope,
+  sessionId: pr2SessionId,
+  messages: pr2UserMessages as any,
+});
+assertEqual(rehydrate2.skippedBecauseMemoryComplete, false, "snapshot fallback runs when memory empty");
+assertEqual(rehydrate2.fromSnapshot, 2, "snapshot fallback restores previewDataUrl files");
+assertEqual(
+  collectAllChatImageFilesForMemberListing(
+    pr2MemberScope,
+    pr2SessionId,
+    pr2UserMessages as any
+  ).length,
+  2,
+  "member save can collect snapshot-restored images"
+);
+
+const rehydrate3 = await rehydrateClaimedGuestChatImageStore({
+  memberStorageScopeKey: pr2MemberScope,
+  sessionId: pr2SessionId,
+  messages: pr2UserMessages as any,
+});
+assertEqual(rehydrate3.fromSnapshot, 0, "repeat rehydrate does not duplicate snapshot images");
+assertEqual(
+  countChatImageAttachmentsInSession(pr2MemberScope, pr2SessionId),
+  2,
+  "repeat rehydrate keeps same image count"
+);
+
+clearPendingChatDraftSnapshot();
+clearChatImageAttachmentScope(pr2MemberScope);
+clearChatImageAttachmentScope(pr2GuestScope);
 
 const sampleDataUrl = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD";
 const preparedPreview = prepareSnapshotImageAttachmentsForDisplay([

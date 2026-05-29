@@ -45,6 +45,7 @@ import {
   getChatImagesForMessage,
   collectDraftPreviewDisplayAttachments,
   markChatImageMessageForPendingListing,
+  migrateChatImageAttachmentScope,
   registerChatImageMessageFiles,
   toChatImageMessageAttachments,
   type StoredChatImageAttachment,
@@ -74,6 +75,7 @@ import {
 } from "../../utils/chatPendingDraftSnapshot";
 import {
   applyClaimedGuestSessionToChatStore,
+  rehydrateClaimedGuestChatImageStore,
   shouldSkipSnapshotRestoreAfterClaim,
   tryClaimGuestChatAfterLogin,
 } from "../../services/chat/claimGuestChatAfterLogin";
@@ -371,6 +373,19 @@ export function useChat() {
       chatRestoreLog("hydrateChatForScope: claim result", claimOutcome);
     }
 
+    if (
+      claimOutcome?.claimed &&
+      previousScopeKey &&
+      previousScopeKey !== storageScopeKey
+    ) {
+      const migrateResult = migrateChatImageAttachmentScope({
+        fromStorageScopeKey: previousScopeKey,
+        toStorageScopeKey: storageScopeKey,
+        sessionId: claimOutcome.sessionId,
+      });
+      chatRestoreLog("hydrateChatForScope: image store migrated", migrateResult);
+    }
+
     if (lastHydratedChatScopeKey) {
       clearChatImageAttachmentScope(lastHydratedChatScopeKey);
     }
@@ -398,6 +413,12 @@ export function useChat() {
         claimOutcome.sessionId,
         claimOutcome.messages
       );
+      const rehydrateResult = await rehydrateClaimedGuestChatImageStore({
+        memberStorageScopeKey: storageScopeKey,
+        sessionId: claimOutcome.sessionId,
+        messages: claimOutcome.messages,
+      });
+      chatRestoreLog("hydrateChatForScope: image store rehydrated", rehydrateResult);
     }
 
     chatRestoreLog("hydrateChatForScope: after loadSessions", {

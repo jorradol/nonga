@@ -15,6 +15,13 @@ import {
   readChatHistorySnapshot,
 } from "./chatHistoryService";
 import { useChatStore } from "../../stores/chat/chatStore";
+import {
+  collectAllChatImageFilesForMemberListing,
+  countChatImageAttachmentsInSession,
+  recoverChatImagesFromMessageHistory,
+  registerSnapshotAttachmentsForDraftSave,
+} from "../../features/chat-image-attachment-v1/chatImageAttachmentStore";
+import { readPendingChatDraftSnapshot } from "../../utils/chatPendingDraftSnapshot";
 
 export type GuestClaimInMemoryState = {
   sessions: ChatSession[];
@@ -168,4 +175,111 @@ export function shouldSkipSnapshotRestoreAfterClaim(memberScopeKey: string): boo
   const pointer = readGuestChatClaimPointer();
   if (pointer?.status !== "claimed") return false;
   return pointer.memberStorageScopeKey === memberScopeKey;
+}
+
+function findImageAnchorMessage(messages: ChatMessage[]): ChatMessage | undefined {
+  return (
+    messages.find(
+      (m) =>
+        m.sender === "user" && m.attachments?.some((a) => a.kind === "image")
+    ) ?? messages.find((m) => m.sender === "user")
+  );
+}
+
+function collectExpectedImageAttachmentIds(messages: ChatMessage[]): Set<string> {
+  const expected = new Set<string>();
+  for (const message of messages) {
+    for (const att of message.attachments ?? []) {
+      if (att.kind === "image") expected.add(att.id);
+    }
+  }
+  return expected;
+}
+
+export type RehydrateClaimedGuestChatImageStoreResult = {
+  memoryCount: number;
+  fromSnapshot: number;
+  fromMessages: number;
+  skippedBecauseMemoryComplete: boolean;
+};
+
+/**
+ * Step B — เติม image store หลัง claim (snapshot เป็น fallback เมื่อ memory migrate ไม่ครบ)
+ */
+export async function rehydrateClaimedGuestChatImageStore(params: {
+  memberStorageScopeKey: string;
+  sessionId: string;
+  messages: ChatMessage[];
+}): Promise<RehydrateClaimedGuestChatImageStoreResult> {
+  const storedBefore = collectAllChatImageFilesForMemberListing(
+    params.memberStorageScopeKey,
+    params.sessionId,
+    params.messages
+  );
+  const storedIds = new Set(storedBefore.map((item) => item.id));
+  const expectedIds = collectExpectedImageAttachmentIds(params.messages);
+  const missingExpectedIds = [...expectedIds].filter((id) => !storedIds.has(id));
+
+  if (expectedIds.size > 0 && missingExpectedIds.length === 0) {
+    chatRestoreLog("rehydrateClaimedGuestChatImages: memory complete", {
+      memoryCount: storedBefore.length,
+    });
+    return {
+      memoryCount: storedBefore.length,
+      fromSnapshot: 0,
+      fromMessages: 0,
+      skippedBecauseMemoryComplete: true,
+    };
+  }
+
+  let fromSnapshot = 0;
+  const snap = readPendingChatDraftSnapshot();
+  if (snap.ok) {
+    const persistable =
+      snap.snapshot.draftPreviewAttachments?.filter(
+        (att) =>
+          att.kind === "image" &&
+          att.previewDataUrl?.startsWith("data:") &&
+          !storedIds.has(att.id)
+      ) ?? [];
+    if (persistable.length > 0) {
+      const anchor = findImageAnchorMessage(params.messages);
+      if (anchor) {
+        fromSnapshot = await registerSnapshotAttachmentsForDraftSave(
+          params.memberStorageScopeKey,
+          params.sessionId,
+          anchor.id,
+          persistable
+        );
+        for (const att of persistable) {
+          storedIds.add(att.id);
+        }
+      }
+    }
+  }
+
+  const fromMessages = await recoverChatImagesFromMessageHistory(
+    params.memberStorageScopeKey,
+    params.sessionId,
+    params.messages
+  );
+
+  const memoryCount = countChatImageAttachmentsInSession(
+    params.memberStorageScopeKey,
+    params.sessionId
+  );
+
+  chatRestoreLog("rehydrateClaimedGuestChatImages: done", {
+    memoryCount,
+    fromSnapshot,
+    fromMessages,
+    expectedCount: expectedIds.size,
+  });
+
+  return {
+    memoryCount,
+    fromSnapshot,
+    fromMessages,
+    skippedBecauseMemoryComplete: false,
+  };
 }

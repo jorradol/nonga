@@ -332,6 +332,100 @@ function sessionHasStoredImageId(
   return Boolean(findStoredImageByAttachmentId(storageScopeKey, sessionId, attachmentId));
 }
 
+function countStoredImageIdsInSession(
+  storageScopeKey: string,
+  sessionId: string
+): number {
+  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
+  if (!session) return 0;
+  const seen = new Set<string>();
+  for (const items of session.values()) {
+    for (const item of items) {
+      seen.add(item.id);
+    }
+  }
+  return seen.size;
+}
+
+export type MigrateChatImageAttachmentScopeResult = {
+  migratedFileCount: number;
+  migratedPendingIds: number;
+  skippedDuplicateIds: number;
+};
+
+/**
+ * ย้าย in-memory image store จาก guest scope → member scope ก่อน clear guest
+ * (same session id, ไม่ re-optimize)
+ */
+export function migrateChatImageAttachmentScope(params: {
+  fromStorageScopeKey: string;
+  toStorageScopeKey: string;
+  sessionId: string;
+}): MigrateChatImageAttachmentScopeResult {
+  const { fromStorageScopeKey, toStorageScopeKey, sessionId } = params;
+  if (fromStorageScopeKey === toStorageScopeKey) {
+    return { migratedFileCount: 0, migratedPendingIds: 0, skippedDuplicateIds: 0 };
+  }
+
+  const guestSession = filesByScope.get(fromStorageScopeKey)?.get(sessionId);
+  if (!guestSession || guestSession.size === 0) {
+    return { migratedFileCount: 0, migratedPendingIds: 0, skippedDuplicateIds: 0 };
+  }
+
+  const memberSession = sessionMap(toStorageScopeKey, sessionId);
+  let migratedFileCount = 0;
+  let skippedDuplicateIds = 0;
+
+  for (const [messageId, items] of guestSession.entries()) {
+    const existing = memberSession.get(messageId) ?? [];
+    const existingIds = new Set(existing.map((item) => item.id));
+    const merged = [...existing];
+
+    for (const item of items) {
+      if (existingIds.has(item.id)) {
+        skippedDuplicateIds += 1;
+        continue;
+      }
+      existingIds.add(item.id);
+      merged.push({
+        ...item,
+        messageId,
+        sessionId,
+      });
+      migratedFileCount += 1;
+    }
+
+    if (merged.length > 0) {
+      memberSession.set(messageId, merged);
+    }
+  }
+
+  const guestPendingKey = scopeSessionKey(fromStorageScopeKey, sessionId);
+  const memberPendingKey = scopeSessionKey(toStorageScopeKey, sessionId);
+  const guestPendingIds = pendingListingImageIdsBySession.get(guestPendingKey);
+  let migratedPendingIds = 0;
+
+  if (guestPendingIds && guestPendingIds.size > 0) {
+    const memberIds =
+      pendingListingImageIdsBySession.get(memberPendingKey) ?? new Set<string>();
+    for (const id of guestPendingIds) {
+      if (memberIds.has(id)) continue;
+      memberIds.add(id);
+      migratedPendingIds += 1;
+    }
+    pendingListingImageIdsBySession.set(memberPendingKey, memberIds);
+  }
+
+  return { migratedFileCount, migratedPendingIds, skippedDuplicateIds };
+}
+
+export function countChatImageAttachmentsInSession(
+  storageScopeKey: string,
+  sessionId: string
+): number {
+  return countStoredImageIdsInSession(storageScopeKey, sessionId);
+}
+
 /**
  * รวม thumbnail สำหรับ draft preview — สร้าง previewUrl ใหม่จากไฟล์ใน store
  * (metadata.previewUrl อาจเป็น blob ที่ revoke แล้ว จึงไม่พอสำหรับแสดงผล)
