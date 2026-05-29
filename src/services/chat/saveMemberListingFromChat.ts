@@ -1,12 +1,18 @@
 import type { ChatMessage, ChatMessageAttachment } from "../../types";
 import type { ExtractedCarFields } from "../ai/chat/sellIntentParser";
 import type { VisionObservationSummary } from "../ai/chat/chatPrecheckLayer";
+import { buildSavedMemberListingCardData } from "./chatSavedMemberListing";
 import { buildDealerDraftPayloadFromChat } from "../ai/chat/chatDraftActions";
 import {
-  collectChatImagesForDraft,
-  markSessionImagesForPendingListing,
+  collectAllChatImageFilesForMemberListing,
+  recoverChatImagesFromMessageHistory,
   registerSnapshotAttachmentsForDraftSave,
 } from "../../features/chat-image-attachment-v1/chatImageAttachmentStore";
+import {
+  uploadMyListingImagesDetailed,
+  type UploadMyListingImagesResult,
+} from "../listings/myListingsApi";
+import { isValidListingImageUrl } from "../../utils/listingImages";
 import {
   assertApiPayloadWithinLimit,
   buildMarketplaceApiCarPayload,
@@ -16,7 +22,6 @@ import {
   createLegacyMarketplaceListing,
   patchMyListing,
   setMyListingVisibility,
-  uploadMyListingImages,
 } from "../listings/myListingsApi";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
 
@@ -128,46 +133,82 @@ async function resolveMemberSaveImageFiles(params: {
   messages: ChatMessage[];
   cardAttachments?: ChatMessageAttachment[];
 }): Promise<File[]> {
-  markSessionImagesForPendingListing(
+  await recoverChatImagesFromMessageHistory(
     params.storageScopeKey,
     params.sessionId,
     params.messages
   );
 
-  let files = collectChatImagesForDraft(
-    params.storageScopeKey,
-    params.sessionId,
-    params.messages
-  ).map((item) => item.file);
+  const recoverableOnCard =
+    params.cardAttachments?.filter(
+      (a) => a.kind === "image" && a.previewDataUrl?.startsWith("data:")
+    ) ?? [];
+  if (recoverableOnCard.length > 0) {
+    const anchor = findImageAnchorMessage(params.messages);
+    if (anchor) {
+      await registerSnapshotAttachmentsForDraftSave(
+        params.storageScopeKey,
+        params.sessionId,
+        anchor.id,
+        recoverableOnCard
+      );
+    }
+  }
 
-  if (files.length > 0) return files;
-
-  const recoverable = params.cardAttachments?.filter(
-    (a) => a.kind === "image" && a.previewDataUrl?.startsWith("data:")
-  );
-  if (!recoverable?.length) return files;
-
-  const anchor = findImageAnchorMessage(params.messages);
-  if (!anchor) return files;
-
-  await registerSnapshotAttachmentsForDraftSave(
-    params.storageScopeKey,
-    params.sessionId,
-    anchor.id,
-    recoverable
-  );
-
-  files = collectChatImagesForDraft(
+  return collectAllChatImageFilesForMemberListing(
     params.storageScopeKey,
     params.sessionId,
     params.messages
   ).map((item) => item.file);
+}
 
-  return files;
+function filterListingImageUrls(listingId: string, urls: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of urls) {
+    const url = String(raw ?? "").trim();
+    if (!url || seen.has(url)) continue;
+    if (!isValidListingImageUrl(url, listingId)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+}
+
+function buildMemberImageUploadSummary(
+  upload: UploadMyListingImagesResult,
+  recordImageCount: number
+): string {
+  const parts: string[] = [];
+  if (recordImageCount > 0) {
+    parts.push(`แนบรูป ${recordImageCount} รูปเข้าประกาศแล้วครับ`);
+  }
+  if (
+    upload.requestedCount > 0 &&
+    upload.uploadedCount < upload.requestedCount
+  ) {
+    parts.push(
+      `อัปโหลดสำเร็จ ${upload.uploadedCount} จาก ${upload.requestedCount} รูป — รูปที่เหลือไม่เข้าระบบ กรุณาแนบรูปที่ล้มเหลวใหม่ในแชทหรือจาก “ประกาศของฉัน”`
+    );
+    for (const batch of upload.failedBatches) {
+      parts.push(
+        `• ชุดที่ ${batch.batchIndex + 1}: ${batch.fileNames.join(", ")} — ${batch.message}`
+      );
+    }
+  }
+  return parts.join("\n");
 }
 
 export type SaveMemberListingFromChatResult =
-  | { ok: true; listingId: string; message: string; imageCount: number }
+  | {
+      ok: true;
+      listingId: string;
+      message: string;
+      imageCount: number;
+      requestedImageCount: number;
+      uploadResult: UploadMyListingImagesResult;
+      savedCard: ReturnType<typeof buildSavedMemberListingCardData>;
+    }
   | { ok: false; code: "missing-fields"; message: string; missing: string[] }
   | { ok: false; code: "need-images"; message: string }
   | { ok: false; code: "error"; message: string };
@@ -176,6 +217,7 @@ export async function saveMemberListingFromChat(params: {
   fields: ExtractedCarFields;
   visionSummary?: VisionObservationSummary;
   publicRefCode: string;
+  marketingCopy?: string;
   ownerId: string;
   ownerName: string;
   ownerPhone: string;
@@ -241,38 +283,72 @@ export async function saveMemberListingFromChat(params: {
     const created = await createLegacyMarketplaceListing(payload);
     const listingId = created.id;
 
-    let imageCount = 0;
+    let uploadResult: UploadMyListingImagesResult = {
+      storedUrls: [],
+      requestedCount: 0,
+      uploadedCount: 0,
+      failedBatches: [],
+    };
+    let recordImageUrls: string[] = [];
+
     if (imageFiles.length > 0) {
-      const storedUrls = await uploadMyListingImages(
+      uploadResult = await uploadMyListingImagesDetailed(
         params.ownerId,
         listingId,
         imageFiles
       );
-      imageCount = storedUrls.length;
-      if (storedUrls.length > 0) {
-        await patchMyListing(params.ownerId, listingId, { images: storedUrls });
+      if (uploadResult.storedUrls.length > 0) {
+        const patched = await patchMyListing(params.ownerId, listingId, {
+          images: uploadResult.storedUrls,
+        });
+        recordImageUrls = filterListingImageUrls(
+          listingId,
+          Array.isArray(patched.images) ? patched.images : uploadResult.storedUrls
+        );
+      } else if (uploadResult.failedBatches.length > 0) {
+        return {
+          ok: false,
+          code: "error",
+          message: buildMemberImageUploadSummary(uploadResult, 0),
+        };
       }
     }
 
     await setMyListingVisibility(params.ownerId, listingId, true);
+
+    const savedCard = buildSavedMemberListingCardData({
+      listingId,
+      publicRefCode: params.publicRefCode,
+      fields: params.fields,
+      visionSummary: params.visionSummary,
+      marketingCopy: params.marketingCopy?.trim() ?? "",
+      imageUrls: recordImageUrls,
+    });
 
     const message = buildMemberListingSuccessMessage({
       publicRefCode: params.publicRefCode,
       listingId,
     });
 
-    const imageNote =
-      imageCount > 0
-        ? `\n\nแนบรูป ${imageCount} รูปเข้าประกาศแล้วครับ`
-        : expectsImages
-          ? ""
-          : "\n\nยังไม่มีรูปในระบบ — แนบรูปในแชทหรือเพิ่มจาก “ประกาศของฉัน” ได้ภายหลังครับ";
+    const imageNote = buildMemberImageUploadSummary(
+      uploadResult,
+      recordImageUrls.length
+    );
+    const trailingNote =
+      !imageNote && expectsImages
+        ? "\n\nยังไม่มีรูปในระบบ — แนบรูปในแชทหรือเพิ่มจาก “ประกาศของฉัน” ได้ภายหลังครับ"
+        : imageNote
+          ? `\n\n${imageNote}`
+          : "";
 
     return {
       ok: true,
       listingId,
-      message: `${message}${imageNote}`,
-      imageCount,
+      message: `${message}${trailingNote}`,
+      imageCount: recordImageUrls.length,
+      requestedImageCount: uploadResult.requestedCount,
+      uploadResult,
+      savedCard,
     };
   } catch (err) {
     const message =

@@ -31,19 +31,24 @@ function formatAttachmentsSummary(attachments: ChatMessageAttachment[]): string 
 interface ChatMessageAttachmentsProps {
   attachments: ChatMessageAttachment[];
   isUser?: boolean;
+  /** จำนวน thumbnail สูงสุดที่แสดง (default 5) */
+  maxVisibleImages?: number;
 }
 
 /** แสดงรูปแนบใน user bubble; metadata ถูกเก็บแยกจาก binary รูป */
 export function ChatMessageAttachments({
   attachments,
   isUser,
+  maxVisibleImages = 5,
 }: ChatMessageAttachmentsProps) {
   if (!attachments.length) return null;
 
   const images = attachments.filter((a) => a.kind === "image");
   const others = attachments.filter((a) => a.kind !== "image");
   const summary = formatAttachmentsSummary(attachments);
-  const visibleImages = images.slice(0, 5);
+  const visibleCap =
+    maxVisibleImages > 0 ? maxVisibleImages : images.length;
+  const visibleImages = images.slice(0, visibleCap);
   const hiddenImageCount = Math.max(0, images.length - visibleImages.length);
 
   return (

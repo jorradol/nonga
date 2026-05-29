@@ -194,6 +194,13 @@ function normalizeMessage(
           pendingListingCard: raw.pendingListingCard as ChatMessage["pendingListingCard"],
         }
       : {}),
+    ...(raw.isSavedMemberListingCard && raw.savedMemberListingCard
+      ? {
+          isSavedMemberListingCard: true,
+          savedMemberListingCard:
+            raw.savedMemberListingCard as ChatMessage["savedMemberListingCard"],
+        }
+      : {}),
     ...(Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? { attachments: raw.attachments as ChatMessageAttachment[] }
       : {}),
@@ -326,6 +333,12 @@ function messageToFirestoreData(message: ChatMessage) {
       ? {
           isPendingListingCard: true,
           pendingListingCard: safe.pendingListingCard,
+        }
+      : {}),
+    ...(safe.isSavedMemberListingCard && safe.savedMemberListingCard
+      ? {
+          isSavedMemberListingCard: true,
+          savedMemberListingCard: safe.savedMemberListingCard,
         }
       : {}),
     ...(safe.attachments && safe.attachments.length > 0
@@ -515,6 +528,12 @@ export async function appendChatMessage(
       ? {
           isPendingListingCard: true,
           pendingListingCard: input.pendingListingCard,
+        }
+      : {}),
+    ...(input.isSavedMemberListingCard && input.savedMemberListingCard
+      ? {
+          isSavedMemberListingCard: true,
+          savedMemberListingCard: input.savedMemberListingCard,
         }
       : {}),
     ...(input.attachments && input.attachments.length > 0

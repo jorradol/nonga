@@ -117,13 +117,45 @@ async function fileToBase64Payload(file: File): Promise<ListingImageUploadFilePa
   };
 }
 
+export interface UploadMyListingImagesResult {
+  storedUrls: string[];
+  requestedCount: number;
+  uploadedCount: number;
+  failedBatches: Array<{ batchIndex: number; fileNames: string[]; message: string }>;
+}
+
 /** อัปโหลดไฟล์จากเครื่อง → เก็บ /storage/listings/{carId}/ (แบ่ง batch) */
 export async function uploadMyListingImages(
   scopeInput: MyListingsApiScopeInput,
   carId: string,
   files: File[]
 ): Promise<string[]> {
-  if (files.length === 0) return [];
+  const result = await uploadMyListingImagesDetailed(scopeInput, carId, files);
+  if (result.failedBatches.length > 0 && result.uploadedCount === 0) {
+    throw new AppFriendlyError({
+      code: "unknown",
+      friendlyTitle: "น้องเออัปโหลดรูปไม่สำเร็จค่ะ",
+      friendlyMessage: result.failedBatches[0]?.message ?? "ลองเลือกรูปใหม่อีกครั้งนะคะ",
+      technicalDetail: "all image batches failed",
+      url: `/api/cars/${carId}/images`,
+    });
+  }
+  return result.storedUrls;
+}
+
+export async function uploadMyListingImagesDetailed(
+  scopeInput: MyListingsApiScopeInput,
+  carId: string,
+  files: File[]
+): Promise<UploadMyListingImagesResult> {
+  if (files.length === 0) {
+    return {
+      storedUrls: [],
+      requestedCount: 0,
+      uploadedCount: 0,
+      failedBatches: [],
+    };
+  }
   if (files.length > MAX_LISTING_IMAGES) {
     throw payloadTooLargeFriendly(
       `/api/cars/${carId}/images`,
@@ -133,55 +165,71 @@ export async function uploadMyListingImages(
 
   const url = `/api/cars/${encodeURIComponent(carId)}/images`;
   const storedUrls: string[] = [];
+  const failedBatches: UploadMyListingImagesResult["failedBatches"] = [];
 
   for (let i = 0; i < files.length; i += LISTING_IMAGE_UPLOAD_BATCH_SIZE) {
+    const batchIndex = Math.floor(i / LISTING_IMAGE_UPLOAD_BATCH_SIZE);
     const batch = files.slice(i, i + LISTING_IMAGE_UPLOAD_BATCH_SIZE);
-    const payloads = await Promise.all(batch.map(fileToBase64Payload));
-    const body = buildListingImageUploadBody(payloads);
-    logDevPayloadSize("POST /api/cars/:id/images", body);
+    const fileNames = batch.map((f) => f.name || "upload.jpg");
 
-    const sizeCheck = assertApiPayloadWithinLimit(
-      body,
-      MAX_LISTING_IMAGE_UPLOAD_REQUEST_BYTES
-    );
-    if (sizeCheck.ok === false) {
-      throw payloadTooLargeFriendly(url, `client bytes ${sizeCheck.bytes}`);
-    }
+    try {
+      const payloads = await Promise.all(batch.map(fileToBase64Payload));
+      const body = buildListingImageUploadBody(payloads);
+      logDevPayloadSize("POST /api/cars/:id/images", body);
 
-    const scope = normalizeScope(scopeInput);
-    if (scope.dealerHeaders) {
-      const result = await uploadListingImagesApi(
-        scope.dealerHeaders,
-        carId,
-        "inventory",
-        payloads
+      const sizeCheck = assertApiPayloadWithinLimit(
+        body,
+        MAX_LISTING_IMAGE_UPLOAD_REQUEST_BYTES
       );
-      storedUrls.push(...result.storedUrls);
-      continue;
-    }
+      if (sizeCheck.ok === false) {
+        throw payloadTooLargeFriendly(url, `client bytes ${sizeCheck.bytes}`);
+      }
 
-    const json = await safeApiFetch<
-      ApiJsonEnvelope & { data?: { storedUrls?: string[] } }
-    >(url, {
-      method: "POST",
-      headers: await ownerHeadersAsync(scope.ownerId),
-      body: JSON.stringify(body),
-    });
-    assertApiSuccess(json, url);
-    const stored = (json.data as { storedUrls?: string[] })?.storedUrls;
-    if (!Array.isArray(stored) || stored.length === 0) {
-      throw new AppFriendlyError({
-        code: "unknown",
-        friendlyTitle: "น้องเออัปโหลดรูปไม่สำเร็จค่ะ",
-        friendlyMessage: "ลองเลือกรูปใหม่อีกครั้งนะคะ",
-        technicalDetail: "POST /images returned no storedUrls",
-        url,
+      const scope = normalizeScope(scopeInput);
+      if (scope.dealerHeaders) {
+        const result = await uploadListingImagesApi(
+          scope.dealerHeaders,
+          carId,
+          "inventory",
+          payloads
+        );
+        if (result.storedUrls.length === 0) {
+          throw new Error("dealer upload returned no storedUrls");
+        }
+        storedUrls.push(...result.storedUrls);
+        continue;
+      }
+
+      const json = await safeApiFetch<
+        ApiJsonEnvelope & { data?: { storedUrls?: string[] } }
+      >(url, {
+        method: "POST",
+        headers: await ownerHeadersAsync(scope.ownerId),
+        body: JSON.stringify(body),
       });
+      assertApiSuccess(json, url);
+      const stored = (json.data as { storedUrls?: string[] })?.storedUrls;
+      if (!Array.isArray(stored) || stored.length === 0) {
+        throw new Error("POST /images returned no storedUrls");
+      }
+      storedUrls.push(...stored);
+    } catch (err) {
+      const message =
+        err instanceof AppFriendlyError
+          ? err.friendlyMessage
+          : err instanceof Error
+            ? err.message
+            : "อัปโหลดรูปไม่สำเร็จ";
+      failedBatches.push({ batchIndex, fileNames, message });
     }
-    storedUrls.push(...stored);
   }
 
-  return storedUrls;
+  return {
+    storedUrls,
+    requestedCount: files.length,
+    uploadedCount: storedUrls.length,
+    failedBatches,
+  };
 }
 
 /** รวม URL ที่เก็บแล้ว + อัปโหลดไฟล์ใหม่ แล้ว sanitize */

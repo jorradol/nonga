@@ -77,6 +77,11 @@ import {
   isMemberListingChatAction,
 } from "../../services/chat/chatMemberPendingListing";
 import {
+  appendSavedMemberListingCardMessage,
+  CHAT_MEMBER_PUBLISH_COMING_SOON_ACK,
+  isMemberPublishListingChatAction,
+} from "../../services/chat/chatSavedMemberListing";
+import {
   CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE,
   saveMemberListingFromChat,
 } from "../../services/chat/saveMemberListingFromChat";
@@ -517,7 +522,17 @@ export function useChat() {
         findLatestPendingListingContext(historyAfterUser);
       const latestSavedDraftId = findLatestSavedDraftId(historyAfterUser);
 
-      if (isMemberListingChatAction(trimmed) && memberConsumerSellerFlow) {
+      if (
+        (isMemberListingChatAction(trimmed) ||
+          isMemberPublishListingChatAction(trimmed)) &&
+        memberConsumerSellerFlow
+      ) {
+        if (isMemberPublishListingChatAction(trimmed)) {
+          updateStreamedReply(CHAT_MEMBER_PUBLISH_COMING_SOON_ACK);
+          await finalizeStreamedReply(sessionId);
+          setGenerating(false);
+          return;
+        }
         if (trimmed === CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION) {
           const cardMsg = findLatestPendingListingCardMessage(historyAfterUser);
           const card = cardMsg?.pendingListingCard;
@@ -542,6 +557,7 @@ export function useChat() {
               precheck?.visionSummary) as VisionObservationSummary | undefined,
             publicRefCode:
               card?.publicRefCode ?? precheck?.publicRefCode ?? ensurePublicRefCode(sessionId),
+            marketingCopy: card?.marketingCopy ?? "",
             ownerId: user?.uid ?? "",
             ownerName:
               (user as { displayName?: string; name?: string } | null)?.displayName ??
@@ -561,17 +577,9 @@ export function useChat() {
             return;
           }
 
-          updateStreamedReply(saveResult.message);
-          await finalizeStreamedReply(
-            sessionId,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            saveResult.listingId
-          );
+          await appendSavedMemberListingCardMessage(sessionId, {
+            card: saveResult.savedCard,
+          });
           clearPrecheckContext(sessionId);
           clearPendingChatDraftSnapshot();
           setGenerating(false);

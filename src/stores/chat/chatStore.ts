@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatSession, ChatMessage, ChatCarCardData, ChatMessageAttachment, PendingListingCardData } from "../../types";
+import { ChatSession, ChatMessage, ChatCarCardData, ChatMessageAttachment, PendingListingCardData, SavedMemberListingCardData } from "../../types";
 import { AIPersonality, PersonalityPresetId } from "../../types/ai";
 import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from "../../services/ai/personality/personalityConfig";
 import {
@@ -35,6 +35,8 @@ export interface AIUserProfile {
 export type AddMessageListingExtras = {
   isPendingListingCard?: boolean;
   pendingListingCard?: PendingListingCardData;
+  isSavedMemberListingCard?: boolean;
+  savedMemberListingCard?: SavedMemberListingCardData;
 };
 
 interface ChatState {
@@ -258,6 +260,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(attachments && attachments.length > 0 ? { attachments } : {}),
       ...(listingExtras?.isPendingListingCard
         ? { isPendingListingCard: true, pendingListingCard: listingExtras.pendingListingCard }
+        : {}),
+      ...(listingExtras?.isSavedMemberListingCard &&
+      listingExtras.savedMemberListingCard
+        ? {
+            isSavedMemberListingCard: true,
+            savedMemberListingCard: listingExtras.savedMemberListingCard,
+          }
         : {}),
     });
 

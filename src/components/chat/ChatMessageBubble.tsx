@@ -16,10 +16,12 @@ import {
 import { ChatCarCard } from "./ChatCarCard";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { ChatPendingListingCard } from "./ChatPendingListingCard";
+import { ChatSavedMemberListingCard } from "./ChatSavedMemberListingCard";
 import {
   CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
   CHAT_MEMBER_NOT_NOW_LISTING_ACTION,
 } from "../../services/chat/chatMemberPendingListing";
+import { CHAT_MEMBER_PUBLISH_LISTING_ACTION } from "../../services/chat/chatSavedMemberListing";
 import { useAppStore } from "../../store";
 import { navigateToSavedDealerDraft } from "../../utils/dealer/dealerDraftNavigation";
 import { ExternalLink } from "lucide-react";
@@ -413,7 +415,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
-            {message.savedMemberListingId && (
+            {message.savedMemberListingId && !message.isSavedMemberListingCard && (
               <div className="mt-4 flex flex-col items-center gap-2">
                 <button
                   type="button"
@@ -424,6 +426,21 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   ดูในประกาศของฉัน
                 </button>
               </div>
+            )}
+
+            {message.isSavedMemberListingCard && message.savedMemberListingCard && (
+              <ChatSavedMemberListingCard
+                card={message.savedMemberListingCard}
+                attachments={message.attachments}
+                messageId={message.id}
+                onViewMyListings={() => setView("my-listings")}
+                onEdit={() => setView("my-listings")}
+                onPublishComingSoon={() => {
+                  if (activeSessionId) {
+                    void sendMessage(CHAT_MEMBER_PUBLISH_LISTING_ACTION);
+                  }
+                }}
+              />
             )}
 
             {message.savedDraftId && (

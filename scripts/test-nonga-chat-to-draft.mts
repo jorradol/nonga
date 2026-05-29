@@ -42,6 +42,18 @@ import {
   chatFlowExpectsListingImages,
   CHAT_MEMBER_NEED_IMAGES_BEFORE_SAVE_MESSAGE,
 } from "../src/services/chat/saveMemberListingFromChat";
+import {
+  buildSavedMemberListingCardData,
+  listingImageUrlsToChatAttachments,
+  SAVED_MEMBER_LISTING_STATUS_LABEL,
+  CHAT_MEMBER_PUBLISH_COMING_SOON_ACK,
+} from "../src/services/chat/chatSavedMemberListing";
+import {
+  collectAllChatImageFilesForMemberListing,
+  registerChatImageMessageFiles,
+  toChatImageMessageAttachments,
+} from "../src/features/chat-image-attachment-v1/chatImageAttachmentStore";
+import type { PendingChatImageAttachment } from "../src/features/chat-image-attachment-v1/types";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -502,5 +514,83 @@ assertEqual(
   true,
   "need-images message asks re-attach"
 );
+
+const savedCard = buildSavedMemberListingCardData({
+  listingId: "car-1780010831953",
+  publicRefCode: "NA-2026-8FD9",
+  fields: snapFields,
+  marketingCopy: "Honda HR-V 2020",
+  imageUrls: ["/storage/listings/car-1780010831953/photo-1.jpg"],
+});
+assertEqual(savedCard.listingId, "car-1780010831953", "saved card listing id");
+assertEqual(savedCard.statusLabel, SAVED_MEMBER_LISTING_STATUS_LABEL, "saved card status");
+assertEqual(savedCard.imageUrls.length, 1, "saved card image urls");
+
+const savedAttachments = listingImageUrlsToChatAttachments(savedCard.imageUrls);
+assertEqual(savedAttachments[0]?.imageUrl?.includes("car-1780010831953"), true, "saved attachment url");
+assertEqual(
+  CHAT_MEMBER_PUBLISH_COMING_SOON_ACK.includes("รอบถัดไป"),
+  true,
+  "publish coming soon ack"
+);
+
+console.log("--- Testing collect all member listing images ---");
+
+function makePending(id: string): PendingChatImageAttachment {
+  const blob = new Blob([`fake-${id}`], { type: "image/jpeg" });
+  const file = new File([blob], `${id}.jpg`, { type: "image/jpeg" });
+  return {
+    id,
+    kind: "image",
+    originalFileName: `${id}.jpg`,
+    fileName: `${id}.jpg`,
+    optimizedFile: file,
+    previewUrl: `blob:fake-${id}`,
+    mimeType: "image/jpeg",
+    size: file.size,
+    width: 100,
+    height: 100,
+  };
+}
+
+const scopeKey = "test-member-images";
+const sid = "session-member-images";
+const msgA = "msg-images-a";
+const msgB = "msg-images-b";
+const pendingA = [makePending("img-a1"), makePending("img-a2"), makePending("img-a3")];
+const pendingB = [makePending("img-b1"), makePending("img-b2")];
+registerChatImageMessageFiles(
+  scopeKey,
+  sid,
+  msgA,
+  pendingA,
+  toChatImageMessageAttachments(pendingA)
+);
+registerChatImageMessageFiles(
+  scopeKey,
+  sid,
+  msgB,
+  pendingB,
+  toChatImageMessageAttachments(pendingB)
+);
+
+const collected = collectAllChatImageFilesForMemberListing(scopeKey, sid, [
+  {
+    id: msgA,
+    sender: "user",
+    text: "รูปชุดแรก",
+    createdAt: new Date().toISOString(),
+    attachments: toChatImageMessageAttachments(pendingA),
+  },
+  {
+    id: msgB,
+    sender: "user",
+    text: "รูปชุดสอง",
+    createdAt: new Date().toISOString(),
+    attachments: toChatImageMessageAttachments(pendingB),
+  },
+] as any);
+
+assertEqual(collected.length, 5, "collectAllChatImageFilesForMemberListing all messages");
 
 console.log("--- All Chat to Draft tests passed! ---");

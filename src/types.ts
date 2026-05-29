@@ -102,6 +102,9 @@ export interface ChatMessage {
   /** การ์ดประกาศร่างสำหรับ member (in-chat pending listing) */
   isPendingListingCard?: boolean;
   pendingListingCard?: PendingListingCardData;
+  /** การ์ดประกาศที่บันทึกแล้ว (หลัง member save สำเร็จ) */
+  isSavedMemberListingCard?: boolean;
+  savedMemberListingCard?: SavedMemberListingCardData;
   /** ไฟล์แนบจากผู้ใช้ */
   attachments?: ChatMessageAttachment[];
 }
@@ -112,6 +115,16 @@ export interface PendingListingCardData {
   marketingCopy: string;
   fields: Record<string, unknown>;
   visionSummary?: Record<string, unknown>;
+}
+
+export interface SavedMemberListingCardData {
+  listingId: string;
+  publicRefCode: string;
+  statusLabel: string;
+  marketingCopy: string;
+  fields: Record<string, unknown>;
+  visionSummary?: Record<string, unknown>;
+  imageUrls: string[];
 }
 
 /** ข้อมูลการ์ดรถในแชท — จาก database เท่านั้น */

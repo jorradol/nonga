@@ -109,6 +109,38 @@ export function collectChatImagesForDraft(
   return output;
 }
 
+/**
+ * รวมไฟล์รูปทุกข้อความใน session สำหรับ member save
+ * (ไม่กรอง pendingIds — ตรงกับ draft preview ที่ผู้ใช้เห็น)
+ */
+export function collectAllChatImageFilesForMemberListing(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): StoredChatImageAttachment[] {
+  markSessionImagesForPendingListing(storageScopeKey, sessionId, messages);
+
+  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
+  if (!session) return [];
+
+  const seen = new Set<string>();
+  const output: StoredChatImageAttachment[] = [];
+
+  for (const message of messages) {
+    if (message.sender !== "user") continue;
+    const stored = session.get(message.id) ?? [];
+    for (const item of stored) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      output.push(item);
+    }
+  }
+
+  return output.sort(
+    (a, b) => (a.metadata.sortOrder ?? 0) - (b.metadata.sortOrder ?? 0)
+  );
+}
+
 export function getChatImagesForMessage(
   storageScopeKey: string,
   sessionId: string,
@@ -170,6 +202,30 @@ async function dataUrlToFile(
   } catch {
     return null;
   }
+}
+
+/** กู้ไฟล์จาก previewDataUrl ในประวัติแชท (หลัง login / หลัง strip blob) */
+export async function recoverChatImagesFromMessageHistory(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): Promise<number> {
+  let total = 0;
+  for (const message of messages) {
+    if (message.sender !== "user") continue;
+    const recoverable =
+      message.attachments?.filter(
+        (a) => a.kind === "image" && a.previewDataUrl?.startsWith("data:")
+      ) ?? [];
+    if (recoverable.length === 0) continue;
+    total += await registerSnapshotAttachmentsForDraftSave(
+      storageScopeKey,
+      sessionId,
+      message.id,
+      recoverable
+    );
+  }
+  return total;
 }
 
 /** กู้ไฟล์จาก previewDataUrl ใน snapshot เพื่อ upload หลัง login (same tab) */
