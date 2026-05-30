@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { ChatMessage } from "../../types";
 import { useChatStore } from "../../stores/chat/chatStore";
 import { useAppStore } from "../../store";
 import { aiService } from "../../services/ai/aiService";
@@ -84,7 +85,7 @@ import {
   tryRestorePendingChatDraftAfterLogin,
 } from "../../services/chat/restorePendingChatDraft";
 import { chatRestoreLog } from "../../utils/chatRestoreDebug";
-import { saveGuestChatClaimPointer } from "../../utils/chatGuestClaim";
+import { readGuestChatClaimPointer, saveGuestChatClaimPointer } from "../../utils/chatGuestClaim";
 import {
   appendMemberPendingListingCardMessage,
   CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
@@ -106,6 +107,10 @@ import {
   isMemberCancelPublishListingChatAction,
   isMemberConfirmPublishListingChatAction,
 } from "../../services/chat/publishMemberListingFromChat";
+import {
+  buildMemberReattachSaveParams,
+  tryContinueGuestConfirmedMemberListingSave,
+} from "../../services/chat/continueGuestConfirmedMemberListingSave";
 import {
   CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE,
   saveMemberListingFromChat,
@@ -233,6 +238,46 @@ export function useChat() {
     [isSignedIn, isDealer, isAdmin, chatScope.mode]
   );
 
+  const resolveMemberOwnerProfile = useCallback(() => {
+    const authUser = user as {
+      uid?: string;
+      displayName?: string;
+      name?: string;
+      phone?: string;
+    } | null;
+    return {
+      ownerId: authUser?.uid?.trim() ?? "",
+      ownerName: authUser?.displayName ?? authUser?.name ?? "",
+      ownerPhone: authUser?.phone ?? "",
+    };
+  }, [user]);
+
+  const runGuestConfirmedAutoSaveAfterLogin = useCallback(
+    async (sessionId: string, sessionMessages?: ChatMessage[]) => {
+      if (!memberConsumerSellerFlow) return null;
+      const { ownerId, ownerName, ownerPhone } = resolveMemberOwnerProfile();
+      if (!ownerId) return null;
+      const messages =
+        sessionMessages ??
+        useChatStore.getState().messages[sessionId] ??
+        [];
+      const result = await tryContinueGuestConfirmedMemberListingSave({
+        storageScopeKey,
+        sessionId,
+        messages,
+        ownerId,
+        ownerName,
+        ownerPhone,
+      });
+      chatRestoreLog("runGuestConfirmedAutoSaveAfterLogin", {
+        sessionId,
+        result,
+      });
+      return result;
+    },
+    [memberConsumerSellerFlow, resolveMemberOwnerProfile, storageScopeKey]
+  );
+
   const saveDraftRef = useRef<
     (params: {
       sessionId: string;
@@ -287,6 +332,9 @@ export function useChat() {
         isDealer: () => isDealer,
         isAdmin: () => isAdmin,
         isMemberConsumerSeller: () => memberConsumerSellerFlow,
+        ownerId: () => resolveMemberOwnerProfile().ownerId,
+        ownerName: () => resolveMemberOwnerProfile().ownerName,
+        ownerPhone: () => resolveMemberOwnerProfile().ownerPhone,
       });
       chatRestoreLog("runPendingLoginRestore: result", restoreResult);
       if (restoreResult.restored === false) {
@@ -311,6 +359,7 @@ export function useChat() {
     isAdmin,
     memberConsumerSellerFlow,
     setGenerating,
+    resolveMemberOwnerProfile,
   ]);
 
   const hydrateChatForScope = useCallback(async (force = false) => {
@@ -426,6 +475,10 @@ export function useChat() {
         messages: claimOutcome.messages,
       });
       chatRestoreLog("hydrateChatForScope: image store rehydrated", rehydrateResult);
+      await runGuestConfirmedAutoSaveAfterLogin(
+        claimOutcome.sessionId,
+        useChatStore.getState().messages[claimOutcome.sessionId] ?? claimOutcome.messages
+      );
     }
 
     chatRestoreLog("hydrateChatForScope: after loadSessions", {
@@ -458,16 +511,36 @@ export function useChat() {
     isSignedIn,
     memberConsumerSellerFlow,
     runPendingLoginRestore,
+    runGuestConfirmedAutoSaveAfterLogin,
   ]);
 
   /** หลัง login / role พร้อม — restore แม้ scope hydrate ไปแล้ว (แก้ race isSignedIn ช้ากว่า scope) */
   useEffect(() => {
     if (!isSignedIn) return;
+
+    const read = readPendingChatDraftSnapshot();
+    const hasConfirmedPending =
+      read.ok && Boolean(read.snapshot.userAlreadyConfirmedCreateDraft);
+
+    if (
+      shouldSkipSnapshotRestoreAfterClaim(storageScopeKey) &&
+      hasConfirmedPending &&
+      memberConsumerSellerFlow
+    ) {
+      const sessionId =
+        useChatStore.getState().activeSessionId ??
+        readGuestChatClaimPointer()?.guestSessionId ??
+        null;
+      if (sessionId) {
+        void runGuestConfirmedAutoSaveAfterLogin(sessionId);
+      }
+      return;
+    }
+
     if (shouldSkipSnapshotRestoreAfterClaim(storageScopeKey)) return;
     if (!hasPendingChatDraftSnapshot() && !hasPendingChatDraftSnapshotInStorage()) {
       return;
     }
-    const read = readPendingChatDraftSnapshot();
     if (read.ok && isPendingDraftSnapshotRestored(read.snapshot.publicRefCode)) {
       return;
     }
@@ -501,6 +574,7 @@ export function useChat() {
     chatScope,
     loadSessions,
     runPendingLoginRestore,
+    runGuestConfirmedAutoSaveAfterLogin,
   ]);
 
   useEffect(() => {
@@ -683,30 +757,57 @@ export function useChat() {
         setGenerating(true);
         updateStreamedReply("");
         setPrecheckStage(sessionId, "confirmed_create_draft");
-        const saved = await saveDealerDraftFromFields({
-          sessionId,
-          fields: reattachPrecheck.fields as Record<string, unknown>,
-        });
-        if (memberConsumerSellerFlow && !saved.savedDraftId) {
-          const refCode = reattachPrecheck.publicRefCode ?? ensurePublicRefCode(sessionId);
-          await appendMemberPendingListingCardMessage(sessionId, {
-            fields: reattachPrecheck.fields as ExtractedCarFields,
-            visionSummary: reattachPrecheck.visionSummary,
-            publicRefCode: refCode,
-            draftPreviewText: buildDraftCopyReadyReply(
-              reattachPrecheck.fields as ExtractedCarFields,
-              refCode,
-              CHAT_CONFIRM_CREATE_DRAFT_ACTION,
-              reattachPrecheck.visionSummary,
-              attachmentMeta.length
-            ),
-            attachments: attachmentMeta.length > 0 ? attachmentMeta : undefined,
+
+        const historyAfterReattach =
+          useChatStore.getState().messages[sessionId] || [];
+
+        if (memberConsumerSellerFlow) {
+          const { ownerId, ownerName, ownerPhone } = resolveMemberOwnerProfile();
+          if (!ownerId) {
+            updateStreamedReply(
+              "กรุณาเข้าสู่ระบบก่อนบันทึกประกาศครับ ลองรีเฟรชหน้าแล้วเข้าสู่ระบบอีกครั้งนะครับ"
+            );
+            await finalizeStreamedReply(sessionId);
+            setGenerating(false);
+            return;
+          }
+
+          updateStreamedReply(CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE);
+          await finalizeStreamedReply(sessionId);
+
+          const saveResult = await saveMemberListingFromChat(
+            buildMemberReattachSaveParams({
+              sessionId,
+              messages: historyAfterReattach,
+              storageScopeKey,
+              precheck: reattachPrecheck,
+              ownerId,
+              ownerName,
+              ownerPhone,
+              cardAttachments: attachmentMeta.length > 0 ? attachmentMeta : undefined,
+            })
+          );
+
+          if (!saveResult.ok) {
+            updateStreamedReply(saveResult.message);
+            await finalizeStreamedReply(sessionId);
+            setGenerating(false);
+            return;
+          }
+
+          await appendSavedMemberListingCardMessage(sessionId, {
+            card: saveResult.savedCard,
           });
           clearPrecheckContext(sessionId);
           clearPendingChatDraftSnapshot();
           setGenerating(false);
           return;
         }
+
+        const saved = await saveDealerDraftFromFields({
+          sessionId,
+          fields: reattachPrecheck.fields as Record<string, unknown>,
+        });
         const refCode = reattachPrecheck.publicRefCode ?? "";
         const replyText = saved.savedDraftId
           ? `${buildPostLoginDraftSavedText(refCode)}${

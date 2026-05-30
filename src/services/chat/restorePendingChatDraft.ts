@@ -47,6 +47,7 @@ import {
 import {
   buildPostLoginPartialImageRestoreNote,
 } from "../../utils/chatPendingDraftSnapshot";
+import { tryContinueGuestConfirmedMemberListingSave } from "./continueGuestConfirmedMemberListingSave";
 
 let restoreInFlight = false;
 
@@ -100,6 +101,9 @@ export interface PostLoginDraftContinuationDeps {
   isDealer: () => boolean;
   isAdmin: () => boolean;
   isMemberConsumerSeller: () => boolean;
+  ownerId?: () => string;
+  ownerName?: () => string;
+  ownerPhone?: () => string;
 }
 
 export type PendingDraftRestoreFailureReason =
@@ -531,7 +535,34 @@ export async function tryRestorePendingChatDraftAfterLogin(
       throw new Error("pending_listing_card_missing_after_restore");
     }
 
-    finalizePendingDraftAfterRestore(snapshotId, sessionId);
+    if (
+      snap.userAlreadyConfirmedCreateDraft &&
+      deps.isMemberConsumerSeller() &&
+      deps.ownerId?.()?.trim()
+    ) {
+      const autoSave = await tryContinueGuestConfirmedMemberListingSave({
+        storageScopeKey: deps.storageScopeKey,
+        sessionId,
+        messages,
+        ownerId: deps.ownerId()!.trim(),
+        ownerName: deps.ownerName?.()?.trim() ?? "",
+        ownerPhone: deps.ownerPhone?.()?.trim() ?? "",
+      });
+      chatRestoreLog("tryRestore: guest confirmed auto-save", autoSave);
+      const autoSaveFinalized = new Set([
+        "success",
+        "need_images",
+        "missing_fields",
+        "error",
+        "already_saved",
+      ]).has(autoSave.kind);
+      if (!autoSaveFinalized) {
+        finalizePendingDraftAfterRestore(snapshotId, sessionId);
+      }
+    } else {
+      finalizePendingDraftAfterRestore(snapshotId, sessionId);
+    }
+
     chatRestoreLog("tryRestore: complete", {
       snapshotId,
       sessionId,

@@ -51,6 +51,11 @@ import {
   rehydrateClaimedGuestChatImageStore,
 } from "../src/services/chat/claimGuestChatAfterLogin";
 import {
+  resetGuestConfirmedAutoSaveStateForTest,
+  sessionHasSavedListingForRef,
+  tryContinueGuestConfirmedMemberListingSave,
+} from "../src/services/chat/continueGuestConfirmedMemberListingSave";
+import {
   saveGuestChatClaimPointer,
   readGuestChatClaimPointer,
   clearGuestChatClaimPointer,
@@ -864,6 +869,194 @@ if (restoreAfterClaim.restored === false) {
 assertEqual(readGuestChatClaimPointer()?.status, "claimed", "claim pointer marked claimed");
 clearGuestChatClaimPointer();
 setChatHistoryStorageForTest(chatHistoryStorage);
+
+console.log("--- Testing guest confirmed auto-save after login ---");
+resetGuestConfirmedAutoSaveStateForTest();
+clearPendingChatDraftSnapshot();
+clearPendingDraftRestoreMeta();
+clearPrecheckContext("autosave-session");
+
+const autoSaveScope = {
+  storageKey: "user:uid-autosave-member",
+  userId: "uid-autosave-member",
+  dealerId: null,
+  mode: "consumer" as const,
+};
+useChatStore.getState().resetChatState();
+await useChatStore.getState().loadSessions(autoSaveScope);
+const autoSaveSessionId = await useChatStore.getState().createSession(
+  autoSaveScope,
+  "guest confirmed auto-save"
+);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-AUTO-SAVE-1",
+  fields: {
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 400000,
+    mileage: 30000,
+    transmission: "เกียร์ออโต้",
+  },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda City",
+  messages: [],
+  imageCount: 0,
+  thumbnailsPersisted: false,
+});
+
+const notConfirmed = await tryContinueGuestConfirmedMemberListingSave({
+  storageScopeKey: autoSaveScope.storageKey,
+  sessionId: autoSaveSessionId,
+  messages: [],
+  ownerId: "uid-autosave-member",
+  ownerName: "Test Member",
+  ownerPhone: "0812345678",
+});
+assertEqual(notConfirmed.kind, "skipped", "auto-save skipped without confirmed flag");
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-AUTO-SAVE-1",
+  fields: {
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 400000,
+    mileage: 30000,
+    transmission: "เกียร์ออโต้",
+  },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda City",
+  messages: [],
+  imageCount: 0,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+
+let autoSaveCalls = 0;
+const mockSavedCard = buildSavedMemberListingCardData({
+  listingId: "car-auto-save-1",
+  publicRefCode: "NA-AUTO-SAVE-1",
+  fields: {
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 400000,
+    mileage: 30000,
+    transmission: "เกียร์ออโต้",
+  },
+  marketingCopy: "Honda City",
+  imageUrls: [],
+});
+
+const autoSaveOk = await tryContinueGuestConfirmedMemberListingSave(
+  {
+    storageScopeKey: autoSaveScope.storageKey,
+    sessionId: autoSaveSessionId,
+    messages: useChatStore.getState().messages[autoSaveSessionId] ?? [],
+    ownerId: "uid-autosave-member",
+    ownerName: "Test Member",
+    ownerPhone: "0812345678",
+  },
+  {
+    saveListing: async () => {
+      autoSaveCalls += 1;
+      return {
+        ok: true as const,
+        listingId: "car-auto-save-1",
+        message: "saved",
+        imageCount: 0,
+        requestedImageCount: 0,
+        uploadResult: {
+          storedUrls: [],
+          requestedCount: 0,
+          uploadedCount: 0,
+          failedBatches: [],
+          failedFiles: [],
+        },
+        savedCard: mockSavedCard,
+      };
+    },
+  }
+);
+assertEqual(autoSaveOk.kind, "success", "guest confirmed auto-save success");
+assertEqual(autoSaveCalls, 1, "auto-save calls save once");
+const autoSaveMessages = useChatStore.getState().messages[autoSaveSessionId] ?? [];
+assertEqual(
+  sessionHasSavedListingForRef(autoSaveMessages, "NA-AUTO-SAVE-1"),
+  true,
+  "auto-save success adds saved listing card"
+);
+assertEqual(hasPendingChatDraftSnapshotInStorage(), false, "auto-save clears pending snapshot");
+
+const autoSaveRepeat = await tryContinueGuestConfirmedMemberListingSave(
+  {
+    storageScopeKey: autoSaveScope.storageKey,
+    sessionId: autoSaveSessionId,
+    messages: autoSaveMessages,
+    ownerId: "uid-autosave-member",
+    ownerName: "Test Member",
+    ownerPhone: "0812345678",
+  },
+  {
+    saveListing: async () => {
+      autoSaveCalls += 1;
+      return {
+        ok: true as const,
+        listingId: "car-auto-save-dup",
+        message: "saved",
+        imageCount: 0,
+        requestedImageCount: 0,
+        uploadResult: {
+          storedUrls: [],
+          requestedCount: 0,
+          uploadedCount: 0,
+          failedBatches: [],
+          failedFiles: [],
+        },
+        savedCard: mockSavedCard,
+      };
+    },
+  }
+);
+assertEqual(autoSaveRepeat.kind, "already_saved", "auto-save repeat is idempotent");
+assertEqual(autoSaveCalls, 1, "auto-save repeat does not save again");
+
+resetGuestConfirmedAutoSaveStateForTest();
+clearPendingChatDraftSnapshot();
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-AUTO-SAVE-NOIMG",
+  fields: {
+    brand: "Toyota",
+    model: "Vios",
+    year: 2021,
+    price: 350000,
+    mileage: 40000,
+    transmission: "เกียร์ออโต้",
+  },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nToyota Vios",
+  messages: [],
+  imageCount: 2,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+const needImagesSession = await useChatStore.getState().createSession(
+  autoSaveScope,
+  "need images auto-save"
+);
+const needImagesResult = await tryContinueGuestConfirmedMemberListingSave({
+  storageScopeKey: autoSaveScope.storageKey,
+  sessionId: needImagesSession,
+  messages: [],
+  ownerId: "uid-autosave-member",
+  ownerName: "Test Member",
+  ownerPhone: "0812345678",
+});
+assertEqual(needImagesResult.kind, "need_images", "auto-save missing images fallback");
+assertEqual(
+  getPrecheckContext(needImagesSession)?.awaitingImageReattachForConfirmedDraft,
+  true,
+  "auto-save missing images sets reattach flag"
+);
 
 console.log("--- Testing guest image store migrate on claim (PR2) ---");
 
