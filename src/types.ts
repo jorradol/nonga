@@ -107,6 +107,8 @@ export interface ChatMessage {
   savedMemberListingCard?: SavedMemberListingCardData;
   /** สรุปก่อนเผยแพร่ — รอ confirm ครั้งที่ 2 (publish-in-chat) */
   isPublishAwaitingConfirm?: boolean;
+  /** หลังเผยแพร่สำเร็จจากแชท — ปุ่มดูในตลาดรถ */
+  isPublishSuccess?: boolean;
   /** ไฟล์แนบจากผู้ใช้ */
   attachments?: ChatMessageAttachment[];
 }

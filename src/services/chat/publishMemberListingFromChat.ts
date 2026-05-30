@@ -1,5 +1,11 @@
-import type { ChatMessage, SavedMemberListingCardData } from "../../types";
+import type { Car, ChatMessage, SavedMemberListingCardData } from "../../types";
 import type { ExtractedCarFields } from "../ai/chat/sellIntentParser";
+import {
+  fetchMyListings,
+  setMyListingVisibility,
+} from "../listings/myListingsApi";
+import { AppFriendlyError } from "../../utils/appFriendlyError";
+import { isValidListingImageUrl } from "../../utils/listingImages";
 import {
   hasCoreFieldsComplete,
   getMissingCoreFieldLabels,
@@ -40,6 +46,29 @@ export type PublishBlockedReason =
   | "missing-listing-id"
   | "missing-core-fields"
   | "missing-images";
+
+export type PublishPreflightFailureReason =
+  | "listing-not-found"
+  | "owner-mismatch"
+  | "already-published"
+  | "not-hidden"
+  | "missing-images"
+  | "missing-core-fields";
+
+export const CHAT_PUBLISH_LOGIN_REQUIRED_MESSAGE =
+  "กรุณาเข้าสู่ระบบก่อนเผยแพร่ประกาศครับ แล้วกลับมากด “ยืนยันเผยแพร่ลงตลาด” อีกครั้ง";
+
+export const CHAT_PUBLISH_MEMBER_ONLY_MESSAGE =
+  "ฟีเจอร์เผยแพร่จากแชทนี้สำหรับสมาชิกขายรถส่วนบุคคลเท่านั้นครับ";
+
+export const CHAT_PUBLISH_ALREADY_PUBLISHED_MESSAGE =
+  "ประกาศนี้ลงตลาดแล้วครับ ลูกค้าสามารถค้นหาและดูในตลาดรถได้เลย";
+
+export const CHAT_PUBLISH_FORBIDDEN_MESSAGE =
+  "น้องเอไม่สามารถเผยแพร่ประกาศนี้ได้ครับ อาจเป็นของบัญชีอื่นหรือคุณไม่มีสิทธิ์จัดการ — ลองตรวจที่ “ประกาศของฉัน”";
+
+export const CHAT_PUBLISH_FETCH_FAILED_MESSAGE =
+  "โหลดข้อมูลประกาศจากระบบไม่สำเร็จครับ ลองรีเฟรชหน้าแล้วกด “พร้อมลงตลาด” อีกครั้ง";
 
 export type ValidateMemberListingReadyToPublishResult =
   | {
@@ -291,14 +320,120 @@ export function buildPublishBlockedMessage(reason: PublishBlockedReason): string
   }
 }
 
-/** Placeholder Step 3 — ยังไม่เรียก visibility API */
-export function buildPublishConfirmStep3PlaceholderAck(): string {
-  return "ขั้นถัดไปจะเปิดการเผยแพร่จริงครับ ตอนนี้ยังไม่เปลี่ยนสถานะประกาศ";
+export function buildPublishSuccessMessage(
+  listing: Car,
+  card?: SavedMemberListingCardData
+): string {
+  const brandModel = [listing.brand, listing.model].filter(Boolean).join(" ").trim();
+  const refLine = card?.publicRefCode
+    ? `\nรหัสอ้างอิงจากแชท: ${card.publicRefCode}`
+    : "";
+  return [
+    "เผยแพร่ประกาศลงตลาดเรียบร้อยแล้วครับ 🎉",
+    "",
+    brandModel
+      ? `${brandModel} ปี ${listing.year} — ${Number(listing.price).toLocaleString("th-TH")} บาท`
+      : `รหัสประกาศ: ${listing.id}`,
+    "ลูกค้าสามารถค้นหาและดูประกาศของคุณในตลาดรถได้แล้ว",
+    refLine,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-/** @deprecated ใช้ buildPublishConfirmStep3PlaceholderAck */
-export function buildPublishStepPlaceholderAck(): string {
-  return buildPublishConfirmStep3PlaceholderAck();
+export function countRealListingImagesOnRecord(car: Car): number {
+  return car.images.filter((url) => isValidListingImageUrl(url, car.id)).length;
+}
+
+export function carRecordToExtractedFields(car: Car): ExtractedCarFields {
+  return {
+    brand: car.brand,
+    model: car.model,
+    year: car.year,
+    price: car.price,
+    mileage: car.mileage,
+    transmission:
+      typeof car.transmission === "string" ? car.transmission : undefined,
+    color: car.color,
+    description: car.description,
+  };
+}
+
+export function preflightMemberListingRecordForChatPublish(params: {
+  ownerId: string;
+  listingId: string;
+  listings: Car[];
+}):
+  | { ok: true; listing: Car }
+  | { ok: false; reason: PublishPreflightFailureReason; message: string } {
+  const listingId = params.listingId.trim();
+  const ownerId = params.ownerId.trim();
+  const listing = params.listings.find((item) => item.id === listingId);
+
+  if (!listing) {
+    return {
+      ok: false,
+      reason: "listing-not-found",
+      message: buildPublishBlockedMessage("missing-listing-id"),
+    };
+  }
+
+  if (listing.ownerId !== ownerId) {
+    return {
+      ok: false,
+      reason: "owner-mismatch",
+      message: CHAT_PUBLISH_FORBIDDEN_MESSAGE,
+    };
+  }
+
+  if (listing.listingStatus === "published") {
+    return {
+      ok: false,
+      reason: "already-published",
+      message: CHAT_PUBLISH_ALREADY_PUBLISHED_MESSAGE,
+    };
+  }
+
+  if (listing.listingStatus !== "hidden") {
+    return {
+      ok: false,
+      reason: "not-hidden",
+      message:
+        "สถานะประกาศนี้ยังไม่พร้อมเผยแพร่จากแชทครับ กรุณาตรวจที่ “ประกาศของฉัน”",
+    };
+  }
+
+  const fields = carRecordToExtractedFields(listing);
+  if (!hasCoreFieldsComplete(fields)) {
+    return {
+      ok: false,
+      reason: "missing-core-fields",
+      message: buildPublishBlockedMessage("missing-core-fields"),
+    };
+  }
+
+  if (countRealListingImagesOnRecord(listing) < 1) {
+    return {
+      ok: false,
+      reason: "missing-images",
+      message: buildPublishBlockedMessage("missing-images"),
+    };
+  }
+
+  return { ok: true, listing };
+}
+
+export type ConfirmMemberPublishListingDeps = {
+  fetchMyListings: (ownerId: string) => Promise<Car[]>;
+  setListingVisible: (ownerId: string, listingId: string) => Promise<Car>;
+};
+
+export function createDefaultConfirmMemberPublishDeps(): ConfirmMemberPublishListingDeps {
+  return {
+    fetchMyListings: (ownerId) => fetchMyListings({ ownerId }),
+    setListingVisible: (ownerId, listingId) =>
+      setMyListingVisibility({ ownerId }, listingId, false),
+  };
 }
 
 export type MemberPublishListingIntentOutcome =
@@ -307,7 +442,10 @@ export type MemberPublishListingIntentOutcome =
 
 export type MemberConfirmPublishIntentOutcome =
   | { kind: "no_pending"; message: string }
-  | { kind: "confirm_placeholder"; message: string; listingId: string };
+  | { kind: "blocked"; message: string }
+  | { kind: "forbidden"; message: string }
+  | { kind: "already_published"; message: string; listingId: string }
+  | { kind: "success"; message: string; listingId: string };
 
 export function handleMemberPublishListingIntent(params: {
   sessionId: string;
@@ -326,10 +464,22 @@ export function handleMemberPublishListingIntent(params: {
   };
 }
 
-export function handleMemberConfirmPublishIntent(
-  sessionId: string
-): MemberConfirmPublishIntentOutcome {
-  const ctx = resolvePendingPublishListingContext(sessionId);
+export async function confirmMemberPublishListingFromChat(
+  params: {
+    sessionId: string;
+    ownerId: string;
+    canPublish: boolean;
+  },
+  deps: ConfirmMemberPublishListingDeps = createDefaultConfirmMemberPublishDeps()
+): Promise<MemberConfirmPublishIntentOutcome> {
+  if (!params.canPublish) {
+    if (!params.ownerId.trim()) {
+      return { kind: "blocked", message: CHAT_PUBLISH_LOGIN_REQUIRED_MESSAGE };
+    }
+    return { kind: "blocked", message: CHAT_PUBLISH_MEMBER_ONLY_MESSAGE };
+  }
+
+  const ctx = resolvePendingPublishListingContext(params.sessionId);
   if (!ctx) {
     return {
       kind: "no_pending",
@@ -337,10 +487,54 @@ export function handleMemberConfirmPublishIntent(
     };
   }
 
-  return {
-    kind: "confirm_placeholder",
+  let listings: Car[];
+  try {
+    listings = await deps.fetchMyListings(params.ownerId);
+  } catch {
+    return { kind: "blocked", message: CHAT_PUBLISH_FETCH_FAILED_MESSAGE };
+  }
+
+  const preflight = preflightMemberListingRecordForChatPublish({
+    ownerId: params.ownerId,
     listingId: ctx.listingId,
-    message: buildPublishConfirmStep3PlaceholderAck(),
+    listings,
+  });
+
+  if (preflight.ok === false) {
+    if (preflight.reason === "already-published") {
+      clearPendingPublishListingContext(params.sessionId);
+      return {
+        kind: "already_published",
+        listingId: ctx.listingId,
+        message: preflight.message,
+      };
+    }
+    if (preflight.reason === "owner-mismatch") {
+      return { kind: "forbidden", message: preflight.message };
+    }
+    return { kind: "blocked", message: preflight.message };
+  }
+
+  try {
+    await deps.setListingVisible(params.ownerId, ctx.listingId);
+  } catch (error) {
+    if (error instanceof AppFriendlyError && error.code === "forbidden") {
+      return { kind: "forbidden", message: CHAT_PUBLISH_FORBIDDEN_MESSAGE };
+    }
+    return {
+      kind: "blocked",
+      message:
+        error instanceof AppFriendlyError
+          ? error.friendlyMessage.split("\n")[0]
+          : CHAT_PUBLISH_FETCH_FAILED_MESSAGE,
+    };
+  }
+
+  clearPendingPublishListingContext(params.sessionId);
+  return {
+    kind: "success",
+    listingId: ctx.listingId,
+    message: buildPublishSuccessMessage(preflight.listing, ctx.card),
   };
 }
 

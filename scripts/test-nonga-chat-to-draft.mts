@@ -93,17 +93,20 @@ import {
   beginPendingPublishListingFromSavedCard,
   buildPublishAwaitingConfirmMessage,
   buildPublishBlockedMessage,
-  buildPublishConfirmStep3PlaceholderAck,
+  buildPublishSuccessMessage,
   buildPublishSummaryMessage,
   canEnterMemberPublishInChatFlow,
   CHAT_MEMBER_CANCEL_PUBLISH_ACTION,
   CHAT_MEMBER_CONFIRM_PUBLISH_ACTION,
+  CHAT_PUBLISH_ALREADY_PUBLISHED_MESSAGE,
+  CHAT_PUBLISH_MEMBER_ONLY_MESSAGE,
+  confirmMemberPublishListingFromChat,
   findLatestSavedMemberListingCardMessage,
   handleMemberCancelPublishIntent,
-  handleMemberConfirmPublishIntent,
   handleMemberPublishListingIntent,
   isMemberCancelPublishListingChatAction,
   isMemberConfirmPublishListingChatAction,
+  preflightMemberListingRecordForChatPublish,
   validateMemberListingReadyToPublish,
 } from "../src/services/chat/publishMemberListingFromChat";
 import {
@@ -125,6 +128,37 @@ import {
 import type { PendingChatImageAttachment } from "../src/features/chat-image-attachment-v1/types";
 import fs from "node:fs";
 import path from "node:path";
+
+import type { Car } from "../src/types";
+
+function mockHiddenMemberListing(
+  id: string,
+  ownerId = "member-pub-1",
+  overrides: Partial<Car> = {}
+): Car {
+  return {
+    id,
+    title: "Honda HR-V",
+    brand: "Honda",
+    model: "HR-V",
+    year: 2020,
+    price: 650000,
+    mileage: 42000,
+    type: "used",
+    condition: "good",
+    fuelType: "petrol",
+    transmission: "อัตโนมัติ",
+    images: [`/storage/listings/${id}/photo-1.jpg`],
+    description: "test listing",
+    ownerId,
+    ownerName: "Test Member",
+    ownerPhone: "0812345678",
+    isSold: false,
+    listingStatus: "hidden",
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -1554,20 +1588,6 @@ assertEqual(
   "blocked publish does not set pending context"
 );
 
-const confirmPlaceholder = handleMemberConfirmPublishIntent("sess-step3-1");
-assertEqual(
-  confirmPlaceholder.kind,
-  "confirm_placeholder",
-  "confirm publish returns placeholder"
-);
-if (confirmPlaceholder.kind === "confirm_placeholder") {
-  assertEqual(
-    confirmPlaceholder.message.includes("ยังไม่เปลี่ยนสถานะประกาศ"),
-    true,
-    "confirm placeholder mentions no status change"
-  );
-}
-
 const cancelPublish = handleMemberCancelPublishIntent("sess-step3-1");
 assertEqual(cancelPublish.kind, "cancelled", "cancel publish clears flow");
 assertEqual(
@@ -1581,7 +1601,11 @@ assertEqual(
   "cancel publish phrase matcher"
 );
 
-const confirmNoPending = handleMemberConfirmPublishIntent("sess-step3-missing");
+const confirmNoPending = await confirmMemberPublishListingFromChat({
+  sessionId: "sess-step3-missing",
+  ownerId: "member-pub-1",
+  canPublish: true,
+});
 assertEqual(
   confirmNoPending.kind,
   "no_pending",
@@ -1594,10 +1618,233 @@ const noSavedCardIntent = handleMemberPublishListingIntent({
 });
 assertEqual(noSavedCardIntent.kind, "blocked", "publish intent blocked without saved card");
 
+console.log("--- Testing publish-in-chat Step 4 real publish ---");
+
+clearAllPendingPublishListingContextsForTest();
+
+const step4ListingId = "car-publish-step2";
+const step4OwnerId = "member-pub-1";
+const step4Listing = mockHiddenMemberListing(step4ListingId, step4OwnerId);
+
+setPendingPublishListingContext({
+  sessionId: "sess-step4-ok",
+  listingId: step4ListingId,
+  publicRefCode: "NA-2026-PUB1",
+  card: savedCardForPublish,
+});
+
+let step4VisibilityCalls = 0;
+const step4Ok = await confirmMemberPublishListingFromChat(
+  {
+    sessionId: "sess-step4-ok",
+    ownerId: step4OwnerId,
+    canPublish: true,
+  },
+  {
+    fetchMyListings: async () => [step4Listing],
+    setListingVisible: async (ownerId, listingId) => {
+      step4VisibilityCalls += 1;
+      assertEqual(ownerId, step4OwnerId, "publish success ownerId");
+      assertEqual(listingId, step4ListingId, "publish success listingId");
+      return { ...step4Listing, listingStatus: "published" };
+    },
+  }
+);
+assertEqual(step4Ok.kind, "success", "confirm publish success");
+assertEqual(step4VisibilityCalls, 1, "confirm publish calls setMyListingVisibility(false)");
+if (step4Ok.kind === "success") {
+  assertEqual(
+    step4Ok.message.includes("เผยแพร่ประกาศลงตลาดเรียบร้อยแล้ว"),
+    true,
+    "publish success builds marketplace success message"
+  );
+  assertEqual(step4Ok.listingId, step4ListingId, "publish success listing id");
+}
 assertEqual(
-  buildPublishConfirmStep3PlaceholderAck().includes("ยังไม่เปลี่ยนสถานะประกาศ"),
+  getPendingPublishListingContext("sess-step4-ok"),
+  null,
+  "publish success clears pending context"
+);
+
+const preflightOk = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: step4ListingId,
+  listings: [step4Listing],
+});
+assertEqual(preflightOk.ok, true, "preflight passes ready hidden listing");
+
+const preflightNoListing = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: "missing-listing",
+  listings: [step4Listing],
+});
+assertEqual(preflightNoListing.ok, false, "guard fail: no listing");
+if (preflightNoListing.ok === false) {
+  assertEqual(
+    preflightNoListing.reason,
+    "listing-not-found",
+    "guard fail reason no listing"
+  );
+}
+
+const preflightNoImages = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: step4ListingId,
+  listings: [mockHiddenMemberListing(step4ListingId, step4OwnerId, { images: [] })],
+});
+assertEqual(preflightNoImages.ok, false, "guard fail: no images");
+if (preflightNoImages.ok === false) {
+  assertEqual(preflightNoImages.reason, "missing-images", "guard fail reason no images");
+}
+
+const preflightMissingFields = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: step4ListingId,
+  listings: [
+    mockHiddenMemberListing(step4ListingId, step4OwnerId, {
+      brand: "",
+      model: "",
+    }),
+  ],
+});
+assertEqual(preflightMissingFields.ok, false, "guard fail: missing fields");
+if (preflightMissingFields.ok === false) {
+  assertEqual(
+    preflightMissingFields.reason,
+    "missing-core-fields",
+    "guard fail reason missing fields"
+  );
+}
+
+const preflightAlreadyPublished = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: step4ListingId,
+  listings: [
+    mockHiddenMemberListing(step4ListingId, step4OwnerId, {
+      listingStatus: "published",
+    }),
+  ],
+});
+assertEqual(preflightAlreadyPublished.ok, false, "already published preflight");
+if (preflightAlreadyPublished.ok === false) {
+  assertEqual(
+    preflightAlreadyPublished.message.includes("ลงตลาดแล้ว"),
+    true,
+    "already published friendly message"
+  );
+}
+
+const preflightOwnerMismatch = preflightMemberListingRecordForChatPublish({
+  ownerId: "other-user",
+  listingId: step4ListingId,
+  listings: [step4Listing],
+});
+assertEqual(preflightOwnerMismatch.ok, false, "guard fail owner mismatch");
+if (preflightOwnerMismatch.ok === false) {
+  assertEqual(
+    preflightOwnerMismatch.reason,
+    "owner-mismatch",
+    "guard fail reason owner mismatch"
+  );
+}
+
+setPendingPublishListingContext({
+  sessionId: "sess-step4-already",
+  listingId: step4ListingId,
+  publicRefCode: "NA-2026-PUB1",
+  card: savedCardForPublish,
+});
+const alreadyPublishedFlow = await confirmMemberPublishListingFromChat(
+  {
+    sessionId: "sess-step4-already",
+    ownerId: step4OwnerId,
+    canPublish: true,
+  },
+  {
+    fetchMyListings: async () => [
+      mockHiddenMemberListing(step4ListingId, step4OwnerId, {
+        listingStatus: "published",
+      }),
+    ],
+    setListingVisible: async () => {
+      throw new Error("should not publish when already published");
+    },
+  }
+);
+assertEqual(
+  alreadyPublishedFlow.kind,
+  "already_published",
+  "already published flow friendly outcome"
+);
+if (alreadyPublishedFlow.kind === "already_published") {
+  assertEqual(
+    alreadyPublishedFlow.message,
+    CHAT_PUBLISH_ALREADY_PUBLISHED_MESSAGE,
+    "already published message constant"
+  );
+}
+
+setPendingPublishListingContext({
+  sessionId: "sess-step4-forbidden",
+  listingId: step4ListingId,
+  publicRefCode: "NA-2026-PUB1",
+  card: savedCardForPublish,
+});
+const forbiddenFlow = await confirmMemberPublishListingFromChat(
+  {
+    sessionId: "sess-step4-forbidden",
+    ownerId: step4OwnerId,
+    canPublish: true,
+  },
+  {
+    fetchMyListings: async () => [
+      mockHiddenMemberListing(step4ListingId, "other-owner"),
+    ],
+    setListingVisible: async () => {
+      throw new Error("should not publish on owner mismatch");
+    },
+  }
+);
+assertEqual(forbiddenFlow.kind, "forbidden", "owner mismatch forbidden flow");
+
+const dealerBlocked = await confirmMemberPublishListingFromChat({
+  sessionId: "sess-step4-dealer",
+  ownerId: "dealer-1",
+  canPublish: false,
+});
+assertEqual(dealerBlocked.kind, "blocked", "dealer/admin blocked from publish flow");
+assertEqual(
+  dealerBlocked.message,
+  CHAT_PUBLISH_MEMBER_ONLY_MESSAGE,
+  "dealer blocked message"
+);
+
+assertEqual(
+  buildPublishSuccessMessage(step4Listing, savedCardForPublish).includes(
+    "เผยแพร่ประกาศลงตลาดเรียบร้อยแล้ว"
+  ),
   true,
-  "step3 placeholder ack text"
+  "buildPublishSuccessMessage text"
+);
+
+const publishSource = fs.readFileSync(
+  path.join(process.cwd(), "src/services/chat/publishMemberListingFromChat.ts"),
+  "utf8"
+);
+assertEqual(
+  publishSource.includes("setMyListingVisibility"),
+  true,
+  "publish service calls setMyListingVisibility"
+);
+assertEqual(
+  publishSource.includes('method: "POST"') || publishSource.includes("POST /api/cars"),
+  false,
+  "publish step still no POST /api/cars"
+);
+assertEqual(
+  publishSource.includes("uploadListingImagesApi"),
+  false,
+  "publish step still no image upload"
 );
 
 const useChatSource = fs.readFileSync(
@@ -1605,19 +1852,24 @@ const useChatSource = fs.readFileSync(
   "utf8"
 );
 assertEqual(
-  useChatSource.includes("setMyListingVisibility"),
-  false,
-  "useChat does not call setMyListingVisibility in Step 3"
+  useChatSource.includes("confirmMemberPublishListingFromChat"),
+  true,
+  "useChat wires confirmMemberPublishListingFromChat"
 );
 assertEqual(
-  useChatSource.includes("/visibility"),
-  false,
-  "useChat does not call visibility API in Step 3"
+  useChatSource.includes("isPublishSuccess"),
+  true,
+  "useChat sets publish success flag"
 );
 assertEqual(
   useChatSource.includes("handleMemberPublishListingIntent"),
   true,
   "useChat wires publish summary handler"
+);
+assertEqual(
+  useChatSource.includes('setView("login")'),
+  false,
+  "useChat still avoids full-page login redirect"
 );
 
 clearAllPendingPublishListingContextsForTest();

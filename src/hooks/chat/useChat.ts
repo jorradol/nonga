@@ -101,7 +101,7 @@ import {
 } from "../../services/chat/chatSavedMemberListing";
 import {
   handleMemberCancelPublishIntent,
-  handleMemberConfirmPublishIntent,
+  confirmMemberPublishListingFromChat,
   handleMemberPublishListingIntent,
   isMemberCancelPublishListingChatAction,
   isMemberConfirmPublishListingChatAction,
@@ -215,7 +215,7 @@ export function useChat() {
     updatePersonalityInstruction,
   } = useChatStore();
 
-  const { user } = useAppStore();
+  const { user, fetchCars } = useAppStore();
   const { isSignedIn } = useAuth();
   const { isDealer, isAdmin, role } = useRole();
 
@@ -749,8 +749,32 @@ export function useChat() {
         }
 
         if (isMemberConfirmPublishListingChatAction(trimmed)) {
-          const confirmed = handleMemberConfirmPublishIntent(sessionId);
-          await addMessage(sessionId, "ai", confirmed.message);
+          const confirmed = await confirmMemberPublishListingFromChat({
+            sessionId,
+            ownerId: user?.uid?.trim() ?? "",
+            canPublish: memberConsumerSellerFlow && isSignedIn,
+          });
+          if (
+            confirmed.kind === "success" ||
+            confirmed.kind === "already_published"
+          ) {
+            await addMessage(
+              sessionId,
+              "ai",
+              confirmed.message,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              { isPublishSuccess: true },
+              confirmed.listingId
+            );
+            void fetchCars();
+          } else {
+            await addMessage(sessionId, "ai", confirmed.message);
+          }
           setGenerating(false);
           return;
         }

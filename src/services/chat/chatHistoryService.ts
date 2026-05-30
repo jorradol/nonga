@@ -226,6 +226,7 @@ function normalizeMessage(
     ...(raw.isPublishAwaitingConfirm
       ? { isPublishAwaitingConfirm: true }
       : {}),
+    ...(raw.isPublishSuccess ? { isPublishSuccess: true } : {}),
     ...(Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? { attachments: raw.attachments as ChatMessageAttachment[] }
       : {}),
@@ -420,6 +421,7 @@ function messageToFirestoreData(message: ChatMessage) {
         }
       : {}),
     ...(safe.isPublishAwaitingConfirm ? { isPublishAwaitingConfirm: true } : {}),
+    ...(safe.isPublishSuccess ? { isPublishSuccess: true } : {}),
     ...(safe.attachments && safe.attachments.length > 0
       ? { attachments: safe.attachments }
       : {}),
@@ -616,6 +618,7 @@ export async function appendChatMessage(
         }
       : {}),
     ...(input.isPublishAwaitingConfirm ? { isPublishAwaitingConfirm: true } : {}),
+    ...(input.isPublishSuccess ? { isPublishSuccess: true } : {}),
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),

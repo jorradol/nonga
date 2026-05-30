@@ -38,6 +38,7 @@ export type AddMessageListingExtras = {
   isSavedMemberListingCard?: boolean;
   savedMemberListingCard?: SavedMemberListingCardData;
   isPublishAwaitingConfirm?: boolean;
+  isPublishSuccess?: boolean;
 };
 
 interface ChatState {
@@ -272,6 +273,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(listingExtras?.isPublishAwaitingConfirm
         ? { isPublishAwaitingConfirm: true }
         : {}),
+      ...(listingExtras?.isPublishSuccess ? { isPublishSuccess: true } : {}),
     });
 
     set((state) => ({

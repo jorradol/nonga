@@ -467,6 +467,22 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
+            {message.isPublishSuccess && message.savedMemberListingId && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView("marketplace", message.savedMemberListingId!);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  id="chat-view-marketplace-btn"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  ดูในตลาดรถ
+                </button>
+              </div>
+            )}
+
             {message.isPublishAwaitingConfirm && (
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 <button
