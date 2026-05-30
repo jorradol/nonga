@@ -7,15 +7,18 @@ import type { VisionObservationSummary } from "../ai/chat/chatPrecheckLayer";
 import { useChatStore } from "../../stores/chat/chatStore";
 
 export const CHAT_SAVED_MEMBER_LISTING_CARD_INTRO =
-  "บันทึกประกาศร่างเรียบร้อยแล้วครับ ตรวจสอบข้อมูลในการ์ดนี้ได้เลย ยังไม่ลงตลาดจนกว่าจะกดเผยแพร่";
+  "บันทึกประกาศร่างเรียบร้อยแล้วครับ ประกาศนี้ยังไม่เผยแพร่ในตลาด — ตรวจทานข้อมูลในการ์ดด้านล่างได้เลย หรือไปต่อที่ “ประกาศของฉัน” เมื่อพร้อม";
 
 export const SAVED_MEMBER_LISTING_STATUS_LABEL =
-  "บันทึกเป็นประกาศร่างแล้ว / ยังไม่ลงตลาด";
+  "รอตรวจทาน / ยังไม่ลงตลาด";
 
 export const CHAT_MEMBER_PUBLISH_LISTING_ACTION = "พร้อมลงตลาด";
 
 export const CHAT_MEMBER_PUBLISH_COMING_SOON_ACK =
-  "ขั้นตอนเผยแพร่ในแชทจะเปิดในรอบถัดไปครับ ตอนนี้ลุงดูและแก้ไขประกาศใน “ประกาศของฉัน” ก่อนได้เลย";
+  "ฟีเจอร์ลงตลาดจากแชทจะเปิดในรอบถัดไปครับ ตอนนี้ประกาศถูกบันทึกเป็นร่างแล้ว — ยังไม่แสดงในตลาด ตรวจทานและแก้ไขได้ที่ “ประกาศของฉัน” ก่อนได้เลย";
+
+export const CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER =
+  "ปุ่ม “พร้อมลงตลาด” จะเปิดในรอบถัดไป — ตอนนี้ประกาศยังเป็นร่างและยังไม่แสดงในตลาด";
 
 export function listingImageUrlsToChatAttachments(
   urls: string[]

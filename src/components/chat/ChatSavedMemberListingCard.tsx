@@ -5,7 +5,7 @@ import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser
 import type { VisionObservationSummary } from "../../services/ai/chat/chatPrecheckLayer";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useClipboard } from "../../hooks/chat/useClipboard";
-import { CHAT_MEMBER_PUBLISH_LISTING_ACTION } from "../../services/chat/chatSavedMemberListing";
+import { CHAT_MEMBER_PUBLISH_LISTING_ACTION, CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER } from "../../services/chat/chatSavedMemberListing";
 
 interface ChatSavedMemberListingCardProps {
   card: SavedMemberListingCardData;
@@ -68,10 +68,15 @@ export function ChatSavedMemberListingCard({
       data-testid="chat-saved-member-listing-card"
     >
       <div className="px-3 py-2 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-bold text-emerald-300">
-          การ์ดประกาศที่บันทึกแล้ว
-        </span>
-        <span className="text-[10px] font-semibold text-emerald-100/90 bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-full">
+        <div className="min-w-0">
+          <span className="text-[11px] font-bold text-emerald-300 block">
+            ประกาศร่างที่บันทึกแล้ว
+          </span>
+          <span className="text-[10px] text-slate-500 mt-0.5 block">
+            ยังไม่เผยแพร่ในตลาด
+          </span>
+        </div>
+        <span className="text-[10px] font-semibold text-emerald-100/90 bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-full shrink-0 text-center">
           {card.statusLabel}
         </span>
       </div>
@@ -145,13 +150,14 @@ export function ChatSavedMemberListingCard({
         <button
           type="button"
           onClick={onPublishComingSoon}
-          className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer"
+          title="ฟีเจอร์นี้จะเปิดในรอบถัดไป — ประกาศยังเป็นร่างและยังไม่ลงตลาด"
+          className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-400 text-xs font-bold rounded-xl border border-dashed border-slate-600 transition-colors cursor-pointer"
         >
           {CHAT_MEMBER_PUBLISH_LISTING_ACTION}
         </button>
       </div>
-      <p className="px-3 pb-3 text-[10px] text-slate-500 text-center">
-        ขั้นตอนเผยแพร่ในแชทจะเปิดในรอบถัดไป — ยังไม่ลงตลาดจริง
+      <p className="px-3 pb-3 text-[10px] text-slate-500 text-center leading-relaxed">
+        {CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER}
       </p>
     </div>
   );
