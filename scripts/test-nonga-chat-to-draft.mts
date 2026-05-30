@@ -54,7 +54,14 @@ import {
   resetGuestConfirmedAutoSaveStateForTest,
   sessionHasSavedListingForRef,
   tryContinueGuestConfirmedMemberListingSave,
+  type ContinueGuestConfirmedSaveDeps,
 } from "../src/services/chat/continueGuestConfirmedMemberListingSave";
+import {
+  hasGuestConfirmedPendingHandoff,
+  resetGuestConfirmedLoginHandoffStateForTest,
+  shouldDeferGuestImageScopeClear,
+  tryRunGuestConfirmedLoginHandoff,
+} from "../src/services/chat/guestConfirmedLoginHandoff";
 import {
   saveGuestChatClaimPointer,
   readGuestChatClaimPointer,
@@ -1056,6 +1063,245 @@ assertEqual(
   getPrecheckContext(needImagesSession)?.awaitingImageReattachForConfirmedDraft,
   true,
   "auto-save missing images sets reattach flag"
+);
+
+console.log("--- Testing guest confirmed login handoff ---");
+resetGuestConfirmedLoginHandoffStateForTest();
+resetGuestConfirmedAutoSaveStateForTest();
+clearPendingChatDraftSnapshot();
+clearGuestChatClaimPointer();
+
+const handoffGuestScope = "user:guest-handoff-1";
+const handoffMemberScopeKey = "user:uid-handoff-member";
+const handoffSessionId = "chat-handoff-session";
+const handoffMsgId = "msg-handoff-images";
+const handoffPending = [makeTestPending("handoff-img-1"), makeTestPending("handoff-img-2")];
+const handoffMeta = toChatImageMessageAttachments(handoffPending);
+const handoffUserMessages = [
+  {
+    id: handoffMsgId,
+    sender: "user" as const,
+    text: "(แนบรูป)",
+    createdAt: claimNowIso,
+    attachments: handoffMeta,
+  },
+  {
+    id: "msg-handoff-preview",
+    sender: "ai" as const,
+    text: "[โพสต์ตัวอย่าง]\nHonda City",
+    createdAt: claimNowIso,
+    isDraftPreview: true,
+  },
+];
+
+clearChatImageAttachmentScope(handoffGuestScope);
+clearChatImageAttachmentScope(handoffMemberScopeKey);
+registerChatImageMessageFiles(
+  handoffGuestScope,
+  handoffSessionId,
+  handoffMsgId,
+  handoffPending,
+  handoffMeta
+);
+markChatImageMessageForPendingListing(handoffGuestScope, handoffSessionId, handoffMsgId);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-HANDOFF-1",
+  fields: {
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 400000,
+    mileage: 30000,
+    transmission: "เกียร์ออโต้",
+  },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nHonda City",
+  messages: serializeMessagesForSnapshot(handoffUserMessages),
+  draftPreviewAttachments: handoffMeta,
+  imageCount: 2,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+saveGuestChatClaimPointer({
+  guestStorageScopeKey: handoffGuestScope,
+  guestSessionId: handoffSessionId,
+  publicRefCode: "NA-HANDOFF-1",
+});
+
+assertEqual(hasGuestConfirmedPendingHandoff(), true, "confirmed handoff pending before login");
+assertEqual(
+  shouldDeferGuestImageScopeClear({
+    guestScopeKey: handoffGuestScope,
+    memberScopeKey: handoffMemberScopeKey,
+  }),
+  true,
+  "defer guest image clear while confirmed handoff pending"
+);
+assertEqual(
+  hasPendingChatDraftSnapshotInStorage(),
+  true,
+  "confirmed snapshot remains in storage before handoff"
+);
+
+const handoffMemberScope = {
+  storageKey: handoffMemberScopeKey,
+  userId: "uid-handoff-member",
+  dealerId: null,
+  mode: "consumer" as const,
+};
+useChatStore.getState().resetChatState();
+await useChatStore.getState().loadSessions(handoffMemberScope);
+useChatStore.setState({
+  sessions: [
+    {
+      id: handoffSessionId,
+      sessionId: handoffSessionId,
+      userId: handoffMemberScopeKey,
+      uid: "uid-handoff-member",
+      dealerId: null,
+      scope: "user",
+      storageScopeKey: handoffMemberScopeKey,
+      title: "handoff guest thread",
+      createdAt: claimNowIso,
+      updatedAt: claimNowIso,
+      status: "active",
+    },
+  ],
+  messages: { [handoffSessionId]: handoffUserMessages },
+  activeSessionId: handoffSessionId,
+});
+
+let handoffSaveCalls = 0;
+const handoffSavedCard = buildSavedMemberListingCardData({
+  listingId: "car-handoff-1",
+  publicRefCode: "NA-HANDOFF-1",
+  fields: {
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 400000,
+    mileage: 30000,
+    transmission: "เกียร์ออโต้",
+  },
+  marketingCopy: "Honda City",
+  imageUrls: ["/img/handoff-1.jpg"],
+});
+const mockHandoffSave: ContinueGuestConfirmedSaveDeps = {
+  saveListing: async () => {
+    handoffSaveCalls += 1;
+    return {
+      ok: true as const,
+      listingId: "car-handoff-1",
+      message: "saved",
+      imageCount: 2,
+      requestedImageCount: 2,
+      uploadResult: {
+        storedUrls: ["/img/handoff-1.jpg"],
+        requestedCount: 2,
+        uploadedCount: 2,
+        failedBatches: [],
+        failedFiles: [],
+      },
+      savedCard: handoffSavedCard,
+    };
+  },
+};
+
+const handoffResult = await tryRunGuestConfirmedLoginHandoff({
+  memberScope: handoffMemberScope,
+  storageScopeKey: handoffMemberScopeKey,
+  isMemberConsumerSeller: true,
+  ownerId: "uid-handoff-member",
+  ownerName: "Handoff Member",
+  ownerPhone: "0812345678",
+  previousGuestScopeKey: handoffGuestScope,
+  autoSaveDeps: mockHandoffSave,
+});
+assertEqual(handoffResult.kind, "completed", "handoff completes after login");
+if (handoffResult.kind === "completed") {
+  assertEqual(handoffResult.autoSave.kind, "success", "handoff auto-save succeeds with migrated images");
+}
+assertEqual(handoffSaveCalls, 1, "handoff save runs once");
+assertEqual(
+  countChatImageAttachmentsInSession(handoffMemberScopeKey, handoffSessionId),
+  2,
+  "handoff migrates guest images to member scope"
+);
+assertEqual(
+  hasPendingChatDraftSnapshotInStorage(),
+  false,
+  "handoff clears snapshot after successful save"
+);
+
+const handoffRepeat = await tryRunGuestConfirmedLoginHandoff({
+  memberScope: handoffMemberScope,
+  storageScopeKey: handoffMemberScopeKey,
+  isMemberConsumerSeller: true,
+  ownerId: "uid-handoff-member",
+  ownerName: "Handoff Member",
+  ownerPhone: "0812345678",
+  previousGuestScopeKey: handoffGuestScope,
+  autoSaveDeps: mockHandoffSave,
+});
+assertEqual(
+  handoffRepeat.kind === "skipped" ||
+    (handoffRepeat.kind === "completed" && handoffRepeat.autoSave.kind === "already_saved"),
+  true,
+  "handoff repeat is idempotent (skipped or already_saved)"
+);
+assertEqual(handoffSaveCalls, 1, "handoff repeat does not save again");
+
+resetGuestConfirmedLoginHandoffStateForTest();
+resetGuestConfirmedAutoSaveStateForTest();
+clearPendingChatDraftSnapshot();
+clearGuestChatClaimPointer();
+clearChatImageAttachmentScope(handoffGuestScope);
+clearChatImageAttachmentScope(handoffMemberScopeKey);
+
+savePendingChatDraftSnapshot({
+  publicRefCode: "NA-HANDOFF-NOIMG",
+  fields: {
+    brand: "Toyota",
+    model: "Vios",
+    year: 2021,
+    price: 350000,
+    mileage: 40000,
+    transmission: "เกียร์ออโต้",
+  },
+  draftPreviewText: "[โพสต์ตัวอย่าง]\nToyota Vios",
+  messages: [],
+  imageCount: 2,
+  thumbnailsPersisted: false,
+  userAlreadyConfirmedCreateDraft: true,
+});
+useChatStore.getState().resetChatState();
+await useChatStore.getState().loadSessions(handoffMemberScope);
+const handoffNoImgSessionId = await useChatStore.getState().createSession(
+  handoffMemberScope,
+  "handoff no images"
+);
+saveGuestChatClaimPointer({
+  guestStorageScopeKey: handoffGuestScope,
+  guestSessionId: handoffNoImgSessionId,
+  publicRefCode: "NA-HANDOFF-NOIMG",
+});
+const handoffNoImg = await tryRunGuestConfirmedLoginHandoff({
+  memberScope: handoffMemberScope,
+  storageScopeKey: handoffMemberScopeKey,
+  isMemberConsumerSeller: true,
+  ownerId: "uid-handoff-member",
+  ownerName: "Handoff Member",
+  ownerPhone: "0812345678",
+  previousGuestScopeKey: handoffGuestScope,
+});
+assertEqual(handoffNoImg.kind, "completed", "handoff without images completes");
+if (handoffNoImg.kind === "completed") {
+  assertEqual(handoffNoImg.autoSave.kind, "need_images", "handoff without images enters reattach state");
+}
+assertEqual(
+  getPrecheckContext(handoffNoImgSessionId)?.awaitingImageReattachForConfirmedDraft,
+  true,
+  "handoff missing images sets awaiting reattach"
 );
 
 console.log("--- Testing guest image store migrate on claim (PR2) ---");

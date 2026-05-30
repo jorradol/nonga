@@ -46,7 +46,6 @@ import {
   getChatImagesForMessage,
   collectDraftPreviewDisplayAttachments,
   markChatImageMessageForPendingListing,
-  migrateChatImageAttachmentScope,
   registerChatImageMessageFiles,
   toChatImageMessageAttachments,
   type StoredChatImageAttachment,
@@ -73,10 +72,10 @@ import {
   savePendingChatDraftSnapshot,
   serializeMessagesForSnapshot,
   buildPostLoginDraftSavedText,
+  POST_LOGIN_IMAGES_REATTACH_FOR_SAVE_NOTE,
 } from "../../utils/chatPendingDraftSnapshot";
 import {
   applyClaimedGuestSessionToChatStore,
-  rehydrateClaimedGuestChatImageStore,
   shouldSkipSnapshotRestoreAfterClaim,
   tryClaimGuestChatAfterLogin,
 } from "../../services/chat/claimGuestChatAfterLogin";
@@ -109,8 +108,13 @@ import {
 } from "../../services/chat/publishMemberListingFromChat";
 import {
   buildMemberReattachSaveParams,
-  tryContinueGuestConfirmedMemberListingSave,
 } from "../../services/chat/continueGuestConfirmedMemberListingSave";
+import {
+  hasGuestConfirmedPendingHandoff,
+  shouldDeferGuestImageScopeClear,
+  tryRunGuestConfirmedLoginHandoff,
+} from "../../services/chat/guestConfirmedLoginHandoff";
+import { guestConfirmAutoSaveLog } from "../../utils/guestConfirmAutoSaveDebug";
 import {
   CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE,
   saveMemberListingFromChat,
@@ -253,29 +257,28 @@ export function useChat() {
   }, [user]);
 
   const runGuestConfirmedAutoSaveAfterLogin = useCallback(
-    async (sessionId: string, sessionMessages?: ChatMessage[]) => {
+    async (previousGuestScopeKey?: string | null) => {
       if (!memberConsumerSellerFlow) return null;
       const { ownerId, ownerName, ownerPhone } = resolveMemberOwnerProfile();
-      if (!ownerId) return null;
-      const messages =
-        sessionMessages ??
-        useChatStore.getState().messages[sessionId] ??
-        [];
-      const result = await tryContinueGuestConfirmedMemberListingSave({
+      if (!ownerId) {
+        guestConfirmAutoSaveLog("after login: defer handoff", {
+          reason: "owner_profile_not_ready",
+          isSignedIn,
+          role,
+        });
+        return null;
+      }
+      return tryRunGuestConfirmedLoginHandoff({
+        memberScope: chatScope,
         storageScopeKey,
-        sessionId,
-        messages,
+        isMemberConsumerSeller: memberConsumerSellerFlow,
         ownerId,
         ownerName,
         ownerPhone,
+        previousGuestScopeKey,
       });
-      chatRestoreLog("runGuestConfirmedAutoSaveAfterLogin", {
-        sessionId,
-        result,
-      });
-      return result;
     },
-    [memberConsumerSellerFlow, resolveMemberOwnerProfile, storageScopeKey]
+    [memberConsumerSellerFlow, resolveMemberOwnerProfile, storageScopeKey, chatScope, isSignedIn, role]
   );
 
   const saveDraftRef = useRef<
@@ -384,6 +387,11 @@ export function useChat() {
 
     // Same visit + scope: keep guest in-memory thread (do not wipe on every effect run).
     if (!isNewScope && !force) {
+      if (isSignedIn && memberConsumerSellerFlow && hasGuestConfirmedPendingHandoff()) {
+        await runGuestConfirmedAutoSaveAfterLogin(
+          readGuestChatClaimPointer()?.guestStorageScopeKey ?? null
+        );
+      }
       chatRestoreLog("hydrateChatForScope: skip — same scope");
       return;
     }
@@ -429,21 +437,24 @@ export function useChat() {
       chatRestoreLog("hydrateChatForScope: claim result", claimOutcome);
     }
 
-    if (
-      claimOutcome?.claimed &&
-      previousScopeKey &&
-      previousScopeKey !== storageScopeKey
-    ) {
-      const migrateResult = migrateChatImageAttachmentScope({
-        fromStorageScopeKey: previousScopeKey,
-        toStorageScopeKey: storageScopeKey,
-        sessionId: claimOutcome.sessionId,
-      });
-      chatRestoreLog("hydrateChatForScope: image store migrated", migrateResult);
-    }
+    const guestScopeKeyForHandoff =
+      previousWasGuest && previousScopeKey?.startsWith("user:guest-")
+        ? previousScopeKey
+        : readGuestChatClaimPointer()?.guestStorageScopeKey ?? null;
 
     if (lastHydratedChatScopeKey) {
-      clearChatImageAttachmentScope(lastHydratedChatScopeKey);
+      const shouldDeferClear = shouldDeferGuestImageScopeClear({
+        guestScopeKey: guestScopeKeyForHandoff ?? lastHydratedChatScopeKey,
+        memberScopeKey: storageScopeKey,
+      });
+      if (shouldDeferClear) {
+        guestConfirmAutoSaveLog("snapshot clear: deferred", {
+          reason: "pending_handoff_before_migrate",
+          guestScopeKey: guestScopeKeyForHandoff ?? lastHydratedChatScopeKey,
+        });
+      } else {
+        clearChatImageAttachmentScope(lastHydratedChatScopeKey);
+      }
     }
     if (guestEphemeral && !hasInMemoryGuestThread) {
       resetEphemeralGuestChatMemory();
@@ -469,16 +480,10 @@ export function useChat() {
         claimOutcome.sessionId,
         claimOutcome.messages
       );
-      const rehydrateResult = await rehydrateClaimedGuestChatImageStore({
-        memberStorageScopeKey: storageScopeKey,
-        sessionId: claimOutcome.sessionId,
-        messages: claimOutcome.messages,
-      });
-      chatRestoreLog("hydrateChatForScope: image store rehydrated", rehydrateResult);
-      await runGuestConfirmedAutoSaveAfterLogin(
-        claimOutcome.sessionId,
-        useChatStore.getState().messages[claimOutcome.sessionId] ?? claimOutcome.messages
-      );
+    }
+
+    if (isSignedIn && memberConsumerSellerFlow && hasGuestConfirmedPendingHandoff()) {
+      await runGuestConfirmedAutoSaveAfterLogin(guestScopeKeyForHandoff);
     }
 
     chatRestoreLog("hydrateChatForScope: after loadSessions", {
@@ -518,25 +523,26 @@ export function useChat() {
   useEffect(() => {
     if (!isSignedIn) return;
 
-    const read = readPendingChatDraftSnapshot();
-    const hasConfirmedPending =
-      read.ok && Boolean(read.snapshot.userAlreadyConfirmedCreateDraft);
-
-    if (
-      shouldSkipSnapshotRestoreAfterClaim(storageScopeKey) &&
-      hasConfirmedPending &&
-      memberConsumerSellerFlow
-    ) {
-      const sessionId =
-        useChatStore.getState().activeSessionId ??
-        readGuestChatClaimPointer()?.guestSessionId ??
-        null;
-      if (sessionId) {
-        void runGuestConfirmedAutoSaveAfterLogin(sessionId);
-      }
+    if (hasGuestConfirmedPendingHandoff() && memberConsumerSellerFlow) {
+      const snapRead = readPendingChatDraftSnapshot();
+      guestConfirmAutoSaveLog("after login: post-login effect", {
+        snapshotExists: snapRead.ok || hasPendingChatDraftSnapshotInStorage(),
+        userAlreadyConfirmedCreateDraft: snapRead.ok
+          ? snapRead.snapshot.userAlreadyConfirmedCreateDraft
+          : false,
+        isSignedIn,
+        role,
+        memberConsumerSellerFlow,
+        storageScopeKey,
+        claimPointerStatus: readGuestChatClaimPointer()?.status ?? null,
+      });
+      void runGuestConfirmedAutoSaveAfterLogin(
+        readGuestChatClaimPointer()?.guestStorageScopeKey ?? null
+      );
       return;
     }
 
+    const read = readPendingChatDraftSnapshot();
     if (shouldSkipSnapshotRestoreAfterClaim(storageScopeKey)) return;
     if (!hasPendingChatDraftSnapshot() && !hasPendingChatDraftSnapshotInStorage()) {
       return;
@@ -567,6 +573,8 @@ export function useChat() {
     })();
   }, [
     isSignedIn,
+    user,
+    role,
     storageScopeKey,
     memberConsumerSellerFlow,
     isDealer,
@@ -1043,6 +1051,74 @@ export function useChat() {
 
         if (confirmCreateIntent) {
           if (
+            memberConsumerSellerFlow &&
+            isSignedIn &&
+            hasGuestConfirmedPendingHandoff()
+          ) {
+            await runGuestConfirmedAutoSaveAfterLogin(
+              readGuestChatClaimPointer()?.guestStorageScopeKey ?? storageScopeKey
+            );
+            setGenerating(false);
+            return;
+          }
+
+          const awaitingReattach = getPrecheckContext(sessionId);
+          if (
+            memberConsumerSellerFlow &&
+            isSignedIn &&
+            awaitingReattach?.awaitingImageReattachForConfirmedDraft
+          ) {
+            const historyForReattach =
+              useChatStore.getState().messages[sessionId] || [];
+            const imageCount = collectChatImagesForDraft(
+              storageScopeKey,
+              sessionId,
+              historyForReattach
+            ).length;
+            if (imageCount === 0) {
+              updateStreamedReply(POST_LOGIN_IMAGES_REATTACH_FOR_SAVE_NOTE);
+              await finalizeStreamedReply(sessionId);
+              setGenerating(false);
+              return;
+            }
+            const { ownerId, ownerName, ownerPhone } = resolveMemberOwnerProfile();
+            if (!ownerId) {
+              updateStreamedReply(
+                "กรุณาเข้าสู่ระบบก่อนบันทึกประกาศครับ ลองรีเฟรชหน้าแล้วเข้าสู่ระบบอีกครั้งนะครับ"
+              );
+              await finalizeStreamedReply(sessionId);
+              setGenerating(false);
+              return;
+            }
+            updateStreamedReply(CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE);
+            await finalizeStreamedReply(sessionId);
+            const saveResult = await saveMemberListingFromChat(
+              buildMemberReattachSaveParams({
+                sessionId,
+                messages: historyForReattach,
+                storageScopeKey,
+                precheck: awaitingReattach,
+                ownerId,
+                ownerName,
+                ownerPhone,
+              })
+            );
+            if (!saveResult.ok) {
+              updateStreamedReply(saveResult.message);
+              await finalizeStreamedReply(sessionId);
+              setGenerating(false);
+              return;
+            }
+            await appendSavedMemberListingCardMessage(sessionId, {
+              card: saveResult.savedCard,
+            });
+            clearPrecheckContext(sessionId);
+            clearPendingChatDraftSnapshot();
+            setGenerating(false);
+            return;
+          }
+
+          if (
             !hasCoreFieldsComplete(
               activePrecheck?.fields ?? {},
               activePrecheck?.visionSummary
@@ -1101,6 +1177,13 @@ export function useChat() {
               thumbnailsPersisted,
               persistedPreviewCount,
               userAlreadyConfirmedCreateDraft: true,
+            });
+            guestConfirmAutoSaveLog("snapshot saved", {
+              publicRefCode: refCode,
+              userAlreadyConfirmedCreateDraft: true,
+              imageCount: rawAttachments?.length ?? 0,
+              thumbnailsPersisted,
+              persistedPreviewCount,
             });
             saveGuestChatClaimPointer({
               guestStorageScopeKey: storageScopeKey,

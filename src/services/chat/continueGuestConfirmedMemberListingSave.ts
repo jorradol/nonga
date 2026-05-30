@@ -28,7 +28,9 @@ import { appendSavedMemberListingCardMessage } from "./chatSavedMemberListing";
 import {
   collectChatImagesForDraft,
   collectDraftPreviewDisplayAttachments,
+  registerSnapshotAttachmentsForDraftSave,
 } from "../../features/chat-image-attachment-v1/chatImageAttachmentStore";
+import { guestConfirmAutoSaveLog } from "../../utils/guestConfirmAutoSaveDebug";
 
 export type ContinueGuestConfirmedSaveResult =
   | { kind: "skipped"; reason: string }
@@ -136,6 +138,36 @@ async function handleNeedImages(params: {
   };
 }
 
+async function registerSnapshotImagesIfNeeded(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[],
+  snapshotAttachments?: ChatMessageAttachment[]
+): Promise<number> {
+  const persistable =
+    snapshotAttachments?.filter(
+      (attachment) =>
+        attachment.kind === "image" &&
+        attachment.previewDataUrl?.startsWith("data:")
+    ) ?? [];
+  if (!persistable.length) return 0;
+
+  const anchor = messages.find(
+    (message) =>
+      message.sender === "user" &&
+      (message.attachments?.some((attachment) => attachment.kind === "image") ||
+        message.text.includes("แนบรูป"))
+  );
+  if (!anchor) return 0;
+
+  return await registerSnapshotAttachmentsForDraftSave(
+    storageScopeKey,
+    sessionId,
+    anchor.id,
+    persistable
+  );
+}
+
 /**
  * หลัง guest กดยืนยันสร้างประกาศแล้ว login — บันทึก member listing ต่ออัตโนมัติ (idempotent).
  */
@@ -166,13 +198,16 @@ export async function tryContinueGuestConfirmedMemberListingSave(
 
   if (!snapRead.ok) {
     if (messages.some((message) => message.isSavedMemberListingCard)) {
+      guestConfirmAutoSaveLog("auto-save result", { kind: "already_saved", reason: "saved_card_no_snapshot" });
       return { kind: "already_saved", sessionId: params.sessionId };
     }
+    guestConfirmAutoSaveLog("auto-save result", { kind: "skipped", reason: "no_snapshot" });
     return { kind: "skipped", reason: "no_snapshot" };
   }
 
   const snap = snapRead.snapshot;
   if (!snap.userAlreadyConfirmedCreateDraft) {
+    guestConfirmAutoSaveLog("auto-save result", { kind: "skipped", reason: "not_confirmed" });
     return { kind: "skipped", reason: "not_confirmed" };
   }
 
@@ -220,12 +255,25 @@ export async function tryContinueGuestConfirmedMemberListingSave(
     messages,
     snap.draftPreviewAttachments
   );
+  await registerSnapshotImagesIfNeeded(
+    params.storageScopeKey,
+    params.sessionId,
+    messages,
+    snap.draftPreviewAttachments
+  );
   const expectsImages = snap.imageCount > 0;
   const resolvedImageCount = collectChatImagesForDraft(
     params.storageScopeKey,
     params.sessionId,
     messages
   ).length;
+
+  guestConfirmAutoSaveLog("before save listing", {
+    sessionId: params.sessionId,
+    publicRefCode,
+    imageCountExpected: snap.imageCount,
+    resolvedFileCount: resolvedImageCount,
+  });
 
   if (expectsImages && resolvedImageCount === 0) {
     chatRestoreLog("guest confirmed auto-save: need images", {
