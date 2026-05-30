@@ -1,12 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { LoginFormPanel } from "../auth/LoginFormPanel";
+import { RegisterFormPanel } from "../auth/RegisterFormPanel";
 import { useAppStore } from "../../store";
 import {
   consumeChatLoginReturnView,
   setChatLoginReturnView,
 } from "../../utils/chatLoginReturn";
+
+type AuthModalMode = "login" | "register";
 
 type ChatLoginModalProps = {
   open: boolean;
@@ -15,9 +18,13 @@ type ChatLoginModalProps = {
 
 export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
   const setView = useAppStore((s) => s.setView);
+  const [mode, setMode] = useState<AuthModalMode>("login");
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setMode("login");
+      return;
+    }
     setChatLoginReturnView("chat");
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -26,16 +33,22 @@ export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
     };
   }, [open]);
 
-  const handleLoginSuccess = () => {
+  const handleAuthSuccess = () => {
     consumeChatLoginReturnView();
     onClose();
   };
 
-  const leaveChatFor = (view: "forgot-password" | "register") => {
+  const leaveChatForForgotPassword = () => {
     setChatLoginReturnView("chat");
     onClose();
-    setView(view);
+    setView("forgot-password");
   };
+
+  const title = mode === "login" ? "เข้าสู่ระบบ" : "สร้างบัญชีใหม่";
+  const subtitle =
+    mode === "login"
+      ? "ยังอยู่หน้าแชท — กลับมาต่อบทสนทนาได้ทันที"
+      : "สมัครใน modal นี้ — ยังอยู่หน้าแชทหลังสำเร็จ";
 
   return (
     <AnimatePresence>
@@ -71,11 +84,9 @@ export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
                   id="chat-login-modal-title"
                   className="text-sm font-bold text-slate-100"
                 >
-                  เข้าสู่ระบบ
+                  {title}
                 </h2>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  ยังอยู่หน้าแชท — กลับมาต่อบทสนทนาได้ทันที
-                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
               </div>
               <button
                 type="button"
@@ -88,12 +99,20 @@ export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
               </button>
             </div>
             <div className="p-4 sm:p-5">
-              <LoginFormPanel
-                compact
-                onLoginSuccess={handleLoginSuccess}
-                onForgotPassword={() => leaveChatFor("forgot-password")}
-                onRegister={() => leaveChatFor("register")}
-              />
+              {mode === "login" ? (
+                <LoginFormPanel
+                  compact
+                  onLoginSuccess={handleAuthSuccess}
+                  onForgotPassword={leaveChatForForgotPassword}
+                  onRegister={() => setMode("register")}
+                />
+              ) : (
+                <RegisterFormPanel
+                  compact
+                  onRegisterSuccess={handleAuthSuccess}
+                  onSwitchToLogin={() => setMode("login")}
+                />
+              )}
             </div>
           </motion.div>
         </div>

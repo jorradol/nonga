@@ -9,7 +9,6 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
-import { ChatActorStatus } from "./ChatActorStatus";
 import { ChatSidebarAccount } from "./ChatSidebarAccount";
 import {
   CHAT_SIDEBAR_WIDTH_COLLAPSED_PX,
@@ -213,12 +212,8 @@ export function ChatSidebar({
           </div>
         </div>
 
-        <div className={collapsed ? "md:hidden" : ""}>
-          <ChatActorStatus />
-        </div>
-
         <div
-          className={`pb-3 pt-0 shrink-0 ${collapsed ? "md:px-1.5 md:pt-1 px-4" : "px-3"}`}
+          className={`shrink-0 ${collapsed ? "md:px-1.5 md:py-2 px-4 py-3" : "px-3 py-3"}`}
           id="sidebar-action"
         >
           <button
