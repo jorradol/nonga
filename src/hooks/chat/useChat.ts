@@ -97,9 +97,15 @@ import {
 } from "../../services/chat/chatMemberPendingListing";
 import {
   appendSavedMemberListingCardMessage,
-  CHAT_MEMBER_PUBLISH_COMING_SOON_ACK,
   isMemberPublishListingChatAction,
 } from "../../services/chat/chatSavedMemberListing";
+import {
+  handleMemberCancelPublishIntent,
+  handleMemberConfirmPublishIntent,
+  handleMemberPublishListingIntent,
+  isMemberCancelPublishListingChatAction,
+  isMemberConfirmPublishListingChatAction,
+} from "../../services/chat/publishMemberListingFromChat";
 import {
   CHAT_MEMBER_SAVE_IN_PROGRESS_MESSAGE,
   saveMemberListingFromChat,
@@ -734,6 +740,22 @@ export function useChat() {
       const historyAfterUser =
         useChatStore.getState().messages[sessionId] || [];
 
+      if (memberConsumerSellerFlow) {
+        if (isMemberCancelPublishListingChatAction(trimmed)) {
+          const cancelled = handleMemberCancelPublishIntent(sessionId);
+          await addMessage(sessionId, "ai", cancelled.message);
+          setGenerating(false);
+          return;
+        }
+
+        if (isMemberConfirmPublishListingChatAction(trimmed)) {
+          const confirmed = handleMemberConfirmPublishIntent(sessionId);
+          await addMessage(sessionId, "ai", confirmed.message);
+          setGenerating(false);
+          return;
+        }
+      }
+
       const pendingListingContext =
         findLatestPendingListingContext(historyAfterUser);
       const latestSavedDraftId = findLatestSavedDraftId(historyAfterUser);
@@ -744,8 +766,27 @@ export function useChat() {
         memberConsumerSellerFlow
       ) {
         if (isMemberPublishListingChatAction(trimmed)) {
-          updateStreamedReply(CHAT_MEMBER_PUBLISH_COMING_SOON_ACK);
-          await finalizeStreamedReply(sessionId);
+          const publishIntent = handleMemberPublishListingIntent({
+            sessionId,
+            messages: historyAfterUser,
+          });
+          if (publishIntent.kind === "blocked") {
+            await addMessage(sessionId, "ai", publishIntent.message);
+          } else {
+            await addMessage(
+              sessionId,
+              "ai",
+              publishIntent.message,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              { isPublishAwaitingConfirm: true },
+              publishIntent.listingId
+            );
+          }
           setGenerating(false);
           return;
         }

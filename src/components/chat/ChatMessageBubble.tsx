@@ -22,6 +22,10 @@ import {
   CHAT_MEMBER_NOT_NOW_LISTING_ACTION,
 } from "../../services/chat/chatMemberPendingListing";
 import { CHAT_MEMBER_PUBLISH_LISTING_ACTION } from "../../services/chat/chatSavedMemberListing";
+import {
+  CHAT_MEMBER_CANCEL_PUBLISH_ACTION,
+  CHAT_MEMBER_CONFIRM_PUBLISH_ACTION,
+} from "../../services/chat/publishMemberListingFromChat";
 import { useAppStore } from "../../store";
 import { navigateToSavedDealerDraft } from "../../utils/dealer/dealerDraftNavigation";
 import { ExternalLink } from "lucide-react";
@@ -460,6 +464,35 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                     รหัสฉบับร่าง: {message.savedDraftId}
                   </p>
                 )}
+              </div>
+            )}
+
+            {message.isPublishAwaitingConfirm && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage(CHAT_MEMBER_CONFIRM_PUBLISH_ACTION);
+                    }
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  id="chat-confirm-publish-btn"
+                >
+                  ยืนยันเผยแพร่ลงตลาด
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeSessionId) {
+                      void sendMessage(CHAT_MEMBER_CANCEL_PUBLISH_ACTION);
+                    }
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer"
+                  id="chat-cancel-publish-btn"
+                >
+                  ยกเลิกเผยแพร่
+                </button>
               </div>
             )}
 

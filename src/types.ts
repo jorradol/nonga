@@ -105,6 +105,8 @@ export interface ChatMessage {
   /** การ์ดประกาศที่บันทึกแล้ว (หลัง member save สำเร็จ) */
   isSavedMemberListingCard?: boolean;
   savedMemberListingCard?: SavedMemberListingCardData;
+  /** สรุปก่อนเผยแพร่ — รอ confirm ครั้งที่ 2 (publish-in-chat) */
+  isPublishAwaitingConfirm?: boolean;
   /** ไฟล์แนบจากผู้ใช้ */
   attachments?: ChatMessageAttachment[];
 }

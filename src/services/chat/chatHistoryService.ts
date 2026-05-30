@@ -223,6 +223,9 @@ function normalizeMessage(
             raw.savedMemberListingCard as ChatMessage["savedMemberListingCard"],
         }
       : {}),
+    ...(raw.isPublishAwaitingConfirm
+      ? { isPublishAwaitingConfirm: true }
+      : {}),
     ...(Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? { attachments: raw.attachments as ChatMessageAttachment[] }
       : {}),
@@ -416,6 +419,7 @@ function messageToFirestoreData(message: ChatMessage) {
           savedMemberListingCard: safe.savedMemberListingCard,
         }
       : {}),
+    ...(safe.isPublishAwaitingConfirm ? { isPublishAwaitingConfirm: true } : {}),
     ...(safe.attachments && safe.attachments.length > 0
       ? { attachments: safe.attachments }
       : {}),
@@ -611,6 +615,7 @@ export async function appendChatMessage(
           savedMemberListingCard: input.savedMemberListingCard,
         }
       : {}),
+    ...(input.isPublishAwaitingConfirm ? { isPublishAwaitingConfirm: true } : {}),
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),

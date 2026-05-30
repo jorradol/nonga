@@ -1,0 +1,356 @@
+import type { ChatMessage, SavedMemberListingCardData } from "../../types";
+import type { ExtractedCarFields } from "../ai/chat/sellIntentParser";
+import {
+  hasCoreFieldsComplete,
+  getMissingCoreFieldLabels,
+  mergeEffectivePrecheckFields,
+} from "../ai/chat/chatPrecheckLayer";
+import {
+  normalizeExtractedCarFields,
+  normalizeVisionObservationSummary,
+  isMemberConsumerSellerFlow,
+} from "./chatMemberPendingListing";
+import { CHAT_MEMBER_PUBLISH_LISTING_ACTION } from "./chatSavedMemberListing";
+import {
+  clearPendingPublishListingContext,
+  getPendingPublishListingContext,
+  isPendingPublishListingContextExpired,
+  setPendingPublishListingContext,
+  type PendingPublishListingContext,
+} from "./chatPendingPublishListing";
+
+export { CHAT_MEMBER_PUBLISH_LISTING_ACTION };
+
+export const CHAT_MEMBER_CONFIRM_PUBLISH_ACTION = "ยืนยันเผยแพร่ลงตลาด";
+
+/** ข้อความยกเลิก/หมดอายุ pending publish (Step 3+ ใช้ในแชท) */
+export const CHAT_MEMBER_CANCEL_PUBLISH_ACTION = "ยกเลิกเผยแพร่";
+
+export const CHAT_MEMBER_PUBLISH_CANCELLED_ACK =
+  "รับทราบครับ ยังไม่เผยแพร่ประกาศในตลาด — ลุงกลับมากด “พร้อมลงตลาด” ได้เมื่อพร้อม";
+
+export const CHAT_MEMBER_PUBLISH_CONTEXT_EXPIRED_MESSAGE =
+  "คำขอเผยแพร่หมดอายุแล้วครับ กรุณากด “พร้อมลงตลาด” จากการ์ดประกาศอีกครั้งเพื่อดูสรุปใหม่";
+
+/** ข้อความ near-match ที่ปลอดภัย — ห้ามรวมคำกว้าง เช่น “ตกลง” */
+const CONFIRM_PUBLISH_SAFE_ALIASES = ["ยืนยันลงตลาด"] as const;
+
+export type PublishBlockedReason =
+  | "missing-card"
+  | "missing-listing-id"
+  | "missing-core-fields"
+  | "missing-images";
+
+export type ValidateMemberListingReadyToPublishResult =
+  | {
+      ok: true;
+      card: SavedMemberListingCardData;
+      fields: ExtractedCarFields;
+      imageCount: number;
+    }
+  | {
+      ok: false;
+      reason: PublishBlockedReason;
+      message: string;
+      missingCoreLabels?: string[];
+    };
+
+export function normalizeSavedMemberListingCardData(
+  raw: Partial<SavedMemberListingCardData> | null | undefined
+): SavedMemberListingCardData | null {
+  if (!raw || typeof raw !== "object") return null;
+  const listingId = typeof raw.listingId === "string" ? raw.listingId.trim() : "";
+  const publicRefCode =
+    typeof raw.publicRefCode === "string" ? raw.publicRefCode.trim() : "";
+  if (!listingId) return null;
+
+  const fields = normalizeExtractedCarFields(raw.fields);
+  const visionSummary = normalizeVisionObservationSummary(raw.visionSummary);
+  const imageUrls = Array.isArray(raw.imageUrls)
+    ? raw.imageUrls.filter((u): u is string => typeof u === "string" && Boolean(u.trim()))
+    : [];
+
+  return {
+    listingId,
+    publicRefCode,
+    statusLabel:
+      typeof raw.statusLabel === "string" && raw.statusLabel.trim()
+        ? raw.statusLabel.trim()
+        : "รอตรวจทาน / ยังไม่ลงตลาด",
+    marketingCopy: typeof raw.marketingCopy === "string" ? raw.marketingCopy : "",
+    fields: fields as Record<string, unknown>,
+    ...(visionSummary ? { visionSummary: visionSummary as Record<string, unknown> } : {}),
+    imageUrls,
+  };
+}
+
+export function findLatestSavedMemberListingCardMessage(
+  messages: ChatMessage[]
+): ChatMessage | null {
+  for (const message of [...messages].reverse()) {
+    if (message.isPendingListingCard || message.pendingListingCard) continue;
+
+    const card = normalizeSavedMemberListingCardData(message.savedMemberListingCard);
+    if (!card && !message.isSavedMemberListingCard) continue;
+    if (!card) continue;
+
+    return {
+      ...message,
+      isSavedMemberListingCard: true,
+      savedMemberListingCard: card,
+      savedMemberListingId: card.listingId,
+    };
+  }
+  return null;
+}
+
+export function validateMemberListingReadyToPublish(
+  cardInput: SavedMemberListingCardData | null | undefined
+): ValidateMemberListingReadyToPublishResult {
+  if (!cardInput || typeof cardInput !== "object") {
+    return {
+      ok: false,
+      reason: "missing-card",
+      message: buildPublishBlockedMessage("missing-card"),
+    };
+  }
+
+  const rawListingId =
+    typeof cardInput.listingId === "string" ? cardInput.listingId.trim() : "";
+  if (!rawListingId) {
+    return {
+      ok: false,
+      reason: "missing-listing-id",
+      message: buildPublishBlockedMessage("missing-listing-id"),
+    };
+  }
+
+  const card = normalizeSavedMemberListingCardData(cardInput);
+  if (!card) {
+    return {
+      ok: false,
+      reason: "missing-card",
+      message: buildPublishBlockedMessage("missing-card"),
+    };
+  }
+
+  const visionSummary = normalizeVisionObservationSummary(card.visionSummary);
+  const fields = mergeEffectivePrecheckFields(
+    normalizeExtractedCarFields(card.fields),
+    visionSummary
+  );
+
+  if (!hasCoreFieldsComplete(fields, visionSummary)) {
+    return {
+      ok: false,
+      reason: "missing-core-fields",
+      message: buildPublishBlockedMessage("missing-core-fields"),
+      missingCoreLabels: getMissingCoreFieldLabels(fields),
+    };
+  }
+
+  if (card.imageUrls.length < 1) {
+    return {
+      ok: false,
+      reason: "missing-images",
+      message: buildPublishBlockedMessage("missing-images"),
+    };
+  }
+
+  return {
+    ok: true,
+    card,
+    fields,
+    imageCount: card.imageUrls.length,
+  };
+}
+
+export function isMemberConfirmPublishListingChatAction(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+  if (trimmed === CHAT_MEMBER_CONFIRM_PUBLISH_ACTION) return true;
+  return CONFIRM_PUBLISH_SAFE_ALIASES.includes(
+    trimmed as (typeof CONFIRM_PUBLISH_SAFE_ALIASES)[number]
+  );
+}
+
+export function isMemberCancelPublishListingChatAction(message: string): boolean {
+  return message.trim() === CHAT_MEMBER_CANCEL_PUBLISH_ACTION;
+}
+
+export function canEnterMemberPublishInChatFlow(options: {
+  isSignedIn: boolean;
+  isDealer: boolean;
+  isAdmin: boolean;
+  chatScopeMode: "dealer" | "consumer";
+}): boolean {
+  return isMemberConsumerSellerFlow(options);
+}
+
+export function beginPendingPublishListingFromSavedCard(params: {
+  sessionId: string;
+  messages: ChatMessage[];
+}): PendingPublishListingContext | { ok: false; message: string } {
+  const cardMessage = findLatestSavedMemberListingCardMessage(params.messages);
+  if (!cardMessage?.savedMemberListingCard) {
+    return {
+      ok: false,
+      message: buildPublishBlockedMessage("missing-card"),
+    };
+  }
+
+  const validation = validateMemberListingReadyToPublish(cardMessage.savedMemberListingCard);
+  if (validation.ok === false) {
+    return { ok: false, message: validation.message };
+  }
+
+  return setPendingPublishListingContext({
+    sessionId: params.sessionId,
+    listingId: validation.card.listingId,
+    publicRefCode: validation.card.publicRefCode,
+    card: validation.card,
+  });
+}
+
+export function resolvePendingPublishListingContext(
+  sessionId: string
+): PendingPublishListingContext | null {
+  const ctx = getPendingPublishListingContext(sessionId);
+  if (!ctx) return null;
+  if (isPendingPublishListingContextExpired(ctx)) return null;
+  return ctx;
+}
+
+function formatPriceThb(price: number | undefined): string {
+  if (price == null || !Number.isFinite(price) || price <= 0) return "—";
+  return `${Number(price).toLocaleString("th-TH")} บาท`;
+}
+
+function formatMileageKm(mileage: number | undefined): string {
+  if (mileage == null || !Number.isFinite(mileage)) return "—";
+  return `${Number(mileage).toLocaleString("th-TH")} กม.`;
+}
+
+export function buildPublishSummaryMessage(
+  card: SavedMemberListingCardData
+): string {
+  const normalized = normalizeSavedMemberListingCardData(card);
+  if (!normalized) {
+    return buildPublishBlockedMessage("missing-card");
+  }
+
+  const visionSummary = normalizeVisionObservationSummary(normalized.visionSummary);
+  const fields = mergeEffectivePrecheckFields(
+    normalizeExtractedCarFields(normalized.fields),
+    visionSummary
+  );
+
+  const brandModel = [fields.brand || visionSummary?.brand, fields.model || visionSummary?.model]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  const lines = [
+    "สรุปก่อนเผยแพร่ลงตลาดครับ",
+    "",
+    `ยี่ห้อ/รุ่น: ${brandModel || "—"}`,
+    `ปี: ${fields.year ?? "—"}`,
+    `ราคา: ${formatPriceThb(fields.price)}`,
+    `เลขไมล์: ${formatMileageKm(fields.mileage)}`,
+    `จำนวนรูป: ${normalized.imageUrls.length} รูป`,
+    `สถานะปัจจุบัน: ${normalized.statusLabel || "รอตรวจทาน / ยังไม่ลงตลาด"}`,
+    `รหัสประกาศ: ${normalized.listingId}`,
+  ];
+
+  if (normalized.publicRefCode) {
+    lines.push(`รหัสอ้างอิงจากแชท: ${normalized.publicRefCode}`);
+  }
+
+  return lines.join("\n");
+}
+
+export function buildPublishAwaitingConfirmMessage(): string {
+  return [
+    "ถ้าข้อมูลถูกต้อง พิมพ์ว่า “ยืนยันเผยแพร่ลงตลาด” หรือกดปุ่มยืนยันด้านล่างครับ",
+    "ระบบจะยังไม่เผยแพร่จนกว่าจะยืนยันครั้งที่ 2",
+  ].join("\n");
+}
+
+export function buildPublishBlockedMessage(reason: PublishBlockedReason): string {
+  switch (reason) {
+    case "missing-card":
+      return "ยังไม่พบการ์ดประกาศที่บันทึกแล้วในแชทครับ กรุณาบันทึกประกาศร่างก่อน แล้วกด “พร้อมลงตลาด” อีกครั้ง";
+    case "missing-listing-id":
+      return "ยังไม่พบรหัสประกาศในระบบครับ กรุณาบันทึกประกาศจากแชทใหม่ หรือไปตรวจที่ “ประกาศของฉัน”";
+    case "missing-core-fields":
+      return "ข้อมูลหลักยังไม่ครบสำหรับเผยแพร่ครับ กรุณาไปแก้ไขที่ “ประกาศของฉัน” ให้ครบก่อน แล้วกลับมากด “พร้อมลงตลาด” อีกครั้ง";
+    case "missing-images":
+      return "ต้องมีรูปอย่างน้อย 1 รูปก่อนเผยแพร่ครับ กรุณาเพิ่มรูปที่ “ประกาศของฉัน” แล้วกลับมายืนยันอีกครั้ง";
+    default:
+      return "ยังไม่พร้อมเผยแพร่ประกาศนี้ครับ กรุณาตรวจสอบที่ “ประกาศของฉัน”";
+  }
+}
+
+/** Placeholder Step 3 — ยังไม่เรียก visibility API */
+export function buildPublishConfirmStep3PlaceholderAck(): string {
+  return "ขั้นถัดไปจะเปิดการเผยแพร่จริงครับ ตอนนี้ยังไม่เปลี่ยนสถานะประกาศ";
+}
+
+/** @deprecated ใช้ buildPublishConfirmStep3PlaceholderAck */
+export function buildPublishStepPlaceholderAck(): string {
+  return buildPublishConfirmStep3PlaceholderAck();
+}
+
+export type MemberPublishListingIntentOutcome =
+  | { kind: "blocked"; message: string }
+  | { kind: "summary"; message: string; listingId: string };
+
+export type MemberConfirmPublishIntentOutcome =
+  | { kind: "no_pending"; message: string }
+  | { kind: "confirm_placeholder"; message: string; listingId: string };
+
+export function handleMemberPublishListingIntent(params: {
+  sessionId: string;
+  messages: ChatMessage[];
+}): MemberPublishListingIntentOutcome {
+  const began = beginPendingPublishListingFromSavedCard(params);
+  if ("ok" in began && began.ok === false) {
+    return { kind: "blocked", message: began.message };
+  }
+
+  const ctx = began as PendingPublishListingContext;
+  return {
+    kind: "summary",
+    listingId: ctx.listingId,
+    message: `${buildPublishSummaryMessage(ctx.card)}\n\n${buildPublishAwaitingConfirmMessage()}`,
+  };
+}
+
+export function handleMemberConfirmPublishIntent(
+  sessionId: string
+): MemberConfirmPublishIntentOutcome {
+  const ctx = resolvePendingPublishListingContext(sessionId);
+  if (!ctx) {
+    return {
+      kind: "no_pending",
+      message: CHAT_MEMBER_PUBLISH_CONTEXT_EXPIRED_MESSAGE,
+    };
+  }
+
+  return {
+    kind: "confirm_placeholder",
+    listingId: ctx.listingId,
+    message: buildPublishConfirmStep3PlaceholderAck(),
+  };
+}
+
+export function handleMemberCancelPublishIntent(sessionId: string): {
+  kind: "cancelled";
+  message: string;
+} {
+  clearPendingPublishListingContext(sessionId);
+  return {
+    kind: "cancelled",
+    message: CHAT_MEMBER_PUBLISH_CANCELLED_ACK,
+  };
+}

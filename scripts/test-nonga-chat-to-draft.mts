@@ -90,6 +90,29 @@ import {
   CHAT_MEMBER_PUBLISH_COMING_SOON_ACK,
 } from "../src/services/chat/chatSavedMemberListing";
 import {
+  beginPendingPublishListingFromSavedCard,
+  buildPublishAwaitingConfirmMessage,
+  buildPublishBlockedMessage,
+  buildPublishConfirmStep3PlaceholderAck,
+  buildPublishSummaryMessage,
+  canEnterMemberPublishInChatFlow,
+  CHAT_MEMBER_CANCEL_PUBLISH_ACTION,
+  CHAT_MEMBER_CONFIRM_PUBLISH_ACTION,
+  findLatestSavedMemberListingCardMessage,
+  handleMemberCancelPublishIntent,
+  handleMemberConfirmPublishIntent,
+  handleMemberPublishListingIntent,
+  isMemberCancelPublishListingChatAction,
+  isMemberConfirmPublishListingChatAction,
+  validateMemberListingReadyToPublish,
+} from "../src/services/chat/publishMemberListingFromChat";
+import {
+  clearAllPendingPublishListingContextsForTest,
+  clearPendingPublishListingContext,
+  getPendingPublishListingContext,
+  setPendingPublishListingContext,
+} from "../src/services/chat/chatPendingPublishListing";
+import {
   collectAllChatImageFilesForMemberListing,
   collectChatImagesForDraft,
   clearChatImageAttachmentScope,
@@ -1299,6 +1322,305 @@ const collected = collectAllChatImageFilesForMemberListing(scopeKey, sid, [
 ] as any);
 
 assertEqual(collected.length, 5, "collectAllChatImageFilesForMemberListing all messages");
+
+console.log("--- Testing publish-in-chat Step 2 helpers ---");
+clearAllPendingPublishListingContextsForTest();
+
+const publishSnapFields = {
+  brand: "Honda",
+  model: "HR-V",
+  year: 2020,
+  price: 650000,
+  mileage: 42000,
+  transmission: "อัตโนมัติ",
+};
+
+const savedCardForPublish = buildSavedMemberListingCardData({
+  listingId: "car-publish-step2",
+  publicRefCode: "NA-2026-PUB1",
+  fields: publishSnapFields,
+  marketingCopy: "Honda HR-V 2020",
+  imageUrls: ["/storage/listings/car-publish-step2/photo-1.jpg"],
+});
+
+const pendingOnlyMessages = [
+  {
+    id: "pending-only",
+    sender: "ai",
+    text: "pending",
+    createdAt: "",
+    isPendingListingCard: true,
+    pendingListingCard: {
+      publicRefCode: "NA-PENDING",
+      statusLabel: "ร่างประกาศ รอตรวจทาน",
+      marketingCopy: "pending",
+      fields: publishSnapFields,
+    },
+  },
+  {
+    id: "saved-old",
+    sender: "ai",
+    text: "saved old",
+    createdAt: "",
+    isSavedMemberListingCard: true,
+    savedMemberListingCard: {
+      ...savedCardForPublish,
+      listingId: "car-old",
+    },
+  },
+  {
+    id: "saved-latest",
+    sender: "ai",
+    text: "saved latest",
+    createdAt: "",
+    isSavedMemberListingCard: true,
+    savedMemberListingCard: savedCardForPublish,
+  },
+] as any;
+
+const latestSaved = findLatestSavedMemberListingCardMessage(pendingOnlyMessages);
+assertEqual(latestSaved?.id, "saved-latest", "findLatestSavedMemberListingCardMessage picks latest saved");
+assertEqual(
+  latestSaved?.savedMemberListingCard?.listingId,
+  "car-publish-step2",
+  "findLatestSavedMemberListingCardMessage has listingId"
+);
+
+const pendingOnly = findLatestSavedMemberListingCardMessage([
+  {
+    id: "p1",
+    sender: "ai",
+    text: "x",
+    createdAt: "",
+    isPendingListingCard: true,
+    pendingListingCard: {
+      publicRefCode: "NA-X",
+      statusLabel: "ร่าง",
+      marketingCopy: "x",
+      fields: {},
+    },
+  },
+] as any);
+assertEqual(pendingOnly, null, "findLatestSavedMemberListingCardMessage ignores pending card");
+
+const ready = validateMemberListingReadyToPublish(savedCardForPublish);
+assertEqual(ready.ok, true, "validate ready: fields + images pass");
+if (ready.ok) {
+  assertEqual(ready.imageCount, 1, "validate ready image count");
+}
+
+const noImages = validateMemberListingReadyToPublish({
+  ...savedCardForPublish,
+  imageUrls: [],
+});
+assertEqual(noImages.ok, false, "validate fail: no images");
+if (noImages.ok === false) {
+  assertEqual(noImages.reason, "missing-images", "validate fail reason no images");
+}
+
+const noListingId = validateMemberListingReadyToPublish({
+  ...savedCardForPublish,
+  listingId: "",
+});
+assertEqual(noListingId.ok, false, "validate fail: no listingId");
+if (noListingId.ok === false) {
+  assertEqual(noListingId.reason, "missing-listing-id", "validate fail reason no listingId");
+}
+
+assertEqual(
+  isMemberConfirmPublishListingChatAction(CHAT_MEMBER_CONFIRM_PUBLISH_ACTION),
+  true,
+  "confirm phrase exact match"
+);
+assertEqual(isMemberConfirmPublishListingChatAction("ยืนยันลงตลาด"), true, "confirm phrase safe alias");
+assertEqual(isMemberConfirmPublishListingChatAction("ตกลง"), false, "confirm phrase rejects generic ok");
+assertEqual(isMemberConfirmPublishListingChatAction("พร้อมลงตลาด"), false, "confirm phrase rejects publish action");
+
+const ctx1 = setPendingPublishListingContext({
+  sessionId: "sess-pub-1",
+  listingId: savedCardForPublish.listingId,
+  publicRefCode: savedCardForPublish.publicRefCode,
+  card: savedCardForPublish,
+});
+const ctx2 = setPendingPublishListingContext({
+  sessionId: "sess-pub-1",
+  listingId: savedCardForPublish.listingId,
+  publicRefCode: savedCardForPublish.publicRefCode,
+  card: savedCardForPublish,
+});
+assertEqual(ctx1 === ctx2, true, "pending publish context idempotent same listing");
+assertEqual(
+  getPendingPublishListingContext("sess-pub-1")?.listingId,
+  "car-publish-step2",
+  "pending publish context get"
+);
+clearPendingPublishListingContext("sess-pub-1");
+assertEqual(getPendingPublishListingContext("sess-pub-1"), null, "pending publish context clear");
+
+const began = beginPendingPublishListingFromSavedCard({
+  sessionId: "sess-pub-2",
+  messages: pendingOnlyMessages,
+});
+assertEqual(typeof began === "object" && "listingId" in began, true, "begin pending publish from saved card");
+clearPendingPublishListingContext("sess-pub-2");
+
+assertEqual(
+  canEnterMemberPublishInChatFlow({
+    isSignedIn: true,
+    isDealer: false,
+    isAdmin: false,
+    chatScopeMode: "consumer",
+  }),
+  true,
+  "member consumer can enter publish flow"
+);
+assertEqual(
+  canEnterMemberPublishInChatFlow({
+    isSignedIn: true,
+    isDealer: true,
+    isAdmin: false,
+    chatScopeMode: "consumer",
+  }),
+  false,
+  "dealer excluded from member publish flow"
+);
+assertEqual(
+  canEnterMemberPublishInChatFlow({
+    isSignedIn: true,
+    isDealer: false,
+    isAdmin: true,
+    chatScopeMode: "consumer",
+  }),
+  false,
+  "admin excluded from member publish flow"
+);
+
+const summary = buildPublishSummaryMessage(savedCardForPublish);
+assertEqual(summary.includes("Honda HR-V"), true, "publish summary includes brand model");
+assertEqual(summary.includes("650,000"), true, "publish summary includes price");
+assertEqual(summary.includes("ยังไม่ลงตลาด"), true, "publish summary includes status");
+assertEqual(
+  buildPublishAwaitingConfirmMessage().includes("ยืนยันเผยแพร่ลงตลาด"),
+  true,
+  "awaiting confirm message mentions confirm phrase"
+);
+assertEqual(
+  buildPublishBlockedMessage("missing-images").includes("รูป"),
+  true,
+  "blocked message for missing images"
+);
+console.log("--- Testing publish-in-chat Step 3 wiring ---");
+
+const publishIntentOk = handleMemberPublishListingIntent({
+  sessionId: "sess-step3-1",
+  messages: pendingOnlyMessages,
+});
+assertEqual(publishIntentOk.kind, "summary", "publish intent sets summary");
+if (publishIntentOk.kind === "summary") {
+  assertEqual(
+    publishIntentOk.message.includes("สรุปก่อนเผยแพร่"),
+    true,
+    "publish intent summary header"
+  );
+  assertEqual(
+    publishIntentOk.message.includes("ยืนยันเผยแพร่ลงตลาด"),
+    true,
+    "publish intent awaiting confirm phrase"
+  );
+  assertEqual(
+    getPendingPublishListingContext("sess-step3-1")?.listingId,
+    "car-publish-step2",
+    "publish intent sets pending context"
+  );
+}
+
+const publishIntentBlocked = handleMemberPublishListingIntent({
+  sessionId: "sess-step3-blocked",
+  messages: [
+    {
+      id: "saved-no-img",
+      sender: "ai",
+      text: "saved",
+      createdAt: "",
+      isSavedMemberListingCard: true,
+      savedMemberListingCard: { ...savedCardForPublish, imageUrls: [] },
+    },
+  ] as any,
+});
+assertEqual(publishIntentBlocked.kind, "blocked", "publish intent blocked without images");
+assertEqual(
+  getPendingPublishListingContext("sess-step3-blocked"),
+  null,
+  "blocked publish does not set pending context"
+);
+
+const confirmPlaceholder = handleMemberConfirmPublishIntent("sess-step3-1");
+assertEqual(
+  confirmPlaceholder.kind,
+  "confirm_placeholder",
+  "confirm publish returns placeholder"
+);
+if (confirmPlaceholder.kind === "confirm_placeholder") {
+  assertEqual(
+    confirmPlaceholder.message.includes("ยังไม่เปลี่ยนสถานะประกาศ"),
+    true,
+    "confirm placeholder mentions no status change"
+  );
+}
+
+const cancelPublish = handleMemberCancelPublishIntent("sess-step3-1");
+assertEqual(cancelPublish.kind, "cancelled", "cancel publish clears flow");
+assertEqual(
+  getPendingPublishListingContext("sess-step3-1"),
+  null,
+  "cancel publish clears pending context"
+);
+assertEqual(
+  isMemberCancelPublishListingChatAction(CHAT_MEMBER_CANCEL_PUBLISH_ACTION),
+  true,
+  "cancel publish phrase matcher"
+);
+
+const confirmNoPending = handleMemberConfirmPublishIntent("sess-step3-missing");
+assertEqual(
+  confirmNoPending.kind,
+  "no_pending",
+  "confirm without pending context"
+);
+
+const noSavedCardIntent = handleMemberPublishListingIntent({
+  sessionId: "sess-step3-empty",
+  messages: [{ id: "u1", sender: "user", text: "hi", createdAt: "" }] as any,
+});
+assertEqual(noSavedCardIntent.kind, "blocked", "publish intent blocked without saved card");
+
+assertEqual(
+  buildPublishConfirmStep3PlaceholderAck().includes("ยังไม่เปลี่ยนสถานะประกาศ"),
+  true,
+  "step3 placeholder ack text"
+);
+
+const useChatSource = fs.readFileSync(
+  path.join(process.cwd(), "src/hooks/chat/useChat.ts"),
+  "utf8"
+);
+assertEqual(
+  useChatSource.includes("setMyListingVisibility"),
+  false,
+  "useChat does not call setMyListingVisibility in Step 3"
+);
+assertEqual(
+  useChatSource.includes("/visibility"),
+  false,
+  "useChat does not call visibility API in Step 3"
+);
+assertEqual(
+  useChatSource.includes("handleMemberPublishListingIntent"),
+  true,
+  "useChat wires publish summary handler"
+);
+
+clearAllPendingPublishListingContextsForTest();
 
 console.log("--- Testing guest confirm → chat login modal (UX) ---");
 
