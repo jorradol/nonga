@@ -100,6 +100,8 @@ import {
   toChatImageMessageAttachments,
 } from "../src/features/chat-image-attachment-v1/chatImageAttachmentStore";
 import type { PendingChatImageAttachment } from "../src/features/chat-image-attachment-v1/types";
+import fs from "node:fs";
+import path from "node:path";
 
 function assertEqual(actual: any, expected: any, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -1297,5 +1299,80 @@ const collected = collectAllChatImageFilesForMemberListing(scopeKey, sid, [
 ] as any);
 
 assertEqual(collected.length, 5, "collectAllChatImageFilesForMemberListing all messages");
+
+console.log("--- Testing guest confirm → chat login modal (UX) ---");
+
+const useChatSourceForLoginModal = fs.readFileSync(
+  path.join(process.cwd(), "src/hooks/chat/useChat.ts"),
+  "utf8"
+);
+const requestChatLoginSource = fs.readFileSync(
+  path.join(process.cwd(), "src/utils/requestChatLogin.ts"),
+  "utf8"
+);
+const aiChatViewSource = fs.readFileSync(
+  path.join(process.cwd(), "src/components/AIChatView.tsx"),
+  "utf8"
+);
+
+assertEqual(
+  useChatSourceForLoginModal.includes('setView("login")'),
+  false,
+  "useChat does not redirect to full login page directly"
+);
+assertEqual(
+  useChatSourceForLoginModal.match(/requireGuestLoginFromChat\(/g)?.length ?? 0,
+  3,
+  "useChat gates guest login in three places via modal helper"
+);
+assertEqual(
+  requestChatLoginSource.includes("setChatLoginModalOpen(true)"),
+  true,
+  "requestChatLogin opens shared modal on chat view"
+);
+assertEqual(
+  requestChatLoginSource.includes('setView("login")'),
+  true,
+  "requireGuestLoginFromChat falls back to full login when not on chat"
+);
+assertEqual(
+  aiChatViewSource.includes("chatLoginModalOpen"),
+  true,
+  "AIChatView mounts shared ChatLoginModal from store"
+);
+assertEqual(
+  aiChatViewSource.includes("ChatLoginModal"),
+  true,
+  "AIChatView includes ChatLoginModal"
+);
+
+const { requestChatLoginModal, requireGuestLoginFromChat } = await import(
+  "../src/utils/requestChatLogin.ts"
+);
+const { useAppStore } = await import("../src/store.ts");
+
+useAppStore.setState({ currentView: "chat", chatLoginModalOpen: false });
+assertEqual(
+  requestChatLoginModal("chat"),
+  true,
+  "requestChatLoginModal returns true on chat view"
+);
+assertEqual(
+  useAppStore.getState().chatLoginModalOpen,
+  true,
+  "requestChatLoginModal opens store flag"
+);
+
+useAppStore.setState({ currentView: "home", chatLoginModalOpen: false });
+let fallbackView: string | null = null;
+const originalSetView = useAppStore.getState().setView;
+useAppStore.setState({
+  setView: (view: string) => {
+    fallbackView = view;
+  },
+});
+requireGuestLoginFromChat("chat");
+assertEqual(fallbackView, "login", "requireGuestLoginFromChat falls back off chat view");
+useAppStore.setState({ setView: originalSetView, currentView: "chat", chatLoginModalOpen: false });
 
 console.log("--- All Chat to Draft tests passed! ---");

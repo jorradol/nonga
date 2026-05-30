@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import { ChatProvider } from "../contexts/chat/ChatContext";
 import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatContainer } from "./chat/ChatContainer";
+import { ChatLoginModal } from "./chat/ChatLoginModal";
+import { useAppStore } from "../store";
 import {
   clampChatSidebarExpandedWidth,
   readChatSidebarCollapsed,
@@ -15,6 +17,8 @@ import {
  * wrapping core panels under the ChatProvider state engine.
  */
 export default function AIChatView() {
+  const chatLoginModalOpen = useAppStore((s) => s.chatLoginModalOpen);
+  const setChatLoginModalOpen = useAppStore((s) => s.setChatLoginModalOpen);
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     typeof window === "undefined" ? true : window.innerWidth >= 768
   );
@@ -51,6 +55,10 @@ export default function AIChatView() {
         />
         <ChatContainer onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       </div>
+      <ChatLoginModal
+        open={chatLoginModalOpen}
+        onClose={() => setChatLoginModalOpen(false)}
+      />
     </ChatProvider>
   );
 }

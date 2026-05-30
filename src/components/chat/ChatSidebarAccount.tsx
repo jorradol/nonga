@@ -2,8 +2,7 @@ import { useState } from "react";
 import { LogIn, LogOut, User } from "lucide-react";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { useRole } from "../../hooks/auth/useRole";
-import { setChatLoginReturnView } from "../../utils/chatLoginReturn";
-import { ChatLoginModal } from "./ChatLoginModal";
+import { requestChatLoginModal } from "../../utils/requestChatLogin";
 
 function shortRoleLabel(role: string): string {
   switch (role) {
@@ -32,15 +31,13 @@ export function ChatSidebarAccount({
 }: ChatSidebarAccountProps) {
   const { isSignedIn, user, logout, loading: authLoading } = useAuth();
   const { role } = useRole();
-  const [loginOpen, setLoginOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const displayName =
     user?.displayName?.trim() || user?.email?.split("@")[0] || "สมาชิก";
 
   const openLogin = () => {
-    setChatLoginReturnView("chat");
-    setLoginOpen(true);
+    requestChatLoginModal("chat");
     if (window.innerWidth < 768) {
       onMobileSidebarClose?.();
     }
@@ -118,8 +115,6 @@ export function ChatSidebarAccount({
           </div>
         )}
       </div>
-
-      <ChatLoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   );
 }

@@ -59,7 +59,7 @@ import {
   findLatestSavedDraftId,
 } from "../../features/chat-image-attachment-v1/followUpImageIntent";
 import { aiVisionService } from "../../services/ai/vision/visionEngine";
-import { setChatLoginReturnView } from "../../utils/chatLoginReturn";
+import { requireGuestLoginFromChat } from "../../utils/requestChatLogin";
 import {
   clearPendingChatDraftSnapshot,
   hasPendingChatDraftSnapshot,
@@ -209,7 +209,7 @@ export function useChat() {
     updatePersonalityInstruction,
   } = useChatStore();
 
-  const { user, setView } = useAppStore();
+  const { user } = useAppStore();
   const { isSignedIn } = useAuth();
   const { isDealer, isAdmin, role } = useRole();
 
@@ -520,8 +520,7 @@ export function useChat() {
       });
       if (draftSaveBlock) {
         if (!isSignedIn) {
-          setChatLoginReturnView("chat");
-          setView("login");
+          requireGuestLoginFromChat("chat");
         }
         return { text: draftSaveBlock };
       }
@@ -616,7 +615,6 @@ export function useChat() {
       isAdmin,
       isDealer,
       isSignedIn,
-      setView,
       storageScopeKey,
       user,
     ]
@@ -941,8 +939,7 @@ export function useChat() {
               guestSessionId: sessionId,
               publicRefCode: refCode,
             });
-            setChatLoginReturnView("chat");
-            setView("login");
+            requireGuestLoginFromChat("chat");
             setGenerating(false);
             return;
           }
@@ -1240,8 +1237,7 @@ export function useChat() {
             if (draftSaveBlock) {
               orchestrated.text = draftSaveBlock;
               if (!isSignedIn) {
-                setChatLoginReturnView("chat");
-                setView("login");
+                requireGuestLoginFromChat("chat");
               }
             } else {
               const draftDealerId = resolveDealerIdFromUser(user);
@@ -1540,7 +1536,6 @@ export function useChat() {
       isDealer,
       isAdmin,
       isSignedIn,
-      setView,
       role,
       addMessage,
       createSession,

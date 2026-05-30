@@ -44,6 +44,8 @@ interface AppState {
   selectedCarId: string | null;
   selectedDealerId: string | null;
   setView: (view: AppState["currentView"], carId?: string | null, dealerId?: string | null) => void;
+  chatLoginModalOpen: boolean;
+  setChatLoginModalOpen: (open: boolean) => void;
   enforcePathnameView: () => void;
   setSelectedDealerId: (dealerId: string | null) => void;
 
@@ -164,6 +166,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
+  chatLoginModalOpen: false,
+  setChatLoginModalOpen: (open) => set({ chatLoginModalOpen: open }),
   setSelectedDealerId: (dealerId) => set({ selectedDealerId: dealerId }),
 
   // Follow dealer foundation
