@@ -1,21 +1,40 @@
-import { MessageSquare, Plus, Trash2, Calendar } from "lucide-react";
+import {
+  MessageSquare,
+  Plus,
+  Trash2,
+  Calendar,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { ChatActorStatus } from "./ChatActorStatus";
+import {
+  CHAT_SIDEBAR_WIDTH_COLLAPSED,
+  CHAT_SIDEBAR_WIDTH_EXPANDED,
+  CHAT_SIDEBAR_WIDTH_MOBILE,
+} from "../../utils/chatSidebarLayout";
 
 interface ChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
-  const { 
-    sessions, 
-    activeSessionId, 
-    selectSession, 
-    createNewChat, 
-    removeChat, 
-    isGenerating 
+export function ChatSidebar({
+  isOpen,
+  onClose,
+  collapsed,
+  onToggleCollapsed,
+}: ChatSidebarProps) {
+  const {
+    sessions,
+    activeSessionId,
+    selectSession,
+    createNewChat,
+    removeChat,
+    isGenerating,
   } = useChatContext();
 
   const handleCreateNewChat = async () => {
@@ -41,16 +60,19 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         month: "short",
         day: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
       });
     } catch {
       return dateStr;
     }
   };
 
+  const widthClass = collapsed
+    ? `${CHAT_SIDEBAR_WIDTH_MOBILE} ${CHAT_SIDEBAR_WIDTH_COLLAPSED}`
+    : `${CHAT_SIDEBAR_WIDTH_MOBILE} ${CHAT_SIDEBAR_WIDTH_EXPANDED}`;
+
   return (
     <>
-      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -66,52 +88,106 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
       <div
         id="chat-sidebar-wrapper"
-        className={`fixed top-0 bottom-0 left-0 z-40 w-72 md:w-80 border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${
+        data-collapsed={collapsed ? "true" : "false"}
+        className={`fixed top-0 bottom-0 left-0 z-40 border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform transition-[transform,width] duration-300 ease-in-out md:translate-x-0 md:static shrink-0 ${widthClass} ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Header Branding */}
-        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between" id="sidebar-header">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center font-bold text-white shadow-lg shadow-orange-500/20 text-sm">
+        <div
+          className={`border-b border-slate-800/80 flex items-center shrink-0 ${
+            collapsed ? "md:flex-col md:gap-2 md:py-3 md:px-1.5 p-4 justify-between" : "p-3 justify-between gap-2"
+          }`}
+          id="sidebar-header"
+        >
+          <div
+            className={`flex items-center min-w-0 ${
+              collapsed ? "md:flex-col md:gap-2 md:w-full" : "gap-2 flex-1"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center font-bold text-white shadow-lg shadow-orange-500/20 text-sm shrink-0">
               N
             </div>
-            <div>
+            <div className={`min-w-0 ${collapsed ? "md:hidden" : ""}`}>
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-1">
-                น้องเอ <span className="text-[10px] bg-orange-500/20 text-orange-400 font-mono px-1.5 py-0.5 rounded-full border border-orange-500/30">AI Sales</span>
+                น้องเอ{" "}
+                <span className="text-[10px] bg-orange-500/20 text-orange-400 font-mono px-1.5 py-0.5 rounded-full border border-orange-500/30">
+                  AI Sales
+                </span>
               </h2>
-              <p className="text-[10px] text-slate-400">คุยสนุก สรุปเร็ว เสนอแนววิเคราะห์สับๆ</p>
+              <p className="text-[10px] text-slate-400 truncate">
+                คุยสนุก สรุปเร็ว เสนอแนววิเคราะห์สับๆ
+              </p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            className="md:hidden text-slate-400 hover:text-white p-1 rounded-md"
-            title="ปิดเมนู"
-            id="close-sidebar-btn"
+
+          <div
+            className={`flex items-center shrink-0 ${
+              collapsed ? "md:flex-col md:gap-1" : "gap-1"
+            }`}
           >
-            ✕
-          </button>
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className="hidden md:flex text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              title={collapsed ? "ขยายเมนูแชท" : "พับเมนูแชท"}
+              id="sidebar-collapse-toggle"
+              aria-expanded={!collapsed}
+            >
+              {collapsed ? (
+                <ChevronsRight className="w-4 h-4" />
+              ) : (
+                <ChevronsLeft className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="md:hidden text-slate-400 hover:text-white p-1 rounded-md"
+              title="ปิดเมนู"
+              id="close-sidebar-btn"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <ChatActorStatus />
+        <div className={collapsed ? "md:hidden" : ""}>
+          <ChatActorStatus />
+        </div>
 
-        {/* Create New Chat Trigger */}
-        <div className="px-4 pb-4 pt-0" id="sidebar-action">
+        <div
+          className={`pb-3 pt-0 shrink-0 ${collapsed ? "md:px-1.5 md:pt-1 px-4" : "px-3"}`}
+          id="sidebar-action"
+        >
           <button
             id="new-chat-btn"
             onClick={handleCreateNewChat}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 font-medium text-xs py-3 px-4 rounded-xl bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-all duration-300 shadow-md hover:shadow-orange-500/20 hover:scale-[1.01]"
+            title="เริ่มคุยเรื่องใหม่"
+            className={`w-full flex items-center justify-center gap-2 font-medium text-xs rounded-xl bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-all duration-300 shadow-md hover:shadow-orange-500/20 ${
+              collapsed
+                ? "md:min-h-[40px] md:px-0 md:py-2.5 py-3 px-4 hover:scale-[1.01]"
+                : "py-2.5 px-3 hover:scale-[1.01]"
+            }`}
           >
-            <Plus className="w-4 h-4" />
-            เริ่มคุยเรื่องใหม่
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className={collapsed ? "md:hidden" : ""}>เริ่มคุยเรื่องใหม่</span>
           </button>
         </div>
 
-        {/* Chat List */}
-        <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800" id="sidebar-list">
-          <p className="text-[10px] font-semibold text-slate-500 px-3 uppercase tracking-wider mb-2">บทสนทนาที่ผ่านมา</p>
-          
+        <div
+          className={`flex-1 overflow-y-auto pb-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800 ${
+            collapsed ? "md:px-1 px-3" : "px-2.5"
+          }`}
+          id="sidebar-list"
+        >
+          <p
+            className={`text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2 ${
+              collapsed ? "md:hidden px-3" : "px-2"
+            }`}
+          >
+            บทสนทนาที่ผ่านมา
+          </p>
+
           <AnimatePresence initial={false}>
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
@@ -126,7 +202,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                     isActive
                       ? "bg-slate-800/60 border border-slate-700/60 text-slate-100 before:bg-orange-500"
                       : "hover:bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent before:bg-transparent"
-                  }`}
+                  } ${collapsed ? "md:justify-center md:before:hidden" : ""}`}
                   id={`chat-session-row-${session.id}`}
                 >
                   <button
@@ -141,13 +217,24 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                         handleSelectSession(session.id);
                       }
                     }}
-                    className="flex min-h-[56px] flex-1 items-start gap-2.5 overflow-hidden p-3 pr-1 text-left cursor-pointer"
+                    title={session.title}
+                    className={`flex items-start gap-2.5 overflow-hidden text-left cursor-pointer ${
+                      collapsed
+                        ? "md:min-h-[40px] md:w-full md:justify-center md:p-2 md:gap-0 flex-1 p-3 pr-1"
+                        : "min-h-[52px] flex-1 p-2.5 pr-1"
+                    }`}
                     id={`chat-session-item-${session.id}`}
                     aria-current={isActive ? "page" : undefined}
                   >
-                    <MessageSquare className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? "text-orange-400" : "text-slate-500"}`} />
-                    <div className="overflow-hidden min-w-0">
-                      <p className="truncate font-medium text-slate-200 leading-snug">{session.title}</p>
+                    <MessageSquare
+                      className={`w-4 h-4 shrink-0 ${
+                        collapsed ? "md:mt-0 mt-0.5" : "mt-0.5"
+                      } ${isActive ? "text-orange-400" : "text-slate-500"}`}
+                    />
+                    <div className={`overflow-hidden min-w-0 ${collapsed ? "md:hidden" : ""}`}>
+                      <p className="truncate font-medium text-slate-200 leading-snug">
+                        {session.title}
+                      </p>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                         <Calendar className="w-3 h-3" />
                         {formattedDate(session.createdAt)}
@@ -155,16 +242,19 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                     </div>
                   </button>
 
-                  {/* Delete button (displays on group-hover or if active) */}
                   <button
                     id={`delete-chat-session-${session.id}`}
                     className={`text-slate-500 hover:text-red-400 p-1 rounded-lg hover:bg-slate-800/80 transition-colors backdrop-blur-md md:opacity-0 group-hover:opacity-100 ${
                       isActive ? "opacity-100" : ""
-                    }`}
+                    } ${collapsed ? "md:hidden" : ""}`}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบบทสนทนานี้ออกระบบอย่างถาวร?")) {
+                      if (
+                        confirm(
+                          "คุณแน่ใจหรือไม่ว่าต้องการลบบทสนทนานี้ออกระบบอย่างถาวร?"
+                        )
+                      ) {
                         removeChat(session.id);
                       }
                     }}
@@ -178,28 +268,48 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           </AnimatePresence>
 
           {sessions.length === 0 && (
-            <div className="text-center py-8 px-4 space-y-3" id="empty-sidebar">
+            <div
+              className={`text-center py-8 space-y-3 ${collapsed ? "md:py-4 md:px-1 px-4" : "px-4"}`}
+              id="empty-sidebar"
+            >
               <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
-              <p className="text-xs font-semibold text-slate-300">ยังไม่มีประวัติแชท</p>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                กด «แชทใหม่» แล้วบอกน้องเอว่าต้องการขายรถอะไร หรือถามหารถในตลาดได้เลย
-              </p>
+              <div className={collapsed ? "md:hidden" : ""}>
+                <p className="text-xs font-semibold text-slate-300">ยังไม่มีประวัติแชท</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  กด «แชทใหม่» แล้วบอกน้องเอว่าต้องการขายรถอะไร หรือถามหารถในตลาดได้เลย
+                </p>
+              </div>
               <button
                 type="button"
                 disabled={isGenerating}
                 onClick={() => void handleCreateNewChat()}
-                className="min-h-[44px] w-full px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50"
+                title="เริ่มแชทใหม่"
+                className={`flex items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50 ${
+                  collapsed
+                    ? "md:min-h-[40px] md:w-full md:px-0 md:py-2 min-h-[44px] w-full px-4 py-2.5"
+                    : "min-h-[44px] w-full px-4 py-2.5"
+                }`}
               >
-                เริ่มแชทใหม่
+                <Plus className="w-4 h-4 shrink-0" />
+                <span className={collapsed ? "md:hidden" : ""}>เริ่มแชทใหม่</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 text-[10px] text-slate-500 flex items-center justify-between" id="sidebar-footer">
+        <div
+          className={`border-t border-slate-800/80 bg-slate-950/40 text-[10px] text-slate-500 shrink-0 ${
+            collapsed ? "md:hidden p-4 flex items-center justify-between" : "p-3 flex items-center justify-between"
+          }`}
+          id="sidebar-footer"
+        >
           <span>Branding by NongBot Group</span>
-          <a href="https://www.nongbot.org/nonga" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">
+          <a
+            href="https://www.nongbot.org/nonga"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-400 hover:underline"
+          >
             nongbot.org
           </a>
         </div>
