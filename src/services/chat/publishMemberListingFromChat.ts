@@ -170,11 +170,12 @@ export function validateMemberListingReadyToPublish(
   );
 
   if (!hasCoreFieldsComplete(fields, visionSummary)) {
+    const missingCoreLabels = getMissingCoreFieldLabels(fields);
     return {
       ok: false,
       reason: "missing-core-fields",
-      message: buildPublishBlockedMessage("missing-core-fields"),
-      missingCoreLabels: getMissingCoreFieldLabels(fields),
+      message: buildPublishMissingCoreFieldsMessage(missingCoreLabels),
+      missingCoreLabels,
     };
   }
 
@@ -320,6 +321,24 @@ export function buildPublishBlockedMessage(reason: PublishBlockedReason): string
   }
 }
 
+export function buildPublishMissingCoreFieldsMessage(
+  missingLabels: string[],
+  options?: { cardHadCompleteFields?: boolean }
+): string {
+  if (missingLabels.length === 0) {
+    return buildPublishBlockedMessage("missing-core-fields");
+  }
+  const intro = options?.cardHadCompleteFields
+    ? "ข้อมูลในแชทครบแล้ว แต่ข้อมูลในระบบ (ประกาศของฉัน) ยังไม่ครบสำหรับเผยแพร่ครับ"
+    : "ข้อมูลในระบบยังไม่ครบสำหรับเผยแพร่ครับ";
+  return [
+    intro,
+    `ยังขาด: ${missingLabels.join(", ")}`,
+    "",
+    'กรุณาแก้ไขที่ "ประกาศของฉัน" ให้ครบก่อน แล้วกลับมากด "พร้อมลงตลาด" อีกครั้ง',
+  ].join("\n");
+}
+
 export function buildPublishSuccessMessage(
   listing: Car,
   card?: SavedMemberListingCardData
@@ -345,6 +364,31 @@ export function countRealListingImagesOnRecord(car: Car): number {
   return car.images.filter((url) => isValidListingImageUrl(url, car.id)).length;
 }
 
+function extractTransmissionFromListingRecord(car: Car): string | undefined {
+  if (typeof car.transmission === "string" && car.transmission.trim()) {
+    return car.transmission.trim();
+  }
+
+  const candidates = [car.condition, car.description].filter(
+    (value): value is string => typeof value === "string" && Boolean(value.trim())
+  );
+
+  for (const text of candidates) {
+    const normalized = text.trim();
+    const labeled = normalized.match(/(?:เกียร์)\s*(ออโต้|อัตโนมัติ|auto|at|mt|manual|ธรรมดา|cvt)/i);
+    if (labeled) {
+      const raw = labeled[1];
+      if (/ออโต้|อัตโนมัติ|auto|cvt|^at$/i.test(raw)) return "เกียร์ออโต้";
+      if (/^mt$|manual|ธรรมดา/i.test(raw)) return "เกียร์ธรรมดา";
+      return `เกียร์ ${raw.trim()}`;
+    }
+    if (/ออโต้|อัตโนมัติ|automatic|cvt/i.test(normalized)) return "เกียร์ออโต้";
+    if (/manual|ธรรมดา/i.test(normalized)) return "เกียร์ธรรมดา";
+  }
+
+  return undefined;
+}
+
 export function carRecordToExtractedFields(car: Car): ExtractedCarFields {
   return {
     brand: car.brand,
@@ -352,8 +396,7 @@ export function carRecordToExtractedFields(car: Car): ExtractedCarFields {
     year: car.year,
     price: car.price,
     mileage: car.mileage,
-    transmission:
-      typeof car.transmission === "string" ? car.transmission : undefined,
+    transmission: extractTransmissionFromListingRecord(car),
     color: car.color,
     description: car.description,
   };
@@ -365,7 +408,12 @@ export function preflightMemberListingRecordForChatPublish(params: {
   listings: Car[];
 }):
   | { ok: true; listing: Car }
-  | { ok: false; reason: PublishPreflightFailureReason; message: string } {
+  | {
+      ok: false;
+      reason: PublishPreflightFailureReason;
+      message: string;
+      missingCoreLabels?: string[];
+    } {
   const listingId = params.listingId.trim();
   const ownerId = params.ownerId.trim();
   const listing = params.listings.find((item) => item.id === listingId);
@@ -404,11 +452,13 @@ export function preflightMemberListingRecordForChatPublish(params: {
   }
 
   const fields = carRecordToExtractedFields(listing);
-  if (!hasCoreFieldsComplete(fields)) {
+  const missingCoreLabels = getMissingCoreFieldLabels(fields);
+  if (missingCoreLabels.length > 0) {
     return {
       ok: false,
       reason: "missing-core-fields",
-      message: buildPublishBlockedMessage("missing-core-fields"),
+      message: buildPublishMissingCoreFieldsMessage(missingCoreLabels),
+      missingCoreLabels,
     };
   }
 
@@ -511,6 +561,16 @@ export async function confirmMemberPublishListingFromChat(
     }
     if (preflight.reason === "owner-mismatch") {
       return { kind: "forbidden", message: preflight.message };
+    }
+    if (preflight.reason === "missing-core-fields") {
+      const cardReady = validateMemberListingReadyToPublish(ctx.card);
+      const message =
+        cardReady.ok && preflight.missingCoreLabels
+          ? buildPublishMissingCoreFieldsMessage(preflight.missingCoreLabels, {
+              cardHadCompleteFields: true,
+            })
+          : preflight.message;
+      return { kind: "blocked", message };
     }
     return { kind: "blocked", message: preflight.message };
   }

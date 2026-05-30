@@ -1,5 +1,6 @@
 import {
   extractCarFieldsFromMessage,
+  isSellIntent,
   type ExtractedCarFields,
 } from "./sellIntentParser";
 
@@ -36,6 +37,7 @@ const START_CREATE_PATTERNS: RegExp[] = [
   /ทำโพสต์ขายรถให้หน่อย/i,
   /สร้างประกาศ/i,
   /ช่วยลงขาย/i,
+  /ช่วยประกาศขาย/i,
 ];
 
 const CONFIRM_CREATE_PATTERNS: RegExp[] = [
@@ -92,6 +94,30 @@ export function isStartCreateListingIntent(message: string): boolean {
   const text = message.trim();
   if (!text) return false;
   return START_CREATE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/** ข้อความมี hint ข้อมูลประกาศ (ปี/ราคา/ไมล์/เกียร์/ยี่ห้อ/รุ่น) แม้ไม่มี sell intent ชัดเจน */
+export function hasListingFieldHintsInMessage(message: string): boolean {
+  const fields = extractCarFieldsFromMessage(message);
+  return Boolean(
+    fields.brand ||
+      fields.model ||
+      fields.year ||
+      fields.price ||
+      fields.mileage != null ||
+      fields.transmission
+  );
+}
+
+/** รูป + ข้อความที่ควรเข้า precheck ทันที (ไม่ใช้ generic image ack) */
+export function isListingCreateWithImagesMessage(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  return (
+    isStartCreateListingIntent(text) ||
+    isSellIntent(text) ||
+    hasListingFieldHintsInMessage(text)
+  );
 }
 
 export function isConfirmCreateListingIntent(message: string): boolean {

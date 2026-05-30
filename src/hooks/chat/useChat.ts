@@ -124,6 +124,7 @@ import {
   mergeEffectivePrecheckFields,
   isConfirmCreateListingIntent,
   isPrecheckAwaitingConfirm,
+  isListingCreateWithImagesMessage,
   isStartCreateListingIntent,
   setPrecheckStage,
   setPrecheckVisionSummary,
@@ -904,7 +905,8 @@ export function useChat() {
         }
       }
 
-      const isListingCreateWithImages = hasImages && trimmed && isSellIntent(trimmed);
+      const isListingCreateWithImages =
+        hasImages && trimmed && isListingCreateWithImagesMessage(trimmed);
       const activePrecheck = getPrecheckContext(sessionId);
       const precheckActive =
         activePrecheck?.stage &&

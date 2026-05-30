@@ -16,6 +16,7 @@ import {
   getPrecheckContext,
   hasCoreFieldsComplete,
   mergeEffectivePrecheckFields,
+  isListingCreateWithImagesMessage,
   isConfirmCreateListingIntent,
   setPrecheckStage,
   upsertPrecheckFromMessage,
@@ -93,7 +94,9 @@ import {
   beginPendingPublishListingFromSavedCard,
   buildPublishAwaitingConfirmMessage,
   buildPublishBlockedMessage,
+  buildPublishMissingCoreFieldsMessage,
   buildPublishSuccessMessage,
+  carRecordToExtractedFields,
   buildPublishSummaryMessage,
   canEnterMemberPublishInChatFlow,
   CHAT_MEMBER_CANCEL_PUBLISH_ACTION,
@@ -422,6 +425,71 @@ assertEqual(
   ),
   true,
   "Core complete when vision supplies brand/model"
+);
+
+console.log("--- Testing image+text field extraction and precheck merge ---");
+
+const imageListingMsg =
+  "ช่วยประกาศขายรถในรูป ราคาขาย 892025 บาท เลขไมล์ 52025 เกียร์ออโต้ ปี 2025";
+const imageListingFields = extractCarFieldsFromMessage(imageListingMsg);
+assertEqual(imageListingFields.price, 892025, "parse price from ราคาขาย ... บาท");
+assertEqual(imageListingFields.mileage, 52025, "parse mileage from เลขไมล์");
+assertEqual(imageListingFields.year, 2025, "parse year from ปี 2025");
+assertEqual(
+  imageListingFields.transmission?.includes("ออโต้"),
+  true,
+  "parse transmission from เกียร์ออโต้"
+);
+assertEqual(
+  isSellIntent(imageListingMsg),
+  true,
+  "sell intent matches ช่วยประกาศขาย"
+);
+assertEqual(
+  isListingCreateWithImagesMessage(imageListingMsg),
+  true,
+  "listing create with images message detected"
+);
+
+const mergedUserVision = mergeEffectivePrecheckFields(imageListingFields, {
+  brand: "Toyota",
+  model: "Fortuner",
+});
+const missingAfterMerge = getMissingCoreFieldLabels(mergedUserVision);
+assertEqual(
+  missingAfterMerge.includes("ปี"),
+  false,
+  "does not ask for year already supplied"
+);
+assertEqual(
+  missingAfterMerge.includes("ราคา"),
+  false,
+  "does not ask for price already supplied"
+);
+assertEqual(
+  missingAfterMerge.includes("เลขไมล์"),
+  false,
+  "does not ask for mileage already supplied"
+);
+assertEqual(
+  missingAfterMerge.includes("เกียร์"),
+  false,
+  "does not ask for transmission already supplied"
+);
+assertEqual(missingAfterMerge.length, 0, "vision+user text merge avoids duplicate questions");
+
+const missingBrandOnly = getMissingCoreFieldLabels(
+  mergeEffectivePrecheckFields(imageListingFields, undefined)
+);
+assertEqual(
+  missingBrandOnly.includes("ยี่ห้อ") && missingBrandOnly.includes("รุ่น"),
+  true,
+  "asks only brand/model when other core fields supplied"
+);
+assertEqual(
+  missingBrandOnly.includes("ปี"),
+  false,
+  "missing prompt skips year when in message"
 );
 
 console.log("--- Testing pending draft snapshot (post-login restore) ---");
@@ -1713,6 +1781,68 @@ if (preflightMissingFields.ok === false) {
     preflightMissingFields.reason,
     "missing-core-fields",
     "guard fail reason missing fields"
+  );
+  assertEqual(
+    preflightMissingFields.message.includes("ยังขาด:"),
+    true,
+    "guard fail lists missing fields in message"
+  );
+  assertEqual(
+    preflightMissingFields.message.includes("ยี่ห้อ"),
+    true,
+    "guard fail names missing brand"
+  );
+}
+
+const listingTransmissionInCondition = mockHiddenMemberListing(
+  step4ListingId,
+  step4OwnerId,
+  {
+    transmission: undefined,
+    condition: "เกียร์ออโต้",
+  }
+);
+const conditionFields = carRecordToExtractedFields(listingTransmissionInCondition);
+assertEqual(
+  conditionFields.transmission?.includes("ออโต้"),
+  true,
+  "carRecordToExtractedFields reads transmission from condition"
+);
+const preflightConditionGear = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: step4ListingId,
+  listings: [listingTransmissionInCondition],
+});
+assertEqual(
+  preflightConditionGear.ok,
+  true,
+  "preflight passes when transmission only in condition field"
+);
+
+const preflightMissingGear = preflightMemberListingRecordForChatPublish({
+  ownerId: step4OwnerId,
+  listingId: step4ListingId,
+  listings: [
+    mockHiddenMemberListing(step4ListingId, step4OwnerId, {
+      transmission: undefined,
+      condition: "good",
+      description: "รถสภาพดี",
+    }),
+  ],
+});
+assertEqual(preflightMissingGear.ok, false, "guard fail: missing transmission");
+if (preflightMissingGear.ok === false) {
+  assertEqual(
+    preflightMissingGear.missingCoreLabels?.includes("เกียร์"),
+    true,
+    "guard fail names missing transmission"
+  );
+  assertEqual(
+    buildPublishMissingCoreFieldsMessage(preflightMissingGear.missingCoreLabels ?? []).includes(
+      "เกียร์"
+    ),
+    true,
+    "buildPublishMissingCoreFieldsMessage includes gear label"
   );
 }
 

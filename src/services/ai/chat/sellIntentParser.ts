@@ -17,7 +17,7 @@ export interface ExtractedCarFields {
 }
 
 const SELL_INTENT =
-  /(?:ช่วยลงขาย|สร้างประกาศขาย|ช่วยขาย|ลงประกาศ|มีรถจะขาย|ช่วยทำโพสต์ขาย|อยากขายรถ|ต้องการขายรถ)/i;
+  /(?:ช่วยลงขาย|ช่วยประกาศขาย|ประกาศขาย|สร้างประกาศขาย|ช่วยขาย|ลงประกาศ|มีรถจะขาย|ช่วยทำโพสต์ขาย|อยากขายรถ|ต้องการขายรถ)/i;
 
 const KNOWN_BRANDS =
   /^(Honda|Toyota|Mazda|Nissan|Isuzu|Ford|Mitsubishi|Mercedes-Benz|BMW|BYD|Tesla|Suzuki|ฮอนด้า|โตโยต้า|ซูซูกิ)$/i;
@@ -169,7 +169,7 @@ function extractPrice(text: string, cells: string[]): number | undefined {
     if (price > 0) return price;
   }
 
-  const rawPriceMatch = processedText.match(/(?:ราคา|ขาย)\s*([\d,]{5,})/i);
+  const rawPriceMatch = processedText.match(/(?:ราคาขาย|ราคา|ขาย)\s*([\d,]{5,})/i);
   if (rawPriceMatch) return parseThaiNumber(rawPriceMatch[1]);
 
   return undefined;
