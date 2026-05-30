@@ -7,12 +7,14 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { ChatActorStatus } from "./ChatActorStatus";
+import { ChatSidebarAccount } from "./ChatSidebarAccount";
 import {
-  CHAT_SIDEBAR_WIDTH_COLLAPSED,
-  CHAT_SIDEBAR_WIDTH_EXPANDED,
+  CHAT_SIDEBAR_WIDTH_COLLAPSED_PX,
   CHAT_SIDEBAR_WIDTH_MOBILE,
+  resolveChatSidebarDesktopWidthPx,
 } from "../../utils/chatSidebarLayout";
 
 interface ChatSidebarProps {
@@ -20,6 +22,22 @@ interface ChatSidebarProps {
   onClose: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  expandedWidth: number;
+  onExpandedWidthChange: (width: number) => void;
+}
+
+function useMdUp(): boolean {
+  const [mdUp, setMdUp] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setMdUp(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return mdUp;
 }
 
 export function ChatSidebar({
@@ -27,6 +45,8 @@ export function ChatSidebar({
   onClose,
   collapsed,
   onToggleCollapsed,
+  expandedWidth,
+  onExpandedWidthChange,
 }: ChatSidebarProps) {
   const {
     sessions,
@@ -36,6 +56,47 @@ export function ChatSidebar({
     removeChat,
     isGenerating,
   } = useChatContext();
+
+  const mdUp = useMdUp();
+  const [isResizing, setIsResizing] = useState(false);
+
+  const desktopWidthPx = useMemo(
+    () => resolveChatSidebarDesktopWidthPx(collapsed, expandedWidth),
+    [collapsed, expandedWidth]
+  );
+
+  const startResize = useCallback(
+    (clientX: number) => {
+      setIsResizing(true);
+      const startX = clientX;
+      const startW = expandedWidth;
+
+      const onMove = (ev: MouseEvent) => {
+        onExpandedWidthChange(startW + (ev.clientX - startX));
+      };
+      const onUp = () => {
+        setIsResizing(false);
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [expandedWidth, onExpandedWidthChange]
+  );
+
+  const handleResizeMouseDown = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      startResize(e.clientX);
+    },
+    [startResize]
+  );
 
   const handleCreateNewChat = async () => {
     if (isGenerating) return;
@@ -67,9 +128,9 @@ export function ChatSidebar({
     }
   };
 
-  const widthClass = collapsed
-    ? `${CHAT_SIDEBAR_WIDTH_MOBILE} ${CHAT_SIDEBAR_WIDTH_COLLAPSED}`
-    : `${CHAT_SIDEBAR_WIDTH_MOBILE} ${CHAT_SIDEBAR_WIDTH_EXPANDED}`;
+  const widthClass = CHAT_SIDEBAR_WIDTH_MOBILE;
+
+  const sidebarWidthStyle = mdUp ? { width: desktopWidthPx } : undefined;
 
   return (
     <>
@@ -89,9 +150,11 @@ export function ChatSidebar({
       <div
         id="chat-sidebar-wrapper"
         data-collapsed={collapsed ? "true" : "false"}
-        className={`fixed top-0 bottom-0 left-0 z-40 border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform transition-[transform,width] duration-300 ease-in-out md:translate-x-0 md:static shrink-0 ${widthClass} ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        data-expanded-width={mdUp && !collapsed ? String(desktopWidthPx) : undefined}
+        style={sidebarWidthStyle}
+        className={`fixed top-0 bottom-0 left-0 z-40 relative border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 md:static shrink-0 ${widthClass} md:w-auto ${
+          isResizing ? "" : "transition-[transform,width] duration-300 ease-in-out"
+        } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div
           className={`border-b border-slate-800/80 flex items-center shrink-0 ${
@@ -276,26 +339,14 @@ export function ChatSidebar({
               <div className={collapsed ? "md:hidden" : ""}>
                 <p className="text-xs font-semibold text-slate-300">ยังไม่มีประวัติแชท</p>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  กด «แชทใหม่» แล้วบอกน้องเอว่าต้องการขายรถอะไร หรือถามหารถในตลาดได้เลย
+                  กด «เริ่มคุยเรื่องใหม่» ด้านบน แล้วบอกน้องเอว่าต้องการขายรถอะไร หรือถามหารถในตลาดได้เลย
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={isGenerating}
-                onClick={() => void handleCreateNewChat()}
-                title="เริ่มแชทใหม่"
-                className={`flex items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold disabled:opacity-50 ${
-                  collapsed
-                    ? "md:min-h-[40px] md:w-full md:px-0 md:py-2 min-h-[44px] w-full px-4 py-2.5"
-                    : "min-h-[44px] w-full px-4 py-2.5"
-                }`}
-              >
-                <Plus className="w-4 h-4 shrink-0" />
-                <span className={collapsed ? "md:hidden" : ""}>เริ่มแชทใหม่</span>
-              </button>
             </div>
           )}
         </div>
+
+        <ChatSidebarAccount collapsed={collapsed} onMobileSidebarClose={onClose} />
 
         <div
           className={`border-t border-slate-800/80 bg-slate-950/40 text-[10px] text-slate-500 shrink-0 ${
@@ -313,6 +364,20 @@ export function ChatSidebar({
             nongbot.org
           </a>
         </div>
+
+        {!collapsed && mdUp && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="ปรับความกว้างเมนูแชท"
+            title="ลากเพื่อปรับความกว้าง"
+            id="sidebar-resize-handle"
+            onMouseDown={handleResizeMouseDown}
+            className="hidden md:block absolute top-0 right-0 z-50 h-full w-2 -mr-1 cursor-col-resize touch-none group/resize"
+          >
+            <span className="absolute inset-y-0 right-0 w-px bg-transparent group-hover/resize:bg-orange-500/40 group-active/resize:bg-orange-500/70 transition-colors" />
+          </div>
+        )}
       </div>
     </>
   );

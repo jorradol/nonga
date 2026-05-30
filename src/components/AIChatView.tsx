@@ -3,8 +3,11 @@ import { ChatProvider } from "../contexts/chat/ChatContext";
 import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatContainer } from "./chat/ChatContainer";
 import {
+  clampChatSidebarExpandedWidth,
   readChatSidebarCollapsed,
+  readChatSidebarExpandedWidth,
   writeChatSidebarCollapsed,
+  writeChatSidebarExpandedWidth,
 } from "../utils/chatSidebarLayout";
 
 /**
@@ -16,6 +19,7 @@ export default function AIChatView() {
     typeof window === "undefined" ? true : window.innerWidth >= 768
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readChatSidebarCollapsed);
+  const [expandedWidth, setExpandedWidth] = useState(readChatSidebarExpandedWidth);
 
   const toggleSidebarCollapsed = useCallback(() => {
     setSidebarCollapsed((prev) => {
@@ -23,6 +27,12 @@ export default function AIChatView() {
       writeChatSidebarCollapsed(next);
       return next;
     });
+  }, []);
+
+  const handleExpandedWidthChange = useCallback((width: number) => {
+    const clamped = clampChatSidebarExpandedWidth(width);
+    setExpandedWidth(clamped);
+    writeChatSidebarExpandedWidth(clamped);
   }, []);
 
   return (
@@ -36,6 +46,8 @@ export default function AIChatView() {
           onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={toggleSidebarCollapsed}
+          expandedWidth={expandedWidth}
+          onExpandedWidthChange={handleExpandedWidthChange}
         />
         <ChatContainer onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       </div>
