@@ -14,8 +14,10 @@ import {
 
 const TOKEN_DEALER_A = "dev-firebase-token-owner-dealer-a";
 const TOKEN_DEALER_B = "dev-firebase-token-owner-dealer-b";
+const TOKEN_MEMBER = "dev-firebase-token-member-a";
 const UID_DEALER_A = "owner-test-dealer-a";
 const UID_DEALER_B = "owner-test-dealer-b";
+const UID_MEMBER = "member-test-uid-001";
 const DEALER_A = "owner-secure-a";
 const DEALER_B = "owner-secure-b";
 
@@ -32,6 +34,11 @@ process.env.NONGA_DEV_FIREBASE_TOKEN_MAP = JSON.stringify({
     uid: UID_DEALER_B,
     email: "dealer-b@example.test",
     displayName: "Owner Dealer B",
+  },
+  [TOKEN_MEMBER]: {
+    uid: UID_MEMBER,
+    email: "member-a@example.test",
+    displayName: "Member A",
   },
 });
 process.env.NONGA_DEV_USER_PROFILE_MAP = JSON.stringify({
@@ -50,6 +57,13 @@ process.env.NONGA_DEV_USER_PROFILE_MAP = JSON.stringify({
     role: "dealer",
     status: "active",
     dealerId: DEALER_B,
+  },
+  [UID_MEMBER]: {
+    uid: UID_MEMBER,
+    email: "member-a@example.test",
+    displayName: "Member A",
+    role: "member",
+    status: "active",
   },
 });
 process.env.NONGA_DEV_DEALER_MEMBERSHIP_MAP = JSON.stringify({
@@ -96,6 +110,29 @@ function makeCar(id: string, dealerId: string): MarketplaceCarRecord {
     showroomName: dealerId,
     isSold: false,
     listingStatus: "published",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function makeMemberCar(id: string, ownerId: string): MarketplaceCarRecord {
+  return {
+    id,
+    title: "Member chat listing",
+    brand: "Honda",
+    model: "City",
+    year: 2021,
+    price: 450000,
+    type: "used",
+    condition: "used",
+    mileage: 20000,
+    fuelType: "petrol",
+    images: [],
+    description: "member my listings test",
+    ownerId,
+    ownerName: "Member A",
+    ownerPhone: "081",
+    isSold: false,
+    listingStatus: "hidden",
     createdAt: new Date().toISOString(),
   };
 }
@@ -193,7 +230,16 @@ async function run() {
         return this.inner.listPublished();
       }
       async listByDealer(dealerId: string) {
-        return this.inner.listByDealer(dealerId);
+        const fromInner = await this.inner.listByDealer(dealerId);
+        const fromOnly = [...this.onlyInRepo.values()].filter(
+          (car) =>
+            car.dealerId === dealerId ||
+            car.ownerId === dealerId ||
+            (!car.dealerId && car.ownerId === dealerId)
+        );
+        const merged = new Map<string, MarketplaceCarRecord>();
+        for (const car of [...fromInner, ...fromOnly]) merged.set(car.id, car);
+        return [...merged.values()];
       }
       async getById(id: string) {
         return this.onlyInRepo.get(id) ?? this.inner.getById(id);
@@ -244,6 +290,7 @@ async function run() {
       throw new Error("failed to start repo-only test server");
     }
     const repoBaseUrl = `http://127.0.0.1:${repoAddress.port}`;
+    const memberListingId = `car-${Date.now()}404`;
     try {
       res = await fetch(`${repoBaseUrl}/api/cars/${repoOnlyId}/images`, {
         method: "POST",
@@ -256,9 +303,39 @@ async function run() {
         );
       }
       console.log("PASS image upload resolves listing via inventory repository");
+
+      const memberCar = makeMemberCar(memberListingId, UID_MEMBER);
+      await repoOnlyListingRepo.createListing(UID_MEMBER, memberCar);
+      removeMarketplaceCar(memberListingId);
+
+      res = await fetch(`${repoBaseUrl}/api/my/listings`, {
+        headers: authHeaders(TOKEN_MEMBER),
+      });
+      if (!res.ok) {
+        throw new Error(`member /api/my/listings failed with ${res.status}`);
+      }
+      const memberListings = (await res.json()) as {
+        data?: Array<{ id: string; listingStatus?: string }>;
+      };
+      const memberIds = new Set((memberListings.data ?? []).map((item) => item.id));
+      if (!memberIds.has(memberListingId)) {
+        throw new Error(
+          "hidden member listing created via repository missing from GET /api/my/listings"
+        );
+      }
+      const hiddenMember = (memberListings.data ?? []).find(
+        (item) => item.id === memberListingId
+      );
+      if (hiddenMember?.listingStatus !== "hidden") {
+        throw new Error("member listing should remain hidden in my listings");
+      }
+      console.log(
+        "PASS member chat listing visible in GET /api/my/listings via inventory repository"
+      );
     } finally {
       await new Promise<void>((resolve) => repoServer.close(() => resolve()));
       await repoOnlyListingRepo.deleteListing(DEALER_A, repoOnlyId);
+      await repoOnlyListingRepo.deleteListing(UID_MEMBER, memberListingId);
     }
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));

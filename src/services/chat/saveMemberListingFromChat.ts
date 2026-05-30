@@ -193,10 +193,15 @@ function buildMemberImageUploadSummary(
     parts.push(
       `อัปโหลดสำเร็จ ${upload.uploadedCount} จาก ${upload.requestedCount} รูป — รูปที่เหลือไม่เข้าระบบ กรุณาแนบรูปที่ล้มเหลวใหม่ในแชทหรือจาก “ประกาศของฉัน”`
     );
-    for (const batch of upload.failedBatches) {
-      parts.push(
-        `• ชุดที่ ${batch.batchIndex + 1}: ${batch.fileNames.join(", ")} — ${batch.message}`
-      );
+    for (const file of upload.failedFiles) {
+      parts.push(`• ${file.fileName} — ${file.message}`);
+    }
+    if (upload.failedFiles.length === 0) {
+      for (const batch of upload.failedBatches) {
+        parts.push(
+          `• ชุดที่ ${batch.batchIndex + 1}: ${batch.fileNames.join(", ")} — ${batch.message}`
+        );
+      }
     }
   }
   return parts.join("\n");
@@ -270,6 +275,17 @@ export async function saveMemberListingFromChat(params: {
     cardAttachments: params.cardAttachments,
   });
 
+  if (expectsImages) {
+    const attachmentImageCount =
+      params.cardAttachments?.filter((a) => a.kind === "image").length ?? 0;
+    console.info("[member-listing-save] image files resolved", {
+      sessionId: params.sessionId,
+      attachmentImageCount,
+      resolvedFileCount: imageFiles.length,
+      fileNames: imageFiles.map((f) => f.name || "upload.jpg"),
+    });
+  }
+
   if (expectsImages && imageFiles.length === 0) {
     return {
       ok: false,
@@ -297,6 +313,7 @@ export async function saveMemberListingFromChat(params: {
       requestedCount: 0,
       uploadedCount: 0,
       failedBatches: [],
+      failedFiles: [],
     };
     let recordImageUrls: string[] = [];
 

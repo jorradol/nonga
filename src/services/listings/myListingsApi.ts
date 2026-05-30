@@ -122,6 +122,12 @@ export interface UploadMyListingImagesResult {
   requestedCount: number;
   uploadedCount: number;
   failedBatches: Array<{ batchIndex: number; fileNames: string[]; message: string }>;
+  failedFiles: Array<{
+    fileName: string;
+    batchIndex: number;
+    message: string;
+    httpStatus?: number;
+  }>;
 }
 
 /** อัปโหลดไฟล์จากเครื่อง → เก็บ /storage/listings/{carId}/ (แบ่ง batch) */
@@ -154,6 +160,7 @@ export async function uploadMyListingImagesDetailed(
       requestedCount: 0,
       uploadedCount: 0,
       failedBatches: [],
+      failedFiles: [],
     };
   }
   if (files.length > MAX_LISTING_IMAGES) {
@@ -166,6 +173,8 @@ export async function uploadMyListingImagesDetailed(
   const url = `/api/cars/${encodeURIComponent(carId)}/images`;
   const storedUrls: string[] = [];
   const failedBatches: UploadMyListingImagesResult["failedBatches"] = [];
+  const failedFiles: UploadMyListingImagesResult["failedFiles"] = [];
+  let uploadedFileCount = 0;
 
   for (let i = 0; i < files.length; i += LISTING_IMAGE_UPLOAD_BATCH_SIZE) {
     const batchIndex = Math.floor(i / LISTING_IMAGE_UPLOAD_BATCH_SIZE);
@@ -197,22 +206,64 @@ export async function uploadMyListingImagesDetailed(
           throw new Error("dealer upload returned no storedUrls");
         }
         storedUrls.push(...result.storedUrls);
+        uploadedFileCount += result.storedUrls.length;
         continue;
       }
 
       const json = await safeApiFetch<
-        ApiJsonEnvelope & { data?: { storedUrls?: string[] } }
+        ApiJsonEnvelope & {
+          data?: {
+            storedUrls?: string[];
+            failedFiles?: Array<{ name?: string; message?: string }>;
+          };
+        }
       >(url, {
         method: "POST",
         headers: await ownerHeadersAsync(scope.ownerId),
         body: JSON.stringify(body),
       });
       assertApiSuccess(json, url);
-      const stored = (json.data as { storedUrls?: string[] })?.storedUrls;
+      const data = json.data as {
+        storedUrls?: string[];
+        failedFiles?: Array<{ name?: string; message?: string }>;
+      };
+      const stored = data?.storedUrls;
       if (!Array.isArray(stored) || stored.length === 0) {
         throw new Error("POST /images returned no storedUrls");
       }
       storedUrls.push(...stored);
+      uploadedFileCount += stored.length;
+
+      const serverFailed = Array.isArray(data?.failedFiles) ? data.failedFiles : [];
+      for (const item of serverFailed) {
+        const fileName = String(item.name ?? "upload.jpg");
+        const message = String(item.message ?? "อัปโหลดรูปไม่สำเร็จ");
+        failedFiles.push({ fileName, batchIndex, message });
+      }
+
+      if (stored.length < batch.length) {
+        const missingCount = batch.length - stored.length - serverFailed.length;
+        if (missingCount > 0) {
+          const missingNames = fileNames.slice(stored.length + serverFailed.length);
+          for (const fileName of missingNames) {
+            failedFiles.push({
+              fileName,
+              batchIndex,
+              message: "เซิร์ฟเวอร์ไม่คืน URL สำหรับรูปนี้",
+            });
+          }
+        }
+      }
+
+      console.info("[member-listing-image-upload] batch ok", {
+        carId,
+        endpoint: url,
+        batchIndex,
+        fileNames,
+        storedCount: stored.length,
+        requestedInBatch: batch.length,
+        serverFailedCount: serverFailed.length,
+      });
     } catch (err) {
       const message =
         err instanceof AppFriendlyError
@@ -228,6 +279,7 @@ export async function uploadMyListingImagesDetailed(
         carId,
         endpoint: url,
         batchIndex,
+        fileNames,
         fileCount: batch.length,
         errorCategory,
         httpStatus,
@@ -239,14 +291,18 @@ export async function uploadMyListingImagesDetailed(
               : String(err),
       });
       failedBatches.push({ batchIndex, fileNames, message });
+      for (const fileName of fileNames) {
+        failedFiles.push({ fileName, batchIndex, message, httpStatus });
+      }
     }
   }
 
   return {
     storedUrls,
     requestedCount: files.length,
-    uploadedCount: storedUrls.length,
+    uploadedCount: uploadedFileCount,
     failedBatches,
+    failedFiles,
   };
 }
 

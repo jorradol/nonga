@@ -7,7 +7,6 @@ import { inferMarketplaceCategoryType } from "../utils/marketplaceCarMapper";
 import { sanitizeListingImagesForId } from "../utils/listingImages";
 import {
   canManageListingWithScope,
-  getListingsForScope,
   resolveOwnerRequestScope,
   type OwnerRequestScope,
 } from "./ownerListingAccess";
@@ -81,11 +80,15 @@ export function registerOwnerListingRoutes(
   app: Express,
   deps: OwnerListingRoutesDeps
 ): void {
-  /** ประกาศของเจ้าของ — รวมที่ซ่อนแล้ว */
+  /** ประกาศของเจ้าของ — รวมที่ซ่อนแล้ว (same inventoryRepository as POST /api/cars) */
   app.get("/api/my/listings", async (req, res) => {
     const scope = await ownerScopeOrDeny(req, res);
     if (!scope) return;
-    const data = getListingsForScope(scope);
+    const repoScope = scope.dealerId || scope.ownerId;
+    if (!repoScope) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+    const data = await deps.inventoryRepository.listings.listByDealer(repoScope);
     res.json({ success: true, count: data.length, data });
   });
 
@@ -135,14 +138,23 @@ export function registerOwnerListingRoutes(
       });
     }
 
+    const failedFiles = persisted.failedFiles ?? [];
     console.info("[ownerListing] image upload ok", {
       carId,
       endpoint,
       uploadedCount: persisted.storedUrls.length,
       requestedCount: decoded.items.length,
+      failedFileCount: failedFiles.length,
+      failedFileNames: failedFiles.map((f) => f.name),
     });
 
-    res.json({ success: true, data: { storedUrls: persisted.storedUrls } });
+    res.json({
+      success: true,
+      data: {
+        storedUrls: persisted.storedUrls,
+        ...(failedFiles.length > 0 ? { failedFiles } : {}),
+      },
+    });
   });
 
   app.patch("/api/cars/:id", async (req, res) => {

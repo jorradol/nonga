@@ -84,15 +84,22 @@ export function decodeListingImageFiles(
   return { ok: true, items };
 }
 
+export type ListingImageUploadFailure = {
+  name: string;
+  message: string;
+};
+
 export async function persistListingImageUploads(
   dealerId: string,
   carId: string,
   items: Array<{ buffer: Buffer; mimeType: string; name: string }>
 ): Promise<
-  { ok: true; storedUrls: string[] } | { ok: false; status: number; message: string }
+  | { ok: true; storedUrls: string[]; failedFiles: ListingImageUploadFailure[] }
+  | { ok: false; status: number; message: string }
 > {
   const imageStorage = createImageStorageRepository();
   const storedUrls: string[] = [];
+  const failedFiles: ListingImageUploadFailure[] = [];
   for (let i = 0; i < items.length; i++) {
     const { buffer, mimeType, name } = items[i];
     try {
@@ -106,12 +113,25 @@ export async function persistListingImageUploads(
       });
       storedUrls.push(saved.storedUrl);
     } catch (err: unknown) {
-      return {
-        ok: false,
-        status: 400,
-        message: err instanceof Error ? err.message : "บันทึกรูปไม่สำเร็จ",
-      };
+      const message = err instanceof Error ? err.message : "บันทึกรูปไม่สำเร็จ";
+      console.warn("[ownerListing] image upload file failed", {
+        carId,
+        dealerId,
+        fileName: name,
+        fileIndex: i,
+        message,
+      });
+      failedFiles.push({ name, message });
     }
   }
-  return { ok: true, storedUrls };
+  if (storedUrls.length === 0) {
+    return {
+      ok: false,
+      status: 400,
+      message:
+        failedFiles[0]?.message ??
+        (items.length === 0 ? "ไม่มีไฟล์รูป" : "บันทึกรูปไม่สำเร็จ"),
+    };
+  }
+  return { ok: true, storedUrls, failedFiles };
 }
