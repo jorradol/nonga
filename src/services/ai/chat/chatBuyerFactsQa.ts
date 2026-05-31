@@ -13,6 +13,14 @@ import {
   toChatCarSummary,
   type ChatInventoryCar,
 } from "./marketplaceChatSearch";
+import {
+  buildHighlightsOpening,
+  buildNoDataPhrase,
+  buildPrePurchaseOpening,
+  buildSuitableForOpening,
+  buildSummaryOpening,
+  buildUnknownHistoryReply,
+} from "./thaiSalesCopyVariation";
 import { CHAT_CONFIRM_CREATE_DRAFT_ACTION } from "./chatDraftActions";
 import { CHAT_MEMBER_PUBLISH_LISTING_ACTION } from "../../chat/chatSavedMemberListing";
 import { CHAT_MEMBER_CONFIRM_PUBLISH_ACTION } from "../../chat/publishMemberListingFromChat";
@@ -150,12 +158,8 @@ export function resolveTargetBuyerCar(
   return null;
 }
 
-function buildUnknownHistoryReply(): string {
-  return [
-    "ข้อมูลเรื่องประวัติชนยังไม่มีในระบบครับ",
-    "น้องเอยังไม่อยากฟันธงเกินข้อมูลที่มีนะครับ",
-    "แนะนำให้ตรวจเล่ม ประวัติเคลม จุดเชื่อมตัวถัง และให้ช่างช่วยดูอีกชั้น จะปลอดภัยกว่าครับ",
-  ].join("\n");
+function buildUnknownHistoryReplyForCar(car: ChatCarCardData): string {
+  return buildUnknownHistoryReply(car.id);
 }
 
 function buildPriceOutlookReply(
@@ -235,7 +239,7 @@ function buildSuitableForReply(car: ChatCarCardData): string {
   if (car.transmission) specNotes.push(car.transmission);
 
   return [
-    `จากข้อมูลที่มี คันนี้เหมาะกับคุณพี่ที่มองหา${hints[0] ?? "รถตามสเปกในระบบ"}ครับ`,
+    buildSuitableForOpening(car, hints[0] ?? "รถตามสเปกในระบบ"),
     hints.length > 1 ? `มุมใช้งานเพิ่มเติม: ${hints.slice(1).join(", ")}` : null,
     specNotes.length > 0
       ? `จุดที่น่าสนใจจากประกาศ: ${specNotes.join(" · ")} (${body})`
@@ -248,9 +252,7 @@ function buildSuitableForReply(car: ChatCarCardData): string {
 }
 
 function buildHighlightsReply(car: ChatCarCardData): string {
-  const lines: string[] = [
-    `ถ้ามองจากข้อมูลประกาศ ${carLabel(car)} จุดที่เห็นได้ชัดคือ:`,
-  ];
+  const lines: string[] = [buildHighlightsOpening(car)];
 
   if (car.description?.trim()) {
     lines.push(`จากรายละเอียดประกาศ: ${car.description.trim().slice(0, 400)}`);
@@ -280,7 +282,7 @@ function buildHighlightsReply(car: ChatCarCardData): string {
 
 function buildPrePurchaseReply(car: ChatCarCardData): string {
   return [
-    `ก่อนตัดสินใจซื้อ ${carLabel(car)} จุดที่ควรเช็กเพิ่มคือ:`,
+    buildPrePurchaseOpening(car),
     "• เล่มทะเบียนและเอกสารโอน",
     "• เลขไมล์และความสอดคล้องกับสภาพรถ",
     "• สภาพเครื่องยนต์ ช่วงล่าง และสนิม",
@@ -293,8 +295,7 @@ function buildPrePurchaseReply(car: ChatCarCardData): string {
 }
 
 function buildSummaryReply(car: ChatCarCardData): string {
-  const parts = [
-    `เดี๋ยวน้องเอช่วยไล่ให้ดูแบบเข้าใจง่ายนะครับ — ${carLabel(car)}`,
+  const facts = [
     car.price > 0 ? `ราคา ${formatPrice(car.price)} บาท` : null,
     car.mileage > 0 ? `เลขไมล์ ${formatPrice(car.mileage)} กม.` : null,
     car.color ? `สี${car.color}` : null,
@@ -305,7 +306,8 @@ function buildSummaryReply(car: ChatCarCardData): string {
   ].filter(Boolean);
 
   return [
-    parts.join(" · "),
+    buildSummaryOpening(car),
+    facts.length > 0 ? facts.join(" · ") : null,
     car.description?.trim()
       ? `รายละเอียดประกาศ: ${car.description.trim().slice(0, 350)}`
       : null,
@@ -319,31 +321,32 @@ function buildSpecFieldReply(
   car: ChatCarCardData,
   field: BuyerFactsSpecField | null
 ): string {
-  if (!field) return BUYER_FACTS_NO_DATA;
+  const noData = buildNoDataPhrase(car.id, "spec.missing");
+  if (!field) return noData;
 
   switch (field) {
     case "transmission":
       return car.transmission
         ? `จากข้อมูลที่มี ${carLabel(car)} — เกียร์ ${car.transmission} ครับ`
-        : BUYER_FACTS_NO_DATA;
+        : noData;
     case "color":
       return car.color
         ? `จากข้อมูลที่มี ${carLabel(car)} — สี${car.color} ครับ`
-        : BUYER_FACTS_NO_DATA;
+        : noData;
     case "mileage":
       return car.mileage > 0
         ? `จากข้อมูลที่มี ${carLabel(car)} — เลขไมล์ ${formatPrice(car.mileage)} กม. ครับ`
-        : BUYER_FACTS_NO_DATA;
+        : noData;
     case "year":
       return car.year
         ? `จากข้อมูลที่มี ${carLabel(car)} — ปี ${car.year} ครับ`
-        : BUYER_FACTS_NO_DATA;
+        : noData;
     case "price":
       return car.price > 0
         ? `จากข้อมูลที่มี ${carLabel(car)} — ราคา ${formatPrice(car.price)} บาท ครับ`
-        : BUYER_FACTS_NO_DATA;
+        : noData;
     default:
-      return BUYER_FACTS_NO_DATA;
+      return noData;
   }
 }
 
@@ -381,7 +384,7 @@ export function buildBuyerFactsReply(
         detectBuyerFactsSpecField(context.userMessage ?? "")
       );
     case "unknownHistory":
-      return buildUnknownHistoryReply();
+      return buildUnknownHistoryReplyForCar(car);
     default:
       return BUYER_FACTS_NO_DATA;
   }

@@ -2,6 +2,13 @@
 
 import type { ChatCarCardData } from "../../../types";
 import type { ChatCarSummary, ChatSearchCriteria } from "./marketplaceChatSearch";
+import {
+  buildSearchFoundOpener,
+  buildSelectedCarOpening,
+  buildStableSeed,
+  inferThaiCopyStyle,
+  pickStableVariant,
+} from "./thaiSalesCopyVariation";
 
 export interface CarHighlightFacts {
   id: string;
@@ -35,25 +42,21 @@ function budgetPhrase(criteria: ChatSearchCriteria): string {
     : "";
 }
 
-function getRandomItem<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function cardCta(hasMore = false, includePang = false): string {
+function cardCta(hasMore = false, seed = "search"): string {
   const moreCtas = [
     "ผมเลือกตัวที่น่าสนใจจากราคาและเลขไมล์มาให้ 3 คันแรกก่อน ลองดูจากการ์ดด้านล่างได้เลยครับ ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' ได้เลยครับ",
     "น้องเอคัด 3 คันเด็ดๆ มาให้ดูก่อนครับ ถ้าอยากดูคันอื่นในชุดนี้ กด 'ดูเพิ่ม' ได้เลย",
     "จัดมาให้ชม 3 คันแรกก่อนครับ สนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลย หรือถ้าอยากดูตัวเลือกอื่น กด 'ดูเพิ่ม' ได้เลยครับ",
   ];
-  
+
   const normalCtas = [
     "ลองดูการ์ดรถด้านล่างได้เลยครับ ถ้าถูกใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลยครับ",
     "สนใจคันไหนเป็นพิเศษ กด 'ดูรายละเอียดในแชท' ที่การ์ดด้านล่างเพื่อดูสเปกและรูปเพิ่มได้เลยครับ",
     "เลื่อนดูการ์ดรถด้านล่างได้เลยครับ ถูกใจคันไหน กด 'ดูรายละเอียดในแชท' ดูข้อมูลเพิ่มได้ทันทีครับ",
   ];
 
-  const base = hasMore ? getRandomItem(moreCtas) : getRandomItem(normalCtas);
-  return includePang ? `${base} ปังปุริเย่!` : base;
+  const slot = hasMore ? "search.cta.more" : "search.cta.normal";
+  return pickStableVariant(seed, slot, hasMore ? moreCtas : normalCtas);
 }
 
 /** วิเคราะห์จุดเด่นจากราคา / ไมล์ / ปี — ไม่แต่งข้อมูลนอก field */
@@ -223,10 +226,22 @@ function buildFoundIntro(
   opts?: { bodyTypeHint?: string }
 ): string {
   const budget = budgetPhrase(criteria);
-  
+  const seed = buildStableSeed([
+    cars[0]?.id,
+    criteria.brand,
+    criteria.model,
+    criteria.maxPrice,
+  ]);
+  const style = inferThaiCopyStyle({
+    brand: cars[0]?.brand,
+    model: cars[0]?.model,
+    price: cars[0]?.price,
+    bodyClassLabel: cars[0]?.bodyClassLabel,
+  });
+
   const uniqueBodyTypes = Array.from(new Set(cars.map(c => safeBodyClass(c.bodyClassLabel)))).filter(b => b !== "รถ");
   const isMultiType = uniqueBodyTypes.length > 1;
-  
+
   let typeHint = opts?.bodyTypeHint;
   if (!typeHint) {
     if (criteria.suvOnly) {
@@ -240,38 +255,34 @@ function buildFoundIntro(
     }
   }
 
-  let opener = "";
   const budgetPart = budget ? `ใน${budget}` : "";
 
   if (cars.length === 1) {
-    const singleOpeners = [
-      `เจอแล้วครับ ในตลาด Nong A มี ${carLabel(cars[0])} ${budgetPart}`,
-      `มีรถที่ตรงเงื่อนไข 1 คันครับ — ${carLabel(cars[0])} ${budgetPart}`,
-      `ค้นเจอ 1 คันที่ตรงสเปกครับ ${carLabel(cars[0])} ${budgetPart}`,
-    ];
-    opener = getRandomItem(singleOpeners);
+    const opener = buildSearchFoundOpener(style, seed, "single", {
+      label: carLabel(cars[0]),
+      budgetPart,
+    });
     return `${opener}\n\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจ กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ ปังปุริเย่!`;
-  } 
-  
+  }
+
+  let opener = "";
   if (isMultiType && !criteria.suvOnly) {
-    const multiTypeOpeners = [
-      `เจอรถ${budgetPart}ทั้งหมด ${cars.length} คันครับ มีให้ดูหลายแนว ทั้ง ${uniqueBodyTypes.join(", ")}`,
-      `${budgetPart} มีตัวเลือกให้ดูหลายแนวครับ ค้นเจอทั้งหมด ${cars.length} คัน`,
-      `มีตัวเลือก${budgetPart}ทั้งหมด ${cars.length} คันครับ มีหลายประเภทเลย`,
-    ];
-    opener = getRandomItem(multiTypeOpeners);
+    opener = buildSearchFoundOpener(style, seed, "multi", {
+      count: cars.length,
+      budgetPart,
+      typeHint: "หลายแนว",
+    });
   } else {
-    const singleTypeOpeners = [
-      `เจอทั้งหมด ${cars.length} คันครับ ในตลาด Nong A มี ${typeHint} ที่ตรงเงื่อนไข${budgetPart}`,
-      `ค้นเจอ ${cars.length} คันที่ตรงสเปกครับ สำหรับ ${typeHint}${budgetPart}`,
-      `มี ${typeHint} เข้าตา ${cars.length} คันครับ${budgetPart}`,
-    ];
-    opener = getRandomItem(singleTypeOpeners);
+    opener = buildSearchFoundOpener(style, seed, "multi", {
+      count: cars.length,
+      budgetPart,
+      typeHint,
+    });
   }
 
   const shownCount = Math.min(cars.length, 3);
   const showMoreText = cars.length > 3 ? ` ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' เพื่อดูคันอื่นได้ครับ` : "";
-  
+
   if (cars.length <= 3) {
     return `${opener}\n\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`;
   }
@@ -284,7 +295,13 @@ function buildAlternativeIntro(
   criteria: ChatSearchCriteria
 ): string {
   const budget = budgetPhrase(criteria);
-  
+  const seed = buildStableSeed([
+    alternatives[0]?.id,
+    criteria.brand,
+    criteria.maxPrice,
+    "alt",
+  ]);
+
   const altOpeners = [
     `ยังไม่เจอ SUV แท้${budget ? ` ใน${budget}` : ""} ในตลาด Nong A ตอนนี้ครับ`,
     `ตอนนี้ SUV แท้${budget ? ` ใน${budget}` : ""} ยังไม่มีในระบบครับ`,
@@ -296,14 +313,14 @@ function buildAlternativeIntro(
 
   if (alternatives.length <= 3) {
     return [
-      getRandomItem(altOpeners),
+      pickStableVariant(seed, "search.alt.open", altOpeners),
       `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
       `\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`
     ].join("\n");
   }
 
   return [
-    getRandomItem(altOpeners),
+    pickStableVariant(seed, "search.alt.open", altOpeners),
     `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
     `\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรายละเอียดจากการ์ดได้เลย${showMoreText}`
   ].join("\n");
@@ -325,9 +342,10 @@ function buildEmptyIntro(criteria: ChatSearchCriteria): string {
     `ค้นดูแล้วยังไม่มีรถที่ตรงกับ${cond ? ` ${cond}` : " เงื่อนไขนี้"}ครับ`,
     `ยังไม่พบรถสเปกนี้${cond ? ` (${cond})` : ""} ในระบบตอนนี้ครับ`,
   ];
+  const seed = buildStableSeed([cond, "empty"]);
 
   return [
-    getRandomItem(emptyOpeners),
+    pickStableVariant(seed, "search.empty", emptyOpeners),
     `น้องเอค้นจากรายการจริงในระบบเท่านั้น — ไม่ได้แต่งรายการขึ้นมา`,
     `ลองปรับงบ ยี่ห้อ รุ่น หรือปีรถ แล้วถามใหม่ได้เลยครับ`,
   ].join("\n\n");
@@ -343,9 +361,10 @@ function buildNotFoundIntro(criteria: ChatSearchCriteria): string {
     `ค้นดูแล้วยังไม่มีรถ "${label || "เงื่อนไขที่ถาม"}" ในระบบครับ`,
     `ยังไม่พบรถที่ตรงกับ "${label || "เงื่อนไขที่ถาม"}" ครับ`,
   ];
+  const seed = buildStableSeed([label, "notfound"]);
 
   return [
-    getRandomItem(notFoundOpeners),
+    pickStableVariant(seed, "search.notfound", notFoundOpeners),
     `น้องเอค้นจากรายการจริงเท่านั้น — ถ้าสนใจรุ่นใกล้เคียง ลองถามยี่ห้อหรืองบใหม่ได้ครับ`,
   ].join("\n\n");
 }
@@ -420,7 +439,8 @@ export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {
       : "";
 
   return [
-    `จากข้อมูลที่มี คันนี้คือ ${car.brand} ${car.model} ปี ${car.year} ราคา ${formatPrice(car.price)} บาท${mileage}${color} (${car.bodyClassLabel})`,
+    buildSelectedCarOpening(car),
+    `ราคา ${formatPrice(car.price)} บาท${mileage}${color} (${car.bodyClassLabel})`,
     traitText,
     `ถ้าสนใจคันนี้ กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลจากระบบได้เลยครับ`,
     `ถ้าต้องการ น้องเอช่วยเทียบคันนี้กับคันอื่นให้ได้ครับ`,
@@ -448,7 +468,7 @@ export function buildFollowUpReplyCopy(
   return [
     `จากข้อมูลที่มี ${c.brand} ${c.model} ปี ${c.year} ตอนนี้:`,
     `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้น — ดูรูปและรายละเอียดเพิ่มจากการ์ดด้านล่างได้เลยครับ`,
-    cardCta(),
+    cardCta(false, c.id),
     altNote,
   ]
     .filter(Boolean)

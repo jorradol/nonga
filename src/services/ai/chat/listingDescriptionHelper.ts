@@ -1,5 +1,10 @@
 /** Template-based listing description helper — Chat First Phase 1 */
 
+import {
+  buildListingDescriptionIntro,
+  buildStableSeed,
+} from "./thaiSalesCopyVariation";
+
 export interface ListingDescriptionInput {
   brand?: string;
   model?: string;
@@ -94,13 +99,12 @@ export function buildListingDescriptionFromSpecs(
   ]);
 
   const hasCarIdentity = Boolean(input.brand?.trim() && input.model?.trim());
-  const headline = hasCarIdentity
-    ? `${input.brand} ${input.model}${input.year ? ` ปี ${input.year}` : ""}`
-    : "รถคันนี้";
+  const seed = buildStableSeed([input.brand, input.model, input.year, input.price]);
+  const introLead = buildListingDescriptionIntro(input, seed);
 
   const intro = hasCarIdentity
-    ? `${headline} มาพร้อมสภาพพร้อมใช้งาน ออปชันครบสำหรับการใช้งานจริงทั้งในเมืองและเดินทางไกล`
-    : "รถคันนี้มาพร้อมออปชันครบ ใช้งานสะดวกทั้งในเมืองและเดินทางไกล";
+    ? `${introLead} — ออปชันตามสเปกที่ระบุ`
+    : `${introLead} — ออปชันตามข้อมูลที่มี`;
 
   const specSentence =
     specs.length > 0
@@ -119,7 +123,7 @@ export function buildListingDescriptionFromSpecs(
       : "";
 
   const closing =
-    "เหมาะสำหรับผู้ที่มองหารถใช้งานจริง ออปชันครบ คุ้มค่า พร้อมใช้งานครับ";
+    "เหมาะสำหรับผู้ที่มองหารถใช้งานจริงตามสเปกที่ระบุ แนะนำตรวจสอบข้อมูลก่อนลงประกาศครับ";
 
   return `${intro}${detail ? ` —${detail}` : ""} ${specSentence} ช่วยเพิ่มความสะดวกสบายและความมั่นใจในการขับขี่ ${closing}`.replace(
     /\s+/g,

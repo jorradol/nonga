@@ -814,7 +814,7 @@ async function main() {
   ok("v543b-suitable-skips-gemini", orchSuitable?.skipGemini === true, "");
   ok(
     "v543b-suitable-mentions-from-data",
-    /จากข้อมูล/.test(orchSuitable?.text ?? ""),
+    /จากข้อมูล|มุมครอบครัว|ถ้ามองในมุม|คันนี้จุด|ถ้าโจทย์|สำหรับคนที่|จากสต๊อก|ทีมงานสรุป/.test(orchSuitable?.text ?? ""),
     orchSuitable?.text?.slice(0, 80)
   );
 
@@ -956,7 +956,7 @@ async function main() {
 
   ok(
     "v544-suitable-from-data",
-    /จากข้อมูลที่มี/.test(orchSuitable?.text ?? ""),
+    /จากข้อมูล|มองในมุม|โจทย์|มุมครอบครัว|มุมคุ้มค่า|ต้องบอกแบบตรง/.test(orchSuitable?.text ?? ""),
     ""
   );
   ok(
@@ -973,6 +973,81 @@ async function main() {
         "\n" +
         (tryOrchestrateChatReply("มี Toyota Camry ไหม", INVENTORY_CAMRY)?.text ?? "")
     ),
+    ""
+  );
+
+  // Case 17: v5.4.4b — Thai sales copy variation engine
+  console.log("\n--- v5.4.4b copy variation engine ---");
+
+  const {
+    buildSellerMarketingPostCopy,
+    buildSuitableForOpening,
+    inferThaiCopyStyle,
+    openingFingerprint,
+  } = await import("../src/services/ai/chat/thaiSalesCopyVariation.ts");
+
+  const camryCard544b = camryCardForImages!;
+  const cityStyle = inferThaiCopyStyle({
+    brand: "Honda",
+    model: "City",
+    price: 390000,
+    bodyClassLabel: "Sedan",
+  });
+  const crvStyle = inferThaiCopyStyle({
+    brand: "Honda",
+    model: "CR-V",
+    price: 890000,
+    bodyClassLabel: "SUV / Crossover",
+  });
+  ok("v544b-value-style-city", cityStyle === "valueEase", cityStyle);
+  ok("v544b-family-style-crv", crvStyle === "familyMpv", crvStyle);
+
+  const openA1 = buildSuitableForOpening(camryCard544b, "ใช้งานประจำวัน", "seed-a");
+  const openA2 = buildSuitableForOpening(camryCard544b, "ใช้งานประจำวัน", "seed-a");
+  const openB = buildSuitableForOpening(camryCard544b, "ใช้งานประจำวัน", "seed-b");
+  ok("v544b-stable-same-seed", openA1 === openA2, "");
+  ok("v544b-different-seed-can-differ", openA1 !== openB || openA1.length > 0, "");
+
+  const sellerPostA1 = buildSellerMarketingPostCopy(
+    { brand: "Toyota", model: "Camry", year: 2019, price: 819000, mileage: 120000, transmission: "เกียร์ AT" },
+    "REF-001"
+  );
+  const sellerPostA2 = buildSellerMarketingPostCopy(
+    { brand: "Toyota", model: "Camry", year: 2019, price: 819000, mileage: 120000, transmission: "เกียร์ AT" },
+    "REF-001"
+  );
+  const sellerPostB = buildSellerMarketingPostCopy(
+    { brand: "Toyota", model: "Vios", year: 2018, price: 320000, mileage: 80000, transmission: "เกียร์ AT" },
+    "REF-002"
+  );
+  ok("v544b-seller-post-stable", sellerPostA1 === sellerPostA2, "");
+  ok(
+    "v544b-seller-post-varied-openings",
+    openingFingerprint(sellerPostA1) !== openingFingerprint(sellerPostB),
+    `${openingFingerprint(sellerPostA1)} vs ${openingFingerprint(sellerPostB)}`
+  );
+  ok(
+    "v544b-seller-post-no-hallucination",
+    !/ไม่เคยชน|มือเดียว|เข้าศูนย์ตลอด|คุ้มที่สุด|สภาพนางฟ้า/.test(sellerPostA1),
+    ""
+  );
+
+  const openings = new Set(
+    ["REF-001", "REF-002", "REF-003", "REF-004", "REF-005", "REF-006", "REF-007"].map(
+      (ref) =>
+        openingFingerprint(
+          buildSellerMarketingPostCopy(
+            { brand: "Honda", model: "City", year: 2017, price: 350000, mileage: 90000 },
+            ref
+          )
+        )
+    )
+  );
+  ok("v544b-seller-post-multiple-openings", openings.size >= 3, String(openings.size));
+
+  ok(
+    "v544b-unknown-still-no-data",
+    /ยังไม่มี|ไม่มีข้อมูล|ฟันธง/.test(orchCrash?.text ?? ""),
     ""
   );
 

@@ -3,6 +3,7 @@ import {
   isSellIntent,
   type ExtractedCarFields,
 } from "./sellIntentParser";
+import { buildSellerMarketingPostCopy } from "./thaiSalesCopyVariation";
 
 export type PrecheckStage =
   | "idle"
@@ -275,24 +276,6 @@ function formatMileageKm(mileage?: number): string {
   return `${n.toLocaleString("th-TH")} กม.`;
 }
 
-function normalizeColorDisplay(color?: string): string | undefined {
-  if (!color?.trim()) return undefined;
-  const cleaned = color
-    .trim()
-    .replace(/\s*\([^)]*\)\s*/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return cleaned || color.trim();
-}
-
-function transmissionForSalesCopy(transmission?: string): string | null {
-  const raw = transmission?.trim();
-  if (!raw) return null;
-  const withoutPrefix = raw.replace(/^เกียร์\s*/i, "").trim();
-  if (!withoutPrefix) return null;
-  return `เกียร์${withoutPrefix}`;
-}
-
 function verificationLine(
   label: string,
   userValue: string | number | undefined,
@@ -314,61 +297,7 @@ function buildMarketingPostSection(
   refCode: string,
   vision?: VisionObservationSummary
 ): string {
-  const brand = fields.brand?.trim() || vision?.brand?.trim() || "";
-  const model = fields.model?.trim() || vision?.model?.trim() || "";
-  const year =
-    fields.year != null && Number.isFinite(Number(fields.year))
-      ? String(fields.year)
-      : "";
-  const color = normalizeColorDisplay(
-    fields.color?.trim() || vision?.color?.trim()
-  );
-  const bodyType = vision?.bodyType?.trim();
-  const mileage = formatMileageKm(fields.mileage);
-  const price = formatPriceThb(fields.price);
-  const gear = transmissionForSalesCopy(fields.transmission);
-
-  let hook = "คันนี้น่าสนใจสำหรับผู้ที่กำลังมองหารถใช้งานจริงครับ";
-  if (bodyType) {
-    hook = `ใครกำลังมองหา ${bodyType} ใช้งานง่าย ภาพลักษณ์ดี ขับได้ทั้งในเมืองและออกต่างจังหวัด คันนี้น่าสนใจมากครับ`;
-  } else if (brand && model) {
-    hook = `ใครกำลังมองหา ${brand} ${model} ที่ใช้งานได้จริงในงบนี้ คันนี้น่าสนใจมากครับ`;
-  }
-
-  const carDetails: string[] = [];
-  const nameLine = [brand, model].filter(Boolean).join(" ");
-  if (nameLine) carDetails.push(nameLine);
-  if (year) carDetails.push(`ปี ${year}`);
-  if (color) carDetails.push(`สี${color} ลุคเรียบหรู ดูภูมิฐาน`);
-  if (mileage !== "-") carDetails.push(`เลขไมล์ ${mileage}`);
-  if (gear) carDetails.push(`${gear} ขับง่าย ใช้งานสบาย`);
-  carDetails.push(`ราคา ${price}`);
-
-  const pitch = `${hook} ${carDetails.join(" ")}.`;
-
-  const closer = bodyType
-    ? "เหมาะกับคนที่อยากได้รถอเนกประสงค์ขนาดกำลังดี ดูแลง่าย และยังมีสไตล์ในคันเดียว"
-    : "เหมาะกับผู้ที่อยากได้รถที่ใช้งานได้จริงในงบและสเปกนี้ครับ";
-
-  const blocks: string[] = [pitch, closer];
-
-  if (fields.description?.trim()) {
-    const extras = fields.description
-      .split(/[,·]/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (extras.length > 0) {
-      blocks.push(
-        "",
-        "จุดเสริมจากข้อมูลที่ให้มา:",
-        ...extras.map((item) => `• ${item}`)
-      );
-    }
-  }
-
-  blocks.push("", `สอบถามกับน้องเอ รหัสรถ: ${refCode}`);
-
-  return blocks.join("\n");
+  return buildSellerMarketingPostCopy(fields, refCode, vision);
 }
 
 function buildVerificationSection(

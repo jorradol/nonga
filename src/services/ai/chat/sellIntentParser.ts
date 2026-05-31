@@ -1,3 +1,8 @@
+import {
+  buildDraftPreviewIntro,
+  buildStableSeed,
+} from "./thaiSalesCopyVariation";
+
 export interface ExtractedCarFields {
   brand?: string;
   model?: string;
@@ -408,7 +413,13 @@ export function buildDraftPreviewCopy(
     ? `${fields.mileage.toLocaleString("th-TH")} กม.`
     : "-";
 
-  let reply = "น้องเอสรุปข้อมูลเบื้องต้นให้แล้วครับ:\n\n";
+  const previewSeed = buildStableSeed([
+    fields.brand,
+    fields.model,
+    fields.year,
+    fields.licensePlate,
+  ]);
+  let reply = `${buildDraftPreviewIntro(previewSeed)}\n\n`;
   reply += `• ยี่ห้อ: ${fields.brand || "-"}\n`;
   reply += `• รุ่น: ${fields.model || "-"}\n`;
   if (fields.trimSubModel) reply += `• รุ่นย่อย: ${fields.trimSubModel}\n`;

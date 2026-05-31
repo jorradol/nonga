@@ -427,12 +427,14 @@ const marketingCopy = buildDraftCopyReadyReply(
 if (
   marketingCopy.includes("[โพสต์ตัวอย่าง]") &&
   marketingCopy.includes("[ข้อมูลสำหรับตรวจสอบก่อนยืนยัน]") &&
-  marketingCopy.includes("ใครกำลังมองหา SUV") &&
+  (marketingCopy.includes("มุมครอบครัว/อเนกประสงค์") ||
+    marketingCopy.includes("เหมาะกับคนที่มองหารถใช้งานหลายแบบ")) &&
   marketingCopy.includes("Honda CR-V") &&
   marketingCopy.includes("789,000") &&
   marketingCopy.includes("• ยี่ห้อ/รุ่น: Honda CR-V") &&
   marketingCopy.includes("• รูปภาพ: แนบ 1 รูป") &&
   !marketingCopy.includes("ข้อมูลชุดนี้พร้อมนำไปต่อยอด") &&
+  !marketingCopy.includes("ใครกำลังมองหา SUV") &&
   !marketingCopy.includes("เจ้าของมือเดียว") &&
   !marketingCopy.includes("น้ำท่วม")
 ) {
