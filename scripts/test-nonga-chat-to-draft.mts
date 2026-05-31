@@ -2608,6 +2608,63 @@ assertEqual(
   true,
   "published card has in-chat detail expand"
 );
+assertEqual(
+  publishedCardComponentSource.includes("ย่อรายละเอียด"),
+  true,
+  "published card can collapse in-chat detail"
+);
+assertEqual(
+  publishedCardComponentSource.includes("อ่านเพิ่มเติม"),
+  true,
+  "published card supports read-more for long copy"
+);
+assertEqual(
+  publishedCardComponentSource.includes("คุยกับน้องเอ"),
+  false,
+  "published card must not show talk-to-ai button"
+);
+assertEqual(
+  publishedCardComponentSource.includes("ถามน้องเอ"),
+  false,
+  "published card must not show ask-ai button"
+);
+assertEqual(
+  publishedCardComponentSource.includes("ChatCarCard"),
+  false,
+  "published card does not reuse buyer ChatCarCard CTA"
+);
+assertEqual(
+  publishedCardComponentSource.includes("chat-published-listing-gallery"),
+  true,
+  "published card uses chat-native image gallery"
+);
+assertEqual(
+  publishedCardComponentSource.includes("max-w-full") &&
+    publishedCardComponentSource.includes("overflow-hidden"),
+  true,
+  "published card guards against image overflow in chat bubble"
+);
+assertEqual(
+  publishedCardComponentSource.includes("sm:grid-cols-3") &&
+    publishedCardComponentSource.includes("sm:flex-row"),
+  true,
+  "published card includes responsive layout classes"
+);
+assertEqual(
+  publishedCardComponentSource.includes("chat-published-listing-spec-summary"),
+  true,
+  "published card renders compact summary specs"
+);
+assertEqual(
+  publishedCardComponentSource.includes("chat-published-listing-spec-detail"),
+  true,
+  "published card renders expanded detail specs"
+);
+assertEqual(
+  publishedCardComponentSource.includes("chat-published-listing-marketplace-btn"),
+  true,
+  "published card keeps marketplace action test id"
+);
 
 console.log("--- Testing listing image policy (Phase 1-2 frontend) ---");
 
