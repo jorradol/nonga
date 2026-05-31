@@ -494,7 +494,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                       void sendMessage(CHAT_MEMBER_CONFIRM_PUBLISH_ACTION);
                     }
                   }}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
                   id="chat-confirm-publish-btn"
                 >
                   ยืนยันเผยแพร่ลงตลาด

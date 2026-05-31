@@ -152,7 +152,8 @@ export function ChatSavedMemberListingCard({
           type="button"
           onClick={onPublishComingSoon}
           title="ฟีเจอร์นี้จะเปิดในรอบถัดไป — ประกาศยังเป็นร่างและยังไม่ลงตลาด"
-          className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-400 text-xs font-bold rounded-xl border border-dashed border-slate-600 transition-colors cursor-pointer"
+          className="px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm border border-orange-500/30 transition-all cursor-pointer"
+          id="chat-ready-to-publish-btn"
         >
           {CHAT_MEMBER_PUBLISH_LISTING_ACTION}
         </button>
