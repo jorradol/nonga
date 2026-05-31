@@ -263,7 +263,7 @@ async function main() {
   // Single car tone
   const single = runMarketplaceChatSearch("มี Suzuki Ertiga ไหม", INVENTORY_SUV_ALT)!;
   ok("single-found", single.primary.length === 1, "");
-  ok("single-friendly-opener", /เจอแล้ว|มีรถที่ตรงใจ|ค้นเจอ/.test(single.introText), "");
+  ok("single-friendly-opener", /เจอแล้ว|มีรถที่ตรง(ใจ|เงื่อนไข)|ค้นเจอ/.test(single.introText), "");
 
   // Case 6: Compare intent
   const mockContextForCompare = summariesToCarCards(multiCrv.primary, multiCrv.alternatives);
@@ -299,7 +299,7 @@ async function main() {
   ok("orchestrator-selected", orchSelected != null, "");
   if (orchSelected) {
     ok("selected-no-pagination-copy", !/เจอทั้งหมด|ดูเพิ่ม/.test(orchSelected.text), orchSelected.text.slice(0, 60));
-    ok("selected-has-insight", /คันนี้คือ|จุดที่น่าสนใจ/.test(orchSelected.text), "");
+    ok("selected-has-insight", /จากข้อมูลที่มี|จุดที่น่าสนใจ|ถ้ามองในมุม/.test(orchSelected.text), "");
   }
 
   // Case 8: Budget search with mixed body types
@@ -849,7 +849,7 @@ async function main() {
   );
   ok(
     "v543b-unknown-history-no-data",
-    (orchCrash?.text ?? "").includes(BUYER_FACTS_NO_DATA),
+    /ยังไม่มีในระบบ|ฟันธง/.test(orchCrash?.text ?? ""),
     orchCrash?.text?.slice(0, 80)
   );
   ok(
@@ -862,7 +862,7 @@ async function main() {
   const orchPrice = tryOrchestrateChatReply("ราคาแรงไหม", INVENTORY_MULTI_CRV);
   ok(
     "v543b-price-no-benchmark-safe",
-    /ยังไม่มีข้อมูลเทียบราคา|เปรียบเทียบจากข้อมูล/.test(orchPrice?.text ?? ""),
+    /ยังไม่มีข้อมูลเทียบราคา|เปรียบเทียบจากข้อมูล|ฟันธง/.test(orchPrice?.text ?? ""),
     orchPrice?.text?.slice(0, 100)
   );
   ok(
@@ -913,6 +913,65 @@ async function main() {
         "highlights",
         {}
       )
+    ),
+    ""
+  );
+
+  // Case 16: v5.4.4 — Natural Thai advisor tone
+  console.log("\n--- v5.4.4 natural Thai advisor tone ---");
+
+  const v544CopyFiles = [
+    "src/services/ai/chat/chatBuyerFactsQa.ts",
+    "src/services/ai/chat/chatSearchReplyCopy.ts",
+    "src/services/ai/chat/chatSearchOrchestrator.ts",
+    "src/services/ai/chat/sellIntentParser.ts",
+    "src/services/ai/chat/chatPrecheckLayer.ts",
+    "src/services/chat/chatMemberPendingListing.ts",
+    "src/services/chat/publishMemberListingFromChat.ts",
+    "src/features/chat-image-attachment-v1/followUpImageIntent.ts",
+    "src/utils/chatPendingDraftSnapshot.ts",
+  ];
+  const v544CopyCombined = v544CopyFiles
+    .map((rel) => fs.readFileSync(path.join(process.cwd(), rel), "utf8"))
+    .join("\n");
+  ok("v544-no-lung-in-chat-copy", !v544CopyCombined.includes("ลุง"), "");
+
+  const factsKinds: Array<Exclude<import("../src/services/ai/chat/chatBuyerFactsQa.ts").BuyerFactsQuestionKind, "none">> = [
+    "suitableFor",
+    "priceOutlook",
+    "highlights",
+    "prePurchaseCheck",
+    "imageCount",
+    "specField",
+    "unknownHistory",
+    "summary",
+  ];
+  for (const kind of factsKinds) {
+    const reply = buildBuyerFactsReply(camryCardForImages, kind, {
+      userMessage: kind === "specField" ? "เกียร์อะไร" : "",
+      peerCars: [],
+    });
+    ok(`v544-facts-${kind}-no-pang`, !reply.includes("ปังปุริเย่"), kind);
+  }
+
+  ok(
+    "v544-suitable-from-data",
+    /จากข้อมูลที่มี/.test(orchSuitable?.text ?? ""),
+    ""
+  );
+  ok(
+    "v544-prePurchase-checklist",
+    /เช็ก|ตรวจ|ช่าง/.test(
+      buildBuyerFactsReply(camryCardForImages, "prePurchaseCheck", {})
+    ),
+    ""
+  );
+  ok(
+    "v544-search-single-found-has-pang",
+    /ปังปุริเย่/.test(
+      runMarketplaceChatSearch("มี Toyota Camry ไหม", INVENTORY_CAMRY)!.introText +
+        "\n" +
+        (tryOrchestrateChatReply("มี Toyota Camry ไหม", INVENTORY_CAMRY)?.text ?? "")
     ),
     ""
   );

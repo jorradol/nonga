@@ -74,7 +74,7 @@ export function tryOrchestrateChatReply(
   const isEditDraft = message.trim() === "แก้ไขข้อมูล";
   if (isEditDraft) {
     return {
-      text: "ลุงพิมพ์ข้อมูลที่ต้องการแก้ไขมาได้เลยครับ เช่น 'เปลี่ยนราคาเป็น 400000' หรือ 'เพิ่มจุดเด่น: ยางใหม่'",
+      text: "พิมพ์ข้อมูลที่ต้องการแก้ไขมาได้เลยครับ เช่น 'เปลี่ยนราคาเป็น 400000' หรือ 'เพิ่มจุดเด่น: ยางใหม่'",
       carCards: [],
       skipGemini: true,
     };
@@ -83,7 +83,7 @@ export function tryOrchestrateChatReply(
   const isAddPhoto = message.trim() === "เพิ่มรูปภาพ";
   if (isAddPhoto) {
     return {
-      text: "ลุงกดปุ่มแนบรูปในช่องแชทนี้ได้เลยครับ ถ้ามีประกาศที่กำลังเตรียมอยู่ น้องเอจะผูกภาพเข้ากับประกาศนั้นให้ครับ",
+      text: "กดปุ่มแนบรูปในช่องแชทนี้ได้เลยครับ ถ้ามีประกาศที่กำลังเตรียมอยู่ น้องเอจะผูกภาพเข้ากับประกาศนั้นให้ครับ",
       carCards: [],
       skipGemini: true,
     };
@@ -92,7 +92,7 @@ export function tryOrchestrateChatReply(
   const isRestartDraft = message.trim() === "เริ่มใหม่";
   if (isRestartDraft) {
     return {
-      text: "ยกเลิกข้อมูลเดิมแล้วครับ ลุงพิมพ์ข้อมูลรถคันใหม่ที่ต้องการลงขายได้เลยครับ",
+      text: "ยกเลิกข้อมูลเดิมแล้วครับ พิมพ์ข้อมูลรถคันใหม่ที่ต้องการลงขายได้เลยครับ",
       carCards: [],
       skipGemini: true,
     };
@@ -163,7 +163,7 @@ export function tryOrchestrateChatReply(
       
       // If we couldn't find the car by ID, ask the user
       return {
-        text: "ลุงหมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
+        text: "หมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
         carCards: [],
         skipGemini: true,
       };
@@ -232,7 +232,7 @@ export function tryOrchestrateChatReply(
     }
     
     return {
-      text: "ลุงหมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
+      text: "หมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
       carCards: [],
       skipGemini: true,
     };

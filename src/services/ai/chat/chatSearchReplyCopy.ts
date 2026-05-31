@@ -246,11 +246,11 @@ function buildFoundIntro(
   if (cars.length === 1) {
     const singleOpeners = [
       `เจอแล้วครับ ในตลาด Nong A มี ${carLabel(cars[0])} ${budgetPart}`,
-      `มีรถที่ตรงใจ 1 คันครับ เป็น ${carLabel(cars[0])} ${budgetPart}`,
+      `มีรถที่ตรงเงื่อนไข 1 คันครับ — ${carLabel(cars[0])} ${budgetPart}`,
       `ค้นเจอ 1 คันที่ตรงสเปกครับ ${carLabel(cars[0])} ${budgetPart}`,
     ];
     opener = getRandomItem(singleOpeners);
-    return `${opener}\n\nน้องเอแสดงการ์ดรถไว้ด้านล่างให้ดูง่าย ๆ แล้ว ถ้าสนใจ กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลยครับ ปังปุริเย่!`;
+    return `${opener}\n\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจ กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ ปังปุริเย่!`;
   } 
   
   if (isMultiType && !criteria.suvOnly) {
@@ -273,10 +273,10 @@ function buildFoundIntro(
   const showMoreText = cars.length > 3 ? ` ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' เพื่อดูคันอื่นได้ครับ` : "";
   
   if (cars.length <= 3) {
-    return `${opener}\n\nน้องเอแสดงการ์ดรถไว้ด้านล่างให้ดูง่าย ๆ แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลยครับ ปังปุริเย่!`;
+    return `${opener}\n\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`;
   }
-  
-  return `${opener}\n\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรูป ราคา ไมล์ และรายละเอียดจากการ์ดได้เลย${showMoreText} ปังปุริเย่!`;
+
+  return `${opener}\n\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรูป ราคา ไมล์ และรายละเอียดจากการ์ดได้เลย${showMoreText}`;
 }
 
 function buildAlternativeIntro(
@@ -298,14 +298,14 @@ function buildAlternativeIntro(
     return [
       getRandomItem(altOpeners),
       `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
-      `\nน้องเอแสดงการ์ดรถไว้ด้านล่างให้ดูง่าย ๆ แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลยครับ ปังปุริเย่!`
+      `\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`
     ].join("\n");
   }
 
   return [
     getRandomItem(altOpeners),
     `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
-    `\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรายละเอียดจากการ์ดได้เลย${showMoreText} ปังปุริเย่!`
+    `\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรายละเอียดจากการ์ดได้เลย${showMoreText}`
   ].join("\n");
 }
 
@@ -398,27 +398,35 @@ export function buildCompareReplyCopy(cars: ChatCarCardData[]): string {
     `เปรียบเทียบ ${cars.length} คันจากข้อมูลจริงในระบบครับ:`,
     lines.join("\n"),
     insight ? `\n${insight}` : "",
-    `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้นนะครับ — ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลยครับ`
+    `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้น — ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`,
   ].filter(Boolean).join("\n");
 }
 
 export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {
   const mileage = car.mileage > 0 ? ` ไมล์ ${formatPrice(car.mileage)} กม.` : "";
   const color = car.color ? ` สี${car.color}` : "";
-  
+
   const traits = [];
   if (car.price < 500000) traits.push("คุมงบได้ดี");
-  if (car.mileage > 0 && car.mileage < 50000) traits.push("ไมล์น้อย");
-  if (car.year >= new Date().getFullYear() - 3) traits.push("ปีใหม่");
-  if (car.bodyClassLabel.includes("MPV") || car.bodyClassLabel.includes("SUV")) traits.push("ใช้งานครอบครัว");
-  
-  const traitText = traits.length > 0 ? ` จุดที่น่าสนใจคือเป็นรถที่${traits.join(" และ")}` : "";
+  if (car.mileage > 0 && car.mileage < 50000) traits.push("เลขไมล์ไม่สูง (ตามที่ระบุในระบบ)");
+  if (car.year >= new Date().getFullYear() - 3) traits.push("ปีค่อนข้างใหม่ (ตามที่ระบุในระบบ)");
+  if (car.bodyClassLabel.includes("MPV") || car.bodyClassLabel.includes("SUV")) {
+    traits.push("เหมาะกับการใช้งานครอบครัว (จากประเภทรถในระบบ)");
+  }
+
+  const traitText =
+    traits.length > 0
+      ? `ถ้ามองในมุมใช้งานจริง จุดที่น่าสนใจคือ ${traits.join(" และ")}`
+      : "";
 
   return [
-    `คันนี้คือ ${car.brand} ${car.model} ปี ${car.year} ราคา ${formatPrice(car.price)} บาท${mileage}${color} เป็น ${car.bodyClassLabel} จากข้อมูลในระบบ`,
-    `${traitText} ถ้าสนใจคันนี้ กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลจากระบบได้เลยครับ`,
-    `ถ้าต้องการ น้องเอช่วยเทียบคันนี้กับคันอื่นให้ได้ครับ`
-  ].join("\n\n");
+    `จากข้อมูลที่มี คันนี้คือ ${car.brand} ${car.model} ปี ${car.year} ราคา ${formatPrice(car.price)} บาท${mileage}${color} (${car.bodyClassLabel})`,
+    traitText,
+    `ถ้าสนใจคันนี้ กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลจากระบบได้เลยครับ`,
+    `ถ้าต้องการ น้องเอช่วยเทียบคันนี้กับคันอื่นให้ได้ครับ`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 export function buildFollowUpReplyCopy(
   cars: ChatCarCardData[],
@@ -438,8 +446,8 @@ export function buildFollowUpReplyCopy(
       : "";
 
   return [
-    `สำหรับ ${c.brand} ${c.model} ปี ${c.year} จากข้อมูลในระบบตอนนี้:`,
-    `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้นนะครับ — ดูรูปและรายละเอียดเพิ่มจากการ์ดด้านล่างได้เลย`,
+    `จากข้อมูลที่มี ${c.brand} ${c.model} ปี ${c.year} ตอนนี้:`,
+    `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้น — ดูรูปและรายละเอียดเพิ่มจากการ์ดด้านล่างได้เลยครับ`,
     cardCta(),
     altNote,
   ]

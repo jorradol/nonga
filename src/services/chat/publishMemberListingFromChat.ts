@@ -33,7 +33,7 @@ export const CHAT_MEMBER_CONFIRM_PUBLISH_ACTION = "ยืนยันเผย�
 export const CHAT_MEMBER_CANCEL_PUBLISH_ACTION = "ยกเลิกเผยแพร่";
 
 export const CHAT_MEMBER_PUBLISH_CANCELLED_ACK =
-  "รับทราบครับ ยังไม่เผยแพร่ประกาศในตลาด — ลุงกลับมากด “พร้อมลงตลาด” ได้เมื่อพร้อม";
+  "รับทราบครับ ยังไม่เผยแพร่ประกาศในตลาด — กลับมากด “พร้อมลงตลาด” ได้เมื่อพร้อม";
 
 export const CHAT_MEMBER_PUBLISH_CONTEXT_EXPIRED_MESSAGE =
   "คำขอเผยแพร่หมดอายุแล้วครับ กรุณากด “พร้อมลงตลาด” จากการ์ดประกาศอีกครั้งเพื่อดูสรุปใหม่";
@@ -348,13 +348,14 @@ export function buildPublishSuccessMessage(
     ? `\nรหัสอ้างอิงจากแชท: ${card.publicRefCode}`
     : "";
   return [
-    "เผยแพร่ประกาศลงตลาดเรียบร้อยแล้วครับ 🎉",
+    "เผยแพร่ประกาศลงตลาดเรียบร้อยแล้วครับ",
     "",
     brandModel
       ? `${brandModel} ปี ${listing.year} — ${Number(listing.price).toLocaleString("th-TH")} บาท`
       : `รหัสประกาศ: ${listing.id}`,
     "ลูกค้าสามารถค้นหาและดูประกาศของคุณในตลาดรถได้แล้ว",
     refLine,
+    "ปังปุริเย่!",
   ]
     .filter(Boolean)
     .join("\n");

@@ -41,10 +41,10 @@ export interface BuyerFactsReplyContext {
 }
 
 export const BUYER_FACTS_NO_DATA =
-  "ยังไม่มีข้อมูลนี้ในระบบครับ";
+  "ข้อมูลส่วนนี้ระบบยังไม่มีนะครับ";
 
 export const BUYER_ASK_SELECT_CAR_FIRST =
-  "ลุงช่วยกดดูรายละเอียดรถคันที่สนใจก่อน แล้วถามน้องเออีกครั้งได้เลยครับ";
+  "ช่วยกดดูรายละเอียดรถคันที่สนใจในแชทก่อนนะครับ แล้วถามน้องเออีกครั้งได้เลยครับ";
 
 const SELLER_ACTION_EXACT = new Set([
   CHAT_CONFIRM_CREATE_DRAFT_ACTION,
@@ -152,9 +152,9 @@ export function resolveTargetBuyerCar(
 
 function buildUnknownHistoryReply(): string {
   return [
-    `${BUYER_FACTS_NO_DATA}`,
-    "ข้อมูลประวัติรถ สภาพจริง หรือการชน/น้ำท่วม ไม่ได้อยู่ในประกาศนี้",
-    "แนะนำให้ตรวจเล่มทะเบียน ดูรถจริง และให้ช่างตรวจสภาพก่อนตัดสินใจครับ",
+    "ข้อมูลเรื่องประวัติชนยังไม่มีในระบบครับ",
+    "น้องเอยังไม่อยากฟันธงเกินข้อมูลที่มีนะครับ",
+    "แนะนำให้ตรวจเล่ม ประวัติเคลม จุดเชื่อมตัวถัง และให้ช่างช่วยดูอีกชั้น จะปลอดภัยกว่าครับ",
   ].join("\n");
 }
 
@@ -170,13 +170,20 @@ function buildPriceOutlookReply(
       p.price > 0
   );
 
-  const header = `${carLabel(car)} ราคา ${formatPrice(car.price)} บาท (จากข้อมูลในระบบ)`;
+  const factParts = [
+    car.price > 0 ? `ราคา ${formatPrice(car.price)} บาท` : null,
+    car.year ? `ปี ${car.year}` : null,
+    car.mileage > 0 ? `เลขไมล์ ${formatPrice(car.mileage)} กม.` : null,
+  ].filter(Boolean);
 
   if (peers.length === 0) {
     return [
-      header,
-      "ยังไม่มีข้อมูลเทียบราคาเพียงพอในระบบครับ",
-      "น้องเอไม่สามารถฟันธงว่าแพงหรือถูกได้โดยไม่มีรายการเปรียบเทียบในระบบ",
+      "ตอนนี้ระบบยังไม่มีข้อมูลเทียบราคาตลาดมากพอให้ฟันธงว่าถูกหรือแพงครับ",
+      factParts.length > 0
+        ? `จากข้อมูลคันนี้ ${factParts.join(" · ")}`
+        : `${carLabel(car)} (จากข้อมูลในระบบ)`,
+      "ถ้าจะประเมินให้แม่นขึ้น ควรเทียบกับรุ่น ปี และเลขไมล์ใกล้เคียงอีก 2–3 คันครับ",
+      "น้องเอยังไม่อยากฟันธงเกินข้อมูลที่มีครับ",
     ].join("\n");
   }
 
@@ -190,7 +197,9 @@ function buildPriceOutlookReply(
   else note += " — คันนี้อยู่ช่วงกลางเมื่อเทียบกับคันอื่นในระบบ";
 
   return [
-    header,
+    factParts.length > 0
+      ? `จากข้อมูลที่มี ${carLabel(car)} — ${factParts.join(" · ")}`
+      : `${carLabel(car)} (จากข้อมูลในระบบ)`,
     note,
     "เป็นการเปรียบเทียบจากข้อมูลประกาศในระบบเท่านั้น ไม่ใช่ราคาตลาดภายนอกครับ",
   ].join("\n");
@@ -203,27 +212,45 @@ function buildSuitableForReply(car: ChatCarCardData): string {
   if (/SUV|Crossover|MPV|Pickup/i.test(body)) {
     hints.push("ครอบครัวหรือคนที่ต้องการพื้นที่/ที่นั่งหลายที่นั่ง");
   } else if (/Sedan/i.test(body)) {
-    hints.push("ใช้งานในเมือง/ทำงานประจำ เน้นขับสะดวก");
+    hints.push("ใช้งานประจำวัน ขับง่าย และดูแลง่าย");
   } else {
     hints.push(`ผู้ที่มองหา${body} ตามสเปกในระบบ`);
   }
 
   if (car.price > 0 && car.price <= 500_000) hints.push("ผู้ที่ควบคุมงบ");
-  if (car.mileage > 0 && car.mileage < 50_000) hints.push("ผู้ที่อยากได้เลขไมล์ไม่สูง (ตามที่ระบุในระบบ)");
-  if (car.year >= new Date().getFullYear() - 4) hints.push("ผู้ที่อยากได้ปีค่อนข้างใหม่ (ตามที่ระบุในระบบ)");
+  if (car.mileage > 0 && car.mileage < 50_000) {
+    hints.push("ผู้ที่อยากได้เลขไมล์ไม่สูง (ตามที่ระบุในระบบ)");
+  }
+  if (car.year >= new Date().getFullYear() - 4) {
+    hints.push("ผู้ที่อยากได้ปีค่อนข้างใหม่ (ตามที่ระบุในระบบ)");
+  }
   if (car.transmission?.includes("AT") || car.transmission?.includes("ออโต")) {
     hints.push("ผู้ที่ชอบขับเกียร์อัตโนมัติ (ตามที่ระบุในระบบ)");
   }
 
+  const specNotes: string[] = [];
+  if (car.year) specNotes.push(`ปี ${car.year}`);
+  if (car.price > 0) specNotes.push(`ราคา ${formatPrice(car.price)} บาท`);
+  if (car.mileage > 0) specNotes.push(`เลขไมล์ ${formatPrice(car.mileage)} กม.`);
+  if (car.transmission) specNotes.push(car.transmission);
+
   return [
-    `จากข้อมูลที่มีในระบบ ${carLabel(car)} (${body})`,
-    `เหมาะกับ: ${hints.join(", ")}`,
-    "เป็นการสรุปจากสเปกที่ลงประกาศเท่านั้น ไม่ได้ประเมินสภาพหรือประวัติรถจริงครับ",
-  ].join("\n");
+    `จากข้อมูลที่มี คันนี้เหมาะกับคุณพี่ที่มองหา${hints[0] ?? "รถตามสเปกในระบบ"}ครับ`,
+    hints.length > 1 ? `มุมใช้งานเพิ่มเติม: ${hints.slice(1).join(", ")}` : null,
+    specNotes.length > 0
+      ? `จุดที่น่าสนใจจากประกาศ: ${specNotes.join(" · ")} (${body})`
+      : null,
+    "แต่ข้อมูลเรื่องประวัติซ่อม อุบัติเหตุ หรือน้ำท่วม ระบบยังไม่มีนะครับ",
+    "ถ้าสนใจจริง แนะนำให้ตรวจเอกสารกับดูรถจริงอีกชั้น จะอุ่นใจกว่าครับ",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildHighlightsReply(car: ChatCarCardData): string {
-  const lines: string[] = [`จุดที่เห็นได้จากข้อมูลประกาศของ ${carLabel(car)}:`];
+  const lines: string[] = [
+    `ถ้ามองจากข้อมูลประกาศ ${carLabel(car)} จุดที่เห็นได้ชัดคือ:`,
+  ];
 
   if (car.description?.trim()) {
     lines.push(`จากรายละเอียดประกาศ: ${car.description.trim().slice(0, 400)}`);
@@ -247,25 +274,27 @@ function buildHighlightsReply(car: ChatCarCardData): string {
     return BUYER_FACTS_NO_DATA;
   }
 
-  lines.push("น้องเอไม่อ้างสภาพดีหรือประวัติดี เพราะไม่มีในระบบครับ");
+  lines.push("น้องเอยังไม่อ้างสภาพดีหรือประวัติดี เพราะไม่มีในระบบครับ");
   return lines.join("\n");
 }
 
 function buildPrePurchaseReply(car: ChatCarCardData): string {
   return [
-    `ก่อนตัดสินใจซื้อ ${carLabel(car)} แนะนำตรวจเพิ่มเติม (ข้อมูลเหล่านี้ยังไม่มีในประกาศ ต้องตรวจเอง):`,
+    `ก่อนตัดสินใจซื้อ ${carLabel(car)} จุดที่ควรเช็กเพิ่มคือ:`,
     "• เล่มทะเบียนและเอกสารโอน",
     "• เลขไมล์และความสอดคล้องกับสภาพรถ",
     "• สภาพเครื่องยนต์ ช่วงล่าง และสนิม",
     "• ประวัติซ่อม/เข้าศูนย์ (ถ้ามีเอกสาร)",
     "• ทดลองขับและตรวจสภาพกับช่าง",
-    `ข้อมูลในระบบตอนนี้: ราคา ${car.price > 0 ? `${formatPrice(car.price)} บาท` : BUYER_FACTS_NO_DATA}${car.mileage > 0 ? ` · ไมล์ ${formatPrice(car.mileage)} กม.` : ""}`,
+    "ข้อมูลเหล่านี้ยังไม่มีในประกาศ ต้องตรวจเพิ่มเติมครับ",
+    `จากข้อมูลในระบบตอนนี้: ราคา ${car.price > 0 ? `${formatPrice(car.price)} บาท` : BUYER_FACTS_NO_DATA}${car.mileage > 0 ? ` · ไมล์ ${formatPrice(car.mileage)} กม.` : ""}`,
+    "แนะนำให้ดูรถจริงหรือให้ช่างช่วยเช็กอีกชั้น จะอุ่นใจกว่าครับ",
   ].join("\n");
 }
 
 function buildSummaryReply(car: ChatCarCardData): string {
   const parts = [
-    `สรุปจากข้อมูลในระบบ: ${carLabel(car)}`,
+    `เดี๋ยวน้องเอช่วยไล่ให้ดูแบบเข้าใจง่ายนะครับ — ${carLabel(car)}`,
     car.price > 0 ? `ราคา ${formatPrice(car.price)} บาท` : null,
     car.mileage > 0 ? `เลขไมล์ ${formatPrice(car.mileage)} กม.` : null,
     car.color ? `สี${car.color}` : null,
@@ -295,23 +324,23 @@ function buildSpecFieldReply(
   switch (field) {
     case "transmission":
       return car.transmission
-        ? `${carLabel(car)} — เกียร์: ${car.transmission} (จากข้อมูลในระบบ)`
+        ? `จากข้อมูลที่มี ${carLabel(car)} — เกียร์ ${car.transmission} ครับ`
         : BUYER_FACTS_NO_DATA;
     case "color":
       return car.color
-        ? `${carLabel(car)} — สี: ${car.color} (จากข้อมูลในระบบ)`
+        ? `จากข้อมูลที่มี ${carLabel(car)} — สี${car.color} ครับ`
         : BUYER_FACTS_NO_DATA;
     case "mileage":
       return car.mileage > 0
-        ? `${carLabel(car)} — เลขไมล์ ${formatPrice(car.mileage)} กม. (จากข้อมูลในระบบ)`
+        ? `จากข้อมูลที่มี ${carLabel(car)} — เลขไมล์ ${formatPrice(car.mileage)} กม. ครับ`
         : BUYER_FACTS_NO_DATA;
     case "year":
       return car.year
-        ? `${carLabel(car)} — ปี ${car.year} (จากข้อมูลในระบบ)`
+        ? `จากข้อมูลที่มี ${carLabel(car)} — ปี ${car.year} ครับ`
         : BUYER_FACTS_NO_DATA;
     case "price":
       return car.price > 0
-        ? `${carLabel(car)} — ราคา ${formatPrice(car.price)} บาท (จากข้อมูลในระบบ)`
+        ? `จากข้อมูลที่มี ${carLabel(car)} — ราคา ${formatPrice(car.price)} บาท ครับ`
         : BUYER_FACTS_NO_DATA;
     default:
       return BUYER_FACTS_NO_DATA;
@@ -339,8 +368,12 @@ export function buildBuyerFactsReply(
     case "imageCount": {
       const count = imageCount(car);
       return count > 0
-        ? `${carLabel(car)} — มีรูปในระบบ ${count} รูป`
-        : `${carLabel(car)} — ยังไม่มีรูปในระบบ`;
+        ? [
+            `คันนี้มีรูปในระบบ ${count} รูปครับ`,
+            "กดดูรายละเอียดในแชทเพื่อไล่ดูภาพประกอบได้เลย",
+            "ถ้าสนใจจริง แนะนำให้ขอรูปจุดสำคัญเพิ่ม เช่น ห้องเครื่อง ภายใน ช่วงล่าง และเล่มทะเบียนประกอบการตัดสินใจครับ",
+          ].join("\n")
+        : `${carLabel(car)} — ยังไม่มีรูปในระบบครับ`;
     }
     case "specField":
       return buildSpecFieldReply(

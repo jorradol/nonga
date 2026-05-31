@@ -1039,7 +1039,7 @@ export function useChat() {
           }
           setPrecheckStage(sessionId, "collecting_missing_fields");
           updateStreamedReply(
-            "ลุงพิมพ์ข้อมูลที่ต้องการแก้ไขมาได้เลยครับ เช่น 'เปลี่ยนราคาเป็น 400000' หรือ 'เพิ่มจุดเด่น: ยางใหม่'"
+            "พิมพ์ข้อมูลที่ต้องการแก้ไขมาได้เลยครับ เช่น 'เปลี่ยนราคาเป็น 400000' หรือ 'เพิ่มจุดเด่น: ยางใหม่'"
           );
           await finalizeStreamedReply(sessionId);
           setGenerating(false);

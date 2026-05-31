@@ -11,13 +11,13 @@ import {
 import { useChatStore } from "../../stores/chat/chatStore";
 
 export const CHAT_MEMBER_PENDING_CARD_INTRO =
-  "น้องเอเตรียมร่างประกาศไว้ให้แล้วครับ ลุงตรวจข้อมูลในการ์ดนี้ได้เลย ถ้าถูกต้องกดยืนยันบันทึกประกาศได้ในแชท ไม่ต้องย้ายหน้า";
+  "น้องเอเตรียมร่างประกาศไว้ให้แล้วครับ ตรวจข้อมูลในการ์ดนี้ได้เลย ถ้าถูกต้องกดยืนยันบันทึกประกาศได้ในแชท ไม่ต้องย้ายหน้า";
 
 export const CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION = "ยืนยันบันทึกประกาศ";
 export const CHAT_MEMBER_NOT_NOW_LISTING_ACTION = "ยังไม่ลงตลาดตอนนี้";
 
 export const CHAT_MEMBER_NOT_NOW_ACK =
-  "รับทราบครับ น้องเอเก็บร่างไว้ในแชทให้แล้ว ลุงกลับมาทำต่อเมื่อไหร่ก็ได้ครับ ยังไม่ลงตลาดตอนนี้";
+  "รับทราบครับ น้องเอเก็บร่างไว้ในแชทให้แล้ว กลับมาทำต่อเมื่อไหร่ก็ได้ครับ ยังไม่ลงตลาดตอนนี้";
 
 /** @deprecated ใช้ saveMemberListingFromChat แทน — เก็บไว้เพื่อ backward compat ใน test */
 export const CHAT_MEMBER_PENDING_SAVE_ACK =
