@@ -18,6 +18,7 @@ import { ChatCarCard } from "./ChatCarCard";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { ChatPendingListingCard } from "./ChatPendingListingCard";
 import { ChatSavedMemberListingCard } from "./ChatSavedMemberListingCard";
+import { ChatPublishedMemberListingCard } from "./ChatPublishedMemberListingCard";
 import {
   CHAT_MEMBER_CONFIRM_SAVE_LISTING_ACTION,
   CHAT_MEMBER_NOT_NOW_LISTING_ACTION,
@@ -469,7 +470,17 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               </div>
             )}
 
-            {message.isPublishSuccess && message.savedMemberListingId && (
+            {message.isPublishedMemberListingCard &&
+              message.publishedMemberListingCard && (
+                <ChatPublishedMemberListingCard
+                  card={message.publishedMemberListingCard}
+                  attachments={message.attachments}
+                />
+              )}
+
+            {message.isPublishSuccess &&
+              message.savedMemberListingId &&
+              !message.isPublishedMemberListingCard && (
               <div className="mt-4 flex flex-col items-center gap-2">
                 <button
                   type="button"

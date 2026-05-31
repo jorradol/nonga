@@ -47,6 +47,9 @@ import {
 import {
   readChatHistorySnapshot,
   setChatHistoryStorageForTest,
+  appendChatMessage,
+  loadChatMessages,
+  createChatSession,
 } from "../src/services/chat/chatHistoryService";
 import {
   tryClaimGuestChatAfterLogin,
@@ -125,6 +128,12 @@ import {
   SAVED_MEMBER_LISTING_STATUS_LABEL,
   CHAT_MEMBER_PUBLISH_COMING_SOON_ACK,
 } from "../src/services/chat/chatSavedMemberListing";
+import {
+  buildPublishedMemberListingCardData,
+  normalizePublishedMemberListingCardData,
+  PUBLISHED_MEMBER_LISTING_STATUS_LABEL,
+  resolveSavedCardForPublishedListing,
+} from "../src/services/chat/chatPublishedMemberListing";
 import {
   beginPendingPublishListingFromSavedCard,
   buildPublishAwaitingConfirmMessage,
@@ -2444,6 +2453,16 @@ assertEqual(
   "useChat sets publish success flag"
 );
 assertEqual(
+  useChatSource.includes("resolveSavedCardForPublishedListing"),
+  true,
+  "useChat resolves saved card for published listing card"
+);
+assertEqual(
+  useChatSource.includes("isPublishedMemberListingCard"),
+  true,
+  "useChat sets published listing card flag"
+);
+assertEqual(
   useChatSource.includes("handleMemberPublishListingIntent"),
   true,
   "useChat wires publish summary handler"
@@ -2455,6 +2474,140 @@ assertEqual(
 );
 
 clearAllPendingPublishListingContextsForTest();
+
+console.log("--- Testing published listing card Phase A ---");
+
+const publishedFromSaved = buildPublishedMemberListingCardData(savedCardForPublish);
+assertEqual(
+  publishedFromSaved.statusLabel,
+  PUBLISHED_MEMBER_LISTING_STATUS_LABEL,
+  "published card status label"
+);
+assertEqual(
+  publishedFromSaved.listingId,
+  savedCardForPublish.listingId,
+  "published card listing id from saved card"
+);
+assertEqual(
+  publishedFromSaved.imageUrls.length,
+  savedCardForPublish.imageUrls.length,
+  "published card keeps image urls from saved card"
+);
+assertEqual(
+  (publishedFromSaved.fields as { brand?: string }).brand,
+  "Honda",
+  "published card keeps brand from saved card fields"
+);
+
+const resolvedForPublish = resolveSavedCardForPublishedListing(
+  pendingOnlyMessages as any,
+  "car-publish-step2"
+);
+assertEqual(
+  resolvedForPublish?.listingId,
+  "car-publish-step2",
+  "resolve saved card for publish from history"
+);
+
+const storedPublishedCard = sanitizeChatMessageForStorage({
+  id: "m-published-card",
+  sender: "ai",
+  text: "เผยแพร่แล้ว",
+  createdAt: new Date().toISOString(),
+  isPublishSuccess: true,
+  isPublishedMemberListingCard: true,
+  publishedMemberListingCard: publishedFromSaved,
+  savedMemberListingId: publishedFromSaved.listingId,
+  attachments: listingImageUrlsToChatAttachments(publishedFromSaved.imageUrls),
+});
+assertEqual(
+  storedPublishedCard.isPublishedMemberListingCard,
+  true,
+  "sanitize keeps published card flag"
+);
+assertEqual(
+  storedPublishedCard.publishedMemberListingCard?.statusLabel,
+  PUBLISHED_MEMBER_LISTING_STATUS_LABEL,
+  "sanitize keeps published card status"
+);
+assertEqual(
+  storedPublishedCard.attachments?.length,
+  publishedFromSaved.imageUrls.length,
+  "sanitize keeps published card image attachments"
+);
+
+const normalizedPublished = normalizePublishedMemberListingCardData({
+  listingId: "car-pub-norm",
+  publicRefCode: "NA-NORM",
+  statusLabel: "wrong",
+  marketingCopy: "copy",
+  fields: { brand: "Toyota" },
+  imageUrls: ["/img.jpg"],
+});
+assertEqual(
+  normalizedPublished?.statusLabel,
+  PUBLISHED_MEMBER_LISTING_STATUS_LABEL,
+  "normalize published card forces published status"
+);
+
+const pubCardHistoryStorage = createMemoryStorageForChat();
+setChatHistoryStorageForTest(pubCardHistoryStorage);
+
+const pubCardScope = {
+  storageKey: "user:uid-pub-card-phase-a",
+  uid: "uid-pub-card-phase-a",
+  dealerId: null,
+  scope: "user" as const,
+};
+const pubCardSession = await createChatSession(pubCardScope, "published card persistence");
+const appendedPublished = await appendChatMessage(pubCardScope, pubCardSession.id, {
+  sender: "ai",
+  text: "เผยแพร่ประกาศลงตลาดเรียบร้อยแล้ว",
+  isPublishSuccess: true,
+  isPublishedMemberListingCard: true,
+  publishedMemberListingCard: publishedFromSaved,
+  savedMemberListingId: publishedFromSaved.listingId,
+  attachments: listingImageUrlsToChatAttachments(publishedFromSaved.imageUrls),
+});
+assertEqual(
+  appendedPublished.publishedMemberListingCard?.listingId,
+  "car-publish-step2",
+  "appendChatMessage stores published card metadata"
+);
+const loadedPublishedMessages = await loadChatMessages(pubCardScope, pubCardSession.id);
+const roundTripPublished = loadedPublishedMessages.find(
+  (message) => message.isPublishedMemberListingCard
+);
+assertEqual(
+  roundTripPublished?.publishedMemberListingCard?.statusLabel,
+  PUBLISHED_MEMBER_LISTING_STATUS_LABEL,
+  "loadChatMessages round-trip published card"
+);
+assertEqual(
+  roundTripPublished?.attachments?.length,
+  publishedFromSaved.imageUrls.length,
+  "loadChatMessages round-trip published card attachments"
+);
+
+const publishedCardComponentSource = fs.readFileSync(
+  path.join(process.cwd(), "src/components/chat/ChatPublishedMemberListingCard.tsx"),
+  "utf8"
+);
+assertEqual(
+  publishedCardComponentSource.includes('data-testid="chat-published-member-listing-card"'),
+  true,
+  "published card component test id"
+);
+assertEqual(
+  publishedCardComponentSource.includes("chat-view-marketplace-btn"),
+  true,
+  "published card keeps optional marketplace button"
+);
+assertEqual(
+  publishedCardComponentSource.includes("ดูรายละเอียดในแชท"),
+  true,
+  "published card has in-chat detail expand"
+);
 
 console.log("--- Testing listing image policy (Phase 1-2 frontend) ---");
 

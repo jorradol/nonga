@@ -109,6 +109,9 @@ export interface ChatMessage {
   isPublishAwaitingConfirm?: boolean;
   /** หลังเผยแพร่สำเร็จจากแชท — ปุ่มดูในตลาดรถ */
   isPublishSuccess?: boolean;
+  /** การ์ดประกาศที่เผยแพร่แล้ว (หลัง publish success จากแชท) */
+  isPublishedMemberListingCard?: boolean;
+  publishedMemberListingCard?: PublishedMemberListingCardData;
   /** ไฟล์แนบจากผู้ใช้ */
   attachments?: ChatMessageAttachment[];
 }
@@ -122,6 +125,17 @@ export interface PendingListingCardData {
 }
 
 export interface SavedMemberListingCardData {
+  listingId: string;
+  publicRefCode: string;
+  statusLabel: string;
+  marketingCopy: string;
+  fields: Record<string, unknown>;
+  visionSummary?: Record<string, unknown>;
+  imageUrls: string[];
+}
+
+/** การ์ดประกาศที่เผยแพร่แล้วในแชท — สร้างจาก saved card / record ใน frontend */
+export interface PublishedMemberListingCardData {
   listingId: string;
   publicRefCode: string;
   statusLabel: string;

@@ -20,6 +20,7 @@ import {
   chatSessionsLocalKey,
 } from "../../utils/chatStorageScope";
 import { normalizePendingListingCardData } from "./chatMemberPendingListing";
+import { normalizePublishedMemberListingCardData } from "./chatPublishedMemberListing";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -107,6 +108,9 @@ export function sanitizeChatMessageForStorage(message: ChatMessage): ChatMessage
     message.pendingListingCard
   );
   const savedMemberListingCard = message.savedMemberListingCard;
+  const publishedMemberListingCard = normalizePublishedMemberListingCardData(
+    message.publishedMemberListingCard
+  );
   const next: ChatMessage = {
     ...message,
     ...(message.attachments && message.attachments.length > 0
@@ -123,6 +127,10 @@ export function sanitizeChatMessageForStorage(message: ChatMessage): ChatMessage
   if (savedMemberListingCard) {
     next.isSavedMemberListingCard = true;
     next.savedMemberListingCard = savedMemberListingCard;
+  }
+  if (publishedMemberListingCard) {
+    next.isPublishedMemberListingCard = true;
+    next.publishedMemberListingCard = publishedMemberListingCard;
   }
   return next;
 }
@@ -227,6 +235,17 @@ function normalizeMessage(
       ? { isPublishAwaitingConfirm: true }
       : {}),
     ...(raw.isPublishSuccess ? { isPublishSuccess: true } : {}),
+    ...(() => {
+      const publishedMemberListingCard = normalizePublishedMemberListingCardData(
+        raw.publishedMemberListingCard as ChatMessage["publishedMemberListingCard"]
+      );
+      return publishedMemberListingCard
+        ? {
+            isPublishedMemberListingCard: true,
+            publishedMemberListingCard,
+          }
+        : {};
+    })(),
     ...(Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? { attachments: raw.attachments as ChatMessageAttachment[] }
       : {}),
@@ -422,6 +441,12 @@ function messageToFirestoreData(message: ChatMessage) {
       : {}),
     ...(safe.isPublishAwaitingConfirm ? { isPublishAwaitingConfirm: true } : {}),
     ...(safe.isPublishSuccess ? { isPublishSuccess: true } : {}),
+    ...(safe.isPublishedMemberListingCard && safe.publishedMemberListingCard
+      ? {
+          isPublishedMemberListingCard: true,
+          publishedMemberListingCard: safe.publishedMemberListingCard,
+        }
+      : {}),
     ...(safe.attachments && safe.attachments.length > 0
       ? { attachments: safe.attachments }
       : {}),
@@ -619,6 +644,12 @@ export async function appendChatMessage(
       : {}),
     ...(input.isPublishAwaitingConfirm ? { isPublishAwaitingConfirm: true } : {}),
     ...(input.isPublishSuccess ? { isPublishSuccess: true } : {}),
+    ...(input.isPublishedMemberListingCard && input.publishedMemberListingCard
+      ? {
+          isPublishedMemberListingCard: true,
+          publishedMemberListingCard: input.publishedMemberListingCard,
+        }
+      : {}),
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),

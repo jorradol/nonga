@@ -99,7 +99,12 @@ import {
 import {
   appendSavedMemberListingCardMessage,
   isMemberPublishListingChatAction,
+  listingImageUrlsToChatAttachments,
 } from "../../services/chat/chatSavedMemberListing";
+import {
+  buildPublishedMemberListingCardData,
+  resolveSavedCardForPublishedListing,
+} from "../../services/chat/chatPublishedMemberListing";
 import {
   handleMemberCancelPublishIntent,
   confirmMemberPublishListingFromChat,
@@ -876,6 +881,18 @@ export function useChat() {
             confirmed.kind === "success" ||
             confirmed.kind === "already_published"
           ) {
+            const savedCard = resolveSavedCardForPublishedListing(
+              historyAfterUser,
+              confirmed.listingId
+            );
+            const publishedCard = savedCard
+              ? buildPublishedMemberListingCardData(savedCard)
+              : null;
+            const publishAttachments =
+              publishedCard && publishedCard.imageUrls.length > 0
+                ? listingImageUrlsToChatAttachments(publishedCard.imageUrls)
+                : undefined;
+
             await addMessage(
               sessionId,
               "ai",
@@ -885,8 +902,16 @@ export function useChat() {
               undefined,
               undefined,
               undefined,
-              undefined,
-              { isPublishSuccess: true },
+              publishAttachments,
+              {
+                isPublishSuccess: true,
+                ...(publishedCard
+                  ? {
+                      isPublishedMemberListingCard: true,
+                      publishedMemberListingCard: publishedCard,
+                    }
+                  : {}),
+              },
               confirmed.listingId
             );
             void fetchCars();
