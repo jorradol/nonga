@@ -34,15 +34,13 @@ npx firebase emulators:start --only firestore,storage --project demo-nonga-v544f
 
 Then run inner scripts only if you export emulator env vars (prefer npm scripts above).
 
-## Known rules gaps (report only — do not fix in Step B)
+## Known rules gaps (v5.4.4f — addressed in v5.4.4g C1, not deployed)
 
-These are observed from rules review + emulator probes. **Do not deploy rule changes without review.**
+1. ~~Suspended user self-profile update~~ — fixed: self-update requires `isActiveUser()`.
+2. ~~Dealer membership vs user status~~ — fixed: `hasActiveDealerMembership()` requires `isActiveUser()`.
+3. ~~`ai_preferences` broad rule~~ — fixed: scoped read/write helpers for `user:{uid}` and `dealer:{dealerId}:{uid}`.
 
-1. **Suspended user self-profile update:** `users/{uid}` update allows `safeUserSelfUpdate()` without requiring `status == "active"`. Suspended users can still change `displayName` and other safe fields.
-2. **Dealer membership vs user status:** `hasActiveDealerMembership()` checks membership status only, not `users.status`. A suspended user who still has an active membership might retain dealer-scoped writes (not seeded in current tests; code review gap).
-3. **`ai_preferences`:** Broad read/write rule for signed-in users with dealer scope — not exhaustively tested in v5.4.4f matrix.
-
-## Not in scope (Step B)
+## Not in scope (Step B / C1)
 
 - Rules deploy to staging/production
 - Changes to `firestore.rules` / `storage.rules` content

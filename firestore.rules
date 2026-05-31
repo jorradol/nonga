@@ -50,7 +50,9 @@ service cloud.firestore {
     }
 
     function hasActiveDealerMembership(dealerId) {
-      return hasDealerMembership(dealerId)
+      return isActiveUser()
+        && dealerId is string
+        && exists(/databases/$(database)/documents/dealerMembers/$(membershipId(request.auth.uid, dealerId)))
         && dealerMemberDoc(request.auth.uid, dealerId).status == "active";
     }
 
@@ -155,7 +157,7 @@ service cloud.firestore {
               || request.resource.data.role in ["admin", "superadmin"]
             )
           )
-          || (request.auth.uid == uid && safeUserSelfUpdate())
+          || (request.auth.uid == uid && isActiveUser() && safeUserSelfUpdate())
         );
       allow delete: if isSuperAdmin();
     }
@@ -237,16 +239,45 @@ service cloud.firestore {
       }
     }
 
-    match /ai_preferences/{scopeKey} {
-      allow read, write: if signedIn()
+    function isOwnUserAiPrefScope(scopeKey) {
+      return scopeKey == "user:" + request.auth.uid;
+    }
+
+    function isOwnDealerAiPrefScope(scopeKey, dealerId) {
+      return dealerId is string
+        && scopeKey == "dealer:" + dealerId + ":" + request.auth.uid;
+    }
+
+    function canReadAiPreferences(scopeKey) {
+      return isActiveUser()
         && (
-          scopeKey == "user:" + request.auth.uid
+          isActiveAdmin()
+          || isOwnUserAiPrefScope(scopeKey)
+          || (
+            resource.data.dealerId is string
+            && isOwnDealerAiPrefScope(scopeKey, resource.data.dealerId)
+            && hasActiveDealerMembership(resource.data.dealerId)
+          )
+        );
+    }
+
+    function canWriteAiPreferences(scopeKey) {
+      return isActiveUser()
+        && (
+          isActiveAdmin()
+          || isOwnUserAiPrefScope(scopeKey)
           || (
             request.resource.data.dealerId is string
+            && isOwnDealerAiPrefScope(scopeKey, request.resource.data.dealerId)
             && hasActiveDealerMembership(request.resource.data.dealerId)
           )
-          || isActiveAdmin()
         );
+    }
+
+    match /ai_preferences/{scopeKey} {
+      allow read: if canReadAiPreferences(scopeKey);
+      allow create, update: if canWriteAiPreferences(scopeKey);
+      allow delete: if isActiveAdmin() || isSuperAdmin();
     }
 
     match /{document=**} {

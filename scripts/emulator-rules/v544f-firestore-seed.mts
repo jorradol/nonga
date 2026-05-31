@@ -41,6 +41,10 @@ export async function seedFirestoreRulesFixtures(
       db.collection("users").doc(UIDS.suspended),
       user(UIDS.suspended, "member", "suspended")
     );
+    batch.set(
+      db.collection("users").doc(UIDS.suspendedDealer),
+      user(UIDS.suspendedDealer, "dealer", "suspended")
+    );
     batch.set(db.collection("users").doc(UIDS.admin), user(UIDS.admin, "admin", "active"));
     batch.set(
       db.collection("users").doc(UIDS.superadmin),
@@ -74,6 +78,10 @@ export async function seedFirestoreRulesFixtures(
     batch.set(
       db.collection("dealerMembers").doc(membershipId(UIDS.dealerDisabled, DEALER_A)),
       member(UIDS.dealerDisabled, DEALER_A, "disabled", "member")
+    );
+    batch.set(
+      db.collection("dealerMembers").doc(membershipId(UIDS.suspendedDealer, DEALER_A)),
+      member(UIDS.suspendedDealer, DEALER_A, "active", "owner")
     );
 
     const listing = (dealerId: string, listingStatus: string) => ({
@@ -141,6 +149,19 @@ export async function seedFirestoreRulesFixtures(
       dealerId: DEALER_A,
       status: "active",
     });
+
+    batch.set(db.collection("ai_preferences").doc(`user:${UIDS.member}`), {
+      userId: UIDS.member,
+      focusArea: "general",
+    });
+    batch.set(
+      db.collection("ai_preferences").doc(`dealer:${DEALER_A}:${UIDS.dealerA}`),
+      {
+        dealerId: DEALER_A,
+        userId: UIDS.dealerA,
+        focusArea: "general",
+      }
+    );
 
     await batch.commit();
   });

@@ -1,5 +1,5 @@
 /**
- * v5.4.4f — Firestore rules emulator tests
+ * v5.4.4f / v5.4.4g — Firestore rules emulator tests
  * npm run test:v544f-firestore-rules
  *
  * Requires Firebase emulators (started via firebase emulators:exec in npm script).
@@ -17,7 +17,7 @@ import {
   UIDS,
 } from "./emulator-rules/v544f-personas.mts";
 
-console.log("=== Nong A v5.4.4f Firestore Rules Emulator ===");
+console.log("=== Nong A v5.4.4g Firestore Rules Emulator (C1) ===");
 
 async function main() {
   const env = await createRulesTestEnvironment({ firestore: true, storage: false });
@@ -234,12 +234,31 @@ async function main() {
       "deny"
     );
     await runRuleCase(
-      "suspended user update own displayName (rules gap probe)",
+      "suspended user update own displayName",
       suspendedDb
         .collection("users")
         .doc(UIDS.suspended)
         .update({ displayName: "Still Suspended" }),
-      "allow"
+      "deny"
+    );
+
+    const suspendedDealer = env.authenticatedContext(UIDS.suspendedDealer);
+    const suspendedDealerDb = suspendedDealer.firestore();
+    await runRuleCase(
+      "suspended dealer with active membership create dealerListings",
+      suspendedDealerDb
+        .collection("dealerListings")
+        .doc("suspended-dealer-listing")
+        .set({ dealerId: DEALER_A, listingStatus: "hidden" }),
+      "deny"
+    );
+    await runRuleCase(
+      "suspended dealer with active membership update dealerDrafts",
+      suspendedDealerDb
+        .collection("dealerDrafts")
+        .doc(DOCS.draftA)
+        .update({ title: "blocked" }),
+      "deny"
     );
     await runRuleCase(
       "guest read public listingImages",
@@ -314,6 +333,78 @@ async function main() {
       "member write unknown collection",
       memberDb.collection("mysteryData").doc("x").set({ a: 1 }),
       "deny"
+    );
+
+    await runRuleCase(
+      "guest write ai_preferences",
+      guestDb
+        .collection("ai_preferences")
+        .doc(`user:${UIDS.member}`)
+        .set({ focusArea: "general" }),
+      "deny"
+    );
+    await runRuleCase(
+      "member read own ai_preferences",
+      memberDb.collection("ai_preferences").doc(`user:${UIDS.member}`).get(),
+      "allow"
+    );
+    await runRuleCase(
+      "member write own ai_preferences",
+      memberDb
+        .collection("ai_preferences")
+        .doc(`user:${UIDS.member}`)
+        .set({ focusArea: "ev", userId: UIDS.member }),
+      "allow"
+    );
+    await runRuleCase(
+      "member read other user ai_preferences",
+      memberDb.collection("ai_preferences").doc(`user:${UIDS.dealerA}`).get(),
+      "deny"
+    );
+    await runRuleCase(
+      "member write other user ai_preferences",
+      memberDb
+        .collection("ai_preferences")
+        .doc(`user:${UIDS.dealerA}`)
+        .set({ focusArea: "hack" }),
+      "deny"
+    );
+    await runRuleCase(
+      "suspended user write own ai_preferences",
+      suspendedDb
+        .collection("ai_preferences")
+        .doc(`user:${UIDS.suspended}`)
+        .set({ focusArea: "general" }),
+      "deny"
+    );
+    await runRuleCase(
+      "dealer A read own dealer ai_preferences",
+      dealerADb
+        .collection("ai_preferences")
+        .doc(`dealer:${DEALER_A}:${UIDS.dealerA}`)
+        .get(),
+      "allow"
+    );
+    await runRuleCase(
+      "dealer A write own dealer ai_preferences",
+      dealerADb
+        .collection("ai_preferences")
+        .doc(`dealer:${DEALER_A}:${UIDS.dealerA}`)
+        .set({ dealerId: DEALER_A, focusArea: "luxury" }),
+      "allow"
+    );
+    await runRuleCase(
+      "dealer A write dealer B ai_preferences scope",
+      dealerADb
+        .collection("ai_preferences")
+        .doc(`dealer:${DEALER_B}:${UIDS.dealerA}`)
+        .set({ dealerId: DEALER_B, focusArea: "hack" }),
+      "deny"
+    );
+    await runRuleCase(
+      "admin read member ai_preferences",
+      adminDb.collection("ai_preferences").doc(`user:${UIDS.member}`).get(),
+      "allow"
     );
 
     assertPass(true, "Firestore rules emulator suite complete");

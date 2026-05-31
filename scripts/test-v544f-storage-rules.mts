@@ -18,7 +18,7 @@ import {
   UIDS,
 } from "./emulator-rules/v544f-personas.mts";
 
-console.log("=== Nong A v5.4.4f Storage Rules Emulator ===");
+console.log("=== Nong A v5.4.4g Storage Rules Emulator (C1) ===");
 
 function tinyJpeg(): Uint8Array {
   return Uint8Array.from([
@@ -138,6 +138,16 @@ async function main() {
       "pending dealer upload listing-images",
       dealerPendingStorage
         .ref(`listing-images/${DEALER_A}/${DOCS.listingPublishedA}/pending.jpg`)
+        .put(tinyJpeg(), { contentType: "image/jpeg" }),
+      "deny"
+    );
+
+    const suspendedDealer = env.authenticatedContext(UIDS.suspendedDealer);
+    const suspendedDealerStorage = suspendedDealer.storage(bucket);
+    await runRuleCase(
+      "suspended dealer with active membership upload listing-images",
+      suspendedDealerStorage
+        .ref(`listing-images/${DEALER_A}/${DOCS.listingPublishedA}/suspended-dealer.jpg`)
         .put(tinyJpeg(), { contentType: "image/jpeg" }),
       "deny"
     );

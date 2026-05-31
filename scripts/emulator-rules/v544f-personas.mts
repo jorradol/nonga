@@ -12,6 +12,7 @@ export const UIDS = {
   dealerPending: "dealer-pending-uid",
   dealerDisabled: "dealer-disabled-uid",
   suspended: "suspended-user-uid",
+  suspendedDealer: "suspended-dealer-uid",
   admin: "admin-active-uid",
   superadmin: "superadmin-active-uid",
   memberPromoteTarget: "member-promote-target-uid",

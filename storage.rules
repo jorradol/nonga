@@ -36,7 +36,7 @@ service firebase.storage {
     }
 
     function hasActiveDealerMembership(dealerId) {
-      return signedIn()
+      return isActiveUser()
         && dealerId is string
         && firestore.exists(membershipPath(dealerId))
         && firestore.get(membershipPath(dealerId)).data.status == "active";
