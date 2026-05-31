@@ -1,116 +1,284 @@
-import React from "react";
-import { Car, MessageCircle, ExternalLink, ImageOff } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Car, ChevronDown, ChevronUp, ExternalLink, ImageOff } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { useAppStore } from "../../store";
-import { useChatContext } from "../../contexts/chat/ChatContext";
 import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
 
 interface ChatCarCardProps {
   car: ChatCarCardData;
-  onAskAbout?: (car: ChatCarCardData) => void;
 }
 
-export function ChatCarCard({ car, onAskAbout }: ChatCarCardProps) {
-  const { setView } = useAppStore();
-  const chat = useChatContext();
+const TEXT_PREVIEW_CHARS = 140;
+const SUMMARY_THUMB_COUNT = 3;
+const DETAIL_THUMB_COUNT = 4;
 
+interface SpecItem {
+  key: string;
+  label: string;
+  value: string;
+}
+
+function truncateText(text: string, maxChars: number): { preview: string; truncated: boolean } {
+  const normalized = text.trim();
+  if (normalized.length <= maxChars) {
+    return { preview: normalized, truncated: false };
+  }
+  return {
+    preview: `${normalized.slice(0, maxChars).trim()}…`,
+    truncated: true,
+  };
+}
+
+function SpecGrid({
+  items,
+  compact = false,
+}: {
+  items: SpecItem[];
+  compact?: boolean;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <dl
+      className={`grid gap-2 ${
+        compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"
+      }`}
+      data-testid={compact ? "chat-car-card-spec-summary" : "chat-car-card-spec-detail"}
+    >
+      {items.map((item) => (
+        <div
+          key={item.key}
+          className={`min-w-0 rounded-lg border border-slate-800/80 bg-slate-900/50 px-2.5 py-2 ${
+            item.key === "brandModel" && !compact ? "col-span-2 sm:col-span-3" : ""
+          }`}
+        >
+          <dt className="text-[9px] uppercase tracking-wide text-slate-500">{item.label}</dt>
+          <dd
+            className={`mt-0.5 text-slate-100 break-words ${
+              compact ? "text-[11px] font-semibold" : "text-[11px] sm:text-xs font-medium"
+            } ${item.key === "price" ? "text-orange-400 font-bold" : ""}`}
+          >
+            {item.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ChatCarImageGallery({
+  imageUrls,
+  expanded,
+  alt,
+}: {
+  imageUrls: string[];
+  expanded: boolean;
+  alt: string;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const safeIndex = Math.min(activeIndex, Math.max(0, imageUrls.length - 1));
+  const activeUrl = imageUrls[safeIndex];
+
+  if (imageUrls.length === 0) {
+    return (
+      <div
+        className="rounded-lg border border-dashed border-slate-700 bg-slate-900/60 aspect-[16/10] max-h-40 sm:max-h-48 flex flex-col items-center justify-center gap-2"
+        data-testid="chat-car-card-no-images"
+      >
+        <ImageOff className="w-8 h-8 opacity-60 text-slate-500" />
+        <span className="text-[10px] text-slate-500">ยังไม่มีรูปในระบบ</span>
+      </div>
+    );
+  }
+
+  const thumbCount = expanded ? DETAIL_THUMB_COUNT : SUMMARY_THUMB_COUNT;
+  const visibleThumbs = imageUrls.slice(0, thumbCount);
+  const overflowCount = Math.max(0, imageUrls.length - thumbCount);
+
+  return (
+    <div className="space-y-2 min-w-0 max-w-full" data-testid="chat-car-card-gallery">
+      <div className="relative rounded-lg overflow-hidden bg-slate-900 aspect-[16/10] max-h-40 sm:max-h-48">
+        <img
+          src={activeUrl}
+          alt={alt}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+        {imageUrls.length > 1 && (
+          <span className="absolute bottom-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-slate-200">
+            {safeIndex + 1}/{imageUrls.length}
+          </span>
+        )}
+      </div>
+      {imageUrls.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 max-w-full">
+          {visibleThumbs.map((url, index) => (
+            <button
+              key={`${url}-${index}`}
+              type="button"
+              onClick={() => setActiveIndex(index)}
+              className={`shrink-0 w-12 h-9 sm:w-14 sm:h-10 rounded-md overflow-hidden border-2 transition cursor-pointer ${
+                index === safeIndex
+                  ? "border-orange-400"
+                  : "border-slate-700 opacity-80 hover:opacity-100"
+              }`}
+              aria-label={`รูปที่ ${index + 1}`}
+            >
+              <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+            </button>
+          ))}
+          {overflowCount > 0 && (
+            <div className="shrink-0 w-12 h-9 sm:w-14 sm:h-10 rounded-md border border-slate-700 bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
+              +{overflowCount}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpandableDescription({ text }: { text: string }) {
+  const [showFull, setShowFull] = useState(false);
+  const { preview, truncated } = truncateText(text, TEXT_PREVIEW_CHARS);
+  const displayText = showFull || !truncated ? text.trim() : preview;
+
+  return (
+    <div data-testid="chat-car-card-description">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">
+        รายละเอียดเพิ่มเติม
+      </p>
+      <p className="text-[11px] sm:text-xs text-slate-300 whitespace-pre-wrap leading-relaxed rounded-lg bg-slate-900/60 border border-slate-800 px-2.5 py-2 break-words">
+        {displayText}
+      </p>
+      {truncated && (
+        <button
+          type="button"
+          onClick={() => setShowFull((prev) => !prev)}
+          className="mt-1.5 text-[10px] font-semibold text-orange-300 hover:text-orange-200 cursor-pointer"
+          data-testid="chat-car-card-description-toggle"
+        >
+          {showFull ? "ย่อข้อความ" : "อ่านเพิ่มเติม"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function ChatCarCard({ car }: ChatCarCardProps) {
+  const { setView } = useAppStore();
+  const [expanded, setExpanded] = useState(false);
+
+  const brandModel = `${car.brand} ${car.model}`.trim();
   const priceLabel =
-    car.price > 0 ? `฿${car.price.toLocaleString("th-TH")}` : "ติดต่อสอบถาม";
+    car.price > 0 ? `${car.price.toLocaleString("th-TH")} บาท` : "ติดต่อสอบถาม";
   const mileageLabel =
     car.mileage > 0 ? `${car.mileage.toLocaleString("th-TH")} กม.` : "—";
 
-  const handleDetail = () => {
+  const imageUrls = useMemo(() => {
+    const fromList = (car.imageUrls ?? []).filter((url) => typeof url === "string" && url.trim());
+    if (fromList.length > 0) return fromList;
+    if (car.hasImage && car.imageUrl?.trim()) return [car.imageUrl.trim()];
+    return [];
+  }, [car.imageUrls, car.hasImage, car.imageUrl]);
+
+  const summarySpecs: SpecItem[] = [
+    { key: "brandModel", label: "ยี่ห้อ/รุ่น", value: brandModel },
+    { key: "year", label: "ปี", value: String(car.year) },
+    { key: "price", label: "ราคา", value: priceLabel },
+    { key: "mileage", label: "เลขไมล์", value: mileageLabel },
+  ];
+
+  const detailSpecs: SpecItem[] = [
+    ...summarySpecs,
+    ...(car.transmission
+      ? [{ key: "transmission", label: "เกียร์", value: car.transmission }]
+      : []),
+    ...(car.color ? [{ key: "color", label: "สี", value: car.color }] : []),
+    { key: "listingId", label: "รหัสประกาศ", value: car.id },
+  ];
+
+  const handleFullDetail = () => {
     saveLastSelectedCarId(car.id);
     addRecentlyViewedCarId(car.id);
     setView("car-details", car.id);
   };
 
-  const handleAsk = () => {
-    saveLastSelectedCarId(car.id);
-    if (onAskAbout) {
-      onAskAbout(car);
-      return;
-    }
-    if (chat.isGenerating) return;
-    void chat.sendMessage(
-      `ช่วยสรุป ${car.brand} ${car.model} ปี ${car.year} จากข้อมูลจริงในระบบให้หน่อยครับ [SELECTED_CAR_ID:${car.id}]`
-    );
-  };
-
   return (
     <article
-      className="w-full max-w-sm rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden shadow-lg"
+      className="w-full max-w-full min-w-0 rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden shadow-lg"
       data-car-id={car.id}
       data-testid="chat-car-card"
+      data-expanded={expanded ? "true" : "false"}
     >
-      <div className="relative aspect-[16/10] bg-slate-900">
-        {car.hasImage && car.imageUrl ? (
-          <img
-            src={car.imageUrl}
-            alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
-            <ImageOff className="w-8 h-8 opacity-60" />
-            <span className="text-[10px]">ยังไม่มีรูปในระบบ</span>
-          </div>
-        )}
+      <div className="px-3 py-2 border-b border-slate-800/80 flex items-start gap-2 min-w-0">
+        <Car className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <h4 className="text-xs font-bold text-slate-100 leading-snug truncate">
+            {brandModel}{" "}
+            <span className="text-slate-400 font-medium">ปี {car.year}</span>
+          </h4>
+          <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">
+            {expanded
+              ? "รายละเอียดรถในช่องแชท — จากข้อมูลจริงในระบบ"
+              : "แตะดูรายละเอียดในแชทได้โดยไม่ต้องออกจากหน้านี้"}
+          </p>
+        </div>
         {car.matchKind === "alternative" && (
-          <span className="absolute top-2 left-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
             ทางเลือกใกล้เคียง
           </span>
         )}
       </div>
 
-      <div className="p-3 space-y-2">
-        <div className="flex items-start gap-2">
-          <Car className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="text-xs font-bold text-slate-100 leading-snug">
-              {car.brand} {car.model}{" "}
-              <span className="text-slate-400 font-medium">ปี {car.year}</span>
-            </h4>
-            <p className="text-[10px] text-slate-500 mt-0.5">{car.bodyClassLabel}</p>
-          </div>
-        </div>
+      <div className="px-3 pt-3 pb-3 space-y-3 min-w-0 max-w-full">
+        <ChatCarImageGallery
+          imageUrls={imageUrls}
+          expanded={expanded}
+          alt={brandModel}
+        />
 
-        <div className="grid grid-cols-2 gap-2 text-[10px]">
-          <div>
-            <span className="text-slate-500">ราคา</span>
-            <p className="text-orange-400 font-bold">{priceLabel}</p>
+        {expanded ? (
+          <SpecGrid items={detailSpecs} />
+        ) : (
+          <SpecGrid items={summarySpecs} compact />
+        )}
+
+        {expanded && car.description?.trim() ? (
+          <div className="border-t border-slate-800/80 pt-3">
+            <ExpandableDescription text={car.description.trim()} />
           </div>
-          <div>
-            <span className="text-slate-500">ไมล์</span>
-            <p className="text-slate-200">{mileageLabel}</p>
-          </div>
-          {car.color && (
-            <div className="col-span-2">
-              <span className="text-slate-500">สี </span>
-              <span className="text-slate-200">{car.color}</span>
-            </div>
+        ) : null}
+      </div>
+
+      <div className="px-3 pb-3 space-y-2">
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer min-h-[44px]"
+          data-testid="chat-car-card-expand-btn"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+              ย่อรายละเอียด
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+              ดูรายละเอียดในแชท
+            </>
           )}
-        </div>
+        </button>
 
-        <div className="flex gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleDetail}
-            className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white transition cursor-pointer"
-          >
-            <ExternalLink className="w-3 h-3" />
-            ดูรายละเอียด
-          </button>
-          <button
-            type="button"
-            onClick={handleAsk}
-            className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold py-2 rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800 transition cursor-pointer"
-          >
-            <MessageCircle className="w-3 h-3" />
-            ถามน้องเอ
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleFullDetail}
+          className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-semibold rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/80 transition cursor-pointer min-h-[40px]"
+          data-testid="chat-car-card-full-detail-btn"
+        >
+          <ExternalLink className="w-3 h-3 shrink-0" />
+          ดูรายละเอียดเต็ม
+        </button>
       </div>
     </article>
   );

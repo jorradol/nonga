@@ -156,10 +156,16 @@ export interface ChatCarCardData {
   color?: string;
   fuelType?: string;
   condition?: string;
+  /** เกียร์ — จาก record จริงเท่านั้น ถ้ามี */
+  transmission?: string;
+  /** รายละเอียดเพิ่มเติมจาก listing ถ้ามี */
+  description?: string;
   bodyClass: string;
   bodyClassLabel: string;
   showroomName?: string;
   imageUrl?: string;
+  /** รูปทั้งหมดจาก listing สำหรับ gallery ในแชท */
+  imageUrls?: string[];
   hasImage: boolean;
   detailPath: string;
   matchKind: "exact" | "alternative";

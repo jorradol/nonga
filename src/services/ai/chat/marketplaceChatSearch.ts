@@ -23,6 +23,7 @@ export interface ChatInventoryCar {
   mileage?: number;
   color?: string;
   fuelType?: string;
+  transmission?: string;
   type?: string;
   condition?: string;
   bodyType?: string;
@@ -115,14 +116,43 @@ function resolveListingImage(car: ChatInventoryCar): {
   imageUrl?: string;
   hasImage: boolean;
 } {
-  const list = car.images ?? [];
-  for (const raw of list) {
-    const url = String(raw ?? "").trim();
-    if (isValidListingImageUrl(url, car.id) && isLocalListingImageUrl(url)) {
-      return { imageUrl: url, hasImage: true };
-    }
+  const urls = resolveChatListingImageUrls(car);
+  if (urls.length > 0) {
+    return { imageUrl: urls[0], hasImage: true };
   }
   return { hasImage: false };
+}
+
+/** รูป listing ที่ใช้ในแชท — เฉพาะ URL ที่ validate แล้ว */
+export function resolveChatListingImageUrls(car: ChatInventoryCar): string[] {
+  const urls: string[] = [];
+  for (const raw of car.images ?? []) {
+    const url = String(raw ?? "").trim();
+    if (isValidListingImageUrl(url, car.id) && isLocalListingImageUrl(url)) {
+      if (!urls.includes(url)) urls.push(url);
+    }
+  }
+  return urls;
+}
+
+/** เกียร์จาก record จริง — ไม่เดา */
+export function resolveChatListingTransmission(
+  car: ChatInventoryCar
+): string | undefined {
+  const direct = car.transmission?.trim();
+  if (direct) {
+    if (direct === "auto") return "อัตโนมัติ";
+    if (direct === "manual") return "Manual";
+    return direct;
+  }
+  const condition = car.condition?.trim();
+  if (condition && /^(เกียร์|AT|MT|CVT)/i.test(condition)) {
+    return condition.startsWith("เกียร์") ? condition : `เกียร์ ${condition}`;
+  }
+  const desc = car.description?.trim() ?? "";
+  const match = desc.match(/เกียร์\s*(AT|MT|CVT|อัตโนมัติ|Manual)/i);
+  if (match) return `เกียร์ ${match[1]}`;
+  return undefined;
 }
 
 export function parseMarketplaceSearchQuery(
@@ -408,11 +438,13 @@ export function runMarketplaceChatSearch(
   return { criteria, primary, alternatives, introText };
 }
 
-export function summariesToCarCards(
-  primary: ChatCarSummary[],
-  alternatives: ChatCarSummary[]
-): import("../../../types").ChatCarCardData[] {
-  const mapOne = (c: ChatCarSummary, matchKind: "exact" | "alternative") => ({
+export function summaryToChatCarCardData(
+  c: ChatCarSummary,
+  matchKind: "exact" | "alternative"
+): import("../../../types").ChatCarCardData {
+  const imageUrls = resolveChatListingImageUrls(c);
+  const heroUrl = c.hasImage ? c.image : imageUrls[0];
+  return {
     id: c.id,
     brand: c.brand,
     model: c.model,
@@ -422,18 +454,26 @@ export function summariesToCarCards(
     color: c.color,
     fuelType: c.fuelType,
     condition: c.condition,
+    transmission: resolveChatListingTransmission(c),
+    description: c.description?.trim() || undefined,
     bodyClass: c.bodyClass,
     bodyClassLabel: c.bodyClassLabel,
     showroomName: c.showroomName,
-    imageUrl: c.hasImage ? c.image : undefined,
-    hasImage: c.hasImage,
+    imageUrl: heroUrl,
+    imageUrls: imageUrls.length > 0 ? imageUrls : heroUrl ? [heroUrl] : [],
+    hasImage: c.hasImage || imageUrls.length > 0,
     detailPath: formatCarDetailPath(c.id),
     matchKind,
-  });
+  };
+}
 
+export function summariesToCarCards(
+  primary: ChatCarSummary[],
+  alternatives: ChatCarSummary[]
+): import("../../../types").ChatCarCardData[] {
   return [
-    ...primary.map((c) => mapOne(c, "exact")),
-    ...alternatives.map((c) => mapOne(c, "alternative")),
+    ...primary.map((c) => summaryToChatCarCardData(c, "exact")),
+    ...alternatives.map((c) => summaryToChatCarCardData(c, "alternative")),
   ];
 }
 

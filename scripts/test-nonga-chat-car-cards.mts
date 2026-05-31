@@ -1,15 +1,21 @@
 /**
  * Nong A Chat Phase 2 — car cards, SUV accuracy, facts-only
+ * v5.4.2 — buyer in-chat detail foundation
  * npm run test:nonga-chat-car-cards
  */
+import fs from "node:fs";
+import path from "node:path";
 import { buildListingComparisonInsight } from "../src/services/ai/chat/chatSearchReplyCopy.ts";
 import {
   buildMarketplaceSearchIntro,
   isMarketplaceSearchIntent,
   parseMarketplaceSearchQuery,
+  resolveChatListingImageUrls,
+  resolveChatListingTransmission,
   runMarketplaceChatSearch,
   searchMarketplaceForChat,
   summariesToCarCards,
+  summaryToChatCarCardData,
   toChatCarSummary
 } from "../src/services/ai/chat/marketplaceChatSearch.ts";
 import { tryOrchestrateChatReply } from "../src/services/ai/chat/chatSearchOrchestrator.ts";
@@ -113,6 +119,29 @@ const INVENTORY_MULTI_CRV: ChatInventoryCar[] = [
   },
 ];
 
+/** Toyota Camry — v5.4.2 buyer in-chat detail smoke */
+const INVENTORY_CAMRY: ChatInventoryCar[] = [
+  {
+    id: "car-toyota-camry",
+    title: "Toyota Camry 2.5 Hybrid",
+    brand: "Toyota",
+    model: "Camry",
+    year: 2019,
+    price: 819000,
+    mileage: 120384,
+    color: "เทา",
+    transmission: "เกียร์ AT",
+    description: "Toyota Camry ปี 2019 สภาพดี เกียร์ AT",
+    type: "used",
+    images: [
+      "/storage/listings/car-toyota-camry/01-a.webp",
+      "/storage/listings/car-toyota-camry/02-a.webp",
+    ],
+    isSold: false,
+    listingStatus: "published",
+  },
+];
+
 const UNSUPPORTED_CLAIMS =
   /การันตี|ยางดอกเต็ม|สีเดิมโรงงาน|ป้ายแดง|ของแถม|ส่งรถถึงบ้านฟรี|ส่งฟรี/i;
 
@@ -142,7 +171,7 @@ async function main() {
   ok("suv-intro-no-unsupported", !UNSUPPORTED_CLAIMS.test(suvResult.introText), "");
   ok(
     "suv-tone-card-cta",
-    /การ์ด|ถามน้องเอ/.test(suvResult.introText),
+    /การ์ด|ดูรายละเอียดในแชท/.test(suvResult.introText),
     suvResult.introText.slice(0, 50)
   );
   ok(
@@ -205,7 +234,7 @@ async function main() {
     /เด่นเรื่อง|เปรียบเทียบ|รุ่นเดียวกัน|เลขไมล์|งบ/.test(multiCrv.introText),
     multiCrv.introText.slice(0, 100)
   );
-  ok("multi-crv-card-cta", /การ์ด|ถามน้องเอ/.test(multiCrv.introText), "");
+  ok("multi-crv-card-cta", /การ์ด|ดูรายละเอียดในแชท/.test(multiCrv.introText), "");
   ok("multi-crv-no-unsupported", !UNSUPPORTED_CLAIMS.test(multiCrv.introText), "");
 
   const insight = buildListingComparisonInsight(
@@ -366,6 +395,112 @@ async function main() {
   ok("selected-intent-one-card", orchSelectedIntent?.carCards.length === 1, `Expected 1 card, got ${orchSelectedIntent?.carCards.length}`);
   ok("selected-intent-correct-card", orchSelectedIntent?.carCards[0]?.id === "car-crv-a", `Expected car-crv-a, got ${orchSelectedIntent?.carCards[0]?.id}`);
   ok("selected-intent-no-pagination", orchSelectedIntent?.hasMoreCars === undefined || orchSelectedIntent?.hasMoreCars === false, `Expected no pagination, got ${orchSelectedIntent?.hasMoreCars}`);
+
+  // Case 13: v5.4.2 — buyer in-chat detail foundation
+  console.log("\n--- v5.4.2 buyer in-chat detail ---");
+
+  const qCamry = "มี Camry ไหม";
+  ok("v542-camry-search-intent", isMarketplaceSearchIntent(qCamry), "");
+  const camrySearch = runMarketplaceChatSearch(qCamry, INVENTORY_CAMRY)!;
+  ok("v542-camry-found", camrySearch.primary.some((c) => c.model === "Camry"), "");
+  const camryCards = summariesToCarCards(camrySearch.primary, camrySearch.alternatives);
+  ok("v542-camry-buyer-card", camryCards.length >= 1, String(camryCards.length));
+  const camryCard = camryCards.find((c) => c.id === "car-toyota-camry");
+  ok("v542-camry-card-brand", camryCard?.brand === "Toyota", String(camryCard?.brand));
+  ok("v542-camry-card-price", camryCard?.price === 819000, String(camryCard?.price));
+  ok("v542-camry-card-mileage", camryCard?.mileage === 120384, String(camryCard?.mileage));
+  ok("v542-camry-card-color", camryCard?.color === "เทา", String(camryCard?.color));
+  ok("v542-camry-card-transmission", camryCard?.transmission === "เกียร์ AT", String(camryCard?.transmission));
+  ok("v542-camry-card-listing-id", camryCard?.id === "car-toyota-camry", String(camryCard?.id));
+  ok("v542-camry-card-images", (camryCard?.imageUrls?.length ?? 0) >= 1, String(camryCard?.imageUrls?.length));
+  ok(
+    "v542-camry-orchestrator-in-chat",
+    tryOrchestrateChatReply(qCamry, INVENTORY_CAMRY)?.skipGemini === true,
+    ""
+  );
+  ok(
+    "v542-camry-orchestrator-cards",
+    (tryOrchestrateChatReply(qCamry, INVENTORY_CAMRY)?.carCards.length ?? 0) >= 1,
+    ""
+  );
+
+  const camryInv = INVENTORY_CAMRY[0];
+  ok(
+    "v542-transmission-from-record",
+    resolveChatListingTransmission(camryInv) === "เกียร์ AT",
+    String(resolveChatListingTransmission(camryInv))
+  );
+  ok(
+    "v542-images-from-record",
+    resolveChatListingImageUrls(camryInv).length === 2,
+    String(resolveChatListingImageUrls(camryInv).length)
+  );
+  const noGearCar: ChatInventoryCar = { ...camryInv, transmission: undefined, condition: undefined, description: undefined };
+  ok("v542-no-transmission-without-record", resolveChatListingTransmission(noGearCar) == null, "");
+
+  const summary = toChatCarSummary(camryInv);
+  const mapped = summaryToChatCarCardData(summary, "exact");
+  ok("v542-summary-mapper-id", mapped.id === "car-toyota-camry", mapped.id);
+  ok("v542-summary-mapper-detail-path", mapped.detailPath.includes("car-toyota-camry"), mapped.detailPath);
+
+  const buyerCardSource = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatCarCard.tsx"),
+    "utf8"
+  );
+  ok("v542-component-expand-btn", buyerCardSource.includes('data-testid="chat-car-card-expand-btn"'), "");
+  ok("v542-component-expand-label", buyerCardSource.includes("ดูรายละเอียดในแชท"), "");
+  ok("v542-component-collapse-label", buyerCardSource.includes("ย่อรายละเอียด"), "");
+  ok("v542-component-full-detail-secondary", buyerCardSource.includes('data-testid="chat-car-card-full-detail-btn"'), "");
+  ok("v542-component-full-detail-label", buyerCardSource.includes("ดูรายละเอียดเต็ม"), "");
+  ok("v542-component-spec-summary", buyerCardSource.includes("chat-car-card-spec-summary"), "");
+  ok("v542-component-spec-detail", buyerCardSource.includes("chat-car-card-spec-detail"), "");
+  ok("v542-component-gallery", buyerCardSource.includes("chat-car-card-gallery"), "");
+  ok("v542-component-responsive", buyerCardSource.includes("max-w-full") && buyerCardSource.includes("min-w-0"), "");
+  ok("v542-component-overflow", buyerCardSource.includes("overflow-hidden"), "");
+  ok("v542-no-ask-ai-button", !buyerCardSource.includes("ถามน้องเอ"), "");
+  ok("v542-no-talk-ai-button", !buyerCardSource.includes("คุยกับน้องเอ"), "");
+  ok("v542-no-message-circle-cta", !buyerCardSource.includes("MessageCircle"), "");
+  ok("v542-setview-only-for-full-detail", buyerCardSource.includes("handleFullDetail") && buyerCardSource.includes('setView("car-details"'), "");
+
+  const publishedCardSource = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatPublishedMemberListingCard.tsx"),
+    "utf8"
+  );
+  ok(
+    "v542-seller-published-card-unchanged-expand",
+    publishedCardSource.includes('data-testid="chat-published-listing-expand-btn"'),
+    ""
+  );
+  ok(
+    "v542-seller-published-card-still-no-ask-ai",
+    !publishedCardSource.includes("ถามน้องเอ"),
+    ""
+  );
+
+  const bubbleSource = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatMessageBubble.tsx"),
+    "utf8"
+  );
+  ok("v542-bubble-car-row-responsive", bubbleSource.includes("chat-car-cards-row") && bubbleSource.includes("min-w-0"), "");
+
+  const replyCopySource = fs.readFileSync(
+    path.join(process.cwd(), "src/services/ai/chat/chatSearchReplyCopy.ts"),
+    "utf8"
+  );
+  ok("v542-intro-copy-no-ask-ai-button", !replyCopySource.includes("กด 'ถามน้องเอ'"), "");
+  ok("v542-intro-copy-no-ask-ai-cta", !replyCopySource.includes("กดถามน้องเอ"), "");
+  ok("v542-intro-copy-no-talk-ai", !replyCopySource.includes("คุยกับน้องเอ"), "");
+  ok("v542-intro-copy-has-in-chat-detail", replyCopySource.includes("ดูรายละเอียดในแชท"), "");
+  ok(
+    "v542-camry-intro-no-ask-ai",
+    !/ถามน้องเอ|คุยกับน้องเอ/.test(camrySearch.introText),
+    camrySearch.introText.slice(0, 80)
+  );
+  ok(
+    "v542-camry-intro-in-chat-detail",
+    /ดูรายละเอียดในแชท/.test(camrySearch.introText),
+    camrySearch.introText.slice(0, 80)
+  );
 
   console.log("\nDone.");
 }

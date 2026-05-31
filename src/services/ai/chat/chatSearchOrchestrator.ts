@@ -20,6 +20,7 @@ import {
   isMarketplaceSearchIntent,
   runMarketplaceChatSearch,
   summariesToCarCards,
+  summaryToChatCarCardData,
   toChatCarSummary,
   type ChatInventoryCar,
 } from "./marketplaceChatSearch";
@@ -121,25 +122,7 @@ export function tryOrchestrateChatReply(
         if (!picked) {
           const invCar = inventory.find(c => c.id === selectedId);
           if (invCar) {
-            const summary = toChatCarSummary(invCar);
-            picked = {
-              id: summary.id,
-              brand: summary.brand,
-              model: summary.model,
-              year: summary.year,
-              price: summary.price,
-              mileage: summary.mileage,
-              color: summary.color,
-              fuelType: summary.fuelType,
-              condition: summary.condition,
-              bodyClass: summary.bodyClass,
-              bodyClassLabel: summary.bodyClassLabel,
-              showroomName: summary.showroomName,
-              imageUrl: summary.hasImage ? summary.image : undefined,
-              hasImage: summary.hasImage,
-              detailPath: `/cars/${summary.id}`,
-              matchKind: "exact"
-            };
+            picked = summaryToChatCarCardData(toChatCarSummary(invCar), "exact");
           }
         }
 
@@ -213,25 +196,7 @@ export function tryOrchestrateChatReply(
     if (selectedId) {
       const invCar = inventory.find(c => c.id === selectedId);
       if (invCar) {
-        const summary = toChatCarSummary(invCar);
-        const picked: ChatCarCardData = {
-          id: summary.id,
-          brand: summary.brand,
-          model: summary.model,
-          year: summary.year,
-          price: summary.price,
-          mileage: summary.mileage,
-          color: summary.color,
-          fuelType: summary.fuelType,
-          condition: summary.condition,
-          bodyClass: summary.bodyClass,
-          bodyClassLabel: summary.bodyClassLabel,
-          showroomName: summary.showroomName,
-          imageUrl: summary.hasImage ? summary.image : undefined,
-          hasImage: summary.hasImage,
-          detailPath: `/cars/${summary.id}`,
-          matchKind: "exact"
-        };
+        const picked = summaryToChatCarCardData(toChatCarSummary(invCar), "exact");
         return {
           text: buildSelectedCarReplyCopy(picked),
           carCards: [picked],

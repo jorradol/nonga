@@ -395,11 +395,11 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
 
             {!isUser && message.carCards && message.carCards.length > 0 && (
               <div
-                className="mt-3 flex flex-wrap gap-3"
+                className="mt-3 flex flex-col gap-3 w-full min-w-0 max-w-full"
                 data-testid="chat-car-cards-row"
               >
                 {Array.from(new Map(message.carCards.map(c => [c.id, c])).values()).map((car) => (
-                  <div key={car.id} className="contents">
+                  <div key={car.id} className="w-full min-w-0 max-w-full">
                     <ChatCarCard car={car} />
                   </div>
                 ))}
