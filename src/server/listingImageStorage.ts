@@ -1,3 +1,9 @@
+import {
+  IMAGE_UPLOAD_UNSUPPORTED_MESSAGE,
+  isAllowedImageUploadMime,
+  normalizeImageUploadMime,
+  validateImageUploadBuffer,
+} from "./imageMagicByteValidation";
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -49,13 +55,6 @@ export function isLocalListingImageUrl(url: string): boolean {
   return url.startsWith("/storage/listings/");
 }
 
-const ALLOWED_UPLOAD_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
-
 const SAFE_LISTING_ID = /^[a-zA-Z0-9_-]+$/;
 
 function extFromMime(mimeType: string): string {
@@ -74,21 +73,26 @@ function nextImageIndex(carId: string): number {
 }
 
 /** บันทึกรูปจาก upload (edit listing) → /storage/listings/{carId}/ */
-export function saveListingImageUpload(
+export async function saveListingImageUpload(
   carId: string,
   buffer: Buffer,
   mimeType: string,
   seed?: string
-): { ok: true; storedUrl: string } | { ok: false; error: string } {
+): Promise<{ ok: true; storedUrl: string } | { ok: false; error: string }> {
   if (!SAFE_LISTING_ID.test(carId)) {
     return { ok: false, error: "รหัสประกาศไม่ถูกต้อง" };
   }
-  const mime = mimeType.toLowerCase().split(";")[0].trim();
-  if (!ALLOWED_UPLOAD_MIME.has(mime)) {
-    return { ok: false, error: `ชนิดไฟล์ไม่รองรับ (${mimeType})` };
+  const mime = normalizeImageUploadMime(mimeType);
+  if (!isAllowedImageUploadMime(mime)) {
+    return { ok: false, error: IMAGE_UPLOAD_UNSUPPORTED_MESSAGE };
   }
   if (buffer.length === 0) return { ok: false, error: "ไฟล์ว่าง" };
   if (buffer.length > MAX_BYTES) return { ok: false, error: "ไฟล์ใหญ่เกิน 8MB" };
+
+  const magic = await validateImageUploadBuffer(buffer, mime);
+  if (magic.ok === false) {
+    return { ok: false, error: magic.message };
+  }
 
   const carDir = path.join(LISTING_IMAGES_ROOT, carId);
   ensureDir(carDir);

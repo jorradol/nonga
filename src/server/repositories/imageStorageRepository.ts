@@ -239,7 +239,7 @@ export class FileImageStorageRepository implements ImageStorageRepository {
   ): Promise<UploadListingImageResult> {
     const safeDealer = safeDealerId(dealerId);
     const safeListing = safeListingId(listingId);
-    const saved = saveListingImageUpload(
+    const saved = await saveListingImageUpload(
       safeListing,
       input.buffer,
       input.mimeType,

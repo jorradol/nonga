@@ -1,4 +1,5 @@
 import type { ListingImageFileInput } from "./listingImageUploadBody";
+import { isAllowedImageUploadMime } from "./imageMagicByteValidation";
 import {
   PASTE_SOURCE_MAX_BYTES,
   processListingImageUpload,
@@ -13,13 +14,6 @@ export { PASTE_SOURCE_MAX_BYTES as PASTE_UPLOAD_MAX_DECODED_BYTES };
 const PASTE_MAX_FILES = 12;
 /** draft-* และ car-* (published listing) */
 const SAFE_LISTING_ID = /^(?:draft(?:-import-[0-9]+-d\d+|-[0-9]+)|car-[0-9]+)$/;
-
-const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
 
 const HEIC_MIME = /image\/(heic|heif)/i;
 
@@ -61,7 +55,7 @@ export function decodeSinglePasteUploadFile(
     };
   }
 
-  if (!ALLOWED_MIME.has(mimeType)) {
+  if (!isAllowedImageUploadMime(mimeType)) {
     return {
       ok: false,
       failure: {

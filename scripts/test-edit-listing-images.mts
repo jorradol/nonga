@@ -61,7 +61,7 @@ async function main() {
     ...loadMarketplaceInventory().filter((c) => c.id !== CAR_ID),
   ]);
 
-  const saved = saveListingImageUpload(CAR_ID, tinyPng(), "image/png", "test-upload");
+  const saved = await saveListingImageUpload(CAR_ID, tinyPng(), "image/png", "test-upload");
   assert.equal(saved.ok, true);
   if (!saved.ok) throw new Error("upload failed");
   assert.ok(saved.storedUrl.startsWith(`/storage/listings/${CAR_ID}/`));
@@ -91,7 +91,7 @@ async function main() {
   assert.ok(!raw.includes("blob:"));
   assert.ok(!raw.includes("data:image"));
 
-  const badMime = saveListingImageUpload(CAR_ID, tinyPng(), "application/pdf", "x");
+  const badMime = await saveListingImageUpload(CAR_ID, tinyPng(), "application/pdf", "x");
   assert.equal(badMime.ok, false);
 
   cleanup(CAR_ID);

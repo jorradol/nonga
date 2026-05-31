@@ -99,10 +99,13 @@ const listingId = `repo-image-${Date.now()}`;
 let fileName = "";
 try {
   const uploaded = await fileRepo.uploadListingImage(dealerId, listingId, {
-    buffer: Buffer.from("fake-image-bytes"),
-    mimeType: "image/webp",
-    originalFileName: "dealer-upload.webp",
-    seed: "dealer-upload.webp",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64"
+    ),
+    mimeType: "image/png",
+    originalFileName: "dealer-upload.png",
+    seed: "dealer-upload.png",
     width: 1200,
     height: 800,
     sortOrder: 2,
@@ -114,7 +117,7 @@ try {
   );
   assert(uploaded.metadata.dealerId === dealerId, "file metadata should include dealerId");
   assert(uploaded.metadata.listingId === listingId, "file metadata should include listingId");
-  assert(uploaded.metadata.mimeType === "image/webp", "file metadata should include mimeType");
+  assert(uploaded.metadata.mimeType === "image/png", "file metadata should include mimeType");
   assert(uploaded.metadata.width === 1200, "file metadata should include width");
   assert(uploaded.metadata.height === 800, "file metadata should include height");
 

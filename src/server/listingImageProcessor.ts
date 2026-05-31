@@ -1,4 +1,9 @@
 import sharp from "sharp";
+import {
+  formatImageUploadValidationError,
+  IMAGE_UPLOAD_CORRUPTED_MESSAGE,
+  validateImageUploadBuffer,
+} from "./imageMagicByteValidation";
 
 export const PASTE_SOURCE_MAX_BYTES = 15 * 1024 * 1024;
 
@@ -114,6 +119,14 @@ export async function processListingImageUpload(
     };
   }
 
+  const magic = await validateImageUploadBuffer(buffer, mimeType);
+  if (magic.ok === false) {
+    return {
+      ok: false,
+      error: formatImageUploadValidationError(originalName, magic.message),
+    };
+  }
+
   try {
     const main = await encodeMain(buffer);
     const thumbBuffer = await encodeThumb(buffer, main.ext);
@@ -127,8 +140,13 @@ export async function processListingImageUpload(
         mainHeight: main.height,
       },
     };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "แปลงรูปไม่ได้";
-    return { ok: false, error: `${originalName}: ${msg}` };
+  } catch {
+    return {
+      ok: false,
+      error: formatImageUploadValidationError(
+        originalName,
+        IMAGE_UPLOAD_CORRUPTED_MESSAGE
+      ),
+    };
   }
 }
