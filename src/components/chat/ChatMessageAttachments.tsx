@@ -1,6 +1,7 @@
 import React from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import type { ChatMessageAttachment } from "../../types";
+import { LISTING_CARD_MAX_THUMBNAILS } from "../../constants/listingImagePolicy";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -31,7 +32,7 @@ function formatAttachmentsSummary(attachments: ChatMessageAttachment[]): string 
 interface ChatMessageAttachmentsProps {
   attachments: ChatMessageAttachment[];
   isUser?: boolean;
-  /** จำนวน thumbnail สูงสุดที่แสดง (default 5) */
+  /** จำนวน thumbnail สูงสุดที่แสดง */
   maxVisibleImages?: number;
 }
 
@@ -39,7 +40,7 @@ interface ChatMessageAttachmentsProps {
 export function ChatMessageAttachments({
   attachments,
   isUser,
-  maxVisibleImages = 5,
+  maxVisibleImages = LISTING_CARD_MAX_THUMBNAILS,
 }: ChatMessageAttachmentsProps) {
   if (!attachments.length) return null;
 

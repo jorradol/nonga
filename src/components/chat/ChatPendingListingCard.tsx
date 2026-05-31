@@ -5,7 +5,7 @@ import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser
 import type { VisionObservationSummary } from "../../services/ai/chat/chatPrecheckLayer";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useClipboard } from "../../hooks/chat/useClipboard";
-import { MAX_PERSISTED_SNAPSHOT_IMAGES } from "../../utils/chatPendingDraftSnapshot";
+import { LISTING_CARD_MAX_THUMBNAILS } from "../../constants/listingImagePolicy";
 
 interface ChatPendingListingCardProps {
   card: PendingListingCardData;
@@ -79,7 +79,7 @@ export function ChatPendingListingCard({
         <div className="px-3 pt-3">
           <ChatMessageAttachments
             attachments={attachments}
-            maxVisibleImages={MAX_PERSISTED_SNAPSHOT_IMAGES}
+            maxVisibleImages={LISTING_CARD_MAX_THUMBNAILS}
           />
         </div>
       ) : (

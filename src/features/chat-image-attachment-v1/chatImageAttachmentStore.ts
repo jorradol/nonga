@@ -1,8 +1,48 @@
 import type { ChatMessage, ChatMessageAttachment } from "../../types";
+import { LISTING_MAX_IMAGES_PER_LISTING } from "../../constants/listingImagePolicy";
 import type {
   PendingChatImageAttachment,
   StoredChatImageAttachment,
 } from "./types";
+
+export type CapListingImagesResult<T> = {
+  items: T[];
+  totalBeforeCap: number;
+  truncated: boolean;
+};
+
+export function capStoredChatImagesForListing(
+  items: StoredChatImageAttachment[],
+  max = LISTING_MAX_IMAGES_PER_LISTING
+): CapListingImagesResult<StoredChatImageAttachment> {
+  const sorted = [...items].sort(
+    (a, b) => (a.metadata.sortOrder ?? 0) - (b.metadata.sortOrder ?? 0)
+  );
+  const totalBeforeCap = sorted.length;
+  if (totalBeforeCap <= max) {
+    return { items: sorted, totalBeforeCap, truncated: false };
+  }
+  return { items: sorted.slice(0, max), totalBeforeCap, truncated: true };
+}
+
+export function capChatMessageImageAttachments(
+  attachments: ChatMessageAttachment[],
+  max = LISTING_MAX_IMAGES_PER_LISTING
+): CapListingImagesResult<ChatMessageAttachment> {
+  const images = attachments.filter((a) => a.kind === "image");
+  const others = attachments.filter((a) => a.kind !== "image");
+  const sorted = [...images].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+  );
+  const totalBeforeCap = sorted.length;
+  const capped =
+    totalBeforeCap <= max ? sorted : sorted.slice(0, max);
+  return {
+    items: [...others, ...capped],
+    totalBeforeCap,
+    truncated: totalBeforeCap > max,
+  };
+}
 
 export type { StoredChatImageAttachment };
 
@@ -106,7 +146,7 @@ export function collectChatImagesForDraft(
     }
   }
 
-  return output;
+  return capStoredChatImagesForListing(output).items;
 }
 
 /**
@@ -136,9 +176,35 @@ export function collectAllChatImageFilesForMemberListing(
     }
   }
 
-  return output.sort(
-    (a, b) => (a.metadata.sortOrder ?? 0) - (b.metadata.sortOrder ?? 0)
-  );
+  return capStoredChatImagesForListing(output).items;
+}
+
+export function collectAllChatImageFilesForMemberListingCapInfo(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): CapListingImagesResult<StoredChatImageAttachment> {
+  markSessionImagesForPendingListing(storageScopeKey, sessionId, messages);
+
+  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
+  if (!session) {
+    return { items: [], totalBeforeCap: 0, truncated: false };
+  }
+
+  const seen = new Set<string>();
+  const output: StoredChatImageAttachment[] = [];
+
+  for (const message of messages) {
+    if (message.sender !== "user") continue;
+    const stored = session.get(message.id) ?? [];
+    for (const item of stored) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      output.push(item);
+    }
+  }
+
+  return capStoredChatImagesForListing(output);
 }
 
 export function getChatImagesForMessage(
@@ -483,7 +549,8 @@ export function collectDraftPreviewDisplayAttachments(
     }
   }
 
-  return output.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const sorted = output.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  return capChatMessageImageAttachments(sorted).items.filter((a) => a.kind === "image");
 }
 
 /** @deprecated ใช้ collectDraftPreviewDisplayAttachments */

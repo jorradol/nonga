@@ -4,10 +4,13 @@ import type { VisionObservationSummary } from "../ai/chat/chatPrecheckLayer";
 import { buildSavedMemberListingCardData } from "./chatSavedMemberListing";
 import { buildDealerDraftPayloadFromChat } from "../ai/chat/chatDraftActions";
 import {
-  collectAllChatImageFilesForMemberListing,
+  collectAllChatImageFilesForMemberListingCapInfo,
   recoverChatImagesFromMessageHistory,
   registerSnapshotAttachmentsForDraftSave,
 } from "../../features/chat-image-attachment-v1/chatImageAttachmentStore";
+import {
+  buildChatListingImageCapTruncatedNote,
+} from "../../constants/listingImagePolicy";
 import {
   uploadMyListingImagesDetailed,
   type UploadMyListingImagesResult,
@@ -135,7 +138,11 @@ async function resolveMemberSaveImageFiles(params: {
   sessionId: string;
   messages: ChatMessage[];
   cardAttachments?: ChatMessageAttachment[];
-}): Promise<File[]> {
+}): Promise<{
+  files: File[];
+  truncated: boolean;
+  totalBeforeCap: number;
+}> {
   await recoverChatImagesFromMessageHistory(
     params.storageScopeKey,
     params.sessionId,
@@ -158,11 +165,16 @@ async function resolveMemberSaveImageFiles(params: {
     }
   }
 
-  return collectAllChatImageFilesForMemberListing(
+  const capInfo = collectAllChatImageFilesForMemberListingCapInfo(
     params.storageScopeKey,
     params.sessionId,
     params.messages
-  ).map((item) => item.file);
+  );
+  return {
+    files: capInfo.items.map((item) => item.file),
+    truncated: capInfo.truncated,
+    totalBeforeCap: capInfo.totalBeforeCap,
+  };
 }
 
 function filterListingImageUrls(listingId: string, urls: string[]): string[] {
@@ -268,12 +280,13 @@ export async function saveMemberListingFromChat(params: {
     params.messages,
     params.cardAttachments
   );
-  const imageFiles = await resolveMemberSaveImageFiles({
+  const imageResolve = await resolveMemberSaveImageFiles({
     storageScopeKey: params.storageScopeKey,
     sessionId: params.sessionId,
     messages: params.messages,
     cardAttachments: params.cardAttachments,
   });
+  const imageFiles = imageResolve.files;
 
   if (expectsImages) {
     const attachmentImageCount =
@@ -282,6 +295,8 @@ export async function saveMemberListingFromChat(params: {
       sessionId: params.sessionId,
       attachmentImageCount,
       resolvedFileCount: imageFiles.length,
+      totalBeforeCap: imageResolve.totalBeforeCap,
+      truncated: imageResolve.truncated,
       fileNames: imageFiles.map((f) => f.name || "upload.jpg"),
     });
   }
@@ -360,6 +375,9 @@ export async function saveMemberListingFromChat(params: {
       uploadResult,
       recordImageUrls.length
     );
+    const capNote = imageResolve.truncated
+      ? `\n\n${buildChatListingImageCapTruncatedNote(imageResolve.totalBeforeCap)}`
+      : "";
     const trailingNote =
       !imageNote && expectsImages
         ? "\n\nยังไม่มีรูปในระบบ — แนบรูปในแชทหรือเพิ่มจาก “ประกาศของฉัน” ได้ภายหลังครับ"
@@ -370,7 +388,7 @@ export async function saveMemberListingFromChat(params: {
     return {
       ok: true,
       listingId,
-      message: `${message}${trailingNote}`,
+      message: `${message}${trailingNote}${capNote}`,
       imageCount: recordImageUrls.length,
       requestedImageCount: uploadResult.requestedCount,
       uploadResult,

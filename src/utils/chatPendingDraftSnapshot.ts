@@ -13,13 +13,15 @@ import {
   normalizeExtractedCarFields,
   normalizeVisionObservationSummary,
 } from "../services/chat/chatMemberPendingListing";
+import { SNAPSHOT_MAX_PREVIEW_IMAGES } from "../constants/listingImagePolicy";
 
 const STORAGE_KEY = "nong-a-chat-pending-draft-v1";
 const RESTORE_META_KEY = "nong-a-chat-pending-draft-restore-meta";
 const SNAPSHOT_VERSION = 2;
 const TTL_MS = 2 * 60 * 60 * 1000;
-export const MAX_PERSISTED_SNAPSHOT_IMAGES = 8;
-const MAX_PERSISTED_IMAGES = MAX_PERSISTED_SNAPSHOT_IMAGES;
+/** @deprecated use SNAPSHOT_MAX_PREVIEW_IMAGES from listingImagePolicy */
+export const MAX_PERSISTED_SNAPSHOT_IMAGES = SNAPSHOT_MAX_PREVIEW_IMAGES;
+const MAX_PERSISTED_IMAGES = SNAPSHOT_MAX_PREVIEW_IMAGES;
 const MAX_DATA_URL_BYTES = 450_000;
 
 export type PendingDraftRestoreStatus =

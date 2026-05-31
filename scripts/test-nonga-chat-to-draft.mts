@@ -40,6 +40,8 @@ import {
   buildPostLoginDraftSavedText,
   POST_LOGIN_DRAFT_RESTORE_FAILED_NOTE,
   POST_LOGIN_PENDING_CARD_RESTORE_NOTE,
+  persistAttachmentsForSnapshot,
+  MAX_PERSISTED_SNAPSHOT_IMAGES,
 } from "../src/utils/chatPendingDraftSnapshot";
 import {
   readChatHistorySnapshot,
@@ -74,7 +76,27 @@ import {
 } from "../src/services/chat/restorePendingChatDraft";
 import {
   prepareSnapshotImageAttachmentsForDisplay,
+  collectAllChatImageFilesForMemberListing,
+  collectAllChatImageFilesForMemberListingCapInfo,
+  collectChatImagesForDraft,
+  capStoredChatImagesForListing,
+  collectDraftPreviewDisplayAttachments,
+  clearChatImageAttachmentScope,
+  countChatImageAttachmentsInSession,
+  markChatImageMessageForPendingListing,
+  migrateChatImageAttachmentScope,
+  registerChatImageMessageFiles,
+  toChatImageMessageAttachments,
 } from "../src/features/chat-image-attachment-v1/chatImageAttachmentStore";
+import { CHAT_IMAGE_ATTACHMENT_MAX_FILES } from "../src/features/chat-image-attachment-v1/types";
+import {
+  LISTING_MAX_IMAGES_PER_LISTING,
+  LISTING_MIN_IMAGES_FOR_PUBLISH,
+  LISTING_IMAGE_UPLOAD_BATCH_SIZE,
+  LISTING_CARD_MAX_THUMBNAILS,
+  SNAPSHOT_MAX_PREVIEW_IMAGES,
+  buildChatListingImageCapTruncatedNote,
+} from "../src/constants/listingImagePolicy";
 import { useChatStore } from "../src/stores/chat/chatStore";
 import {
   buildPendingListingCardData,
@@ -130,16 +152,6 @@ import {
   getPendingPublishListingContext,
   setPendingPublishListingContext,
 } from "../src/services/chat/chatPendingPublishListing";
-import {
-  collectAllChatImageFilesForMemberListing,
-  collectChatImagesForDraft,
-  clearChatImageAttachmentScope,
-  countChatImageAttachmentsInSession,
-  markChatImageMessageForPendingListing,
-  migrateChatImageAttachmentScope,
-  registerChatImageMessageFiles,
-  toChatImageMessageAttachments,
-} from "../src/features/chat-image-attachment-v1/chatImageAttachmentStore";
 import type { PendingChatImageAttachment } from "../src/features/chat-image-attachment-v1/types";
 import fs from "node:fs";
 import path from "node:path";
@@ -2442,6 +2454,160 @@ assertEqual(
 );
 
 clearAllPendingPublishListingContextsForTest();
+
+console.log("--- Testing listing image policy (Phase 1-2 frontend) ---");
+
+assertEqual(LISTING_MAX_IMAGES_PER_LISTING, 10, "policy max images per listing");
+assertEqual(SNAPSHOT_MAX_PREVIEW_IMAGES, 10, "policy snapshot preview count");
+assertEqual(LISTING_CARD_MAX_THUMBNAILS, 10, "policy card thumbnail cap");
+assertEqual(MAX_PERSISTED_SNAPSHOT_IMAGES, 10, "snapshot alias uses policy 10");
+assertEqual(CHAT_IMAGE_ATTACHMENT_MAX_FILES, 10, "chat attach max uses policy");
+assertEqual(LISTING_MIN_IMAGES_FOR_PUBLISH, 1, "publish min images unchanged");
+assertEqual(
+  Math.ceil(10 / LISTING_IMAGE_UPLOAD_BATCH_SIZE),
+  5,
+  "10 images upload as 5 batches of 2"
+);
+assertEqual(LISTING_IMAGE_UPLOAD_BATCH_SIZE, 2, "upload batch size stays 2");
+
+const perMessageSlots = CHAT_IMAGE_ATTACHMENT_MAX_FILES - 0;
+const selectedFromEleven = Math.min(11, perMessageSlots);
+assertEqual(selectedFromEleven, 10, "selecting 11 files caps at 10 per message");
+
+const capTwelve = capStoredChatImagesForListing(
+  Array.from({ length: 12 }, (_, i) => ({
+    id: `img-${i}`,
+    messageId: "msg",
+    sessionId: "sess",
+    file: new File(["x"], `f${i}.jpg`, { type: "image/jpeg" }),
+    metadata: {
+      id: `img-${i}`,
+      kind: "image" as const,
+      name: `f${i}.jpg`,
+      sortOrder: i,
+      size: 100,
+      mimeType: "image/jpeg",
+    },
+  }))
+);
+assertEqual(capTwelve.items.length, 10, "cap helper keeps first 10 by sortOrder");
+assertEqual(capTwelve.truncated, true, "cap helper marks truncated");
+assertEqual(
+  buildChatListingImageCapTruncatedNote(12).includes("12"),
+  true,
+  "cap truncated note mentions total count"
+);
+
+const policyGuestScope = "user:guest-policy-cap";
+const policySessionId = "chat-policy-cap";
+const policyMsg1 = "msg-policy-1";
+const policyMsg2 = "msg-policy-2";
+clearChatImageAttachmentScope(policyGuestScope);
+const policyBatch1 = Array.from({ length: 6 }, (_, i) => makeTestPending(`policy-a-${i}`));
+const policyBatch2 = Array.from({ length: 6 }, (_, i) => makeTestPending(`policy-b-${i}`));
+registerChatImageMessageFiles(
+  policyGuestScope,
+  policySessionId,
+  policyMsg1,
+  policyBatch1,
+  toChatImageMessageAttachments(policyBatch1)
+);
+registerChatImageMessageFiles(
+  policyGuestScope,
+  policySessionId,
+  policyMsg2,
+  policyBatch2,
+  toChatImageMessageAttachments(policyBatch2)
+);
+markChatImageMessageForPendingListing(policyGuestScope, policySessionId, policyMsg1);
+markChatImageMessageForPendingListing(policyGuestScope, policySessionId, policyMsg2);
+const policyMessages = [
+  {
+    id: policyMsg1,
+    sender: "user" as const,
+    text: "(แนบรูป)",
+    createdAt: claimNowIso,
+    attachments: toChatImageMessageAttachments(policyBatch1),
+  },
+  {
+    id: policyMsg2,
+    sender: "user" as const,
+    text: "(แนบรูป)",
+    createdAt: claimNowIso,
+    attachments: toChatImageMessageAttachments(policyBatch2),
+  },
+];
+assertEqual(
+  countChatImageAttachmentsInSession(policyGuestScope, policySessionId),
+  12,
+  "session stores 12 images across two messages"
+);
+const policyCap = collectAllChatImageFilesForMemberListingCapInfo(
+  policyGuestScope,
+  policySessionId,
+  policyMessages
+);
+assertEqual(policyCap.items.length, 10, "member save cap uses 10 across messages");
+assertEqual(policyCap.truncated, true, "member save marks truncated over 10");
+const policyPreview = collectDraftPreviewDisplayAttachments(
+  policyGuestScope,
+  policySessionId,
+  policyMessages
+);
+assertEqual(policyPreview.length, 10, "draft preview display capped at 10");
+clearChatImageAttachmentScope(policyGuestScope);
+
+const tinyDataUrl =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDAREAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGfAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEABj8Cf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8hf//Z";
+const snapshotTen = await persistAttachmentsForSnapshot(
+  Array.from({ length: 10 }, (_, i) => ({
+    id: `snap-${i}`,
+    kind: "image" as const,
+    name: `snap-${i}.jpg`,
+    size: 120,
+    mimeType: "image/jpeg",
+    previewDataUrl: tinyDataUrl,
+  }))
+);
+assertEqual(
+  snapshotTen.attachments.length,
+  10,
+  "snapshot attempts 10 attachment slots"
+);
+assertEqual(
+  buildPostLoginPartialImageRestoreNote(10, snapshotTen.persistedPreviewCount) == null ||
+    snapshotTen.persistedPreviewCount >= 10,
+  true,
+  "snapshot partial note absent when all tiny previews persist"
+);
+const policyPartialNote = buildPostLoginPartialImageRestoreNote(10, 3);
+assertEqual(
+  policyPartialNote?.includes("3") && policyPartialNote.includes("10"),
+  true,
+  "snapshot partial note when byte budget limits restore"
+);
+
+const publishNoImg = validateMemberListingReadyToPublish({
+  listingId: "car-no-img",
+  publicRefCode: "NA-NOIMG",
+  fields: { brand: "Honda", model: "City", year: 2020, price: 400000, mileage: 30000, transmission: "AT" },
+  marketingCopy: "test",
+  imageUrls: [],
+  statusLabel: "draft",
+});
+assertEqual(publishNoImg.ok, false, "publish still blocked with zero images");
+if (publishNoImg.ok === false) {
+  assertEqual(publishNoImg.reason, "missing-images", "publish min 1 image guard");
+}
+const publishOneImg = validateMemberListingReadyToPublish({
+  listingId: "car-one-img",
+  publicRefCode: "NA-ONEIMG",
+  fields: { brand: "Honda", model: "City", year: 2020, price: 400000, mileage: 30000, transmission: "AT" },
+  marketingCopy: "test",
+  imageUrls: ["/storage/listings/car-one-img/a.jpg"],
+  statusLabel: "draft",
+});
+assertEqual(publishOneImg.ok, true, "publish passes with one image");
 
 console.log("--- Testing guest confirm → chat login modal (UX) ---");
 

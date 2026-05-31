@@ -1,7 +1,8 @@
 import type { ChatMessageAttachment } from "../../types";
+import { LISTING_MAX_IMAGES_PER_LISTING } from "../../constants/listingImagePolicy";
 
 export const CHAT_IMAGE_ATTACHMENT_V1_ENABLED = true;
-export const CHAT_IMAGE_ATTACHMENT_MAX_FILES = 10;
+export const CHAT_IMAGE_ATTACHMENT_MAX_FILES = LISTING_MAX_IMAGES_PER_LISTING;
 export const CHAT_IMAGE_ATTACHMENT_MAX_SOURCE_BYTES = 15 * 1024 * 1024;
 export const CHAT_IMAGE_ATTACHMENT_MAX_SIDE = 1280;
 export const CHAT_IMAGE_ATTACHMENT_QUALITY = 0.78;
@@ -9,7 +10,7 @@ export const CHAT_IMAGE_ATTACHMENT_ACCEPT =
   "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 export const CHAT_IMAGE_ATTACHMENT_TOO_MANY =
-  "แนบรูปได้สูงสุด 10 รูปต่อครั้งครับ";
+  `แนบรูปได้สูงสุด ${LISTING_MAX_IMAGES_PER_LISTING} รูปต่อครั้งครับ`;
 export const CHAT_IMAGE_ATTACHMENT_UNSUPPORTED =
   "ไฟล์รูปนี้ยังไม่รองรับครับ กรุณาใช้ JPG, PNG หรือ WebP";
 export const CHAT_IMAGE_ATTACHMENT_TOO_LARGE =

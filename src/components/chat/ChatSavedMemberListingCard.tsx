@@ -3,6 +3,7 @@ import { ClipboardCopy, Check, ExternalLink } from "lucide-react";
 import type { ChatMessageAttachment, SavedMemberListingCardData } from "../../types";
 import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser";
 import type { VisionObservationSummary } from "../../services/ai/chat/chatPrecheckLayer";
+import { LISTING_CARD_MAX_THUMBNAILS } from "../../constants/listingImagePolicy";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useClipboard } from "../../hooks/chat/useClipboard";
 import { CHAT_MEMBER_PUBLISH_LISTING_ACTION, CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER } from "../../services/chat/chatSavedMemberListing";
@@ -88,7 +89,7 @@ export function ChatSavedMemberListingCard({
           </p>
           <ChatMessageAttachments
             attachments={attachments}
-            maxVisibleImages={12}
+            maxVisibleImages={LISTING_CARD_MAX_THUMBNAILS}
           />
         </div>
       )}
