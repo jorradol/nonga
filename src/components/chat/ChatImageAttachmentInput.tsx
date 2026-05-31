@@ -18,6 +18,8 @@ interface ChatImageAttachmentInputProps {
   onRemoveAt: (index: number) => void;
   /** When false, preview renders elsewhere (e.g. above the textarea). */
   showPreview?: boolean;
+  /** Shared ref so other UI (e.g. draft preview “เพิ่มรูปภาพ”) can open the same picker. */
+  fileInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 function formatSize(bytes: number): string {
@@ -77,8 +79,10 @@ export function ChatImageAttachmentInput({
   onFilesSelected,
   onRemoveAt,
   showPreview = true,
+  fileInputRef: externalFileInputRef,
 }: ChatImageAttachmentInputProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalFileInputRef ?? internalInputRef;
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []) as File[];

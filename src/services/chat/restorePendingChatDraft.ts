@@ -40,6 +40,7 @@ import {
   collectChatImagesForDraft,
   collectDraftPreviewDisplayAttachments,
   countSnapshotAttachmentsWithDisplayablePreview,
+  getChatImagesForMessage,
   prepareSnapshotImageAttachmentsForDisplay,
   recoverChatImagesFromMessageHistory,
   registerSnapshotAttachmentsForDraftSave,
@@ -186,26 +187,35 @@ function resolveDisplayAttachmentsForRestore(
 
 function applyDisplayAttachmentsToRestoredSession(
   sessionId: string,
-  displayAttachments: ChatMessageAttachment[]
+  storageScopeKey: string,
+  cardDisplayAttachments: ChatMessageAttachment[]
 ): void {
-  if (!displayAttachments.length) return;
+  if (!cardDisplayAttachments.length) return;
   useChatStore.setState((state) => {
     const messages = state.messages[sessionId];
     if (!messages?.length) return state;
     const next = messages.map((message) => {
-      if (message.isPendingListingCard) {
-        return { ...message, attachments: displayAttachments };
+      if (message.isPendingListingCard || message.isDraftPreview) {
+        return { ...message, attachments: cardDisplayAttachments };
       }
-      if (message.isDraftPreview) {
-        return { ...message, attachments: displayAttachments };
+      if (message.sender !== "user") return message;
+
+      const stored = getChatImagesForMessage(
+        storageScopeKey,
+        sessionId,
+        message.id
+      );
+      if (stored.length > 0) {
+        return {
+          ...message,
+          attachments: stored.map((item, index) => ({
+            ...item.metadata,
+            sortOrder: item.metadata.sortOrder ?? index,
+            previewUrl: URL.createObjectURL(item.file),
+          })),
+        };
       }
-      if (
-        message.sender === "user" &&
-        (message.attachments?.some((att) => att.kind === "image") ||
-          message.text.includes("แนบรูป"))
-      ) {
-        return { ...message, attachments: displayAttachments };
-      }
+
       return message;
     });
     return {
@@ -338,7 +348,11 @@ async function restoreSinglePendingListingCard(
       sessionId,
       snap
     );
-    applyDisplayAttachmentsToRestoredSession(sessionId, displayAttachments);
+    applyDisplayAttachmentsToRestoredSession(
+      sessionId,
+      deps.storageScopeKey,
+      displayAttachments
+    );
     await store.selectSession(chatScope, sessionId);
     return sessionId;
   }
@@ -418,6 +432,7 @@ async function restoreSinglePendingListingCard(
   );
   applyDisplayAttachmentsToRestoredSession(
     sessionId,
+    deps.storageScopeKey,
     displayAfterRecover.length > 0 ? displayAfterRecover : snapshotDisplay
   );
 

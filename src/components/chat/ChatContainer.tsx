@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Send, Menu, Sparkles, Sliders, ChevronDown, Car } from "lucide-react";
 import {
   ChatImageAttachmentInput,
@@ -10,6 +10,7 @@ import {
   CHAT_TEXTAREA_MIN_HEIGHT_PX,
 } from "../../hooks/chat/useChatTextareaAutosize";
 import { useChatContext } from "../../contexts/chat/ChatContext";
+import { ChatComposerContext } from "../../contexts/chat/ChatComposerContext";
 import { useAppStore } from "../../store";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { ChatMessageBubble } from "./ChatMessageBubble";
@@ -62,6 +63,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingAttachmentsRef = useRef<PendingChatImageAttachment[]>([]);
+  const attachmentFileInputRef = useRef<HTMLInputElement>(null);
   const userScrolledAwayRef = useRef(false);
   const prevGeneratingRef = useRef(false);
   const messageCountRef = useRef(0);
@@ -215,6 +217,17 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     });
   }, []);
 
+  const openImageAttachmentPicker = useCallback(() => {
+    if (isGenerating || isPreparingAttachments) return;
+    attachmentFileInputRef.current?.click();
+    textareaRef.current?.focus();
+  }, [isGenerating, isPreparingAttachments, textareaRef]);
+
+  const composerContextValue = useMemo(
+    () => ({ openImageAttachmentPicker }),
+    [openImageAttachmentPicker]
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -228,6 +241,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   };
 
   return (
+    <ChatComposerContext.Provider value={composerContextValue}>
     <div className="flex-1 flex bg-slate-950 text-slate-100 h-full relative" id="chat-container">
       <div className="flex-1 flex flex-col h-full overflow-hidden" id="chat-central-panel">
         <div
@@ -414,6 +428,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                     onFilesSelected={handleFilesSelected}
                     onRemoveAt={handleRemoveAttachment}
                     showPreview={false}
+                    fileInputRef={attachmentFileInputRef}
                   />
                 )}
                 <button
@@ -466,5 +481,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         </div>
       )}
     </div>
+    </ChatComposerContext.Provider>
   );
 }

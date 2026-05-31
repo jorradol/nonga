@@ -10,6 +10,7 @@ import { useClipboard } from "../../hooks/chat/useClipboard";
 import { useFavorites } from "../../hooks/chat/useFavorites";
 import { useEditableMessage } from "../../hooks/chat/useEditableMessage";
 import { useChat } from "../../hooks/chat/useChat";
+import { useChatComposer } from "../../contexts/chat/ChatComposerContext";
 import {
   CHAT_CONFIRM_CREATE_DRAFT_ACTION,
 } from "../../services/ai/chat/chatDraftActions";
@@ -38,6 +39,7 @@ interface ChatMessageBubbleProps {
 export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const isUser = message.sender === "user";
   const { activeSessionId, editMessage, sendMessage } = useChat();
+  const { openImageAttachmentPicker } = useChatComposer();
   const setView = useAppStore((s) => s.setView);
   const showDraftIdDebug =
     typeof import.meta !== "undefined" &&
@@ -562,11 +564,11 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    if (activeSessionId) {
-                      void sendMessage("เพิ่มรูปภาพ");
-                    }
+                    openImageAttachmentPicker();
                   }}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                  id="chat-draft-add-images-btn"
+                  data-testid="chat-add-listing-images-btn"
                 >
                   เพิ่มรูปภาพ
                 </button>

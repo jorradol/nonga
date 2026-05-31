@@ -15,14 +15,11 @@ export function capStoredChatImagesForListing(
   items: StoredChatImageAttachment[],
   max = LISTING_MAX_IMAGES_PER_LISTING
 ): CapListingImagesResult<StoredChatImageAttachment> {
-  const sorted = [...items].sort(
-    (a, b) => (a.metadata.sortOrder ?? 0) - (b.metadata.sortOrder ?? 0)
-  );
-  const totalBeforeCap = sorted.length;
+  const totalBeforeCap = items.length;
   if (totalBeforeCap <= max) {
-    return { items: sorted, totalBeforeCap, truncated: false };
+    return { items: [...items], totalBeforeCap, truncated: false };
   }
-  return { items: sorted.slice(0, max), totalBeforeCap, truncated: true };
+  return { items: items.slice(0, max), totalBeforeCap, truncated: true };
 }
 
 export function capChatMessageImageAttachments(
@@ -31,12 +28,9 @@ export function capChatMessageImageAttachments(
 ): CapListingImagesResult<ChatMessageAttachment> {
   const images = attachments.filter((a) => a.kind === "image");
   const others = attachments.filter((a) => a.kind !== "image");
-  const sorted = [...images].sort(
-    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-  );
-  const totalBeforeCap = sorted.length;
+  const totalBeforeCap = images.length;
   const capped =
-    totalBeforeCap <= max ? sorted : sorted.slice(0, max);
+    totalBeforeCap <= max ? images : images.slice(0, max);
   return {
     items: [...others, ...capped],
     totalBeforeCap,
@@ -92,9 +86,12 @@ function attachmentToMessageMeta(
 }
 
 export function toChatImageMessageAttachments(
-  pending: PendingChatImageAttachment[]
+  pending: PendingChatImageAttachment[],
+  sortOrderBase = 0
 ): ChatMessageAttachment[] {
-  return pending.map(attachmentToMessageMeta);
+  return pending.map((item, index) =>
+    attachmentToMessageMeta(item, sortOrderBase + index)
+  );
 }
 
 export function registerChatImageMessageFiles(
@@ -116,6 +113,44 @@ export function registerChatImageMessageFiles(
       metadata: metadata[index] ?? attachmentToMessageMeta(item, index),
     }))
   );
+}
+
+function collectSessionImagesInMessageOrder(
+  storageScopeKey: string,
+  sessionId: string,
+  messages: ChatMessage[]
+): StoredChatImageAttachment[] {
+  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
+  const seen = new Set<string>();
+  const output: StoredChatImageAttachment[] = [];
+
+  for (const message of messages) {
+    if (message.sender !== "user") continue;
+
+    const stored = session?.get(message.id) ?? [];
+    if (stored.length > 0) {
+      for (const item of stored) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        output.push(item);
+      }
+      continue;
+    }
+
+    for (const att of message.attachments ?? []) {
+      if (att.kind !== "image" || seen.has(att.id)) continue;
+      const hit = findStoredImageByAttachmentId(
+        storageScopeKey,
+        sessionId,
+        att.id
+      );
+      if (!hit) continue;
+      seen.add(hit.id);
+      output.push(hit);
+    }
+  }
+
+  return output;
 }
 
 export function collectChatImagesForDraft(
@@ -159,24 +194,9 @@ export function collectAllChatImageFilesForMemberListing(
   messages: ChatMessage[]
 ): StoredChatImageAttachment[] {
   markSessionImagesForPendingListing(storageScopeKey, sessionId, messages);
-
-  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
-  if (!session) return [];
-
-  const seen = new Set<string>();
-  const output: StoredChatImageAttachment[] = [];
-
-  for (const message of messages) {
-    if (message.sender !== "user") continue;
-    const stored = session.get(message.id) ?? [];
-    for (const item of stored) {
-      if (seen.has(item.id)) continue;
-      seen.add(item.id);
-      output.push(item);
-    }
-  }
-
-  return capStoredChatImagesForListing(output).items;
+  return capStoredChatImagesForListing(
+    collectSessionImagesInMessageOrder(storageScopeKey, sessionId, messages)
+  ).items;
 }
 
 export function collectAllChatImageFilesForMemberListingCapInfo(
@@ -185,26 +205,9 @@ export function collectAllChatImageFilesForMemberListingCapInfo(
   messages: ChatMessage[]
 ): CapListingImagesResult<StoredChatImageAttachment> {
   markSessionImagesForPendingListing(storageScopeKey, sessionId, messages);
-
-  const session = filesByScope.get(storageScopeKey)?.get(sessionId);
-  if (!session) {
-    return { items: [], totalBeforeCap: 0, truncated: false };
-  }
-
-  const seen = new Set<string>();
-  const output: StoredChatImageAttachment[] = [];
-
-  for (const message of messages) {
-    if (message.sender !== "user") continue;
-    const stored = session.get(message.id) ?? [];
-    for (const item of stored) {
-      if (seen.has(item.id)) continue;
-      seen.add(item.id);
-      output.push(item);
-    }
-  }
-
-  return capStoredChatImagesForListing(output);
+  return capStoredChatImagesForListing(
+    collectSessionImagesInMessageOrder(storageScopeKey, sessionId, messages)
+  );
 }
 
 export function getChatImagesForMessage(
@@ -507,10 +510,11 @@ export function collectDraftPreviewDisplayAttachments(
   const output: ChatMessageAttachment[] = [];
   const session = filesByScope.get(storageScopeKey)?.get(sessionId);
 
-  if (session) {
-    for (const message of messages) {
-      if (message.sender !== "user") continue;
-      const stored = session.get(message.id) ?? [];
+  for (const message of messages) {
+    if (message.sender !== "user") continue;
+
+    const stored = session?.get(message.id) ?? [];
+    if (stored.length > 0) {
       for (const item of stored) {
         if (seen.has(item.id)) continue;
         seen.add(item.id);
@@ -519,38 +523,35 @@ export function collectDraftPreviewDisplayAttachments(
           previewUrl: URL.createObjectURL(item.file),
         });
       }
+      continue;
     }
-  }
 
-  if (output.length === 0) {
-    for (const message of messages) {
-      if (message.sender !== "user") continue;
-      for (const att of message.attachments ?? []) {
-        if (att.kind !== "image" || seen.has(att.id)) continue;
-        seen.add(att.id);
-        const stored = findStoredImageByAttachmentId(
-          storageScopeKey,
-          sessionId,
-          att.id
-        );
-        if (stored?.file) {
-          output.push({
-            ...att,
-            previewUrl: URL.createObjectURL(stored.file),
-          });
-          continue;
-        }
-        const fallback =
-          att.previewUrl ?? att.previewDataUrl ?? att.thumbnailUrl ?? att.imageUrl;
-        if (fallback) {
-          output.push({ ...att, previewUrl: fallback });
-        }
+    for (const att of message.attachments ?? []) {
+      if (att.kind !== "image" || seen.has(att.id)) continue;
+      seen.add(att.id);
+      const storedHit = findStoredImageByAttachmentId(
+        storageScopeKey,
+        sessionId,
+        att.id
+      );
+      if (storedHit?.file) {
+        output.push({
+          ...att,
+          previewUrl: URL.createObjectURL(storedHit.file),
+        });
+        continue;
+      }
+      const fallback =
+        att.previewUrl ?? att.previewDataUrl ?? att.thumbnailUrl ?? att.imageUrl;
+      if (fallback) {
+        output.push({ ...att, previewUrl: fallback });
       }
     }
   }
 
-  const sorted = output.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  return capChatMessageImageAttachments(sorted).items.filter((a) => a.kind === "image");
+  return capChatMessageImageAttachments(output).items.filter(
+    (a) => a.kind === "image"
+  );
 }
 
 /** @deprecated ใช้ collectDraftPreviewDisplayAttachments */

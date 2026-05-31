@@ -1,5 +1,6 @@
 import { extractCarFieldsFromMessage, isSellIntent, buildDraftPreviewCopy } from "../src/services/ai/chat/sellIntentParser";
 import { buildDealerDraftPayloadFromChat } from "../src/services/ai/chat/chatDraftActions";
+import { tryOrchestrateChatReply } from "../src/services/ai/chat/chatSearchOrchestrator";
 import {
   getPublishMissingLabelsThai,
   validateDraftForPublish,
@@ -2490,7 +2491,7 @@ const capTwelve = capStoredChatImagesForListing(
     },
   }))
 );
-assertEqual(capTwelve.items.length, 10, "cap helper keeps first 10 by sortOrder");
+assertEqual(capTwelve.items.length, 10, "cap helper keeps first 10 in input order");
 assertEqual(capTwelve.truncated, true, "cap helper marks truncated");
 assertEqual(
   buildChatListingImageCapTruncatedNote(12).includes("12"),
@@ -2510,14 +2511,14 @@ registerChatImageMessageFiles(
   policySessionId,
   policyMsg1,
   policyBatch1,
-  toChatImageMessageAttachments(policyBatch1)
+  toChatImageMessageAttachments(policyBatch1, 0)
 );
 registerChatImageMessageFiles(
   policyGuestScope,
   policySessionId,
   policyMsg2,
   policyBatch2,
-  toChatImageMessageAttachments(policyBatch2)
+  toChatImageMessageAttachments(policyBatch2, 6)
 );
 markChatImageMessageForPendingListing(policyGuestScope, policySessionId, policyMsg1);
 markChatImageMessageForPendingListing(policyGuestScope, policySessionId, policyMsg2);
@@ -2549,6 +2550,34 @@ const policyCap = collectAllChatImageFilesForMemberListingCapInfo(
 );
 assertEqual(policyCap.items.length, 10, "member save cap uses 10 across messages");
 assertEqual(policyCap.truncated, true, "member save marks truncated over 10");
+assertEqual(policyCap.totalBeforeCap, 12, "member save counts 12 before cap");
+const cappedIds = policyCap.items.map((item) => item.id);
+assertEqual(
+  cappedIds.join(","),
+  [
+    "policy-a-0",
+    "policy-a-1",
+    "policy-a-2",
+    "policy-a-3",
+    "policy-a-4",
+    "policy-a-5",
+    "policy-b-0",
+    "policy-b-1",
+    "policy-b-2",
+    "policy-b-3",
+  ].join(","),
+  "Case B: cap keeps first 10 images in send order (msg A then msg B)"
+);
+assertEqual(
+  new Set(cappedIds).size,
+  cappedIds.length,
+  "Case B: capped ids stay unique"
+);
+assertEqual(
+  buildChatListingImageCapTruncatedNote(policyCap.totalBeforeCap).includes("12"),
+  true,
+  "Case B truncated note reports total 12"
+);
 const policyPreview = collectDraftPreviewDisplayAttachments(
   policyGuestScope,
   policySessionId,
@@ -2683,5 +2712,73 @@ useAppStore.setState({
 requireGuestLoginFromChat("chat");
 assertEqual(fallbackView, "login", "requireGuestLoginFromChat falls back off chat view");
 useAppStore.setState({ setView: originalSetView, currentView: "chat", chatLoginModalOpen: false });
+
+console.log("--- Testing draft preview add images button (Case B UI wiring) ---");
+
+const bubbleSource = fs.readFileSync(
+  path.join(process.cwd(), "src/components/chat/ChatMessageBubble.tsx"),
+  "utf8"
+);
+const containerSource = fs.readFileSync(
+  path.join(process.cwd(), "src/components/chat/ChatContainer.tsx"),
+  "utf8"
+);
+const attachmentInputSource = fs.readFileSync(
+  path.join(process.cwd(), "src/components/chat/ChatImageAttachmentInput.tsx"),
+  "utf8"
+);
+
+assertEqual(
+  bubbleSource.includes('sendMessage("เพิ่มรูปภาพ")'),
+  false,
+  "add images button does not send chat message"
+);
+assertEqual(
+  bubbleSource.includes("openImageAttachmentPicker"),
+  true,
+  "add images button opens composer attachment picker"
+);
+assertEqual(
+  bubbleSource.includes('id="chat-draft-add-images-btn"'),
+  true,
+  "add images button has stable id for wiring tests"
+);
+assertEqual(
+  containerSource.includes("ChatComposerContext"),
+  true,
+  "ChatContainer exposes shared composer picker context"
+);
+assertEqual(
+  containerSource.includes("attachmentFileInputRef"),
+  true,
+  "ChatContainer shares file input ref with composer attach button"
+);
+assertEqual(
+  containerSource.includes("fileInputRef={attachmentFileInputRef}"),
+  true,
+  "ChatContainer passes shared ref to ChatImageAttachmentInput"
+);
+assertEqual(
+  attachmentInputSource.includes("fileInputRef"),
+  true,
+  "ChatImageAttachmentInput accepts shared fileInputRef"
+);
+assertEqual(
+  containerSource.includes("chat-composer-attachment-preview"),
+  true,
+  "composer renders pending attachment preview strip"
+);
+
+const addPhotoOrchestrated = tryOrchestrateChatReply("เพิ่มรูปภาพ", []);
+assertEqual(
+  addPhotoOrchestrated?.isDraftPreview === true,
+  false,
+  "orchestrator does not treat add-photo phrase as draft preview generation"
+);
+assertEqual(
+  addPhotoOrchestrated?.skipGemini === true,
+  true,
+  "orchestrator handles typed add-photo phrase without Gemini when sent as text"
+);
 
 console.log("--- All Chat to Draft tests passed! ---");

@@ -45,6 +45,7 @@ import {
   collectChatImagesForDraft,
   getChatImagesForMessage,
   collectDraftPreviewDisplayAttachments,
+  countChatImageAttachmentsInSession,
   markChatImageMessageForPendingListing,
   registerChatImageMessageFiles,
   toChatImageMessageAttachments,
@@ -731,7 +732,14 @@ export function useChat() {
         }
       }
 
-      const attachmentMeta = toChatImageMessageAttachments(imageAttachments);
+      const sortOrderBase = countChatImageAttachmentsInSession(
+        storageScopeKey,
+        sessionId
+      );
+      const attachmentMeta = toChatImageMessageAttachments(
+        imageAttachments,
+        sortOrderBase
+      );
       const userMsg = await addMessage(
         sessionId,
         "user",
