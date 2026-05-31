@@ -53,6 +53,9 @@
     "test:nonga-chat-to-draft": "tsx scripts/test-nonga-chat-to-draft.mts",
     "test:nonga-chat-car-cards": "tsx scripts/test-nonga-chat-car-cards.mts",
     "test:v544e-ai-abuse-guard": "tsx scripts/test-v544e-ai-abuse-guard.mts",
+    "test:v544f-firestore-rules": "firebase emulators:exec --only firestore --project demo-nonga-v544f \"tsx scripts/test-v544f-firestore-rules.mts\"",
+    "test:v544f-storage-rules": "firebase emulators:exec --only firestore,storage --project demo-nonga-v544f \"tsx scripts/test-v544f-storage-rules.mts\"",
+    "test:v544f-security-rules-emulator": "firebase emulators:exec --only firestore,storage --project demo-nonga-v544f \"tsx scripts/test-v544f-firestore-rules.mts && tsx scripts/test-v544f-storage-rules.mts\"",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
     "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
@@ -86,10 +89,12 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "firebase-tools": "^15.19.0",
     "playwright": "^1.60.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
