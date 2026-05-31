@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { ChatMessageAttachment, PublishedMemberListingCardData } from "../../types";
 import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser";
 import type { VisionObservationSummary } from "../../services/ai/chat/chatPrecheckLayer";
-import { useAppStore } from "../../store";
 
 interface ChatPublishedMemberListingCardProps {
   card: PublishedMemberListingCardData;
@@ -201,7 +200,6 @@ export function ChatPublishedMemberListingCard({
   card,
   attachments,
 }: ChatPublishedMemberListingCardProps) {
-  const { setView } = useAppStore();
   const [expanded, setExpanded] = useState(false);
   const fields = card.fields as ExtractedCarFields;
   const visionSummary = card.visionSummary as VisionObservationSummary | undefined;
@@ -322,11 +320,11 @@ export function ChatPublishedMemberListingCard({
         )}
       </div>
 
-      <div className="px-3 pb-3 flex flex-col sm:flex-row flex-wrap gap-2 justify-center sm:justify-stretch">
+      <div className="px-3 pb-3">
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer min-h-[44px]"
+          className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer min-h-[44px]"
           data-testid="chat-published-listing-expand-btn"
         >
           {expanded ? (
@@ -340,16 +338,6 @@ export function ChatPublishedMemberListingCard({
               ดูรายละเอียดในแชท
             </>
           )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("marketplace", card.listingId)}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer min-h-[44px]"
-          id="chat-view-marketplace-btn"
-          data-testid="chat-published-listing-marketplace-btn"
-        >
-          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-          ดูในตลาดรถ
         </button>
       </div>
     </div>

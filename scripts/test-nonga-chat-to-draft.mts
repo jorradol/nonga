@@ -2600,8 +2600,13 @@ assertEqual(
 );
 assertEqual(
   publishedCardComponentSource.includes("chat-view-marketplace-btn"),
-  true,
-  "published card keeps optional marketplace button"
+  false,
+  "published card hides marketplace button"
+);
+assertEqual(
+  publishedCardComponentSource.includes("ดูในตลาดรถ"),
+  false,
+  "published card hides marketplace label"
 );
 assertEqual(
   publishedCardComponentSource.includes("ดูรายละเอียดในแชท"),
@@ -2646,7 +2651,7 @@ assertEqual(
 );
 assertEqual(
   publishedCardComponentSource.includes("sm:grid-cols-3") &&
-    publishedCardComponentSource.includes("sm:flex-row"),
+    publishedCardComponentSource.includes("w-full"),
   true,
   "published card includes responsive layout classes"
 );
@@ -2661,9 +2666,9 @@ assertEqual(
   "published card renders expanded detail specs"
 );
 assertEqual(
-  publishedCardComponentSource.includes("chat-published-listing-marketplace-btn"),
+  publishedCardComponentSource.includes("chat-published-listing-expand-btn"),
   true,
-  "published card keeps marketplace action test id"
+  "published card keeps in-chat expand action"
 );
 
 console.log("--- Testing listing image policy (Phase 1-2 frontend) ---");
