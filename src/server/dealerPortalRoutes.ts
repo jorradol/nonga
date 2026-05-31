@@ -436,6 +436,7 @@ export function registerDealerPortalRoutes(
       mileage: nextDraft.mileage,
       images: nextDraft.images,
       sourceImageUrls: nextDraft.sourceImageUrls,
+      imageMetadata: nextDraft.imageMetadata,
     }).missingFields;
 
     const updated = await inventoryRepository.drafts.updateDraft(ctx.dealerId, req.params.id, patch);
@@ -543,6 +544,10 @@ export function registerDealerPortalRoutes(
                 createdAt: item.createdAt,
                 sortOrder: existingMetadata.length + index,
                 source: uploadSource,
+                hasVehicle: item.hasVehicle,
+                vehicleConfidence: item.vehicleConfidence,
+                vehicleImageStatus: item.vehicleImageStatus,
+                vehicleImageReason: item.vehicleImageReason,
               },
               existingMetadata.length + index
             )
@@ -557,6 +562,7 @@ export function registerDealerPortalRoutes(
           mileage: draft.mileage,
           images: merged,
           sourceImageUrls: merged,
+          imageMetadata: nextMetadata,
         }).missingFields;
         await inventoryRepository.drafts.updateDraft(ctx.dealerId, req.params.id, {
           images: merged,
@@ -598,6 +604,7 @@ export function registerDealerPortalRoutes(
       mileage: draft.mileage,
       images: draft.images,
       sourceImageUrls: draft.sourceImageUrls,
+      imageMetadata: draft.imageMetadata,
     });
     if (!guard.ok) {
       return res.status(400).json(publishGuardApiBody(guard));
@@ -757,6 +764,7 @@ export function registerDealerPortalRoutes(
       mileage,
       images: imagesForPublish,
       sourceImageUrls,
+      imageMetadata,
     });
     const warnings = uniqueWarnings([
       ...(payload.warnings ?? []),

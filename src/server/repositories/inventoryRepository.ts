@@ -22,7 +22,10 @@ import {
 import { publishDealerDraftToMarketplace } from "../publishDraftListing";
 import { normalizeDealerId } from "../../utils/dealerIdentity";
 import { inferMarketplaceCategoryType } from "../../utils/marketplaceCarMapper";
-import { validateDraftForPublish } from "../../utils/dealerPublishGuard";
+import {
+  validateDraftForPublish,
+  publishGuardVehicleImageMessage,
+} from "../../utils/dealerPublishGuard";
 import { sanitizeFirestoreDocument } from "../firestoreDocumentSanitize.ts";
 
 export type NongaDataBackend = "file" | "firestore";
@@ -397,11 +400,12 @@ export class FirestoreInventoryRepository implements InventoryRepository {
       mileage: draft.mileage,
       images: draft.images,
       sourceImageUrls: draft.sourceImageUrls,
+      imageMetadata: draft.imageMetadata,
     });
     if (!guard.ok) {
       return {
         error: "missing_required_fields",
-        message: "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด",
+        message: publishGuardVehicleImageMessage(guard),
         missingFields: [...guard.missingFields],
         missingLabelsThai: [...guard.missingLabelsThai],
       };

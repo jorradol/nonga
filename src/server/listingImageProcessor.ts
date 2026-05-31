@@ -4,6 +4,10 @@ import {
   IMAGE_UPLOAD_CORRUPTED_MESSAGE,
   validateImageUploadBuffer,
 } from "./imageMagicByteValidation";
+import {
+  validateVehicleImageContent,
+  type VehicleImageValidationResult,
+} from "./vehicleImageValidation";
 
 export const PASTE_SOURCE_MAX_BYTES = 15 * 1024 * 1024;
 
@@ -24,6 +28,7 @@ export interface ProcessedListingImage {
   mainExt: ProcessedImageExt;
   mainWidth: number;
   mainHeight: number;
+  vehicleValidation?: VehicleImageValidationResult;
 }
 
 function isHeicMime(mimeType: string): boolean {
@@ -130,6 +135,9 @@ export async function processListingImageUpload(
   try {
     const main = await encodeMain(buffer);
     const thumbBuffer = await encodeThumb(buffer, main.ext);
+    const vehicleValidation = await validateVehicleImageContent(thumbBuffer, {
+      mimeType: main.ext === ".webp" ? "image/webp" : "image/jpeg",
+    });
     return {
       ok: true,
       data: {
@@ -138,6 +146,7 @@ export async function processListingImageUpload(
         mainExt: main.ext,
         mainWidth: main.width,
         mainHeight: main.height,
+        vehicleValidation,
       },
     };
   } catch {

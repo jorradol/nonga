@@ -1,5 +1,10 @@
 import type { ListingImageFileInput } from "./listingImageUploadBody";
 import { isAllowedImageUploadMime } from "./imageMagicByteValidation";
+import type { VehicleImageMetadataFields } from "./vehicleImageValidation";
+import {
+  vehicleImageUserWarning,
+  vehicleMetadataFromValidation,
+} from "./vehicleImageValidation";
 import {
   PASTE_SOURCE_MAX_BYTES,
   processListingImageUpload,
@@ -134,23 +139,25 @@ export function decodePasteUploadFiles(
 export interface PasteUploadedImagesResult {
   storedUrls: string[];
   thumbnails: string[];
-  metadata: Array<{
-    fileName: string;
-    originalFileName: string;
-    mimeType: string;
-    width: number;
-    height: number;
-    size: number;
-    imagePath: string;
-    imageUrl: string;
-    thumbnailPath: string;
-    thumbnailUrl: string;
-    imageId?: string;
-    storagePath?: string;
-    publicUrl?: string;
-    createdAt: string;
-    sortOrder: number;
-  }>;
+  metadata: Array<
+    {
+      fileName: string;
+      originalFileName: string;
+      mimeType: string;
+      width: number;
+      height: number;
+      size: number;
+      imagePath: string;
+      imageUrl: string;
+      thumbnailPath: string;
+      thumbnailUrl: string;
+      imageId?: string;
+      storagePath?: string;
+      publicUrl?: string;
+      createdAt: string;
+      sortOrder: number;
+    } & VehicleImageMetadataFields
+  >;
   warnings: string[];
   failed: PasteUploadFileFailure[];
 }
@@ -222,6 +229,13 @@ export async function persistPasteUploadedImages(
       continue;
     }
 
+    const vehicleWarning = processed.data.vehicleValidation
+      ? vehicleImageUserWarning(processed.data.vehicleValidation)
+      : null;
+    if (vehicleWarning) {
+      warnings.push(`${name}: ${vehicleWarning}`);
+    }
+
     const saved = await imageStorage.uploadListingImagePair(
       dealerId,
       listingId,
@@ -266,6 +280,7 @@ export async function persistPasteUploadedImages(
       thumbnailUrl: saved.metadata.thumbnailUrl ?? "",
       createdAt: saved.metadata.createdAt,
       sortOrder: saved.metadata.sortOrder,
+      ...vehicleMetadataFromValidation(processed.data.vehicleValidation),
     });
   }
 

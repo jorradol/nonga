@@ -9,6 +9,8 @@ import {
   saveListingImageUpload,
   saveProcessedListingImagePair,
 } from "../listingImageStorage";
+import { vehicleMetadataFromValidation } from "../vehicleImageValidation";
+import type { VehicleImageMetadataFields } from "../../utils/vehicleImageValidationShared";
 import type { ProcessedImageExt } from "../listingImageProcessor";
 
 export type NongaImageBackend = "file" | "firebase-storage";
@@ -40,7 +42,7 @@ export interface ProcessedImagePairUploadInput {
   targetType?: ListingImageTargetType;
 }
 
-export interface StoredListingImageMetadata {
+export interface StoredListingImageMetadata extends VehicleImageMetadataFields {
   imageId: string;
   dealerId: string;
   listingId: string;
@@ -199,6 +201,10 @@ function buildLocalMetadata(params: {
   height?: number;
   sortOrder?: number;
   createdAt?: string;
+  hasVehicle?: boolean;
+  vehicleConfidence?: number;
+  vehicleImageStatus?: VehicleImageMetadataFields["vehicleImageStatus"];
+  vehicleImageReason?: string;
 }): StoredListingImageMetadata {
   const fileName = filenameFromUrl(params.storedUrl);
   return {
@@ -226,6 +232,16 @@ function buildLocalMetadata(params: {
       : {}),
     createdAt: params.createdAt ?? nowIso(),
     sortOrder: params.sortOrder ?? 0,
+    ...(params.hasVehicle !== undefined ? { hasVehicle: params.hasVehicle } : {}),
+    ...(params.vehicleConfidence !== undefined
+      ? { vehicleConfidence: params.vehicleConfidence }
+      : {}),
+    ...(params.vehicleImageStatus
+      ? { vehicleImageStatus: params.vehicleImageStatus }
+      : {}),
+    ...(params.vehicleImageReason
+      ? { vehicleImageReason: params.vehicleImageReason }
+      : {}),
   };
 }
 
@@ -257,6 +273,7 @@ export class FileImageStorageRepository implements ImageStorageRepository {
       width: input.width,
       height: input.height,
       sortOrder: input.sortOrder,
+      ...vehicleMetadataFromValidation(saved.vehicleValidation),
     });
     return { storedUrl: saved.storedUrl, metadata };
   }

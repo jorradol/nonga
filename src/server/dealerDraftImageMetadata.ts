@@ -1,3 +1,4 @@
+import type { VehicleImageMetadataFields } from "../utils/vehicleImageValidationShared.ts";
 import type { DealerDraftImageMetadata } from "./dealerDraftInventory.ts";
 import type { StoredListingImageMetadata } from "./repositories/imageStorageRepository.ts";
 
@@ -7,7 +8,7 @@ export type DraftImageMetadataSource =
   | "draft-upload"
   | string;
 
-export interface DraftImageMetadataInput {
+export interface DraftImageMetadataInput extends VehicleImageMetadataFields {
   dealerId: string;
   draftId: string;
   fileName?: string;
@@ -103,6 +104,16 @@ export function mapDraftImageMetadataInput(
     sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index,
     ...(item.source ? { source: item.source } : {}),
     ...(originalFileName ? { originalFileName } : {}),
+    ...(item.hasVehicle !== undefined ? { hasVehicle: item.hasVehicle } : {}),
+    ...(item.vehicleConfidence !== undefined
+      ? { vehicleConfidence: item.vehicleConfidence }
+      : {}),
+    ...(item.vehicleImageStatus
+      ? { vehicleImageStatus: item.vehicleImageStatus }
+      : {}),
+    ...(item.vehicleImageReason
+      ? { vehicleImageReason: item.vehicleImageReason }
+      : {}),
   };
   return record;
 }

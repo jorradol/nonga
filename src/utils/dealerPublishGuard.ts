@@ -1,8 +1,15 @@
 import { isValidListingImageUrl } from "./listingImages";
+import type { VehicleImageMetadataFields } from "./vehicleImageValidationShared";
+import {
+  VEHICLE_IMAGE_PUBLISH_BLOCK_MESSAGE,
+  countPublishableVehicleImages,
+  hasActionableVehicleImageAnalysis,
+} from "./vehicleImageValidationShared";
 
 /** ฟิลด์จำเป็นสำหรับ Publish Draft → Marketplace */
 export type PublishRequiredFieldKey =
   | "image"
+  | "vehicle_image"
   | "brand"
   | "model"
   | "year"
@@ -11,6 +18,7 @@ export type PublishRequiredFieldKey =
 
 export const PUBLISH_MISSING_THAI: Record<PublishRequiredFieldKey, string> = {
   image: "ขาดรูปภาพสินค้า",
+  vehicle_image: "ยังไม่พบรูปรถที่ชัดเจน",
   brand: "ขาดยี่ห้อรถ",
   model: "ขาดรุ่นรถ",
   year: "ขาดปีรถ",
@@ -36,6 +44,7 @@ export interface DraftPublishInput {
   images?: string[];
   /** ไม่นับเป็นรูปจริงถ้ายังไม่มี images ใน storage */
   sourceImageUrls?: string[];
+  imageMetadata?: readonly VehicleImageMetadataFields[];
 }
 
 export interface DraftPublishValidation {
@@ -79,6 +88,16 @@ export function validateDraftForPublish(
 
   if (getValidPublishImages(draft.id, draft.images).length < 1) {
     missing.push("image");
+  } else if (
+    hasActionableVehicleImageAnalysis(draft.imageMetadata) &&
+    countPublishableVehicleImages(
+      draft.id,
+      draft.images,
+      draft.imageMetadata,
+      getValidPublishImages(draft.id, draft.images)
+    ) < 1
+  ) {
+    missing.push("vehicle_image");
   }
 
   return {
@@ -86,6 +105,15 @@ export function validateDraftForPublish(
     missingFields: missing,
     missingLabelsThai: getPublishMissingLabelsThai(missing),
   };
+}
+
+export function publishGuardVehicleImageMessage(
+  validation: DraftPublishValidation
+): string {
+  if (validation.missingFields.includes("vehicle_image")) {
+    return VEHICLE_IMAGE_PUBLISH_BLOCK_MESSAGE;
+  }
+  return "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด";
 }
 
 export function isMissingFieldsPublishError(
@@ -103,7 +131,7 @@ export function publishGuardApiBody(validation: DraftPublishValidation) {
   return {
     success: false as const,
     error: "missing_required_fields" as const,
-    message: "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด",
+    message: publishGuardVehicleImageMessage(validation),
     missingFields: validation.missingFields,
     missingLabelsThai: validation.missingLabelsThai,
   };

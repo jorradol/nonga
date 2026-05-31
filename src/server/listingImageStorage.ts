@@ -4,6 +4,10 @@ import {
   normalizeImageUploadMime,
   validateImageUploadBuffer,
 } from "./imageMagicByteValidation";
+import {
+  validateVehicleImageContent,
+  type VehicleImageValidationResult,
+} from "./vehicleImageValidation";
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -78,7 +82,10 @@ export async function saveListingImageUpload(
   buffer: Buffer,
   mimeType: string,
   seed?: string
-): Promise<{ ok: true; storedUrl: string } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; storedUrl: string; vehicleValidation?: VehicleImageValidationResult }
+  | { ok: false; error: string }
+> {
   if (!SAFE_LISTING_ID.test(carId)) {
     return { ok: false, error: "รหัสประกาศไม่ถูกต้อง" };
   }
@@ -113,7 +120,9 @@ export async function saveListingImageUpload(
 
   devMarketplaceLog("image-upload-save", { carId, storedUrl, bytes: buffer.length });
 
-  return { ok: true, storedUrl };
+  const vehicleValidation = await validateVehicleImageContent(buffer, { mimeType: mime });
+
+  return { ok: true, storedUrl, vehicleValidation };
 }
 
 /** บันทึกคู่ main + thumbnail หลังแปลงด้วย sharp (Paste Import / Draft upload) */

@@ -17,6 +17,7 @@ import { resolveImageStorageBackend } from "./repositories/imageStorageRepositor
 import {
   validateDraftForPublish,
   type PublishRequiredFieldKey,
+  publishGuardVehicleImageMessage,
 } from "../utils/dealerPublishGuard";
 
 export type PublishDraftFailure =
@@ -43,13 +44,14 @@ export async function publishDealerDraftToMarketplace(
     mileage: draft.mileage,
     images: draft.images,
     sourceImageUrls: draft.sourceImageUrls,
+    imageMetadata: draft.imageMetadata,
   });
   if (!guard.ok) {
     return {
       error: "missing_required_fields",
       missingFields: guard.missingFields,
       missingLabelsThai: guard.missingLabelsThai,
-      message: "กรุณาเติมข้อมูลจำเป็นให้ครบก่อนส่งรถคันนี้เข้าตลาด",
+      message: publishGuardVehicleImageMessage(guard),
     };
   }
 

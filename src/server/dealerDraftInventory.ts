@@ -5,9 +5,11 @@ import { devMarketplaceLog } from "./marketplaceInventory";
 import { normalizeDealerId } from "../utils/dealerIdentity";
 import type { DuplicateMeta } from "../utils/duplicateDetection/types";
 
+import type { VehicleImageMetadataFields } from "../utils/vehicleImageValidationShared";
+
 export type DraftInventoryStatus = "draft" | "needs_review";
 
-export interface DealerDraftImageMetadata {
+export interface DealerDraftImageMetadata extends VehicleImageMetadataFields {
   dealerId: string;
   draftId: string;
   sessionId?: string;

@@ -57,6 +57,7 @@
     "test:v544f-storage-rules": "firebase emulators:exec --only firestore,storage --project demo-nonga-v544f \"tsx scripts/test-v544f-storage-rules.mts\"",
     "test:v544f-security-rules-emulator": "firebase emulators:exec --only firestore,storage --project demo-nonga-v544f \"tsx scripts/test-v544f-firestore-rules.mts && tsx scripts/test-v544f-storage-rules.mts\"",
     "test:v544i-image-magic-byte-validation": "tsx scripts/test-v544i-image-magic-byte-validation.mts",
+    "test:v544j-vehicle-image-validation": "tsx scripts/test-v544j-vehicle-image-validation.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
     "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
