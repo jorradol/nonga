@@ -25,6 +25,12 @@ import {
   isSuvFamily,
 } from "../src/services/ai/chat/vehicleBodyClassifier.ts";
 import { saveChatCarContext, saveLastSelectedCarId, addRecentlyViewedCarId, loadLastSelectedCarId, loadRecentlyViewedCarIds } from "../src/utils/chatCarContext.ts";
+import {
+  classifyBuyerFactsQuestion,
+  buildBuyerFactsReply,
+  BUYER_ASK_SELECT_CAR_FIRST,
+  BUYER_FACTS_NO_DATA,
+} from "../src/services/ai/chat/chatBuyerFactsQa.ts";
 import type { ChatInventoryCar } from "../src/services/ai/chat/marketplaceChatSearch.ts";
 
 // Mock sessionStorage for tests
@@ -707,9 +713,19 @@ async function main() {
     INVENTORY_MULTI_CRV
   );
   ok(
-    "v543-without-expand-select-defaults-first-card",
-    withoutExpandSelect?.carCards[0]?.id === threeCardBatch[0].id,
-    String(withoutExpandSelect?.carCards[0]?.id)
+    "v543-without-expand-facts-asks-select-first",
+    withoutExpandSelect?.text === BUYER_ASK_SELECT_CAR_FIRST,
+    withoutExpandSelect?.text
+  );
+
+  const withoutExpandFollowUp = tryOrchestrateChatReply(
+    "คันนี้น่าสนใจไหม",
+    INVENTORY_MULTI_CRV
+  );
+  ok(
+    "v543-without-expand-non-facts-defaults-first-card",
+    withoutExpandFollowUp?.carCards[0]?.id === threeCardBatch[0].id,
+    String(withoutExpandFollowUp?.carCards[0]?.id)
   );
 
   saveLastSelectedCarId(expandedCardId!);
@@ -737,6 +753,168 @@ async function main() {
     "v543-expand-select-skips-gemini",
     withExpandSelect?.skipGemini === true,
     String(withExpandSelect?.skipGemini)
+  );
+
+  // Case 15: v5.4.3 Step B — buyer facts-only Q&A
+  console.log("\n--- v5.4.3 buyer facts-only Q&A ---");
+
+  ok(
+    "v543b-classify-suitable-for",
+    classifyBuyerFactsQuestion("คันนี้เหมาะกับใคร") === "suitableFor",
+    ""
+  );
+  ok(
+    "v543b-classify-spec-transmission",
+    classifyBuyerFactsQuestion("เกียร์อะไร") === "specField",
+    ""
+  );
+  ok(
+    "v543b-classify-unknown-history",
+    classifyBuyerFactsQuestion("คันนี้เคยชนไหม") === "unknownHistory",
+    ""
+  );
+  ok(
+    "v543b-classify-price-outlook",
+    classifyBuyerFactsQuestion("ราคาแรงไหม") === "priceOutlook",
+    ""
+  );
+  ok(
+    "v543b-seller-confirm-not-facts",
+    classifyBuyerFactsQuestion("ยืนยันสร้างประกาศ") === "none",
+    ""
+  );
+  ok(
+    "v543b-seller-publish-not-facts",
+    classifyBuyerFactsQuestion("พร้อมลงตลาด") === "none",
+    ""
+  );
+  ok(
+    "v543b-seller-publish-confirm-not-facts",
+    classifyBuyerFactsQuestion("ยืนยันเผยแพร่ลงตลาด") === "none",
+    ""
+  );
+
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem("nonga_chat_last_selected_car");
+    sessionStorage.removeItem("nonga_chat_recently_viewed_cars");
+  }
+  saveChatCarContext(threeCardBatch);
+  saveLastSelectedCarId("car-crv-a");
+  addRecentlyViewedCarId("car-crv-a");
+
+  const orchSuitable = tryOrchestrateChatReply(
+    "คันนี้เหมาะกับใคร",
+    INVENTORY_MULTI_CRV
+  );
+  ok(
+    "v543b-suitable-resolves-selected-car",
+    orchSuitable?.carCards[0]?.id === "car-crv-a",
+    String(orchSuitable?.carCards[0]?.id)
+  );
+  ok("v543b-suitable-skips-gemini", orchSuitable?.skipGemini === true, "");
+  ok(
+    "v543b-suitable-mentions-from-data",
+    /จากข้อมูล/.test(orchSuitable?.text ?? ""),
+    orchSuitable?.text?.slice(0, 80)
+  );
+
+  const camryCardForGear = summariesToCarCards(
+    [toChatCarSummary(INVENTORY_CAMRY[0])],
+    []
+  )[0];
+  saveChatCarContext(camryCardForGear ? [camryCardForGear] : []);
+  saveLastSelectedCarId("car-toyota-camry");
+  const orchGear = tryOrchestrateChatReply("เกียร์อะไร", INVENTORY_CAMRY);
+  ok(
+    "v543b-transmission-from-record",
+    /เกียร์ AT/.test(orchGear?.text ?? ""),
+    orchGear?.text
+  );
+  ok("v543b-transmission-skips-gemini", orchGear?.skipGemini === true, "");
+
+  const camryCardForImages = camryCardForGear;
+  saveChatCarContext(camryCardForImages ? [camryCardForImages] : []);
+  saveLastSelectedCarId("car-toyota-camry");
+  const orchImages = tryOrchestrateChatReply("มีรูปกี่รูป", INVENTORY_CAMRY);
+  ok(
+    "v543b-image-count",
+    /2 รูป/.test(orchImages?.text ?? ""),
+    orchImages?.text
+  );
+
+  saveLastSelectedCarId("car-crv-a");
+  const orchCrash = tryOrchestrateChatReply(
+    "คันนี้เคยชนไหม",
+    INVENTORY_MULTI_CRV
+  );
+  ok(
+    "v543b-unknown-history-no-data",
+    (orchCrash?.text ?? "").includes(BUYER_FACTS_NO_DATA),
+    orchCrash?.text?.slice(0, 80)
+  );
+  ok(
+    "v543b-unknown-history-suggest-inspect",
+    /ช่าง|ตรวจ/.test(orchCrash?.text ?? ""),
+    ""
+  );
+
+  saveLastSelectedCarId("car-crv-a");
+  const orchPrice = tryOrchestrateChatReply("ราคาแรงไหม", INVENTORY_MULTI_CRV);
+  ok(
+    "v543b-price-no-benchmark-safe",
+    /ยังไม่มีข้อมูลเทียบราคา|เปรียบเทียบจากข้อมูล/.test(orchPrice?.text ?? ""),
+    orchPrice?.text?.slice(0, 100)
+  );
+  ok(
+    "v543b-price-no-absolute-cheap",
+    !/ถูกมาก|แพงมาก|คุ้มที่สุด/.test(orchPrice?.text ?? ""),
+    ""
+  );
+
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem("nonga_chat_last_selected_car");
+    sessionStorage.removeItem("nonga_chat_recently_viewed_cars");
+  }
+  saveChatCarContext(threeCardBatch);
+  const orchNoSelect = tryOrchestrateChatReply(
+    "คันนี้เหมาะกับใคร",
+    INVENTORY_MULTI_CRV
+  );
+  ok(
+    "v543b-no-selected-asks-expand-first",
+    orchNoSelect?.text === BUYER_ASK_SELECT_CAR_FIRST,
+    orchNoSelect?.text
+  );
+  ok(
+    "v543b-no-selected-empty-cards",
+    (orchNoSelect?.carCards.length ?? 0) === 0,
+    ""
+  );
+
+  const orchSaveListing = tryOrchestrateChatReply("ยืนยันสร้างประกาศ", INVENTORY_CAMRY);
+  ok(
+    "v543b-seller-save-not-intercepted",
+    orchSaveListing?.text.includes("บันทึก") || orchSaveListing?.text.includes("กำลัง"),
+    orchSaveListing?.text
+  );
+
+  const buyerCardSourceV543b = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatCarCard.tsx"),
+    "utf8"
+  );
+  ok("v543b-no-ask-ai-button", !buyerCardSourceV543b.includes("ถามน้องเอ"), "");
+  ok("v543b-no-talk-ai-button", !buyerCardSourceV543b.includes("คุยกับน้องเอ"), "");
+
+  ok(
+    "v543b-build-highlights-no-condition-claim",
+    !/จากรายละเอียดประกาศ:.*สภาพดี/.test(
+      buildBuyerFactsReply(
+        { ...camryCardForImages, description: undefined },
+        "highlights",
+        {}
+      )
+    ),
+    ""
   );
 
   console.log("\nDone.");

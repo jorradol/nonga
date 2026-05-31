@@ -27,6 +27,12 @@ import {
 
 import { isSellIntent, extractCarFieldsFromMessage, buildDraftPreviewCopy, type ExtractedCarFields } from "./sellIntentParser";
 import { isSaveListingChatAction } from "./chatDraftActions";
+import {
+  classifyBuyerFactsQuestion,
+  buildBuyerFactsReply,
+  resolveTargetBuyerCar,
+  BUYER_ASK_SELECT_CAR_FIRST,
+} from "./chatBuyerFactsQa";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -93,6 +99,26 @@ export function tryOrchestrateChatReply(
   }
 
   const contextCars = loadChatCarContext();
+
+  const factsKind = classifyBuyerFactsQuestion(message);
+  if (factsKind !== "none") {
+    const targetCar = resolveTargetBuyerCar(message, inventory, contextCars);
+    if (!targetCar) {
+      return {
+        text: BUYER_ASK_SELECT_CAR_FIRST,
+        carCards: [],
+        skipGemini: true,
+      };
+    }
+    return {
+      text: buildBuyerFactsReply(targetCar, factsKind, {
+        peerCars: contextCars,
+        userMessage: message,
+      }),
+      carCards: [targetCar],
+      skipGemini: true,
+    };
+  }
 
   if (isFollowUpCarQuestion(message) && contextCars.length > 0) {
     const isCompare = isCompareIntent(message);
