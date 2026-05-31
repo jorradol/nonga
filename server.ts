@@ -49,6 +49,7 @@ import {
   registerPayloadTooLargeHandler,
 } from "./src/server/httpBodyLimits";
 import { createInventoryRepository } from "./src/server/repositories/inventoryRepository";
+import { registerAiEndpointGuards } from "./src/server/security/aiEndpointGuard";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
   return getPublishedMarketplaceCars();
@@ -365,6 +366,9 @@ registerDealerPortalRoutes(app, { inventoryRepository });
 registerDuplicateRoutes(app);
 registerOwnerListingRoutes(app, { inventoryRepository });
 registerPayloadTooLargeHandler(app);
+
+// v5.4.4e — AI / vision / Gemini abuse guard (rate limit + threat foundation)
+registerAiEndpointGuards(app);
 
 // 4. API: AI Smart Chat Assistant (Nong A)
 app.post("/api/gemini/chat", async (req, res) => {

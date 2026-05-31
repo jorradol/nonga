@@ -52,6 +52,7 @@
     "test:nonga-chat-first-phase1": "tsx scripts/test-nonga-chat-first-phase1.mts",
     "test:nonga-chat-to-draft": "tsx scripts/test-nonga-chat-to-draft.mts",
     "test:nonga-chat-car-cards": "tsx scripts/test-nonga-chat-car-cards.mts",
+    "test:v544e-ai-abuse-guard": "tsx scripts/test-v544e-ai-abuse-guard.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
     "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
