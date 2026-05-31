@@ -42,6 +42,10 @@ import { PostGeneratorDashboard } from "./components/ai/post-generator/PostGener
 import { CaptionEngineDashboard } from "./components/captions/CaptionEngineDashboard";
 import { SeoLandingDashboard } from "./components/seo/SeoLandingDashboard";
 import { BoostDashboard } from "./components/boost/BoostDashboard";
+import {
+  isChatEntryPath,
+  resolveViewFromPathname,
+} from "./utils/appRouteSync";
 import { 
   Container, 
   Section, 
@@ -108,16 +112,14 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, [enforcePathnameView]);
 
+  // Pin only chat entry (/, /chat) and /home when URL was not updated by setView.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const path = window.location.pathname.toLowerCase();
-    const viewForPath =
-      path === "/home"
-        ? "home"
-        : path === "/" || path === "/chat"
-          ? "chat"
-          : null;
-    if (viewForPath && currentView !== viewForPath) {
+    const path = window.location.pathname;
+    const pathLower = path.toLowerCase();
+    if (!isChatEntryPath(path) && pathLower !== "/home") return;
+    const viewForPath = resolveViewFromPathname(path);
+    if (currentView !== viewForPath) {
       enforcePathnameView();
     }
   }, [currentView, enforcePathnameView]);

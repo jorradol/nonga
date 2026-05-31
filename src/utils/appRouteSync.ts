@@ -77,6 +77,7 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/" || path === "/chat") return "chat";
   if (path === "/home") return "home";
   if (path === "/marketplace") return "marketplace";
+  if (path === "/my-listings") return "my-listings";
   if (path === "/dealers") return "dealers";
   if (path === "/sell") return "sell";
   if (path === "/saved") return "saved";
@@ -106,6 +107,8 @@ export function resolvePathnameForView(
       return "/";
     case "marketplace":
       return "/marketplace";
+    case "my-listings":
+      return "/my-listings";
     case "dealers":
       return "/dealers";
     case "sell":

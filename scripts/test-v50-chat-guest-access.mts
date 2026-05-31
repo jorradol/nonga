@@ -17,6 +17,8 @@ import {
 } from "../src/utils/chatStorageScope.ts";
 import {
   resolveViewFromPathname,
+  resolvePathnameForView,
+  isChatEntryPath,
   LEGACY_APP_VIEW_KEYS,
 } from "../src/utils/appRouteSync.ts";
 
@@ -278,6 +280,18 @@ assert(resolveViewFromPathname("/") === "chat", "/ maps to chat view");
 assert(resolveViewFromPathname("/chat") === "chat", "/chat maps to chat view");
 assert(resolveViewFromPathname("/home") === "home", "/home maps to home view");
 assert(
+  resolveViewFromPathname("/my-listings") === "my-listings",
+  "/my-listings maps to my-listings view"
+);
+assert(
+  resolvePathnameForView("my-listings", "/") === "/my-listings",
+  "my-listings view maps to /my-listings"
+);
+assert(
+  !isChatEntryPath("/my-listings"),
+  "/my-listings is not pinned to chat entry pathname"
+);
+assert(
   resolveViewFromPathname("/unknown-path") === "chat",
   "unknown path defaults to chat"
 );
@@ -385,6 +399,21 @@ try {
   assert(
     new URL(page.url()).pathname === "/marketplace",
     "/marketplace route works"
+  );
+
+  page = await openPage(browser, buildUser("member-my-listings-refresh", "member"));
+  await page.goto(`${BASE_URL}/my-listings`, {
+    waitUntil: "domcontentloaded",
+    timeout: 60_000,
+  });
+  await page.waitForTimeout(800);
+  assert(
+    new URL(page.url()).pathname === "/my-listings",
+    "member refresh stays on /my-listings"
+  );
+  assert(
+    (await page.locator("body").innerText()).includes("ประกาศของฉัน"),
+    "member direct /my-listings shows MyListingsView"
   );
 
   page = await openPage(browser, buildUser("member-chat-guest", "member"));

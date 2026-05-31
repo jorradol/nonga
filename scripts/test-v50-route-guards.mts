@@ -82,12 +82,24 @@ async function run() {
     let page = await openPage(browser, null);
     await expectBodyContains(
       page,
+      "/my-listings",
+      "กรุณาเข้าสู่ระบบก่อนใช้งานส่วนนี้ครับ"
+    );
+    console.log("PASS guest my-listings guard");
+
+    page = await openPage(browser, buildUser("member-route", "member"));
+    await expectBodyContains(page, "/my-listings", "ประกาศของฉัน");
+    console.log("PASS member my-listings access");
+
+    page = await openPage(browser, null);
+    await expectBodyContains(
+      page,
       "/dealer",
       "กรุณาเข้าสู่ระบบก่อนใช้งานส่วนนี้ครับ"
     );
     console.log("PASS guest dealer guard");
 
-    page = await openPage(browser, buildUser("member-route", "member"));
+    page = await openPage(browser, buildUser("member-dealer-guard", "member"));
     await expectBodyContains(
       page,
       "/dealer",
