@@ -502,6 +502,80 @@ async function main() {
     camrySearch.introText.slice(0, 80)
   );
 
+  // Case 14: show-more batch uses same car card layout width as first search batch
+  console.log("\n--- show-more car card layout parity ---");
+
+  const INVENTORY_SIX: ChatInventoryCar[] = Array.from({ length: 6 }, (_, i) => ({
+    id: `car-budget-${i + 1}`,
+    title: `Honda City ${i + 1}`,
+    brand: "Honda",
+    model: "City",
+    year: 2020 - i,
+    price: 400000 + i * 10000,
+    mileage: 50000 + i * 1000,
+    color: "ขาว",
+    type: "used",
+    images: [`/storage/listings/car-budget-${i + 1}/01-a.webp`],
+    isSold: false,
+    listingStatus: "published",
+  }));
+
+  const qSix = "มี Honda City ไหม";
+  const firstBatch = tryOrchestrateChatReply(qSix, INVENTORY_SIX)!;
+  ok("show-more-first-batch-count", firstBatch.carCards.length === 3, String(firstBatch.carCards.length));
+  ok("show-more-first-has-more", firstBatch.hasMoreCars === true, String(firstBatch.hasMoreCars));
+
+  const secondBatch = tryOrchestrateChatReply("ดูเพิ่ม", INVENTORY_SIX)!;
+  ok("show-more-second-batch-count", secondBatch.carCards.length === 3, String(secondBatch.carCards.length));
+  ok("show-more-second-batch-text", /ต่อด้วยอีก/.test(secondBatch.text), secondBatch.text);
+  ok(
+    "show-more-same-card-fields",
+    secondBatch.carCards.every((c) => c.brand && c.detailPath && c.bodyClassLabel),
+    ""
+  );
+  const cardLayoutKeys = [
+    "id",
+    "brand",
+    "model",
+    "year",
+    "price",
+    "mileage",
+    "bodyClass",
+    "bodyClassLabel",
+    "hasImage",
+    "detailPath",
+    "matchKind",
+  ] as const;
+  ok(
+    "show-more-first-and-second-same-card-shape",
+    cardLayoutKeys.every(
+      (key) =>
+        key in firstBatch.carCards[0] &&
+        key in secondBatch.carCards[0] &&
+        typeof firstBatch.carCards[0][key] === typeof secondBatch.carCards[0][key]
+    ),
+    ""
+  );
+
+  ok("show-more-bubble-layout-class", bubbleSource.includes("carCardsBubbleLayoutClass"), "");
+  ok(
+    "show-more-bubble-full-width-when-cards",
+    bubbleSource.includes("w-full min-w-0") && bubbleSource.includes("hasCarCards"),
+    ""
+  );
+  ok("show-more-bubble-data-has-car-cards", bubbleSource.includes("data-has-car-cards"), "");
+  ok(
+    "show-more-shared-car-cards-row",
+    bubbleSource.includes('data-testid="chat-car-cards-row"') &&
+      bubbleSource.includes("w-full min-w-0 max-w-full"),
+    ""
+  );
+  ok(
+    "show-more-single-render-path",
+    (bubbleSource.match(/message\.carCards && message\.carCards\.length > 0/g) ?? []).length === 1,
+    ""
+  );
+
   console.log("\nDone.");
 }
 

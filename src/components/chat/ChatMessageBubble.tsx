@@ -71,6 +71,8 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
 
   const isLiked = isFavorite(message.id);
   const speaking = isSpeaking(message.id);
+  const hasCarCards = !isUser && (message.carCards?.length ?? 0) > 0;
+  const carCardsBubbleLayoutClass = hasCarCards ? "w-full min-w-0" : "";
 
   const formattedTime = () => {
     try {
@@ -329,7 +331,9 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       </div>
 
       {/* Bubble + Toolbar Wrapper */}
-      <div className="flex flex-col max-w-[82vw] md:max-w-[74%] gap-1 relative items-start">
+      <div
+        className={`flex flex-col max-w-[82vw] md:max-w-[74%] gap-1 relative items-start ${carCardsBubbleLayoutClass}`}
+      >
         
         {/* Editing Workspace or Standard Bubble */}
         {isEditing ? (
@@ -359,12 +363,13 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           </div>
         ) : (
           <div
-            className={`px-4 py-3.5 rounded-2xl text-[12px] shadow-sm leading-relaxed relative overflow-hidden transition-all duration-300 ${
+            className={`px-4 py-3.5 rounded-2xl text-[12px] shadow-sm leading-relaxed relative overflow-hidden transition-all duration-300 ${carCardsBubbleLayoutClass} ${
               isUser
                 ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white rounded-tr-xs"
                 : "bg-slate-900/60 backdrop-blur-md border border-slate-800 text-slate-200 rounded-tl-xs hover:bg-slate-900/80 hover:border-slate-700/60"
             }`}
             id={`content-bubble-${message.id}`}
+            data-has-car-cards={hasCarCards ? "true" : undefined}
           >
             {isUser ? (
               <>
