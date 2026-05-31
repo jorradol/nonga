@@ -1,6 +1,7 @@
 /** Marketplace search for Nong A chat — real inventory only */
 
 import {
+  extractStorageListingId,
   isLocalListingImageUrl,
   isValidListingImageUrl,
 } from "../../../utils/listingImages";
@@ -123,14 +124,23 @@ function resolveListingImage(car: ChatInventoryCar): {
   return { hasImage: false };
 }
 
-/** รูป listing ที่ใช้ในแชท — เฉพาะ URL ที่ validate แล้ว */
+/** รูป listing ที่ใช้ในแชท — local path หรือ https จาก API (ไม่ใส่ placeholder) */
 export function resolveChatListingImageUrls(car: ChatInventoryCar): string[] {
   const urls: string[] = [];
   for (const raw of car.images ?? []) {
     const url = String(raw ?? "").trim();
-    if (isValidListingImageUrl(url, car.id) && isLocalListingImageUrl(url)) {
-      if (!urls.includes(url)) urls.push(url);
+    if (!isValidListingImageUrl(url, car.id)) continue;
+    if (isLocalListingImageUrl(url) && extractStorageListingId(url) !== car.id) {
+      continue;
     }
+    if (
+      /^https?:\/\//i.test(url) &&
+      /listing-images|firebasestorage\.googleapis\.com/i.test(url) &&
+      !url.includes(car.id)
+    ) {
+      continue;
+    }
+    if (!urls.includes(url)) urls.push(url);
   }
   return urls;
 }
@@ -443,7 +453,7 @@ export function summaryToChatCarCardData(
   matchKind: "exact" | "alternative"
 ): import("../../../types").ChatCarCardData {
   const imageUrls = resolveChatListingImageUrls(c);
-  const heroUrl = c.hasImage ? c.image : imageUrls[0];
+  const heroUrl = imageUrls[0];
   return {
     id: c.id,
     brand: c.brand,
@@ -460,8 +470,8 @@ export function summaryToChatCarCardData(
     bodyClassLabel: c.bodyClassLabel,
     showroomName: c.showroomName,
     imageUrl: heroUrl,
-    imageUrls: imageUrls.length > 0 ? imageUrls : heroUrl ? [heroUrl] : [],
-    hasImage: c.hasImage || imageUrls.length > 0,
+    imageUrls,
+    hasImage: imageUrls.length > 0,
     detailPath: formatCarDetailPath(c.id),
     matchKind,
   };

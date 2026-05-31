@@ -502,7 +502,6 @@ async function main() {
     camrySearch.introText.slice(0, 80)
   );
 
-  // Case 14: show-more batch uses same car card layout width as first search batch
   console.log("\n--- show-more car card layout parity ---");
 
   const INVENTORY_SIX: ChatInventoryCar[] = Array.from({ length: 6 }, (_, i) => ({
@@ -574,6 +573,86 @@ async function main() {
     "show-more-single-render-path",
     (bubbleSource.match(/message\.carCards && message\.carCards\.length > 0/g) ?? []).length === 1,
     ""
+  );
+
+  // Case 15: buyer card images — Firebase Storage URLs from GET /api/cars
+  console.log("\n--- buyer card image mapping ---");
+
+  const FIREBASE_IMAGE_URL =
+    "https://firebasestorage.googleapis.com/v0/b/nonga-ce93c.firebasestorage.app/o/listing-images%2FUUvgeBfP4tb1WaLXIvB59ChOYhK2%2Fcar-staging-camry%2F1780221785187-ce8a760276.jpg?alt=media&token=705c65b4-9f4b-46e4-83bf-288de822616f";
+  const FIREBASE_IMAGE_URL_2 =
+    "https://firebasestorage.googleapis.com/v0/b/nonga-ce93c.firebasestorage.app/o/listing-images%2FUUvgeBfP4tb1WaLXIvB59ChOYhK2%2Fcar-staging-camry%2F1780221785939-b0c4828780.jpg?alt=media&token=c89c12a7-5864-4515-8702-e70c87d00a26";
+
+  const firebaseListing: ChatInventoryCar = {
+    id: "car-staging-camry",
+    title: "Toyota Camry",
+    brand: "Toyota",
+    model: "Camry",
+    year: 2022,
+    price: 998899,
+    mileage: 88998,
+    type: "used",
+    images: [FIREBASE_IMAGE_URL, FIREBASE_IMAGE_URL_2],
+    isSold: false,
+    listingStatus: "published",
+  };
+
+  const firebaseUrls = resolveChatListingImageUrls(firebaseListing);
+  ok("buyer-image-firebase-urls-count", firebaseUrls.length === 2, String(firebaseUrls.length));
+  ok("buyer-image-firebase-first-url", firebaseUrls[0] === FIREBASE_IMAGE_URL, firebaseUrls[0]?.slice(0, 40));
+
+  const firebaseMapped = summaryToChatCarCardData(toChatCarSummary(firebaseListing), "exact");
+  ok("buyer-image-map-hasImage", firebaseMapped.hasImage === true, String(firebaseMapped.hasImage));
+  ok("buyer-image-map-imageUrl", firebaseMapped.imageUrl === FIREBASE_IMAGE_URL, firebaseMapped.imageUrl?.slice(0, 40));
+  ok("buyer-image-map-imageUrls", firebaseMapped.imageUrls?.length === 2, String(firebaseMapped.imageUrls?.length));
+
+  const localListing: ChatInventoryCar = {
+    ...INVENTORY_CAMRY[0],
+    id: "car-toyota-camry",
+    images: ["/storage/listings/car-toyota-camry/01-a.webp"],
+  };
+  const localMapped = summaryToChatCarCardData(toChatCarSummary(localListing), "exact");
+  ok("buyer-image-local-hasImage", localMapped.hasImage === true, "");
+  ok(
+    "buyer-image-local-imageUrl",
+    localMapped.imageUrl === "/storage/listings/car-toyota-camry/01-a.webp",
+    localMapped.imageUrl
+  );
+
+  const noImageListing: ChatInventoryCar = {
+    ...localListing,
+    images: [],
+  };
+  const noImageMapped = summaryToChatCarCardData(toChatCarSummary(noImageListing), "exact");
+  ok("buyer-image-no-listing-hasImage-false", noImageMapped.hasImage === false, String(noImageMapped.hasImage));
+  ok("buyer-image-no-listing-no-imageUrl", noImageMapped.imageUrl == null, String(noImageMapped.imageUrl));
+  ok("buyer-image-no-listing-empty-imageUrls", (noImageMapped.imageUrls?.length ?? 0) === 0, "");
+
+  const carCardSource = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatCarCard.tsx"),
+    "utf8"
+  );
+  ok(
+    "buyer-image-card-uses-imageUrls-or-imageUrl",
+    carCardSource.includes("car.imageUrls") && carCardSource.includes("car.imageUrl"),
+    ""
+  );
+  ok("buyer-image-card-gallery-testid", carCardSource.includes("chat-car-card-gallery"), "");
+  ok("buyer-image-card-placeholder-testid", carCardSource.includes("chat-car-card-no-images"), "");
+
+  const firebaseSearch = tryOrchestrateChatReply("มี Camry ไหม", [firebaseListing, ...INVENTORY_SIX])!;
+  ok("buyer-image-orchestrator-first-batch-hasImage", firebaseSearch.carCards.some((c) => c.hasImage), "");
+  ok(
+    "buyer-image-orchestrator-first-batch-imageUrl",
+    firebaseSearch.carCards.some((c) => Boolean(c.imageUrl)),
+    ""
+  );
+
+  const showMoreWithImages = tryOrchestrateChatReply("ดูเพิ่ม", [firebaseListing, ...INVENTORY_SIX])!;
+  ok(
+    "buyer-image-show-more-hasImage",
+    showMoreWithImages.carCards.every((c) => c.hasImage && Boolean(c.imageUrl)),
+    String(showMoreWithImages.carCards.map((c) => c.hasImage))
   );
 
   console.log("\nDone.");
