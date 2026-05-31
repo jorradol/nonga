@@ -24,7 +24,7 @@ import {
   isSedanFamily,
   isSuvFamily,
 } from "../src/services/ai/chat/vehicleBodyClassifier.ts";
-import { saveChatCarContext, saveLastSelectedCarId, addRecentlyViewedCarId } from "../src/utils/chatCarContext.ts";
+import { saveChatCarContext, saveLastSelectedCarId, addRecentlyViewedCarId, loadLastSelectedCarId, loadRecentlyViewedCarIds } from "../src/utils/chatCarContext.ts";
 import type { ChatInventoryCar } from "../src/services/ai/chat/marketplaceChatSearch.ts";
 
 // Mock sessionStorage for tests
@@ -653,6 +653,90 @@ async function main() {
     "buyer-image-show-more-hasImage",
     showMoreWithImages.carCards.every((c) => c.hasImage && Boolean(c.imageUrl)),
     String(showMoreWithImages.carCards.map((c) => c.hasImage))
+  );
+
+  // Case 14: v5.4.3 — buyer selected car context from in-chat expand
+  console.log("\n--- v5.4.3 buyer expand selected context ---");
+
+  const v543BuyerCardSource = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatCarCard.tsx"),
+    "utf8"
+  );
+  ok(
+    "v543-expand-handler-saves-selected-id",
+    v543BuyerCardSource.includes("handleToggleInChatDetail") &&
+      v543BuyerCardSource.includes("rememberSelectedCar") &&
+      v543BuyerCardSource.includes("saveLastSelectedCarId(car.id)"),
+    ""
+  );
+  ok(
+    "v543-full-detail-still-remembers-selected",
+    v543BuyerCardSource.includes("handleFullDetail") &&
+      v543BuyerCardSource.includes('setView("car-details"'),
+    ""
+  );
+  ok("v543-no-ask-ai-button", !v543BuyerCardSource.includes("ถามน้องเอ"), "");
+  ok("v543-no-talk-ai-button", !v543BuyerCardSource.includes("คุยกับน้องเอ"), "");
+
+  const v543PublishedSource = fs.readFileSync(
+    path.join(process.cwd(), "src/components/chat/ChatPublishedMemberListingCard.tsx"),
+    "utf8"
+  );
+  ok(
+    "v543-seller-published-card-unchanged",
+    v543PublishedSource.includes("chat-published-listing-expand-btn") &&
+      !v543PublishedSource.includes("saveLastSelectedCarId"),
+    ""
+  );
+
+  const threeCardBatch = summariesToCarCards(
+    [INVENTORY_MULTI_CRV[2], INVENTORY_MULTI_CRV[3], INVENTORY_MULTI_CRV[4]].map(toChatCarSummary),
+    []
+  );
+  saveChatCarContext(threeCardBatch);
+  const expandedCardId = threeCardBatch[1]?.id;
+  ok("v543-three-card-batch", threeCardBatch.length === 3, String(threeCardBatch.length));
+  ok("v543-expanded-card-is-second", expandedCardId === "car-crv-a", String(expandedCardId));
+
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem("nonga_chat_last_selected_car");
+    sessionStorage.removeItem("nonga_chat_recently_viewed_cars");
+  }
+  const withoutExpandSelect = tryOrchestrateChatReply(
+    "คันนี้เหมาะกับใคร",
+    INVENTORY_MULTI_CRV
+  );
+  ok(
+    "v543-without-expand-select-defaults-first-card",
+    withoutExpandSelect?.carCards[0]?.id === threeCardBatch[0].id,
+    String(withoutExpandSelect?.carCards[0]?.id)
+  );
+
+  saveLastSelectedCarId(expandedCardId!);
+  addRecentlyViewedCarId(expandedCardId!);
+  ok(
+    "v543-expand-select-persists-last-selected",
+    loadLastSelectedCarId() === expandedCardId,
+    String(loadLastSelectedCarId())
+  );
+  ok(
+    "v543-expand-select-persists-recently-viewed",
+    loadRecentlyViewedCarIds()[0] === expandedCardId,
+    String(loadRecentlyViewedCarIds()[0])
+  );
+  const withExpandSelect = tryOrchestrateChatReply(
+    "คันนี้เหมาะกับใคร",
+    INVENTORY_MULTI_CRV
+  );
+  ok(
+    "v543-expand-second-card-resolves-not-first",
+    withExpandSelect?.carCards[0]?.id === expandedCardId,
+    `Expected ${expandedCardId}, got ${withExpandSelect?.carCards[0]?.id}`
+  );
+  ok(
+    "v543-expand-select-skips-gemini",
+    withExpandSelect?.skipGemini === true,
+    String(withExpandSelect?.skipGemini)
   );
 
   console.log("\nDone.");

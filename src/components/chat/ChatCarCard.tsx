@@ -197,9 +197,23 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
     { key: "listingId", label: "รหัสประกาศ", value: car.id },
   ];
 
-  const handleFullDetail = () => {
+  const rememberSelectedCar = () => {
     saveLastSelectedCarId(car.id);
     addRecentlyViewedCarId(car.id);
+  };
+
+  const handleToggleInChatDetail = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (next) {
+        rememberSelectedCar();
+      }
+      return next;
+    });
+  };
+
+  const handleFullDetail = () => {
+    rememberSelectedCar();
     setView("car-details", car.id);
   };
 
@@ -253,7 +267,7 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
       <div className="px-3 pb-3 space-y-2">
         <button
           type="button"
-          onClick={() => setExpanded((prev) => !prev)}
+          onClick={handleToggleInChatDetail}
           className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer min-h-[44px]"
           data-testid="chat-car-card-expand-btn"
         >
