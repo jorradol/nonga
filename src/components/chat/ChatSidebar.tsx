@@ -152,9 +152,9 @@ export function ChatSidebar({
         data-collapsed={collapsed ? "true" : "false"}
         data-expanded-width={mdUp && !collapsed ? String(desktopWidthPx) : undefined}
         style={sidebarWidthStyle}
-        className={`fixed top-0 bottom-0 left-0 z-50 max-md:max-h-[100dvh] max-md:pb-[env(safe-area-inset-bottom)] relative border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 md:static shrink-0 ${widthClass} md:w-auto ${
+        className={`max-md:fixed max-md:top-0 max-md:bottom-0 max-md:left-0 max-md:z-50 max-md:max-h-[100dvh] max-md:pb-[env(safe-area-inset-bottom)] md:static md:shrink-0 border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 ${widthClass} md:w-auto ${
           isResizing ? "" : "transition-[transform,width] duration-300 ease-in-out"
-        } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+        } ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         <div
           className={`border-b border-slate-800/80 flex items-center shrink-0 ${

@@ -98,9 +98,15 @@
   background: rgba(249, 115, 22, 0.55);
 }
 
-/* Chat First — mobile composer & scroll (v5.4.6-mobile.1) */
+/* Chat First — mobile composer & scroll (v5.4.6-mobile) */
 .chat-composer-safe-bottom {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 767px) {
+  #chat-input-toolbar {
+    bottom: var(--chat-vv-bottom-inset, 0px);
+  }
 }
 
 .chat-scroll-padding-composer {

@@ -340,7 +340,7 @@ export default function App() {
       {/* Atmosphere glow backdrop lines */}
       <GradientBackground />
 
-      <div className="w-full flex-1 flex flex-col h-full">
+      <div className={`w-full flex-1 flex flex-col h-full ${currentView === "chat" ? "min-h-0 overflow-hidden" : ""}`}>
         {/* Navigation bar - hidden in chat mode */}
         {currentView !== "chat" && <Header />}
 
@@ -354,7 +354,7 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="flex-1 flex flex-col w-full h-full"
+                className="flex-1 flex flex-col w-full h-full min-h-0 overflow-hidden"
               >
                 {renderActiveView()}
               </motion.div>

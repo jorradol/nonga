@@ -9,6 +9,7 @@ import {
   CHAT_TEXTAREA_MAX_HEIGHT_PX,
   CHAT_TEXTAREA_MIN_HEIGHT_PX,
 } from "../../hooks/chat/useChatTextareaAutosize";
+import { useChatMobileViewportInset } from "../../hooks/chat/useChatMobileViewportInset";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { ChatComposerContext } from "../../contexts/chat/ChatComposerContext";
 import { useAppStore } from "../../store";
@@ -71,6 +72,8 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const userScrolledAwayRef = useRef(false);
   const prevGeneratingRef = useRef(false);
   const messageCountRef = useRef(0);
+
+  useChatMobileViewportInset();
 
   const isNearBottom = useCallback(() => {
     const el = containerRef.current;
@@ -246,7 +249,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
   return (
     <ChatComposerContext.Provider value={composerContextValue}>
-    <div className="flex-1 flex min-h-0 bg-slate-950 text-slate-100 h-full relative" id="chat-container">
+    <div className="flex-1 flex min-h-0 w-full min-w-0 bg-slate-950 text-slate-100 h-full relative" id="chat-container">
       <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden" id="chat-central-panel">
         <div
           className="h-12 md:h-16 border-b border-slate-800/80 bg-slate-900/10 backdrop-blur-md px-3 md:px-4 flex items-center justify-between shrink-0"
@@ -302,12 +305,12 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex flex-col chat-scroll-padding-composer"
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex flex-col chat-scroll-padding-composer max-md:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]"
             id="chat-feed-area"
           >
             {currentMessages.length === 0 ? (
               <div
-                className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto my-auto py-8 md:py-12 px-3 md:px-4 space-y-5 md:space-y-6"
+                className="max-md:flex-none flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto my-auto py-6 md:py-12 px-3 md:px-4 space-y-4 md:space-y-6"
                 id="chat-hero-frame"
               >
                 <div
@@ -393,7 +396,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         </div>
 
         <div
-          className="p-2 max-md:px-2 max-md:pt-1.5 border-t border-slate-800/85 bg-slate-900/95 md:bg-slate-900/40 backdrop-blur-xl shrink-0 z-20 max-md:sticky max-md:bottom-0 chat-composer-safe-bottom"
+          className="p-2 max-md:px-2 max-md:pt-1.5 border-t border-slate-800/85 bg-slate-900/98 md:bg-slate-900/40 backdrop-blur-xl shrink-0 z-30 max-md:fixed max-md:left-0 max-md:right-0 chat-composer-safe-bottom md:relative md:bottom-auto"
           id="chat-input-toolbar"
         >
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
