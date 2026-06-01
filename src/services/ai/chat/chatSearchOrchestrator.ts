@@ -34,6 +34,7 @@ import {
   BUYER_ASK_SELECT_CAR_FIRST,
 } from "./chatBuyerFactsQa";
 import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
+import { tryTroubleshootingAdvisorReply } from "./chatTroubleshootingAdvisorTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 
 export interface OrchestratedChatReply {
@@ -106,6 +107,15 @@ export function tryOrchestrateChatReply(
   if (financeCalc) {
     return {
       text: financeCalc.text,
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
+  const troubleshooting = tryTroubleshootingAdvisorReply(message);
+  if (troubleshooting) {
+    return {
+      text: troubleshooting.text,
       carCards: [],
       skipGemini: true,
     };

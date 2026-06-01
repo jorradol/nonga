@@ -13,8 +13,7 @@ export type BuyerAdvisorTopic =
   | "downPayment"
   | "cashVsFinance"
   | "insuranceClasses"
-  | "compulsoryInsurance"
-  | "wontStart";
+  | "compulsoryInsurance";
 
 const MECHANIC_DISCLAIMER =
   "น้องเอให้แนวทางเบื้องต้นเท่านั้น ไม่แทนช่าง — ควรตรวจรถจริง เอกสาร และให้ช่างช่วยอีกชั้นครับ";
@@ -77,10 +76,6 @@ export const BUYER_ADVISOR_PATTERNS: { topic: BuyerAdvisorTopic; re: RegExp }[] 
   {
     topic: "compulsoryInsurance",
     re: /พ\.?\s*ร\.?\s*บ\.?\s*(?:คือ|คืออะไร|ต้อง|ต่าง|กับ)|ประกันภาคบังคับ/i,
-  },
-  {
-    topic: "wontStart",
-    re: /รถสตาร์ทไม่ติด|สตาร์ทไม่ติด(?:ทำไง|ทำยังไง|เกิดจาก)/i,
   },
 ];
 
@@ -233,12 +228,6 @@ export function buildBuyerAdvisorReply(topic: BuyerAdvisorTopic): string {
         "• ต้องต่ออายุตามกฎหมาย — รายละเอียดความคุ้มครองดูในกรมธรรม์",
         INSURANCE_DISCLAIMER,
         SEARCH_FOLLOW_UP,
-      ]);
-    case "wontStart":
-      return joinParagraphs([
-        "รถสตาร์ทไม่ติดเบื้องต้นอาจมาจากแบตเตอรี่ น้ำมันเชื้อเพลิง หรือระบบสตาร์ทครับ",
-        "ถ้ามีกลิ่นไหม้ ควันผิดปกติ หรือเสียงรุนแรง — หยุดใช้รถและเรียกช่างทันทีครับ",
-        MECHANIC_DISCLAIMER,
       ]);
     default:
       return SEARCH_FOLLOW_UP;
