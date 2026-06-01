@@ -1,5 +1,5 @@
 /**
- * v5.4.6 — mobile keyboard dictation compatibility (source checks)
+ * v5.4.6-mobile — mobile keyboard dictation compatibility (source checks)
  * npm run test:v546-mobile-voice-input-compat
  */
 import fs from "node:fs";
@@ -29,38 +29,59 @@ function mustNotInclude(src: string, needle: string, label: string): void {
 }
 
 function main(): void {
-  console.log("=== v5.4.6 mobile voice input (keyboard dictation) compat ===\n");
+  console.log("=== v5.4.6-mobile voice input (keyboard dictation) compat ===\n");
 
   const container = read("src/components/chat/ChatContainer.tsx");
   const config = read("src/components/chat/chatComposerTextareaConfig.ts");
+  const textareaCmp = read("src/components/chat/ChatComposerTextarea.tsx");
   const autosize = read("src/hooks/chat/useChatTextareaAutosize.ts");
+  const attachment = read("src/components/chat/ChatImageAttachmentInput.tsx");
 
-  mustInclude(container, "<textarea", "composer-uses-textarea");
+  mustInclude(container, "ChatComposerTextarea", "composer-uses-chat-composer-textarea");
   mustNotInclude(container, "contentEditable", "composer-no-contenteditable");
-
-  const textareaTag = container.match(/<textarea[\s\S]*?id="chat-textarea-elt"/)?.[0];
-  if (!textareaTag) fail("composer-textarea-block", "chat textarea not found");
-  mustNotInclude(textareaTag, "disabled", "composer-textarea-not-disabled");
-  mustNotInclude(textareaTag, "readOnly", "composer-textarea-not-readonly");
-  mustInclude(container, "CHAT_COMPOSER_TEXTAREA_DICTATION_PROPS", "composer-dictation-props-import");
-  mustInclude(container, "onInput={(e) => syncComposerText", "composer-on-input-for-dictation");
+  mustNotInclude(container, "CHAT_COMPOSER_TEXTAREA_DICTATION_PROPS", "no-legacy-dictation-props");
+  mustInclude(container, 'id="chat-composer-box"', "composer-box-present");
+  mustInclude(container, "aria-busy={isGenerating", "aria-busy-on-wrapper");
+  mustNotInclude(
+    container.slice(container.indexOf('id="chat-textarea-elt"') - 400, container.indexOf('id="chat-textarea-elt"') + 200),
+    "aria-busy",
+    "textarea-no-aria-busy"
+  );
+  mustInclude(container, "onBeforeInput={handleComposerBeforeInput}", "composer-beforeinput-dictation");
+  mustInclude(container, "onInput={(e) => syncComposerText", "composer-on-input");
   mustInclude(container, "onCompositionStart", "composer-composition-start");
   mustInclude(container, "onCompositionEnd", "composer-composition-end");
+  mustInclude(container, "onBlur={handleComposerBlur}", "composer-blur-reset-composing");
   mustInclude(container, "pauseWhileComposing", "composer-autosize-pause-composing");
+  mustInclude(container, "relative z-[1]", "textarea-above-composer-controls");
 
-  mustInclude(config, 'autoComplete: "on"', "dictation-autocomplete-on");
-  mustInclude(config, 'autoCorrect: "on"', "dictation-autocorrect-on");
-  mustInclude(config, "spellCheck: true", "dictation-spellcheck");
-  mustInclude(config, 'enterKeyHint: "send"', "dictation-enter-key-hint");
-  mustNotInclude(config, "inputMode:", "dictation-no-inputmode-override");
-  mustNotInclude(config, "readOnly:", "dictation-config-no-readonly");
+  mustInclude(textareaCmp, "CHAT_COMPOSER_TEXTAREA_MOBILE_PROPS", "mobile-props-branch");
+  mustInclude(textareaCmp, "CHAT_COMPOSER_TEXTAREA_DESKTOP_PROPS", "desktop-props-branch");
+  mustInclude(textareaCmp, "useChatComposerIsMobile", "mobile-breakpoint-hook");
+
+  mustInclude(config, "CHAT_COMPOSER_TEXTAREA_MOBILE_PROPS", "config-mobile-props");
+  const mobileBlock =
+    config.match(
+      /CHAT_COMPOSER_TEXTAREA_MOBILE_PROPS\s*=\s*\{[\s\S]*?\}\s*as const/
+    )?.[0] ?? "";
+  if (!mobileBlock) fail("config-mobile-block", "mobile props block not found");
+  mustNotInclude(mobileBlock, "enterKeyHint", "mobile-config-no-enterkeyhint");
+  mustNotInclude(mobileBlock, "autoCorrect", "mobile-config-no-autocorrect");
+  mustNotInclude(mobileBlock, "lang", "mobile-config-no-lang");
+  mustNotInclude(config, "aria-busy", "mobile-config-no-aria-busy");
+  mustNotInclude(config, "inputMode:", "config-no-inputmode");
+  mustInclude(config, "spellCheck: true", "config-spellcheck");
+  mustInclude(config, 'enterKeyHint: "send"', "desktop-config-enterkeyhint-only");
 
   mustInclude(autosize, "pauseWhileComposing", "autosize-hook-composing-pause");
+
+  mustInclude(attachment, "tabIndex={-1}", "file-input-out-of-tab-order");
+  mustInclude(attachment, "aria-hidden", "file-input-aria-hidden");
 
   const usability = read("scripts/test-v546-mobile-chat-usability.mts");
   mustInclude(usability, "max-md:fixed", "usability-still-checks-mobile-composer");
 
-  console.log("\n=== v5.4.6 mobile voice input compat — OK ===\n");
+  console.log("\n=== v5.4.6-mobile voice input compat — OK ===\n");
 }
 
 main();

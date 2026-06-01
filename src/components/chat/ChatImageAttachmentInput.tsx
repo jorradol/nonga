@@ -99,6 +99,8 @@ export function ChatImageAttachmentInput({
         multiple
         className="sr-only"
         id="chat-image-attachment-v1-input"
+        tabIndex={-1}
+        aria-hidden
         disabled={disabled || isPreparing}
         onChange={handleChange}
       />

@@ -32,7 +32,7 @@ import {
   CHAT_IMAGE_ATTACHMENT_V1_ENABLED,
   type PendingChatImageAttachment,
 } from "../../features/chat-image-attachment-v1/types";
-import { CHAT_COMPOSER_TEXTAREA_DICTATION_PROPS } from "./chatComposerTextareaConfig";
+import { ChatComposerTextarea } from "./ChatComposerTextarea";
 
 interface ChatContainerProps {
   onToggleSidebar: () => void;
@@ -242,6 +242,27 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     setInputText(el.value);
   }, []);
 
+  const handleComposerBlur = useCallback(() => {
+    setIsComposing(false);
+  }, []);
+
+  const handleComposerBeforeInput = useCallback(
+    (e: React.FormEvent<HTMLTextAreaElement>) => {
+      const inputType = (e.nativeEvent as InputEvent).inputType;
+      if (
+        inputType === "insertFromDictation" ||
+        inputType === "insertText" ||
+        inputType === "insertReplacementText"
+      ) {
+        requestAnimationFrame(() => {
+          syncComposerText(e.currentTarget);
+          adjustTextareaHeight();
+        });
+      }
+    },
+    [syncComposerText, adjustTextareaHeight]
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
@@ -411,6 +432,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
             <div
               className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
               id="chat-composer-box"
+              aria-busy={isGenerating || undefined}
             >
               {pendingAttachments.length > 0 && (
                 <div
@@ -424,21 +446,22 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 </div>
               )}
               <div className="flex items-center gap-1 px-1 py-0.5 shrink-0" id="chat-composer-input-row">
-                <textarea
+                <ChatComposerTextarea
                   ref={textareaRef}
                   value={inputText}
-                  {...CHAT_COMPOSER_TEXTAREA_DICTATION_PROPS}
                   onChange={(e) => {
                     if (isComposing) return;
                     syncComposerText(e.currentTarget);
                   }}
                   onInput={(e) => syncComposerText(e.currentTarget)}
+                  onBeforeInput={handleComposerBeforeInput}
                   onCompositionStart={() => setIsComposing(true)}
                   onCompositionEnd={(e) => {
                     setIsComposing(false);
                     syncComposerText(e.currentTarget);
                     requestAnimationFrame(() => adjustTextareaHeight());
                   }}
+                  onBlur={handleComposerBlur}
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isGenerating
@@ -447,8 +470,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   }
                   rows={1}
                   aria-label="ข้อความถึงน้องเอ"
-                  aria-busy={isGenerating}
-                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] overflow-y-hidden box-border touch-manipulation"
+                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] overflow-y-hidden box-border touch-manipulation relative z-[1]"
                   style={{
                     minHeight: CHAT_TEXTAREA_MIN_HEIGHT_PX,
                     maxHeight: CHAT_TEXTAREA_MAX_HEIGHT_PX,
