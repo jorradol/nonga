@@ -36,7 +36,7 @@ export function ChatImageAttachmentPreview({
 
   return (
     <div
-      className="flex items-center gap-2 overflow-hidden"
+      className="flex items-center gap-2 overflow-hidden max-h-14"
       data-testid="chat-image-attachment-v1-preview"
       aria-label={`แนบรูปแล้ว ${pending.length} รูป`}
     >
@@ -113,7 +113,7 @@ export function ChatImageAttachmentInput({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || isPreparing}
-        className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] rounded-lg flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
+        className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] max-md:min-w-11 max-md:min-h-11 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
         title="แนบรูป"
         id="chat-attach-image-v1-btn"
         aria-label="แนบรูป"

@@ -147,7 +147,7 @@ export function ChatSidebarNewCarsSlider({
 
   return (
     <div
-      className="shrink-0 px-2.5 pb-2 md:px-2.5"
+      className="shrink-0 px-2.5 pb-1.5 max-md:pb-1 md:px-2.5 md:pb-2"
       id="sidebar-new-cars-slider"
       data-slide-count={String(slideCount)}
     >
@@ -162,7 +162,7 @@ export function ChatSidebarNewCarsSlider({
           type="button"
           onClick={() => void handleSlideClick()}
           disabled={isGenerating}
-          className="block w-full aspect-[16/10] max-h-[120px] md:max-h-[132px] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/50 disabled:opacity-50"
+          className="block w-full aspect-[16/10] max-h-[84px] max-md:max-h-[84px] md:max-h-[132px] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/50 disabled:opacity-50"
           id="sidebar-new-cars-image-btn"
           aria-label={`ดู ${current.brand} ${current.model} ในแชท`}
         >

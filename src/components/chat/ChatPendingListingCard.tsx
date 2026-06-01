@@ -63,7 +63,7 @@ export function ChatPendingListingCard({
 
   return (
     <div
-      className="mt-3 rounded-xl border border-orange-500/25 bg-slate-950/40 overflow-hidden"
+      className="mt-3 w-full max-w-full min-w-0 rounded-xl border border-orange-500/25 bg-slate-950/40 overflow-hidden"
       data-testid="chat-pending-listing-card"
     >
       <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center justify-between gap-2">
@@ -126,7 +126,7 @@ export function ChatPendingListingCard({
         </div>
       )}
 
-      <div className="px-3 pb-3 flex flex-wrap gap-2 justify-center">
+      <div className="px-3 pb-3 flex max-md:flex-col max-md:items-stretch sm:flex-row sm:flex-wrap gap-2 justify-center max-md:[&_button]:w-full">
         <button
           type="button"
           onClick={onEdit}

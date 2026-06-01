@@ -352,7 +352,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         
         {/* Editing Workspace or Standard Bubble */}
         {isEditing ? (
-          <div className="w-full bg-slate-900/90 border border-orange-500/30 p-3 rounded-2xl shadow-xl flex flex-col gap-2 min-w-[280px] md:min-w-[450px]">
+          <div className="w-full max-w-full min-w-0 bg-slate-900/90 border border-orange-500/30 p-3 rounded-2xl shadow-xl flex flex-col gap-2 md:min-w-[450px]">
             <textarea
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}

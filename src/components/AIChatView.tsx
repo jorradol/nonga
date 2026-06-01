@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChatProvider } from "../contexts/chat/ChatContext";
 import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatContainer } from "./chat/ChatContainer";
@@ -39,10 +39,20 @@ export default function AIChatView() {
     writeChatSidebarExpandedWidth(clamped);
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const syncSidebarForViewport = () => {
+      setSidebarOpen(mq.matches);
+    };
+    syncSidebarForViewport();
+    mq.addEventListener("change", syncSidebarForViewport);
+    return () => mq.removeEventListener("change", syncSidebarForViewport);
+  }, []);
+
   return (
     <ChatProvider>
       <div
-        className="flex w-full flex-1 overflow-hidden bg-slate-950 relative"
+        className="flex w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-950 relative"
         id="ai-chat-root-viewport"
       >
         <ChatSidebar

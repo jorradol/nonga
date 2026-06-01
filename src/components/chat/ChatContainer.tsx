@@ -246,18 +246,19 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
   return (
     <ChatComposerContext.Provider value={composerContextValue}>
-    <div className="flex-1 flex bg-slate-950 text-slate-100 h-full relative" id="chat-container">
-      <div className="flex-1 flex flex-col h-full overflow-hidden" id="chat-central-panel">
+    <div className="flex-1 flex min-h-0 bg-slate-950 text-slate-100 h-full relative" id="chat-container">
+      <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden" id="chat-central-panel">
         <div
-          className="h-16 border-b border-slate-800/80 bg-slate-900/10 backdrop-blur-md px-4 flex items-center justify-between shrink-0"
+          className="h-12 md:h-16 border-b border-slate-800/80 bg-slate-900/10 backdrop-blur-md px-3 md:px-4 flex items-center justify-between shrink-0"
           id="chat-navbar"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <button
               onClick={onToggleSidebar}
-              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              className="text-slate-300 hover:text-white min-w-10 min-h-10 p-2 rounded-lg hover:bg-slate-800 transition-colors shrink-0 md:min-w-0 md:min-h-0 md:p-1.5"
               title="สลับเมนูประวัติแชท"
               id="sidebar-toggle-trigger"
+              aria-label="เปิดเมนูประวัติแชท"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -279,11 +280,12 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
             <button
               type="button"
               onClick={() => setView("marketplace")}
-              className="text-xs bg-slate-900 border border-slate-800 text-slate-300 px-2.5 sm:px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:text-white hover:bg-slate-850 active:scale-95 transition-all cursor-pointer"
+              className="text-xs bg-slate-900 border border-slate-800 text-slate-300 px-2 sm:px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:text-white hover:bg-slate-850 active:scale-95 transition-all cursor-pointer shrink-0"
               title="ไปที่ตลาดรถ"
             >
               <Car className="w-3.5 h-3.5 text-orange-400" />
-              <span>ไปที่ตลาดรถ</span>
+              <span className="max-sm:hidden">ไปที่ตลาดรถ</span>
+              <span className="sm:hidden">ตลาด</span>
             </button>
             <button
               onClick={() => setShowMobileProps(!showMobileProps)}
@@ -296,16 +298,16 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           </div>
         </div>
 
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="absolute inset-0 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex flex-col"
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex flex-col chat-scroll-padding-composer"
             id="chat-feed-area"
           >
             {currentMessages.length === 0 ? (
               <div
-                className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto my-auto py-12 px-4 space-y-6"
+                className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto my-auto py-8 md:py-12 px-3 md:px-4 space-y-5 md:space-y-6"
                 id="chat-hero-frame"
               >
                 <div
@@ -340,7 +342,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 max-w-4xl mx-auto w-full pb-8 flex-1" id="messages-list">
+              <div className="space-y-4 max-w-4xl mx-auto w-full pb-4 md:pb-8 flex-1 min-w-0" id="messages-list">
                 {currentMessages.map((msg) => (
                   <ChatMessageBubble key={msg.id} message={msg} />
                 ))}
@@ -372,7 +374,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   </div>
                 )}
 
-                <div ref={messagesEndRef} className="h-2" />
+                <div ref={messagesEndRef} className="h-3 md:h-2 shrink-0" aria-hidden />
               </div>
             )}
           </div>
@@ -381,7 +383,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
             <button
               type="button"
               onClick={scrollToBottom}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-slate-200 shadow-lg hover:bg-slate-700 transition cursor-pointer"
+              className="absolute bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-slate-200 shadow-lg hover:bg-slate-700 transition cursor-pointer"
               id="chat-jump-to-bottom"
             >
               <ChevronDown className="w-3.5 h-3.5" />
@@ -391,7 +393,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         </div>
 
         <div
-          className="p-2 border-t border-slate-800/85 bg-slate-900/40 backdrop-blur-xl shrink-0"
+          className="p-2 max-md:px-2 max-md:pt-1.5 border-t border-slate-800/85 bg-slate-900/95 md:bg-slate-900/40 backdrop-blur-xl shrink-0 z-20 max-md:sticky max-md:bottom-0 chat-composer-safe-bottom"
           id="chat-input-toolbar"
         >
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
@@ -401,7 +403,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
             >
               {pendingAttachments.length > 0 && (
                 <div
-                  className="px-2 pt-2 pb-1 border-b border-slate-800/60 shrink-0"
+                  className="px-2 pt-2 pb-1 border-b border-slate-800/60 shrink-0 max-h-16 overflow-hidden"
                   id="chat-composer-attachment-preview"
                 >
                   <ChatImageAttachmentPreview
@@ -449,7 +451,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                     isPreparingAttachments ||
                     (!inputText.trim() && pendingAttachments.length === 0)
                   }
-                  className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
+                  className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] max-md:min-w-11 max-md:min-h-11 max-md:w-11 max-md:h-11 rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-30 disabled:hover:bg-orange-500 transition-all duration-300 shadow-md shrink-0 cursor-pointer"
                   id="send-message-btn"
                   title="ส่งข้อความ"
                 >

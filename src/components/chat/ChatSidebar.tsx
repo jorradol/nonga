@@ -141,7 +141,7 @@ export function ChatSidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/60 md:hidden backdrop-blur-xs"
+            className="fixed inset-0 z-[45] bg-black/60 md:hidden backdrop-blur-xs"
             id="sidebar-overlay"
           />
         )}
@@ -152,7 +152,7 @@ export function ChatSidebar({
         data-collapsed={collapsed ? "true" : "false"}
         data-expanded-width={mdUp && !collapsed ? String(desktopWidthPx) : undefined}
         style={sidebarWidthStyle}
-        className={`fixed top-0 bottom-0 left-0 z-40 relative border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 md:static shrink-0 ${widthClass} md:w-auto ${
+        className={`fixed top-0 bottom-0 left-0 z-50 max-md:max-h-[100dvh] max-md:pb-[env(safe-area-inset-bottom)] relative border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 md:static shrink-0 ${widthClass} md:w-auto ${
           isResizing ? "" : "transition-[transform,width] duration-300 ease-in-out"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
