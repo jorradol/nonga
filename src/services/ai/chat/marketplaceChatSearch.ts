@@ -44,6 +44,10 @@ export interface ChatSearchCriteria {
   year?: number;
   color?: string;
   suvOnly?: boolean;
+  pickupOnly?: boolean;
+  familyUse?: boolean;
+  sevenSeats?: boolean;
+  commercialUse?: boolean;
   limit?: number;
 }
 
@@ -62,8 +66,15 @@ export interface MarketplaceSearchResult {
   introText: string;
 }
 
-const SEARCH_INTENT =
-  /(?:มี|หา|ค้นหา|แนะนำ|ใน(?:ตลาด|ระบบ)|marketplace|inventory|รถ(?:ใน)?ตลาด|น่าสนใจ|budget|งบ|ราคา|ไม่เกิน|ต่ำกว่า|แสน|ล้าน)/i;
+/** Signals that a message may contain parseable search criteria (not enough alone to show cards) */
+const SEARCH_PARSE_SIGNAL =
+  /(?:มี|หา|ค้นหา|ช่วยหา|ใน(?:ตลาด|ระบบ)|marketplace|inventory|รถ(?:ใน)?ตลาด|budget|งบ|ราคา|ไม่เกิน|ต่ำกว่า|แสน|ล้าน|SUV|กระบะ|ครอบครัว|7\s*ที่นั่ง|เจ็ดที่นั่ง|pickup|รถบ้าน)/i;
+
+const EXPLICIT_SEARCH_REQUEST =
+  /(?:มี|หา|ค้นหา|ช่วยหา|ช่วยค้นหา).{0,80}(?:ไหม|มั้ย|หรือเปล่า|ให้หน่อย|ให้ที|ได้ไหม)/i;
+
+const EXPLICIT_FIND_REQUEST =
+  /(?:ช่วย)?(?:หา|ค้นหา).{2,}(?:ให้|หน่อย)/i;
 
 const BRAND_ALIASES: Record<string, string> = {
   honda: "Honda",
@@ -170,7 +181,7 @@ export function parseMarketplaceSearchQuery(
 ): ChatSearchCriteria | null {
   const text = message.trim();
   if (
-    !SEARCH_INTENT.test(text) &&
+    !SEARCH_PARSE_SIGNAL.test(text) &&
     !/[A-Za-zก-๙]{2,}\s+[A-Za-z0-9-]{2,}/.test(text)
   ) {
     return null;
@@ -303,6 +314,10 @@ export function parseMarketplaceSearchQuery(
   }
 
   if (/\bsuv\b|อเนกประสงค์|รถใหญ่/i.test(text)) criteria.suvOnly = true;
+  if (/กระบะ|pickup|d-max|revo|vigo/i.test(text)) criteria.pickupOnly = true;
+  if (/7\s*ที่นั่ง|เจ็ดที่นั่ง/i.test(text)) criteria.sevenSeats = true;
+  if (/รถครอบครัว|ครอบครัว|ใช้กับครอบครัว/i.test(text)) criteria.familyUse = true;
+  if (/รถค้าขาย|ค้าขาย|รถใช้ทำงาน|ใช้ทำงาน/i.test(text)) criteria.commercialUse = true;
 
   const exotic = text.match(/\b(Ferrari|Lamborghini|McLaren|Porsche)\b/i);
   if (exotic && !criteria.brand) criteria.brand = normalizeBrand(exotic[1]);
@@ -310,8 +325,47 @@ export function parseMarketplaceSearchQuery(
   return criteria;
 }
 
+export function hasSufficientSearchCriteria(
+  criteria: ChatSearchCriteria,
+  message: string
+): boolean {
+  const t = message.trim().replace(/\s+/g, " ");
+  if (criteria.maxPrice != null && criteria.maxPrice > 0) return true;
+  if (criteria.minPrice != null && criteria.minPrice > 0) return true;
+  if (criteria.brand?.trim()) return true;
+  if (criteria.model?.trim()) return true;
+  if (criteria.year != null) return true;
+  if (criteria.color?.trim()) return true;
+  if (criteria.suvOnly) return true;
+  if (criteria.pickupOnly) return true;
+  if (criteria.familyUse) return true;
+  if (criteria.sevenSeats) return true;
+  if (criteria.commercialUse) return true;
+  if (EXPLICIT_SEARCH_REQUEST.test(t) && (criteria.brand || criteria.model)) {
+    return true;
+  }
+  if (EXPLICIT_FIND_REQUEST.test(t)) {
+    const subject = t
+      .replace(/^(?:ช่วย)?(?:หา|ค้นหา)\s*/i, "")
+      .replace(/(?:ให้|หน่อย)(?:ครับ|ค่ะ|นะ)?\s*$/i, "")
+      .trim();
+    if (subject.length >= 3) return true;
+  }
+  if (
+    /(?:มี|หา).{0,40}(?:SUV|กระบะ|7\s*ที่นั่ง|ครอบครัว|รถครอบครัว|รถค้าขาย|รถใช้ทำงาน)/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (/รถ(?:บ้าน)?งบ\s*[\dก-๙]/.test(t)) return true;
+  return false;
+}
+
 export function isMarketplaceSearchIntent(message: string): boolean {
-  return parseMarketplaceSearchQuery(message) != null;
+  const criteria = parseMarketplaceSearchQuery(message);
+  if (!criteria) return false;
+  return hasSufficientSearchCriteria(criteria, message);
 }
 
 function matchesBaseCriteria(
@@ -376,6 +430,26 @@ export function searchMarketplaceForChat(
       // 4. Year
       return b.year - a.year;
     });
+
+  if (criteria.pickupOnly) {
+    const pickups = priceMatched.filter((c) => c.bodyClass === "pickup");
+    if (pickups.length > 0) {
+      return {
+        primary: dedupeById(pickups).slice(0, limit),
+        alternatives: [],
+      };
+    }
+  }
+
+  if (criteria.familyUse || criteria.sevenSeats) {
+    const family = priceMatched.filter((c) => isSuvFamily(c) || isMpvFamily(c));
+    if (family.length > 0) {
+      return {
+        primary: dedupeById(family).slice(0, limit),
+        alternatives: [],
+      };
+    }
+  }
 
   if (!criteria.suvOnly) {
     return {

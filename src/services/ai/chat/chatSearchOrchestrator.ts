@@ -33,6 +33,7 @@ import {
   resolveTargetBuyerCar,
   BUYER_ASK_SELECT_CAR_FIRST,
 } from "./chatBuyerFactsQa";
+import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -99,6 +100,15 @@ export function tryOrchestrateChatReply(
   }
 
   const contextCars = loadChatCarContext();
+
+  const intentGate = tryBuyerIntentGateReply(message);
+  if (intentGate) {
+    return {
+      text: intentGate.text,
+      carCards: [],
+      skipGemini: true,
+    };
+  }
 
   const factsKind = classifyBuyerFactsQuestion(message);
   if (factsKind !== "none") {

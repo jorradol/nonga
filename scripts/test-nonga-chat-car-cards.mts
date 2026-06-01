@@ -1051,6 +1051,55 @@ async function main() {
     ""
   );
 
+  // Case 18: v5.4.6.1 — buyer search intent polish
+  console.log("\n--- v5.4.6.1 buyer intent gate ---");
+
+  const gateCases: { q: string; expectCards: boolean; label: string }[] = [
+    { q: "แนะนำรถหน่อย", expectCards: false, label: "vague-advise" },
+    { q: "มีอะไรน่าสนใจบ้าง", expectCards: false, label: "vague-interesting" },
+    { q: "ซื้อรถมือสองต้องดูอะไร", expectCards: false, label: "advisor-pre-purchase" },
+    { q: "รถน้ำท่วมดูยังไง", expectCards: false, label: "advisor-flood" },
+    { q: "ไฟแนนซ์ต้องเตรียมอะไร", expectCards: false, label: "advisor-finance" },
+    { q: "รถสตาร์ทไม่ติดทำไง", expectCards: false, label: "advisor-wont-start" },
+    { q: "มี Camry ไม่เกิน 1 ล้านไหม", expectCards: true, label: "search-camry-budget" },
+    { q: "หา SUV 7 ที่นั่ง", expectCards: true, label: "search-suv-7" },
+    { q: "รถไม่เกิน 700,000", expectCards: true, label: "search-budget-only" },
+  ];
+
+  for (const { q, expectCards, label } of gateCases) {
+    const inventoryForGate =
+      label === "search-camry-budget" ? INVENTORY_CAMRY : INVENTORY_MULTI_CRV;
+    const orchGate = tryOrchestrateChatReply(q, inventoryForGate);
+    ok(`${label}-handled`, orchGate != null, "");
+    if (orchGate) {
+      ok(`${label}-skip-gemini`, orchGate.skipGemini === true, "");
+      ok(
+        `${label}-cards`,
+        expectCards ? orchGate.carCards.length >= 1 : orchGate.carCards.length === 0,
+        `cards=${orchGate.carCards.length}`
+      );
+      if (!expectCards) {
+        ok(
+          `${label}-no-search-cta`,
+          !/การ์ดด้านล่าง|จัดมาให้ชม 3 คัน/.test(orchGate.text),
+          orchGate.text.slice(0, 80)
+        );
+      }
+    }
+    if (expectCards) {
+      ok(`${label}-search-intent`, isMarketplaceSearchIntent(q), "");
+    } else {
+      ok(`${label}-not-search-intent`, !isMarketplaceSearchIntent(q), "");
+    }
+  }
+
+  const orchClarify = tryOrchestrateChatReply("แนะนำหน่อย", INVENTORY_SUV_ALT)!;
+  ok(
+    "v5461-clarify-asks-budget",
+    /งบ|ประเภท|ยี่ห้อ|การใช้งาน/.test(orchClarify.text),
+    orchClarify.text.slice(0, 100)
+  );
+
   console.log("\nDone.");
 }
 

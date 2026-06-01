@@ -114,7 +114,10 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
 
   if (/จุดเด่น/.test(t)) return "highlights";
 
-  if (/(ควร|ต้อง)(ดู|เช็ค|ตรวจ)|ก่อนซื้อ|ซื้อ(ควร|ต้อง)/.test(t)) {
+  if (
+    /(ควร|ต้อง)(ดู|เช็ค|ตรวจ)|ก่อนซื้อ/.test(t) &&
+    !/ซื้อรถมือสอง(?:ต้อง|ควร)ดู|ซื้อมือสอง(?:ต้อง|ควร)เช็ค/i.test(t)
+  ) {
     return "prePurchaseCheck";
   }
 
