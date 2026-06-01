@@ -16,6 +16,7 @@ import {
   isImagePublicDisplayEligible,
   isMainImageCandidate,
   shouldBlockPublishForImageSet,
+  type ListingImageSetMetadataFields,
 } from "../src/utils/listingImageSetConsistencyShared.ts";
 import { validateDraftForPublish } from "../src/utils/dealerPublishGuard.ts";
 import { resolveVehicleImageValidationMode } from "../src/utils/vehicleImageValidationShared.ts";
@@ -34,15 +35,8 @@ function fail(label: string, detail = ""): never {
 }
 
 function meta(
-  overrides: Record<string, unknown> = {}
-): {
-  imageUrl: string;
-  imageRole?: string;
-  imageSetConsistencyStatus?: string;
-  vehicleImageStatus?: string;
-  hasVehicle?: boolean;
-  vehicleConfidence?: number;
-} {
+  overrides: Partial<ListingImageSetMetadataFields> = {}
+): ListingImageSetMetadataFields {
   return { imageUrl: IMG, ...overrides };
 }
 

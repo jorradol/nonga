@@ -293,6 +293,12 @@ async function main(): Promise<void> {
     pass("processor-default-unknown");
   });
 
+  const legacyImageMetadata = [
+    {
+      imageUrl: "/storage/listings/draft-legacy/01-a.webp",
+      vehicleImageStatus: "unknown" as const,
+    },
+  ];
   const legacyUnknownPublish = validateDraftForPublish({
     id: "draft-legacy",
     brand: "Toyota",
@@ -301,17 +307,12 @@ async function main(): Promise<void> {
     price: 650000,
     mileage: 45000,
     images: ["/storage/listings/draft-legacy/01-a.webp"],
-    imageMetadata: [
-      {
-        imageUrl: "/storage/listings/draft-legacy/01-a.webp",
-        vehicleImageStatus: "unknown",
-      },
-    ],
+    imageMetadata: legacyImageMetadata,
   });
   if (!legacyUnknownPublish.ok) {
     fail("unknown-only-legacy-publish", legacyUnknownPublish.missingFields.join(","));
   }
-  if (hasActionableVehicleImageAnalysis(legacyUnknownPublish.imageMetadata)) {
+  if (hasActionableVehicleImageAnalysis(legacyImageMetadata)) {
     fail("unknown-only-not-actionable");
   }
   pass("unknown-only-legacy-publish");
