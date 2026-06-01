@@ -64,6 +64,7 @@
     "test:v545-seller-copy-share-pack": "tsx scripts/test-v545-seller-copy-share-pack.mts",
     "test:v546-mobile-chat-usability": "tsx scripts/test-v546-mobile-chat-usability.mts",
     "test:v546-mobile-voice-input-compat": "tsx scripts/test-v546-mobile-voice-input-compat.mts",
+    "test:v546-finance-calculator-chat": "tsx scripts/test-v546-finance-calculator-chat.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",

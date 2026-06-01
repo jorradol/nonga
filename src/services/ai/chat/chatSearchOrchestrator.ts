@@ -33,6 +33,7 @@ import {
   resolveTargetBuyerCar,
   BUYER_ASK_SELECT_CAR_FIRST,
 } from "./chatBuyerFactsQa";
+import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 
 export interface OrchestratedChatReply {
@@ -100,6 +101,15 @@ export function tryOrchestrateChatReply(
   }
 
   const contextCars = loadChatCarContext();
+
+  const financeCalc = tryBuyerFinanceCalculatorReply(message);
+  if (financeCalc) {
+    return {
+      text: financeCalc.text,
+      carCards: [],
+      skipGemini: true,
+    };
+  }
 
   const intentGate = tryBuyerIntentGateReply(message, {
     hasTargetCarForFacts: Boolean(

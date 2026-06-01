@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { DollarSign, Wallet, Percent, Calendar, HeartHandshake, Sparkles } from "lucide-react";
+import { Wallet, Calendar, Sparkles } from "lucide-react";
 import { Car } from "../../../types";
+import {
+  calculateFlatRateFinance,
+  STANDARD_FINANCE_TERMS_MONTHS,
+} from "../../../utils/financeCalculator";
 
 interface FinancingCalculatorProps {
   car: Car;
@@ -20,30 +24,31 @@ export default function FinancingCalculator({ car, isDarkMode = true }: Financin
     return isEv ? 2.49 : 2.79;
   }, [isEv, customInterestRate]);
 
-  // Compute calculated values
   const calculations = useMemo(() => {
-    const downPaymentValue = Math.round(price * (downPaymentPercent / 100));
-    const loanAmount = price - downPaymentValue;
+    const first = calculateFlatRateFinance({
+      carPrice: price,
+      downPaymentPercent,
+      annualFlatRatePercent: baseRate,
+      termMonths: STANDARD_FINANCE_TERMS_MONTHS[0],
+    });
 
-    // Output dynamic options for standard monthly installments
-    const terms = [48, 60, 72, 84].map((months) => {
-      const years = months / 12;
-      // Flat-rate formula typical in Thai auto lending:
-      // Total Interest = Loan Amount * Flat Rate * Years
-      const totalInterest = loanAmount * (baseRate / 100) * years;
-      const totalRepay = loanAmount + totalInterest;
-      const monthlyInstallment = Math.round(totalRepay / months);
-
+    const terms = STANDARD_FINANCE_TERMS_MONTHS.map((months) => {
+      const result = calculateFlatRateFinance({
+        carPrice: price,
+        downPaymentPercent,
+        annualFlatRatePercent: baseRate,
+        termMonths: months,
+      });
       return {
         months,
-        monthlyInterest: Math.round(totalInterest),
-        monthlyInstallment,
+        monthlyInterest: result.totalInterest,
+        monthlyInstallment: result.monthlyInstallment,
       };
     });
 
     return {
-      downPaymentValue,
-      loanAmount,
+      downPaymentValue: first.downPaymentBaht,
+      loanAmount: first.loanAmount,
       terms,
     };
   }, [price, downPaymentPercent, baseRate]);
