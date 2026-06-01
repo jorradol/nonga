@@ -1824,9 +1824,9 @@ assertEqual(savedCard.imageUrls.length, 1, "saved card image urls");
 const savedAttachments = listingImageUrlsToChatAttachments(savedCard.imageUrls);
 assertEqual(savedAttachments[0]?.imageUrl?.includes("car-1780010831953"), true, "saved attachment url");
 assertEqual(
-  CHAT_MEMBER_PUBLISH_COMING_SOON_ACK.includes("รอบถัดไป"),
+  CHAT_MEMBER_PUBLISH_COMING_SOON_ACK.includes("พร้อมลงตลาด"),
   true,
-  "publish coming soon ack"
+  "publish ready ack mentions publish action"
 );
 
 console.log("--- Testing collect all member listing images ---");

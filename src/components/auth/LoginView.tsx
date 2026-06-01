@@ -13,10 +13,12 @@ import { chatRestoreLog } from "../../utils/chatRestoreDebug";
 import { motion } from "motion/react";
 import { Sparkles, CheckCircle2 } from "lucide-react";
 import { LoginFormPanel } from "./LoginFormPanel";
+import { isPublicSignupEnabled } from "../../services/auth/authService";
 
 export default function LoginView() {
   const setView = useAppStore((state) => state.setView);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const signupEnabled = isPublicSignupEnabled();
 
   const finishPageLogin = () => {
     const pendingRead = readPendingChatDraftSnapshot();
@@ -81,14 +83,22 @@ export default function LoginView() {
         </div>
 
         <div className="flex items-center justify-between px-3 text-xs text-slate-500">
-          <span>ยังไม่มีบัญชีกับน้องเอ?</span>
-          <button
-            onClick={() => setView("register")}
-            className="font-bold text-orange-500 hover:text-orange-600 transition flex items-center gap-0.5 focus:outline-none"
-          >
-            <span>สร้างบัญชีฟรีทันที</span>
-            <Sparkles className="w-3.5 h-3.5" />
-          </button>
+          {signupEnabled ? (
+            <>
+              <span>ยังไม่มีบัญชีกับน้องเอ?</span>
+              <button
+                onClick={() => setView("register")}
+                className="font-bold text-orange-500 hover:text-orange-600 transition flex items-center gap-0.5 focus:outline-none"
+              >
+                <span>สร้างบัญชีฟรีทันที</span>
+                <Sparkles className="w-3.5 h-3.5" />
+              </button>
+            </>
+          ) : (
+            <p className="w-full text-center leading-relaxed">
+              รอบทดลอง — เปิดให้เฉพาะผู้ที่ได้รับเชิญ ยังไม่เปิดสมัครทั่วไป กรุณาใช้บัญชีที่ทีมงานส่งให้
+            </p>
+          )}
         </div>
       </div>
     </div>

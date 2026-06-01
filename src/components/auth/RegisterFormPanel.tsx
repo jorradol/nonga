@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 export const PUBLIC_SIGNUP_CLOSED_MESSAGE =
-  "ตอนนี้ยังไม่เปิดสมัครสมาชิกทั่วไป กรุณาใช้บัญชีทดสอบหรือบัญชีที่ได้รับอนุญาต";
+  "รอบนี้ยังเปิดให้เฉพาะผู้ที่ได้รับเชิญเท่านั้นครับ — ยังไม่เปิดสมัครสมาชิกทั่วไป กรุณาใช้บัญชีที่ทีมงานส่งให้";
 
 export type RegisterFormPanelProps = {
   onRegisterSuccess: () => void;

@@ -229,14 +229,15 @@ export default function MyListingsView() {
           <CarFront className="w-12 h-12 mx-auto text-slate-500" />
           <h2 className="font-bold text-lg">ยังไม่มีประกาศของคุณในระบบ</h2>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
-            กดลงประกาศใหม่เพื่อเพิ่มรถคันแรก หรือคุยกับน้องเอให้ช่วยสรุปข้อมูลรถก่อนบันทึก
+            คุยกับน้องเอในแชทเพื่อสร้างประกาศรถบ้านแรก — ส่งรูปและข้อมูล แล้วน้องเอจะช่วยร่างประกาศให้
+            จากนั้นเข้าสู่ระบบ บันทึก และลงตลาดได้เลย
           </p>
           <button
             type="button"
-            onClick={() => setView("sell")}
+            onClick={() => setView("chat")}
             className="px-6 py-3 bg-orange-600 text-white rounded-xl text-sm font-bold"
           >
-            ลงประกาศแรก
+            ไปคุยกับน้องเอ
           </button>
         </div>
       ) : !loadFailed ? (

@@ -151,7 +151,7 @@ export function ChatSavedMemberListingCard({
         <button
           type="button"
           onClick={onPublishComingSoon}
-          title="ฟีเจอร์นี้จะเปิดในรอบถัดไป — ประกาศยังเป็นร่างและยังไม่ลงตลาด"
+          title="กดเพื่อตรวจสรุปและเผยแพร่ประกาศลงตลาด — ตอนนี้ยังเป็นร่างและยังไม่แสดงในตลาด"
           className="px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm border border-orange-500/30 transition-all cursor-pointer"
           id="chat-ready-to-publish-btn"
         >

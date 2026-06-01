@@ -18,6 +18,10 @@ import { SuggestionsGrid } from "./SuggestionsGrid";
 import { MemoryPanel } from "./MemoryPanel";
 import { PersonalityPanel } from "./PersonalityPanel";
 import {
+  CHAT_FIRST_SELLER_GUIDANCE,
+  CHAT_PILOT_CLOSED_INVITE_NOTICE,
+} from "../../services/ai/chat/chatDraftAccess";
+import {
   optimizeChatImageAttachments,
   revokePendingChatImagePreviews,
 } from "../../features/chat-image-attachment-v1/imageOptimizer";
@@ -320,9 +324,16 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   </p>
                   {!isSignedIn && (
                     <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
-                      ถ้าต้องการบันทึกประกาศขายรถ น้องเอขอให้เข้าสู่ระบบก่อนนะครับ เพื่อยืนยันตัวตนผู้ขายและเพิ่มความน่าเชื่อถือให้ประกาศ
+                      ถ้าต้องการบันทึกประกาศขายรถ น้องเอขอให้เข้าสู่ระบบก่อนนะครับ — กดเข้าสู่ระบบจากเมนูด้านล่างในแถบข้างได้เลย
+                      หลังเข้าสู่ระบบแล้ว น้องเอจะบันทึกประกาศต่อให้อัตโนมัติ
                     </p>
                   )}
+                  <p className="text-xs text-orange-400/90 mt-3 max-w-md mx-auto leading-relaxed">
+                    {CHAT_FIRST_SELLER_GUIDANCE}
+                  </p>
+                  <p className="text-[10px] text-slate-600 mt-1.5 max-w-md mx-auto leading-relaxed">
+                    {CHAT_PILOT_CLOSED_INVITE_NOTICE}
+                  </p>
                 </div>
                 <div className="w-full mt-4">
                   <SuggestionsGrid onSelectSuggestion={handleSuggestionSelect} />

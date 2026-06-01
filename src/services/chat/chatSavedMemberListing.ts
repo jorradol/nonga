@@ -15,10 +15,10 @@ export const SAVED_MEMBER_LISTING_STATUS_LABEL =
 export const CHAT_MEMBER_PUBLISH_LISTING_ACTION = "พร้อมลงตลาด";
 
 export const CHAT_MEMBER_PUBLISH_COMING_SOON_ACK =
-  "ฟีเจอร์ลงตลาดจากแชทจะเปิดในรอบถัดไปครับ ตอนนี้ประกาศถูกบันทึกเป็นร่างแล้ว — ยังไม่แสดงในตลาด ตรวจทานและแก้ไขได้ที่ “ประกาศของฉัน” ก่อนได้เลย";
+  "ข้อมูลพร้อมแล้วครับ — กด “พร้อมลงตลาด” เพื่อตรวจสรุปและเผยแพร่ประกาศได้เลย หรือไปตรวจทานที่ “ประกาศของฉัน” ก่อนก็ได้";
 
 export const CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER =
-  "ปุ่ม “พร้อมลงตลาด” จะเปิดในรอบถัดไป — ตอนนี้ประกาศยังเป็นร่างและยังไม่แสดงในตลาด";
+  "ข้อมูลพร้อมแล้ว คุณพี่สามารถกด “พร้อมลงตลาด” เพื่อตรวจสรุปและเผยแพร่ประกาศได้เลยครับ — ตอนนี้ประกาศยังเป็นร่างและยังไม่แสดงในตลาด";
 
 export function listingImageUrlsToChatAttachments(
   urls: string[]

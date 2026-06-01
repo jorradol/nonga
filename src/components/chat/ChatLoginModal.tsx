@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { LoginFormPanel } from "../auth/LoginFormPanel";
 import { RegisterFormPanel } from "../auth/RegisterFormPanel";
+import { isPublicSignupEnabled } from "../../services/auth/authService";
 import { useAppStore } from "../../store";
 import {
   consumeChatLoginReturnView,
@@ -19,6 +20,7 @@ type ChatLoginModalProps = {
 export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
   const setView = useAppStore((s) => s.setView);
   const [mode, setMode] = useState<AuthModalMode>("login");
+  const signupEnabled = isPublicSignupEnabled();
 
   useEffect(() => {
     if (!open) {
@@ -44,11 +46,15 @@ export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
     setView("forgot-password");
   };
 
-  const title = mode === "login" ? "เข้าสู่ระบบ" : "สร้างบัญชีใหม่";
+  const title = mode === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิก";
   const subtitle =
     mode === "login"
-      ? "ยังอยู่หน้าแชท — กลับมาต่อบทสนทนาได้ทันที"
-      : "สมัครใน modal นี้ — ยังอยู่หน้าแชทหลังสำเร็จ";
+      ? signupEnabled
+        ? "ยังอยู่หน้าแชท — กลับมาต่อบทสนทนาได้ทันที"
+        : "ยังอยู่หน้าแชท — ใช้บัญชีที่ได้รับเชิญ หลัง login น้องเอจะบันทึกประกาศต่อให้อัตโนมัติ"
+      : signupEnabled
+        ? "สมัครใน modal นี้ — ยังอยู่หน้าแชทหลังสำเร็จ"
+        : "รอบนี้ยังเปิดให้เฉพาะผู้ที่ได้รับเชิญเท่านั้นครับ";
 
   return (
     <AnimatePresence>
@@ -104,7 +110,7 @@ export function ChatLoginModal({ open, onClose }: ChatLoginModalProps) {
                   compact
                   onLoginSuccess={handleAuthSuccess}
                   onForgotPassword={leaveChatForForgotPassword}
-                  onRegister={() => setMode("register")}
+                  onRegister={signupEnabled ? () => setMode("register") : undefined}
                 />
               ) : (
                 <RegisterFormPanel

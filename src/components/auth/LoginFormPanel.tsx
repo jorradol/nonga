@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../../hooks/auth/useAuth";
+import { isPublicSignupEnabled } from "../../services/auth/authService";
 import { motion } from "motion/react";
 import {
   Mail,
@@ -43,6 +44,7 @@ export function LoginFormPanel({
   const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
 
   const displayError = localError || authError;
+  const signupEnabled = isPublicSignupEnabled();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -227,14 +229,20 @@ export function LoginFormPanel({
 
       {onRegister && (
         <p className="text-center text-[11px] text-slate-500">
-          ยังไม่มีบัญชี?{" "}
-          <button
-            type="button"
-            onClick={onRegister}
-            className="text-orange-400 font-semibold hover:text-orange-300"
-          >
-            สร้างบัญชี
-          </button>
+          {signupEnabled ? (
+            <>
+              ยังไม่มีบัญชี?{" "}
+              <button
+                type="button"
+                onClick={onRegister}
+                className="text-orange-400 font-semibold hover:text-orange-300"
+              >
+                สร้างบัญชี
+              </button>
+            </>
+          ) : (
+            "รอบนี้ยังเปิดให้เฉพาะผู้ที่ได้รับเชิญเท่านั้นครับ — ใช้บัญชีที่ทีมงานส่งให้"
+          )}
         </p>
       )}
     </div>
