@@ -35,6 +35,7 @@ import {
 } from "./chatBuyerFactsQa";
 import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
 import { tryTroubleshootingAdvisorReply } from "./chatTroubleshootingAdvisorTemplates";
+import { tryInsuranceAdvisorReply } from "./chatInsuranceAdvisorTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 
 export interface OrchestratedChatReply {
@@ -116,6 +117,15 @@ export function tryOrchestrateChatReply(
   if (troubleshooting) {
     return {
       text: troubleshooting.text,
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
+  const insuranceAdvisor = tryInsuranceAdvisorReply(message);
+  if (insuranceAdvisor) {
+    return {
+      text: insuranceAdvisor.text,
       carCards: [],
       skipGemini: true,
     };

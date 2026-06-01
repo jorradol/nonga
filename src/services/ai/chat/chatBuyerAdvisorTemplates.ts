@@ -11,18 +11,13 @@ export type BuyerAdvisorTopic =
   | "easyMaintenance"
   | "financePrep"
   | "downPayment"
-  | "cashVsFinance"
-  | "insuranceClasses"
-  | "compulsoryInsurance";
+  | "cashVsFinance";
 
 const MECHANIC_DISCLAIMER =
   "น้องเอให้แนวทางเบื้องต้นเท่านั้น ไม่แทนช่าง — ควรตรวจรถจริง เอกสาร และให้ช่างช่วยอีกชั้นครับ";
 
 const FINANCE_DISCLAIMER =
   "เป็นข้อมูลทั่วไปเท่านั้น ไม่ใช่ผลอนุมัติหรือใบเสนอราคาจากไฟแนนซ์ — อัตราดอกเบี้ยและดาวน์ขึ้นกับบริษัทที่เลือกครับ";
-
-const INSURANCE_DISCLAIMER =
-  "เป็นข้อมูลทั่วไปเท่านั้น ไม่ใช่คำแนะนำจากบริษัทประกันหรือใบเสนอราคา — ควรเทียบกับตัวแทนหรือโบรชัวร์จริงครับ";
 
 const SEARCH_FOLLOW_UP =
   "ถ้าคุณพี่บอกงบกับการใช้งาน (เช่น รถเมือง / ครอบครัว / ทำงาน) น้องเอช่วยแนะนำแนวรถที่เหมาะหรือค้นจากรถในระบบให้ได้ครับ";
@@ -68,14 +63,6 @@ export const BUYER_ADVISOR_PATTERNS: { topic: BuyerAdvisorTopic; re: RegExp }[] 
   {
     topic: "cashVsFinance",
     re: /ซื้อสด(?:กับ|หรือ)\s*ผ่อน|ผ่อน(?:กับ|หรือ)\s*ซื้อสด|ซื้อเงินสด(?:กับ|หรือ)|จ่ายสด(?:กับ|หรือ)\s*ผ่อน/i,
-  },
-  {
-    topic: "insuranceClasses",
-    re: /ประกัน(?:ชั้น)?\s*1\s*(?:กับ|และ|ต่าง|เทียบ).{0,40}(?:2\+?|3\+?|ชั้น\s*2)|ชั้น\s*1\s*(?:กับ|และ)\s*ชั้น\s*2/i,
-  },
-  {
-    topic: "compulsoryInsurance",
-    re: /พ\.?\s*ร\.?\s*บ\.?\s*(?:คือ|คืออะไร|ต้อง|ต่าง|กับ)|ประกันภาคบังคับ/i,
   },
 ];
 
@@ -209,24 +196,6 @@ export function buildBuyerAdvisorReply(topic: BuyerAdvisorTopic): string {
         "• ผ่อน: แบ่งจ่ายได้ แต่มีดอกและต้องผ่านการอนุมัติ",
         "• เลือกตามงบสดจริงและความสบายใจเรื่องค่างวรรายเดือน",
         FINANCE_DISCLAIMER,
-        SEARCH_FOLLOW_UP,
-      ]);
-    case "insuranceClasses":
-      return joinParagraphs([
-        "ประกันชั้น 1 กับ 2+ โดยทั่วไปครับ:",
-        "• ชั้น 1: คุ้มครองกว้างกว่า มักรวมรถชน (รายละเอียดตามกรมธรรม์)",
-        "• ชั้น 2+: มักคุ้มรถชนเป็นหลัก ความคุ้มครองอื่นอาจน้อยกว่าชั้น 1",
-        "• ทุนประกัน ค่าเสียหายส่วนแรก และซ่อมห้าง/อู่ ต้องอ่านในกรมธรรม์",
-        INSURANCE_DISCLAIMER,
-        SEARCH_FOLLOW_UP,
-      ]);
-    case "compulsoryInsurance":
-      return joinParagraphs([
-        "พ.ร.บ. (พรบ.) คือประกันภาคบังคับสำหรับรถที่จดทะเบียนครับ",
-        "• ครอบคลุมความเสียหายต่อบุคคลภายนอกตามที่กฎหมายกำหนด",
-        "• ไม่ใช่ประกันชั้น 1 ที่คุ้มรถเราแบบครบ",
-        "• ต้องต่ออายุตามกฎหมาย — รายละเอียดความคุ้มครองดูในกรมธรรม์",
-        INSURANCE_DISCLAIMER,
         SEARCH_FOLLOW_UP,
       ]);
     default:

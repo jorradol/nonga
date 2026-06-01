@@ -1134,16 +1134,6 @@ async function main() {
       expectSnippet: /บัตรประชาชน|ไม่ใช่ผลอนุมัติ/,
     },
     {
-      q: "ประกันชั้น 1 กับ 2+ ต่างกันยังไง",
-      topic: "insuranceClasses",
-      expectSnippet: /ชั้น 1|ไม่ใช่คำแนะนำจากบริษัทประกัน/,
-    },
-    {
-      q: "พ.ร.บ. คืออะไร",
-      topic: "compulsoryInsurance",
-      expectSnippet: /ภาคบังคับ|พรบ/,
-    },
-    {
       q: "รถไม่จุกจิกดูยังไง",
       topic: "lowMaintenance",
       expectSnippet: /อะไหล่|ช่าง/,
