@@ -10,11 +10,16 @@ export const CHAT_TEXTAREA_MIN_HEIGHT_PX =
 export const CHAT_TEXTAREA_MAX_HEIGHT_PX =
   CHAT_TEXTAREA_LINE_HEIGHT_PX * MAX_LINES + PADDING_Y_PX;
 
-export function useChatTextareaAutosize(value: string) {
+export function useChatTextareaAutosize(
+  value: string,
+  options?: { pauseWhileComposing?: boolean }
+) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const pauseWhileComposing = options?.pauseWhileComposing ?? false;
 
   const applyHeight = useCallback(
     (el: HTMLTextAreaElement) => {
+      if (pauseWhileComposing) return;
       el.style.height = `${CHAT_TEXTAREA_MIN_HEIGHT_PX}px`;
       if (!value) {
         el.style.overflowY = "hidden";
@@ -29,7 +34,7 @@ export function useChatTextareaAutosize(value: string) {
       el.style.overflowY =
         scrollH > CHAT_TEXTAREA_MAX_HEIGHT_PX ? "auto" : "hidden";
     },
-    [value]
+    [value, pauseWhileComposing]
   );
 
   const adjust = useCallback(() => {

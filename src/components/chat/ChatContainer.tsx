@@ -32,6 +32,7 @@ import {
   CHAT_IMAGE_ATTACHMENT_V1_ENABLED,
   type PendingChatImageAttachment,
 } from "../../features/chat-image-attachment-v1/types";
+import { CHAT_COMPOSER_TEXTAREA_DICTATION_PROPS } from "./chatComposerTextareaConfig";
 
 interface ChatContainerProps {
   onToggleSidebar: () => void;
@@ -62,7 +63,9 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   const [isPreparingAttachments, setIsPreparingAttachments] = useState(false);
   const [showMobileProps, setShowMobileProps] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
-  const { ref: textareaRef, reset: resetTextareaHeight } = useChatTextareaAutosize(inputText);
+  const [isComposing, setIsComposing] = useState(false);
+  const { ref: textareaRef, reset: resetTextareaHeight, adjust: adjustTextareaHeight } =
+    useChatTextareaAutosize(inputText, { pauseWhileComposing: isComposing });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingAnchorRef = useRef<HTMLDivElement>(null);
@@ -235,7 +238,12 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     [openImageAttachmentPicker]
   );
 
+  const syncComposerText = useCallback((el: HTMLTextAreaElement) => {
+    setInputText(el.value);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -419,7 +427,18 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                 <textarea
                   ref={textareaRef}
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  {...CHAT_COMPOSER_TEXTAREA_DICTATION_PROPS}
+                  onChange={(e) => {
+                    if (isComposing) return;
+                    syncComposerText(e.currentTarget);
+                  }}
+                  onInput={(e) => syncComposerText(e.currentTarget)}
+                  onCompositionStart={() => setIsComposing(true)}
+                  onCompositionEnd={(e) => {
+                    setIsComposing(false);
+                    syncComposerText(e.currentTarget);
+                    requestAnimationFrame(() => adjustTextareaHeight());
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isGenerating
@@ -427,8 +446,9 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                       : "ถามน้องเอได้เลย เช่น มีรถ SUV ไม่เกิน 700,000..."
                   }
                   rows={1}
-                  disabled={isGenerating}
-                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] overflow-hidden box-border"
+                  aria-label="ข้อความถึงน้องเอ"
+                  aria-busy={isGenerating}
+                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] overflow-y-hidden box-border touch-manipulation"
                   style={{
                     minHeight: CHAT_TEXTAREA_MIN_HEIGHT_PX,
                     maxHeight: CHAT_TEXTAREA_MAX_HEIGHT_PX,
