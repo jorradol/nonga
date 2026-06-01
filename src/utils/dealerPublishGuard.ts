@@ -1,5 +1,9 @@
 import { isValidListingImageUrl } from "./listingImages";
-import type { VehicleImageMetadataFields } from "./vehicleImageValidationShared";
+import type { ListingImageSetMetadataFields } from "./listingImageSetConsistencyShared";
+import {
+  LISTING_IMAGE_SET_PUBLISH_BLOCK_MESSAGE,
+  shouldBlockPublishForImageSet,
+} from "./listingImageSetConsistencyShared";
 import {
   VEHICLE_IMAGE_PUBLISH_BLOCK_MESSAGE,
   countPublishableVehicleImages,
@@ -10,6 +14,7 @@ import {
 export type PublishRequiredFieldKey =
   | "image"
   | "vehicle_image"
+  | "image_set"
   | "brand"
   | "model"
   | "year"
@@ -19,6 +24,7 @@ export type PublishRequiredFieldKey =
 export const PUBLISH_MISSING_THAI: Record<PublishRequiredFieldKey, string> = {
   image: "ขาดรูปภาพสินค้า",
   vehicle_image: "ยังไม่พบรูปรถที่ชัดเจน",
+  image_set: "ชุดรูปยังไม่พร้อมลงตลาด",
   brand: "ขาดยี่ห้อรถ",
   model: "ขาดรุ่นรถ",
   year: "ขาดปีรถ",
@@ -44,13 +50,14 @@ export interface DraftPublishInput {
   images?: string[];
   /** ไม่นับเป็นรูปจริงถ้ายังไม่มี images ใน storage */
   sourceImageUrls?: string[];
-  imageMetadata?: readonly VehicleImageMetadataFields[];
+  imageMetadata?: readonly ListingImageSetMetadataFields[];
 }
 
 export interface DraftPublishValidation {
   ok: boolean;
   missingFields: PublishRequiredFieldKey[];
   missingLabelsThai: string[];
+  imageSetBlockMessage?: string;
 }
 
 /** รูปที่นับได้ก่อน publish — ไม่รวม placeholder / unsplash fallback */
@@ -100,16 +107,34 @@ export function validateDraftForPublish(
     missing.push("vehicle_image");
   }
 
+  const validImages = getValidPublishImages(draft.id, draft.images);
+  const imageSetBlock = shouldBlockPublishForImageSet({
+    images: draft.images,
+    imageMetadata: draft.imageMetadata,
+    validImageUrls: validImages,
+  });
+  let imageSetBlockMessage: string | undefined;
+  if (imageSetBlock.block) {
+    missing.push("image_set");
+    imageSetBlockMessage = imageSetBlock.message;
+  }
+
   return {
     ok: missing.length === 0,
     missingFields: missing,
     missingLabelsThai: getPublishMissingLabelsThai(missing),
+    ...(imageSetBlockMessage ? { imageSetBlockMessage } : {}),
   };
 }
 
 export function publishGuardVehicleImageMessage(
   validation: DraftPublishValidation
 ): string {
+  if (validation.missingFields.includes("image_set")) {
+    return (
+      validation.imageSetBlockMessage ?? LISTING_IMAGE_SET_PUBLISH_BLOCK_MESSAGE
+    );
+  }
   if (validation.missingFields.includes("vehicle_image")) {
     return VEHICLE_IMAGE_PUBLISH_BLOCK_MESSAGE;
   }

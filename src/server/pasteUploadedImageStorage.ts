@@ -6,6 +6,10 @@ import {
   vehicleMetadataFromValidation,
 } from "./vehicleImageValidation";
 import {
+  buildImageSetConsistencyWarnings,
+  classifyListingImageForDisplay,
+} from "../utils/listingImageSetConsistencyShared";
+import {
   PASTE_SOURCE_MAX_BYTES,
   processListingImageUpload,
 } from "./listingImageProcessor";
@@ -236,6 +240,12 @@ export async function persistPasteUploadedImages(
       warnings.push(`${name}: ${vehicleWarning}`);
     }
 
+    const imageMeta = vehicleMetadataFromValidation(processed.data.vehicleValidation);
+    const setClassified = classifyListingImageForDisplay(imageMeta);
+    if (setClassified.warningMessage) {
+      warnings.push(`${name}: ${setClassified.warningMessage}`);
+    }
+
     const saved = await imageStorage.uploadListingImagePair(
       dealerId,
       listingId,
@@ -282,6 +292,12 @@ export async function persistPasteUploadedImages(
       sortOrder: saved.metadata.sortOrder,
       ...vehicleMetadataFromValidation(processed.data.vehicleValidation),
     });
+  }
+
+  for (const setWarning of buildImageSetConsistencyWarnings(metadata)) {
+    if (!warnings.includes(setWarning.message)) {
+      warnings.push(setWarning.message);
+    }
   }
 
   return { ok: true, storedUrls, thumbnails, metadata, warnings, failed };

@@ -10,6 +10,7 @@ import {
   saveProcessedListingImagePair,
 } from "../listingImageStorage";
 import { vehicleMetadataFromValidation } from "../vehicleImageValidation";
+import type { ListingImageSetMetadataFields } from "../../utils/listingImageSetConsistencyShared";
 import type { VehicleImageMetadataFields } from "../../utils/vehicleImageValidationShared";
 import type { ProcessedImageExt } from "../listingImageProcessor";
 
@@ -42,7 +43,7 @@ export interface ProcessedImagePairUploadInput {
   targetType?: ListingImageTargetType;
 }
 
-export interface StoredListingImageMetadata extends VehicleImageMetadataFields {
+export interface StoredListingImageMetadata extends ListingImageSetMetadataFields {
   imageId: string;
   dealerId: string;
   listingId: string;
@@ -205,6 +206,8 @@ function buildLocalMetadata(params: {
   vehicleConfidence?: number;
   vehicleImageStatus?: VehicleImageMetadataFields["vehicleImageStatus"];
   vehicleImageReason?: string;
+  imageRole?: ListingImageSetMetadataFields["imageRole"];
+  imageSetConsistencyStatus?: ListingImageSetMetadataFields["imageSetConsistencyStatus"];
 }): StoredListingImageMetadata {
   const fileName = filenameFromUrl(params.storedUrl);
   return {
@@ -241,6 +244,10 @@ function buildLocalMetadata(params: {
       : {}),
     ...(params.vehicleImageReason
       ? { vehicleImageReason: params.vehicleImageReason }
+      : {}),
+    ...(params.imageRole ? { imageRole: params.imageRole } : {}),
+    ...(params.imageSetConsistencyStatus
+      ? { imageSetConsistencyStatus: params.imageSetConsistencyStatus }
       : {}),
   };
 }
