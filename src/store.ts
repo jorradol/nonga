@@ -6,7 +6,7 @@ import {
 } from "./services/ai/post-generator/apiHelpers";
 import { queuePendingChatMessage } from "./utils/pendingChatMessage";
 import {
-  normalizeMarketplaceCar,
+  normalizePublicMarketplaceCar,
   devClientMarketplaceLog,
 } from "./utils/marketplaceCarMapper";
 import { addRecentlyViewedCarId } from "./utils/chatCarContext";
@@ -223,7 +223,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const result = await response.json();
       if (result.success && Array.isArray(result.data)) {
         const normalized = (result.data as Record<string, unknown>[]).map(
-          normalizeMarketplaceCar
+          normalizePublicMarketplaceCar
         );
         devClientMarketplaceLog("fetchCars", {
           count: normalized.length,

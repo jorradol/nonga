@@ -18,7 +18,6 @@ export default function SellerCard({ car, isDarkMode = true, onContactClick, onS
 
   const isDealer = car.sellerType === "dealer" || !!car.dealerId;
   const sellerName = car.ownerName || car.brand + " Specialist Owner";
-  const sellerPhone = car.ownerPhone || "080-999-8888";
 
   return (
     <div className={`p-6 rounded-3xl border ${

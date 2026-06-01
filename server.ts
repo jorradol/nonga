@@ -38,6 +38,7 @@ import { registerDuplicateRoutes } from "./src/server/duplicateRoutes";
 import { dealerApiAuth, adminApiAuth } from "./src/server/apiAuth";
 import { getListingImagesRoot } from "./src/server/listingImageStorage";
 import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
+import { toPublicMarketplaceCarDtoList } from "./src/utils/publicMarketplaceListingPrivacy";
 import { sanitizeListingImagesForId } from "./src/utils/listingImages";
 import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
 import {
@@ -157,12 +158,14 @@ app.get("/api/cars", async (req, res) => {
   if (dealerId) {
     data = data.filter((c) => resolveCarDealerId(c) === dealerId);
   }
+  const publicData = toPublicMarketplaceCarDtoList(data);
   devMarketplaceLog("GET /api/cars", {
-    count: data.length,
+    count: publicData.length,
     ownerId: ownerId ?? "all",
     source: inventoryRepository.backend,
+    contactRedacted: true,
   });
-  res.json({ success: true, count: data.length, data });
+  res.json({ success: true, count: publicData.length, data: publicData });
 });
 
 // 2. API: Create car sale post (saves in-memory)

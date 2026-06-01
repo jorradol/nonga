@@ -81,11 +81,12 @@ export default function InquireModal({ isOpen, onClose, car, isDarkMode = true }
           {!isSuccess ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <span className="text-[10px] bg-orange-600/10 text-orange-500 font-bold px-2.5 py-1 rounded-lg inline-block uppercase tracking-widest">
-                Direct Inquiry
+                รอบทดลอง (Pilot)
               </span>
-              <h4 className="font-display font-black text-lg text-white">นัดชมรถ & ขอดอกเบี้ยแคมเปญหลัก</h4>
+              <h4 className="font-display font-black text-lg text-white">สนใจรถคันนี้ — แบบฟอร์มทดลอง</h4>
               <p className="text-xs text-slate-400 leading-normal">
-                กรอกข้อมูลการติดต่อด้านล่าง ดีลเลอร์หรือเจ้าของรถคันนี้จะได้รับการแจ้งเตือนและติดต่อกลับภายในเวลาไม่เกิน 30 นาที
+                ระบบยังไม่ส่ง lead จริงไปหาผู้ขาย — ข้อมูลที่กรอกจะไม่ถูกส่งต่อในรอบ pilot นี้
+                หากต้องการความช่วยเหลือ ติดต่อทีม Nong A ผ่านช่องทาง support pilot
               </p>
 
               {/* Input name */}
@@ -155,10 +156,10 @@ export default function InquireModal({ isOpen, onClose, car, isDarkMode = true }
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-white" />
-                    <span>กำลังส่งข้อมูลพิกัดลีด...</span>
+                    <span>กำลังบันทึกคำขอทดลอง...</span>
                   </>
                 ) : (
-                  <span>ส่งคำขอนัดหมายคุยด่วน 🚀</span>
+                  <span>บันทึกคำขอทดลอง (ยังไม่ส่ง lead)</span>
                 )}
               </button>
             </form>
@@ -168,9 +169,10 @@ export default function InquireModal({ isOpen, onClose, car, isDarkMode = true }
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <div className="space-y-1">
-                <h4 className="font-display font-black text-lg text-white">ส่งสัญญานัดพรีเมียร์สำเร็จ!</h4>
+                <h4 className="font-display font-black text-lg text-white">บันทึกคำขอทดลองแล้ว</h4>
                 <p className="text-xs text-slate-400 leading-normal max-w-[280px] mx-auto">
-                  ระบบทำการส่งลีดใบเสนอขอนัดหมายให้กับดีลเลอร์ผู้รับผิดชอบคาร์แบรนด์ {car.brand} {car.model} เรียบร้อยแล้วครับ ขอบพระคุณอย่างสูงคร้าบ ปังปุริเย่แน่นอน!
+                  รอบ pilot นี้ยังไม่มีระบบส่ง lead จริง — ข้อมูลของคุณไม่ได้ถูกส่งไปหาผู้ขาย
+                  ขอบคุณที่ช่วยทดสอบ Nong A ครับ
                 </p>
               </div>
               <button

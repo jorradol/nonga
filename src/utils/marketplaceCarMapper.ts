@@ -1,5 +1,6 @@
 import type { Car } from "../types";
 import { sanitizeListingImagesForId } from "./listingImages";
+import { redactListingPrivateContactFields } from "./publicMarketplaceListingPrivacy";
 
 const VALID_TYPES = new Set<Car["type"]>([
   "new",
@@ -101,6 +102,15 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
     features: Array.isArray(raw.features) ? (raw.features as string[]) : undefined,
     tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
   };
+}
+
+/** Normalize listing from public marketplace API — strips private contact fields. */
+export function normalizePublicMarketplaceCar(
+  raw: Record<string, unknown>
+): Car {
+  return normalizeMarketplaceCar(
+    redactListingPrivateContactFields(raw)
+  );
 }
 
 export function isDevMarketplaceLogEnabled(): boolean {
