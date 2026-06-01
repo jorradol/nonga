@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { 
   Copy, Check, Terminal, Sparkles, User, 
   Volume2, VolumeX, Heart, Edit3, Save, X 
@@ -28,6 +28,12 @@ import {
   CHAT_MEMBER_CANCEL_PUBLISH_ACTION,
   CHAT_MEMBER_CONFIRM_PUBLISH_ACTION,
 } from "../../services/chat/publishMemberListingFromChat";
+import {
+  CHAT_PUBLISH_CONSENT_LABEL,
+  CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE,
+  clearPublishConsent,
+  setPublishConsentAccepted,
+} from "../../services/chat/chatPublishConsent";
 import { useAppStore } from "../../store";
 import { navigateToSavedDealerDraft } from "../../utils/dealer/dealerDraftNavigation";
 import { ExternalLink } from "lucide-react";
@@ -42,6 +48,15 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const { activeSessionId, editMessage, sendMessage } = useChat();
   const { openImageAttachmentPicker } = useChatComposer();
   const setView = useAppStore((s) => s.setView);
+  const [publishConsentChecked, setPublishConsentChecked] = useState(false);
+
+  useEffect(() => {
+    if (!message.isPublishAwaitingConfirm) return;
+    setPublishConsentChecked(false);
+    if (activeSessionId) {
+      clearPublishConsent(activeSessionId);
+    }
+  }, [message.id, message.isPublishAwaitingConfirm, activeSessionId]);
   const showDraftIdDebug =
     typeof import.meta !== "undefined" &&
     Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
@@ -502,31 +517,59 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             )}
 
             {message.isPublishAwaitingConfirm && (
-              <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeSessionId) {
+              <div className="mt-4 space-y-3">
+                <label
+                  className="flex items-start gap-2 px-1 text-left cursor-pointer group"
+                  id="chat-publish-consent-label"
+                >
+                  <input
+                    type="checkbox"
+                    checked={publishConsentChecked}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setPublishConsentChecked(checked);
+                      if (activeSessionId) {
+                        setPublishConsentAccepted(activeSessionId, checked);
+                      }
+                    }}
+                    className="mt-0.5 shrink-0 rounded border-slate-600 text-orange-500 focus:ring-orange-500/40"
+                    id="chat-publish-consent-checkbox"
+                  />
+                  <span className="text-[10px] text-slate-400 leading-relaxed group-hover:text-slate-300">
+                    {CHAT_PUBLISH_CONSENT_LABEL}
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!activeSessionId || !publishConsentChecked) return;
                       void sendMessage(CHAT_MEMBER_CONFIRM_PUBLISH_ACTION);
+                    }}
+                    disabled={!publishConsentChecked}
+                    title={
+                      publishConsentChecked
+                        ? undefined
+                        : CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE
                     }
-                  }}
-                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
-                  id="chat-confirm-publish-btn"
-                >
-                  ยืนยันเผยแพร่ลงตลาด
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeSessionId) {
-                      void sendMessage(CHAT_MEMBER_CANCEL_PUBLISH_ACTION);
-                    }
-                  }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer"
-                  id="chat-cancel-publish-btn"
-                >
-                  ยกเลิกเผยแพร่
-                </button>
+                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                    id="chat-confirm-publish-btn"
+                  >
+                    ยืนยันเผยแพร่ลงตลาด
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeSessionId) {
+                        void sendMessage(CHAT_MEMBER_CANCEL_PUBLISH_ACTION);
+                      }
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer"
+                    id="chat-cancel-publish-btn"
+                  >
+                    ยกเลิกเผยแพร่
+                  </button>
+                </div>
               </div>
             )}
 

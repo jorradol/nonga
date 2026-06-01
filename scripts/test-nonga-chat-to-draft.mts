@@ -162,6 +162,12 @@ import {
   getPendingPublishListingContext,
   setPendingPublishListingContext,
 } from "../src/services/chat/chatPendingPublishListing";
+import {
+  CHAT_PUBLISH_CONSENT_LABEL,
+  CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE,
+  resetPublishConsentStateForTests,
+  setPublishConsentAccepted,
+} from "../src/services/chat/chatPublishConsent";
 import type { PendingChatImageAttachment } from "../src/features/chat-image-attachment-v1/types";
 import fs from "node:fs";
 import path from "node:path";
@@ -2149,6 +2155,73 @@ const noSavedCardIntent = handleMemberPublishListingIntent({
 });
 assertEqual(noSavedCardIntent.kind, "blocked", "publish intent blocked without saved card");
 
+console.log("--- Testing publish consent (v5.4.5-beta.2) ---");
+
+resetPublishConsentStateForTests();
+
+assertEqual(CHAT_PUBLISH_CONSENT_LABEL.includes("ลุง"), false, "consent label no lung");
+assertEqual(
+  CHAT_PUBLISH_CONSENT_LABEL.includes("สิทธิ์"),
+  true,
+  "consent label mentions rights"
+);
+assertEqual(
+  buildPublishAwaitingConfirmMessage().includes("ติ๊ก"),
+  true,
+  "publish summary mentions consent checkbox"
+);
+assertEqual(
+  CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE.includes("สิทธิ์"),
+  true,
+  "consent required message"
+);
+
+setPendingPublishListingContext({
+  sessionId: "sess-consent-block",
+  listingId: "car-publish-step2",
+  publicRefCode: "NA-2026-PUB1",
+  card: savedCardForPublish,
+});
+
+const consentBlocked = await confirmMemberPublishListingFromChat(
+  {
+    sessionId: "sess-consent-block",
+    ownerId: "member-pub-1",
+    canPublish: true,
+  },
+  {
+    fetchMyListings: async () => [
+      mockHiddenMemberListing("car-publish-step2", "member-pub-1"),
+    ],
+    setListingVisible: async () => {
+      throw new Error("should not publish without consent");
+    },
+  }
+);
+assertEqual(consentBlocked.kind, "blocked", "publish blocked without consent");
+if (consentBlocked.kind === "blocked") {
+  assertEqual(
+    consentBlocked.message,
+    CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE,
+    "consent required on confirm"
+  );
+}
+
+const bubbleSrc = fs.readFileSync(
+  path.join(process.cwd(), "src/components/chat/ChatMessageBubble.tsx"),
+  "utf8"
+);
+assertEqual(
+  bubbleSrc.includes("chat-publish-consent-checkbox"),
+  true,
+  "publish consent checkbox in bubble"
+);
+assertEqual(
+  bubbleSrc.includes("disabled={!publishConsentChecked}"),
+  true,
+  "confirm publish disabled without consent"
+);
+
 console.log("--- Testing publish-in-chat Step 4 real publish ---");
 
 clearAllPendingPublishListingContextsForTest();
@@ -2163,6 +2236,7 @@ setPendingPublishListingContext({
   publicRefCode: "NA-2026-PUB1",
   card: savedCardForPublish,
 });
+setPublishConsentAccepted("sess-step4-ok", true);
 
 let step4VisibilityCalls = 0;
 const step4Ok = await confirmMemberPublishListingFromChat(
@@ -2347,6 +2421,7 @@ setPendingPublishListingContext({
   publicRefCode: "NA-2026-PUB1",
   card: savedCardForPublish,
 });
+setPublishConsentAccepted("sess-step4-already", true);
 const alreadyPublishedFlow = await confirmMemberPublishListingFromChat(
   {
     sessionId: "sess-step4-already",
@@ -2383,6 +2458,7 @@ setPendingPublishListingContext({
   publicRefCode: "NA-2026-PUB1",
   card: savedCardForPublish,
 });
+setPublishConsentAccepted("sess-step4-forbidden", true);
 const forbiddenFlow = await confirmMemberPublishListingFromChat(
   {
     sessionId: "sess-step4-forbidden",

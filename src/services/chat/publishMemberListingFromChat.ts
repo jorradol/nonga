@@ -24,6 +24,14 @@ import {
   setPendingPublishListingContext,
   type PendingPublishListingContext,
 } from "./chatPendingPublishListing";
+import {
+  CHAT_PUBLISH_CONSENT_LABEL,
+  CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE,
+  clearPublishConsent,
+  hasPublishConsentAccepted,
+} from "./chatPublishConsent";
+
+export { CHAT_PUBLISH_CONSENT_LABEL, CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE };
 
 export { CHAT_MEMBER_PUBLISH_LISTING_ACTION };
 
@@ -301,7 +309,7 @@ export function buildPublishSummaryMessage(
 
 export function buildPublishAwaitingConfirmMessage(): string {
   return [
-    "ถ้าข้อมูลถูกต้อง พิมพ์ว่า “ยืนยันเผยแพร่ลงตลาด” หรือกดปุ่มยืนยันด้านล่างครับ",
+    "กรุณาติ๊กยืนยันด้านล่าง แล้วกด “ยืนยันเผยแพร่ลงตลาด” ครับ",
     "ระบบจะยังไม่เผยแพร่จนกว่าจะยืนยันครั้งที่ 2",
   ].join("\n");
 }
@@ -502,6 +510,7 @@ export function handleMemberPublishListingIntent(params: {
   sessionId: string;
   messages: ChatMessage[];
 }): MemberPublishListingIntentOutcome {
+  clearPublishConsent(params.sessionId);
   const began = beginPendingPublishListingFromSavedCard(params);
   if ("ok" in began && began.ok === false) {
     return { kind: "blocked", message: began.message };
@@ -535,6 +544,13 @@ export async function confirmMemberPublishListingFromChat(
     return {
       kind: "no_pending",
       message: CHAT_MEMBER_PUBLISH_CONTEXT_EXPIRED_MESSAGE,
+    };
+  }
+
+  if (!hasPublishConsentAccepted(params.sessionId)) {
+    return {
+      kind: "blocked",
+      message: CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE,
     };
   }
 
@@ -592,6 +608,7 @@ export async function confirmMemberPublishListingFromChat(
   }
 
   clearPendingPublishListingContext(params.sessionId);
+  clearPublishConsent(params.sessionId);
   return {
     kind: "success",
     listingId: ctx.listingId,
@@ -604,6 +621,7 @@ export function handleMemberCancelPublishIntent(sessionId: string): {
   message: string;
 } {
   clearPendingPublishListingContext(sessionId);
+  clearPublishConsent(sessionId);
   return {
     kind: "cancelled",
     message: CHAT_MEMBER_PUBLISH_CANCELLED_ACK,
