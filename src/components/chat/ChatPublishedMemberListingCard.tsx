@@ -3,6 +3,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { ChatMessageAttachment, PublishedMemberListingCardData } from "../../types";
 import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser";
 import type { VisionObservationSummary } from "../../services/ai/chat/chatPrecheckLayer";
+import { buildSellerShareInputFromPublishedCard } from "../../services/chat/sellerShareCopy";
+import { ChatSellerShareCopyPanel } from "./ChatSellerShareCopyPanel";
 
 interface ChatPublishedMemberListingCardProps {
   card: PublishedMemberListingCardData;
@@ -260,6 +262,10 @@ export function ChatPublishedMemberListingCard({
       ? fields.description.trim()
       : "";
   const marketingCopy = card.marketingCopy.trim();
+  const shareInput = useMemo(
+    () => buildSellerShareInputFromPublishedCard(card),
+    [card]
+  );
 
   return (
     <div
@@ -318,6 +324,13 @@ export function ChatPublishedMemberListingCard({
             )}
           </div>
         )}
+      </div>
+
+      <div className="px-3 pb-2">
+        <ChatSellerShareCopyPanel
+          input={shareInput}
+          idPrefix={`published-${card.listingId || card.publicRefCode}`}
+        />
       </div>
 
       <div className="px-3 pb-3">

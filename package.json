@@ -61,6 +61,7 @@
     "test:v544k-image-set-consistency": "tsx scripts/test-v544k-image-set-consistency.mts",
     "test:v545-sidebar-new-cars-slider": "tsx scripts/test-v545-sidebar-new-cars-slider.mts",
     "test:v545b3-public-api-privacy": "tsx scripts/test-v545b3-public-api-privacy.mts",
+    "test:v545-seller-copy-share-pack": "tsx scripts/test-v545-seller-copy-share-pack.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
     "test:listing-images": "tsx scripts/test-listing-image-mapping.mts",
