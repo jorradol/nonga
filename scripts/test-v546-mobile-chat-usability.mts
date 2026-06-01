@@ -84,7 +84,9 @@ function main(): void {
   mustInclude(savedCard, "max-md:flex-col", "saved-card-mobile-stacked-buttons");
 
   const slider = read("src/components/chat/ChatSidebarNewCarsSlider.tsx");
-  mustInclude(slider, "max-h-[84px]", "new-cars-compact-mobile-height");
+  mustInclude(slider, "max-md:object-contain", "new-cars-mobile-object-contain");
+  mustInclude(slider, "max-md:max-h-[108px]", "new-cars-mobile-preview-height");
+  mustInclude(slider, "md:object-cover", "new-cars-desktop-object-cover");
   mustInclude(slider, "md:max-h-[132px]", "new-cars-desktop-height-preserved");
 
   const carCard = read("src/components/chat/ChatCarCard.tsx");

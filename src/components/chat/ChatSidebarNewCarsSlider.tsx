@@ -129,14 +129,14 @@ export function ChatSidebarNewCarsSlider({
           type="button"
           onClick={() => void handleSlideClick()}
           disabled={isGenerating}
-          className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700/80 shadow-md shadow-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 disabled:opacity-50"
+          className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700/80 bg-gradient-to-b from-slate-800/70 to-slate-950 shadow-md shadow-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 disabled:opacity-50"
           title={`${current.brand} ${current.model}`}
           aria-label={`รถเข้าใหม่ ${current.brand} ${current.model}`}
         >
           <img
             src={current.imageUrl}
             alt=""
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain object-center"
             loading="lazy"
             decoding="async"
           />
@@ -162,14 +162,14 @@ export function ChatSidebarNewCarsSlider({
           type="button"
           onClick={() => void handleSlideClick()}
           disabled={isGenerating}
-          className="block w-full aspect-[16/10] max-h-[84px] max-md:max-h-[84px] md:max-h-[132px] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/50 disabled:opacity-50"
+          className="block w-full max-md:aspect-[3/2] max-md:max-h-[108px] max-md:bg-gradient-to-b max-md:from-slate-800/60 max-md:to-slate-950 md:aspect-[16/10] md:max-h-[132px] md:bg-slate-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/50 disabled:opacity-50"
           id="sidebar-new-cars-image-btn"
           aria-label={`ดู ${current.brand} ${current.model} ในแชท`}
         >
           <img
             src={current.imageUrl}
             alt={`${current.brand} ${current.model}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full max-md:object-contain max-md:object-center md:object-cover"
             loading="lazy"
             decoding="async"
           />
