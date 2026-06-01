@@ -6,6 +6,7 @@ import {
 } from "../listings/myListingsApi";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
 import { isValidListingImageUrl } from "../../utils/listingImages";
+import { filterSavedCardImageUrls } from "./chatSavedMemberListing";
 import {
   hasCoreFieldsComplete,
   getMissingCoreFieldLabels,
@@ -103,9 +104,12 @@ export function normalizeSavedMemberListingCardData(
 
   const fields = normalizeExtractedCarFields(raw.fields);
   const visionSummary = normalizeVisionObservationSummary(raw.visionSummary);
-  const imageUrls = Array.isArray(raw.imageUrls)
-    ? raw.imageUrls.filter((u): u is string => typeof u === "string" && Boolean(u.trim()))
-    : [];
+  const imageUrls = filterSavedCardImageUrls(
+    listingId,
+    Array.isArray(raw.imageUrls)
+      ? raw.imageUrls.filter((u): u is string => typeof u === "string" && Boolean(u.trim()))
+      : []
+  );
 
   return {
     listingId,

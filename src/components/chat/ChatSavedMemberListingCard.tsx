@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ClipboardCopy, Check, ExternalLink } from "lucide-react";
 import type { ChatMessageAttachment, SavedMemberListingCardData } from "../../types";
 import type { ExtractedCarFields } from "../../services/ai/chat/sellIntentParser";
@@ -6,7 +6,12 @@ import type { VisionObservationSummary } from "../../services/ai/chat/chatPreche
 import { LISTING_CARD_MAX_THUMBNAILS } from "../../constants/listingImagePolicy";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { useClipboard } from "../../hooks/chat/useClipboard";
-import { CHAT_MEMBER_PUBLISH_LISTING_ACTION, CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER } from "../../services/chat/chatSavedMemberListing";
+import {
+  CHAT_MEMBER_PUBLISH_LISTING_ACTION,
+  CHAT_SAVED_MEMBER_LISTING_CARD_FOOTER,
+  listingImageUrlsToChatAttachments,
+  resolveSavedMemberListingCardImageUrls,
+} from "../../services/chat/chatSavedMemberListing";
 
 interface ChatSavedMemberListingCardProps {
   card: SavedMemberListingCardData;
@@ -41,6 +46,17 @@ export function ChatSavedMemberListingCard({
   const brandModel = [fields.brand || visionSummary?.brand, fields.model || visionSummary?.model]
     .filter(Boolean)
     .join(" ");
+
+  const displayImageUrls = useMemo(
+    () => resolveSavedMemberListingCardImageUrls({ card, attachments }),
+    [card, attachments]
+  );
+  const displayAttachments = useMemo(
+    () => listingImageUrlsToChatAttachments(displayImageUrls),
+    [displayImageUrls]
+  );
+  const pendingImageMetaCount =
+    attachments?.filter((a) => a.kind === "image").length ?? 0;
 
   const specs = [
     fieldLine("ยี่ห้อ/รุ่น", brandModel || undefined),
@@ -82,15 +98,21 @@ export function ChatSavedMemberListingCard({
         </span>
       </div>
 
-      {attachments && attachments.length > 0 && (
-        <div className="px-3 pt-3">
+      {(displayAttachments.length > 0 || pendingImageMetaCount > 0) && (
+        <div className="px-3 pt-3" data-testid="chat-saved-member-listing-images">
           <p className="text-[10px] font-semibold text-emerald-300/90 mb-2">
-            รูปในระบบ {card.imageUrls.length || attachments.length} รูป
+            รูปในระบบ {displayImageUrls.length || pendingImageMetaCount} รูป
           </p>
-          <ChatMessageAttachments
-            attachments={attachments}
-            maxVisibleImages={LISTING_CARD_MAX_THUMBNAILS}
-          />
+          {displayAttachments.length > 0 ? (
+            <ChatMessageAttachments
+              attachments={displayAttachments}
+              maxVisibleImages={LISTING_CARD_MAX_THUMBNAILS}
+            />
+          ) : (
+            <p className="text-[10px] text-slate-500 rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-2.5 py-2">
+              กำลังเตรียมรูปประกาศ — ลองรีเฟรชหรือเปิด “ประกาศของฉัน” ถ้ายังไม่ขึ้นครับ
+            </p>
+          )}
         </div>
       )}
 

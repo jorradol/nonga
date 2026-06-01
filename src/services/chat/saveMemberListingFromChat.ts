@@ -190,6 +190,21 @@ function filterListingImageUrls(listingId: string, urls: string[]): string[] {
   return out;
 }
 
+/** รวม URL หลัง upload — ให้ storedUrls จาก API มาก่อน patch ที่อาจมี placeholder */
+export function resolveRecordImageUrlsAfterMemberListingUpload(
+  listingId: string,
+  storedUrls: string[],
+  patchedImages: unknown
+): string[] {
+  const patched = Array.isArray(patchedImages)
+    ? patchedImages.filter((u): u is string => typeof u === "string")
+    : [];
+  const merged = [...storedUrls, ...patched];
+  const filtered = filterListingImageUrls(listingId, merged);
+  if (filtered.length > 0) return filtered;
+  return filterListingImageUrls(listingId, storedUrls);
+}
+
 function buildMemberImageUploadSummary(
   upload: UploadMyListingImagesResult,
   recordImageCount: number
@@ -342,9 +357,10 @@ export async function saveMemberListingFromChat(params: {
         const patched = await patchMyListing(params.ownerId, listingId, {
           images: uploadResult.storedUrls,
         });
-        recordImageUrls = filterListingImageUrls(
+        recordImageUrls = resolveRecordImageUrlsAfterMemberListingUpload(
           listingId,
-          Array.isArray(patched.images) ? patched.images : uploadResult.storedUrls
+          uploadResult.storedUrls,
+          patched.images
         );
       } else if (uploadResult.failedBatches.length > 0) {
         return {

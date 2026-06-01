@@ -407,7 +407,9 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 <div className="space-y-1.5 selection:bg-orange-500/30 break-words">
                   {parseMarkdown(message.text)}
                 </div>
-                {message.attachments && message.attachments.length > 0 && (
+                {message.attachments &&
+                  message.attachments.length > 0 &&
+                  !message.isSavedMemberListingCard && (
                   <ChatMessageAttachments attachments={message.attachments} />
                 )}
               </>

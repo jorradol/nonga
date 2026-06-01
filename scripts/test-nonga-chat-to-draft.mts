@@ -121,10 +121,14 @@ import {
   buildMemberListingSuccessMessage,
   chatFlowExpectsListingImages,
   CHAT_MEMBER_NEED_IMAGES_BEFORE_SAVE_MESSAGE,
+  resolveRecordImageUrlsAfterMemberListingUpload,
 } from "../src/services/chat/saveMemberListingFromChat";
 import {
   buildSavedMemberListingCardData,
+  filterSavedCardImageUrls,
+  isLikelyDisplayableImageSrc,
   listingImageUrlsToChatAttachments,
+  resolveSavedMemberListingCardImageUrls,
   SAVED_MEMBER_LISTING_STATUS_LABEL,
   CHAT_MEMBER_PUBLISH_COMING_SOON_ACK,
 } from "../src/services/chat/chatSavedMemberListing";
@@ -1833,6 +1837,94 @@ assertEqual(
   CHAT_MEMBER_PUBLISH_COMING_SOON_ACK.includes("พร้อมลงตลาด"),
   true,
   "publish ready ack mentions publish action"
+);
+
+console.log("--- Testing saved member listing card images ---");
+
+const listingIdForImages = "car-saved-thumb-001";
+const uploadedUrls = [
+  `/storage/listings/${listingIdForImages}/01-a.webp`,
+  `/storage/listings/${listingIdForImages}/02-b.webp`,
+];
+const savedCardWithImages = buildSavedMemberListingCardData({
+  listingId: listingIdForImages,
+  publicRefCode: "NA-IMG-01",
+  fields: snapFields,
+  marketingCopy: "รถทดสอบ",
+  imageUrls: uploadedUrls,
+});
+assertEqual(
+  savedCardWithImages.imageUrls.length,
+  2,
+  "saved card keeps uploaded imageUrls"
+);
+const resolvedUrls = resolveSavedMemberListingCardImageUrls({
+  card: savedCardWithImages,
+  attachments: [
+    {
+      id: "meta-only",
+      kind: "image",
+      name: "IMG_1695.jpg",
+      originalFileName: "IMG_1695.jpg",
+      size: 1000,
+      mimeType: "image/jpeg",
+    },
+  ],
+});
+assertEqual(resolvedUrls.length, 2, "resolve prefers card imageUrls over filename metadata");
+assertEqual(
+  resolvedUrls[0]?.includes("/storage/listings/"),
+  true,
+  "resolved urls are storage paths not filenames"
+);
+assertEqual(
+  isLikelyDisplayableImageSrc("IMG_1695.jpg"),
+  false,
+  "bare filename must not be image src"
+);
+const fromFilenameOnly = resolveSavedMemberListingCardImageUrls({
+  card: {
+    ...savedCardWithImages,
+    imageUrls: ["IMG_1695.jpg", "photo.jpg"],
+  },
+  attachments: [
+    {
+      id: "a1",
+      kind: "image",
+      name: "IMG_1695.jpg",
+      originalFileName: "IMG_1695.jpg",
+      size: 1,
+      mimeType: "image/jpeg",
+    },
+  ],
+});
+assertEqual(fromFilenameOnly.length, 0, "filenames alone do not render as images");
+const displayAttachments = listingImageUrlsToChatAttachments(resolvedUrls);
+assertEqual(
+  displayAttachments.every((a) => Boolean(a.imageUrl?.includes("/storage/listings/"))),
+  true,
+  "display attachments use uploaded URLs"
+);
+assertEqual(
+  filterSavedCardImageUrls(listingIdForImages, [
+    ...uploadedUrls,
+    "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600",
+  ]).length,
+  2,
+  "filter drops legacy stock placeholder"
+);
+const mergedAfterUpload = resolveRecordImageUrlsAfterMemberListingUpload(
+  listingIdForImages,
+  uploadedUrls,
+  [
+    "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600",
+  ]
+);
+assertEqual(mergedAfterUpload.length, 2, "after upload patch keeps storedUrls over placeholder");
+assertEqual(
+  mergedAfterUpload[0]?.includes(listingIdForImages),
+  true,
+  "merged urls belong to listing"
 );
 
 console.log("--- Testing collect all member listing images ---");
