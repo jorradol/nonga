@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { ChatSidebarAccount } from "./ChatSidebarAccount";
+import { ChatSidebarNewCarsSlider } from "./ChatSidebarNewCarsSlider";
 import {
   CHAT_SIDEBAR_WIDTH_COLLAPSED_PX,
   CHAT_SIDEBAR_WIDTH_MOBILE,
@@ -231,6 +232,11 @@ export function ChatSidebar({
             <span className={collapsed ? "md:hidden" : ""}>เริ่มคุยเรื่องใหม่</span>
           </button>
         </div>
+
+        <ChatSidebarNewCarsSlider
+          collapsed={collapsed}
+          onMobileSidebarClose={onClose}
+        />
 
         <div
           className={`flex-1 overflow-y-auto pb-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800 ${
