@@ -1100,6 +1100,115 @@ async function main() {
     orchClarify.text.slice(0, 100)
   );
 
+  // Case 19: v5.4.6.2 — buyer advisor templates
+  console.log("\n--- v5.4.6.2 buyer advisor templates ---");
+
+  const {
+    buildBuyerAdvisorReply,
+    detectBuyerAdvisorTopic,
+  } = await import("../src/services/ai/chat/chatBuyerAdvisorTemplates.ts");
+
+  const advisorCases: {
+    q: string;
+    topic: import("../src/services/ai/chat/chatBuyerAdvisorTemplates.ts").BuyerAdvisorTopic;
+    expectSnippet: RegExp;
+  }[] = [
+    {
+      q: "ซื้อรถมือสองต้องดูอะไร",
+      topic: "prePurchase",
+      expectSnippet: /เล่มทะเบียน|ช่าง/,
+    },
+    {
+      q: "รถน้ำท่วมดูยังไง",
+      topic: "floodCheck",
+      expectSnippet: /น้ำท่วม|กลิ่นอับ/,
+    },
+    {
+      q: "รถชนดูยังไง",
+      topic: "crashCheck",
+      expectSnippet: /ชน|เคลม/,
+    },
+    {
+      q: "ไฟแนนซ์ต้องเตรียมอะไร",
+      topic: "financePrep",
+      expectSnippet: /บัตรประชาชน|ไม่ใช่ผลอนุมัติ/,
+    },
+    {
+      q: "ประกันชั้น 1 กับ 2+ ต่างกันยังไง",
+      topic: "insuranceClasses",
+      expectSnippet: /ชั้น 1|ไม่ใช่คำแนะนำจากบริษัทประกัน/,
+    },
+    {
+      q: "พ.ร.บ. คืออะไร",
+      topic: "compulsoryInsurance",
+      expectSnippet: /ภาคบังคับ|พรบ/,
+    },
+    {
+      q: "รถไม่จุกจิกดูยังไง",
+      topic: "lowMaintenance",
+      expectSnippet: /อะไหล่|ช่าง/,
+    },
+    {
+      q: "ดาวน์เท่าไหร่ดี",
+      topic: "downPayment",
+      expectSnippet: /20|30|ดาวน์/,
+    },
+  ];
+
+  for (const { q, topic, expectSnippet } of advisorCases) {
+    ok(`v5462-detect-${topic}`, detectBuyerAdvisorTopic(q) === topic, q);
+    const body = buildBuyerAdvisorReply(topic);
+    ok(`v5462-body-${topic}`, expectSnippet.test(body), body.slice(0, 60));
+    const orchAdv = tryOrchestrateChatReply(q, INVENTORY_CAMRY);
+    ok(`v5462-orch-${topic}`, orchAdv != null && orchAdv.skipGemini === true, "");
+    ok(`v5462-no-cards-${topic}`, (orchAdv?.carCards.length ?? 0) === 0, "");
+    ok(
+      `v5462-followup-${topic}`,
+      /งบ|การใช้งาน|ค้นจากรถ/.test(orchAdv?.text ?? ""),
+      ""
+    );
+  }
+
+  if (typeof global !== "undefined" && global.sessionStorage) {
+    global.sessionStorage.clear();
+  }
+  const orchMileageGeneral = tryOrchestrateChatReply("เลขไมล์เยอะไหม", INVENTORY_CAMRY);
+  ok("v5462-mileage-general-advisor", orchMileageGeneral != null, "");
+  ok(
+    "v5462-mileage-general-no-cards",
+    (orchMileageGeneral?.carCards.length ?? 0) === 0,
+    ""
+  );
+  ok(
+    "v5462-mileage-general-copy",
+    /ไมล์|ปีรถ/.test(orchMileageGeneral?.text ?? ""),
+    ""
+  );
+
+  const mileageCtxCamry = summaryToChatCarCardData(toChatCarSummary(INVENTORY_CAMRY[0]), "exact");
+  saveChatCarContext([mileageCtxCamry]);
+  saveLastSelectedCarId(mileageCtxCamry.id);
+  const orchMileageCar = tryOrchestrateChatReply("เลขไมล์เยอะไหม", INVENTORY_CAMRY);
+  ok("v5462-mileage-with-car-facts", orchMileageCar != null, "");
+  ok(
+    "v5462-mileage-with-car-spec",
+    /ไมล์|กม\.|ข้อมูลที่มี/.test(orchMileageCar?.text ?? ""),
+    orchMileageCar?.text.slice(0, 80) ?? ""
+  );
+
+  ok(
+    "v5462-search-camry-still",
+    (tryOrchestrateChatReply("มี Camry ไม่เกิน 1 ล้านไหม", INVENTORY_CAMRY)?.carCards.length ??
+      0) >= 1,
+    ""
+  );
+  ok(
+    "v5462-search-suv-still",
+    (tryOrchestrateChatReply("หา SUV 7 ที่นั่ง", INVENTORY_MULTI_CRV)?.carCards.length ??
+      0) >= 1,
+    ""
+  );
+
   console.log("\nDone.");
 }
 

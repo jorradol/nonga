@@ -101,7 +101,11 @@ export function tryOrchestrateChatReply(
 
   const contextCars = loadChatCarContext();
 
-  const intentGate = tryBuyerIntentGateReply(message);
+  const intentGate = tryBuyerIntentGateReply(message, {
+    hasTargetCarForFacts: Boolean(
+      resolveTargetBuyerCar(message, inventory, contextCars)
+    ),
+  });
   if (intentGate) {
     return {
       text: intentGate.text,
