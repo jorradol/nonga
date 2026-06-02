@@ -456,12 +456,9 @@ async function main() {
   ok("v542-component-expand-btn", buyerCardSource.includes('data-testid="chat-car-card-expand-btn"'), "");
   ok("v542-component-expand-label", buyerCardSource.includes("ดูรายละเอียดรถ"), "");
   ok("v542-component-collapse-label", buyerCardSource.includes("ย่อรายละเอียด"), "");
-  ok("v542-component-full-detail-secondary", buyerCardSource.includes('data-testid="chat-car-card-full-detail-btn"'), "");
-  ok(
-    "v542-component-full-detail-label",
-    buyerCardSource.includes("เปิดหน้ารถเต็ม") && buyerCardSource.includes("window.open"),
-    ""
-  );
+  ok("v549c-no-full-page-button", !buyerCardSource.includes("chat-car-card-full-detail-btn"), "");
+  ok("v549c-no-window-open", !buyerCardSource.includes("window.open"), "");
+  ok("v549c-curated-analysis-panel", buyerCardSource.includes("chat-car-curated-analysis"), "");
   ok("v542-component-spec-summary", buyerCardSource.includes("chat-car-card-spec-summary"), "");
   ok("v542-component-spec-detail", buyerCardSource.includes("chat-car-card-spec-detail"), "");
   ok("v542-component-gallery", buyerCardSource.includes("chat-car-card-gallery"), "");
@@ -685,8 +682,8 @@ async function main() {
     ""
   );
   ok(
-    "v543-full-detail-still-remembers-selected",
-    v543BuyerCardSource.includes("handleOpenFullDetailInNewTab") &&
+    "v543-expand-handler-saves-selected-id",
+    v543BuyerCardSource.includes("handleToggleInChatDetail") &&
       v543BuyerCardSource.includes("rememberSelectedCar"),
     ""
   );

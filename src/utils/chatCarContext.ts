@@ -7,6 +7,37 @@ export interface ChatSearchContextData {
   pitchLines?: string[];
 }
 
+/** Last buyer search hint for in-chat curated analysis weaving */
+export interface InChatBuyerContext {
+  message?: string;
+  usageTags?: string[];
+  budgetMax?: number | null;
+  seatsMin?: number | null;
+}
+
+const IN_CHAT_BUYER_HINT_KEY = "nonga_chat_in_chat_buyer_hint";
+
+export function saveInChatBuyerContext(ctx: InChatBuyerContext): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(IN_CHAT_BUYER_HINT_KEY, JSON.stringify(ctx));
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadInChatBuyerContext(): InChatBuyerContext | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(IN_CHAT_BUYER_HINT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as InChatBuyerContext;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function saveChatSearchContext(data: ChatSearchContextData): void {
   if (typeof sessionStorage === "undefined") return;
   try {

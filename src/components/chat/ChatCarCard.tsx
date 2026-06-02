@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { Car, ChevronDown, ChevronUp, ExternalLink, ImageOff } from "lucide-react";
+import { Car, ChevronDown, ChevronUp, ImageOff, Quote, Sparkles } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
+import {
+  buildInChatCuratedAnalysis,
+  IN_CHAT_CURATED_TITLE,
+} from "../../services/ai/chat/buildInChatCuratedAnalysis";
 
 interface ChatCarCardProps {
   car: ChatCarCardData;
@@ -163,6 +167,28 @@ function ExpandableDescription({ text }: { text: string }) {
   );
 }
 
+function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
+  const analysis = useMemo(() => buildInChatCuratedAnalysis(car), [car]);
+
+  return (
+    <div
+      className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-3 space-y-2.5"
+      data-testid="chat-car-curated-analysis"
+    >
+      <div className="flex items-center gap-1.5">
+        <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+        <Quote className="w-3 h-3 text-orange-500/70 shrink-0" />
+        <span className="text-[11px] font-bold text-orange-400">{analysis.title}</span>
+      </div>
+      <div className="space-y-2 text-[11px] sm:text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+        <p>{analysis.opening}</p>
+        <p>{analysis.highlights}</p>
+        <p className="text-slate-400">{analysis.closing}</p>
+      </div>
+    </div>
+  );
+}
+
 export function ChatCarCard({ car }: ChatCarCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -210,13 +236,6 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
     });
   };
 
-  const handleOpenFullDetailInNewTab = () => {
-    rememberSelectedCar();
-    if (typeof window === "undefined") return;
-    const path = `/cars/${encodeURIComponent(car.id)}`;
-    window.open(path, "_blank", "noopener,noreferrer");
-  };
-
   return (
     <article
       className="w-full max-w-full min-w-0 rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden shadow-lg"
@@ -257,14 +276,17 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
           <SpecGrid items={summarySpecs} compact />
         )}
 
-        {expanded && car.description?.trim() ? (
-          <div className="border-t border-slate-800/80 pt-3">
-            <ExpandableDescription text={car.description.trim()} />
+        {expanded ? (
+          <div className="border-t border-slate-800/80 pt-3 space-y-3">
+            <ChatCarCuratedAnalysisPanel car={car} />
+            {car.description?.trim() ? (
+              <ExpandableDescription text={car.description.trim()} />
+            ) : null}
           </div>
         ) : null}
       </div>
 
-      <div className="px-3 pb-3 space-y-2">
+      <div className="px-3 pb-3">
         <button
           type="button"
           onClick={handleToggleInChatDetail}
@@ -283,17 +305,10 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
             </>
           )}
         </button>
-
-        <button
-          type="button"
-          onClick={handleOpenFullDetailInNewTab}
-          className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-semibold rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/80 transition cursor-pointer min-h-[40px]"
-          data-testid="chat-car-card-full-detail-btn"
-        >
-          <ExternalLink className="w-3 h-3 shrink-0" />
-          เปิดหน้ารถเต็ม (แท็บใหม่)
-        </button>
       </div>
     </article>
   );
 }
+
+// Re-export title for tests
+export { IN_CHAT_CURATED_TITLE };

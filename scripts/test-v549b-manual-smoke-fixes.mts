@@ -48,8 +48,8 @@ ok(
   ""
 );
 ok(
-  "chat-card-full-detail-new-tab",
-  carCard.includes("window.open") && carCard.includes("/cars/"),
+  "chat-card-no-full-page-escape",
+  !carCard.includes("window.open") && !carCard.includes("chat-car-card-full-detail-btn"),
   ""
 );
 

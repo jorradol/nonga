@@ -10,6 +10,7 @@ import {
   resolveCarsFromContextHint,
   saveChatCarContext,
   saveChatSearchContext,
+  saveInChatBuyerContext,
   loadChatSearchContext,
   loadLastSelectedCarId,
   loadRecentlyViewedCarIds
@@ -39,6 +40,7 @@ import { tryInsuranceAdvisorReply } from "./chatInsuranceAdvisorTemplates";
 import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
+import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -371,6 +373,13 @@ export function tryOrchestrateChatReply(
         pitchLines: buyerScored.pitchLines,
       });
       saveChatCarContext(initialCards);
+      const intent = parseBuyerSearchIntent(message);
+      saveInChatBuyerContext({
+        message,
+        usageTags: intent.usageTags,
+        budgetMax: intent.budgetMax,
+        seatsMin: intent.seatsMin,
+      });
     }
 
     return {
