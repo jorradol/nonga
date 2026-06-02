@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 import { Sparkles, CheckCircle2 } from "lucide-react";
 import { LoginFormPanel } from "./LoginFormPanel";
 import { isPublicSignupEnabled } from "../../services/auth/authService";
+import { navigatePilotPolicy } from "../../utils/pilotPolicyNavigation";
 
 export default function LoginView() {
   const setView = useAppStore((state) => state.setView);
@@ -95,9 +96,18 @@ export default function LoginView() {
               </button>
             </>
           ) : (
-            <p className="w-full text-center leading-relaxed">
-              รอบทดลอง — เปิดให้เฉพาะผู้ที่ได้รับเชิญ ยังไม่เปิดสมัครทั่วไป กรุณาใช้บัญชีที่ทีมงานส่งให้
-            </p>
+            <div className="w-full space-y-2 text-center">
+              <p className="leading-relaxed">
+                รอบทดลอง — เปิดให้เฉพาะผู้ที่ได้รับเชิญ ยังไม่เปิดสมัครทั่วไป กรุณาใช้บัญชีที่ทีมงานส่งให้
+              </p>
+              <button
+                type="button"
+                onClick={() => navigatePilotPolicy("terms", setView)}
+                className="text-[11px] text-orange-500/90 hover:text-orange-600 underline-offset-2 hover:underline"
+              >
+                ดูนโยบายรอบทดลองเบื้องต้น (เงื่อนไข · ความเป็นส่วนตัว · ประกาศ)
+              </button>
+            </div>
           )}
         </div>
       </div>

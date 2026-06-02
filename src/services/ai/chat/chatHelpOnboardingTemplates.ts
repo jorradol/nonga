@@ -11,12 +11,17 @@ export type HelpOnboardingTopic =
   | "sellerAfterPublish"
   | "sellerShareCopy"
   | "buyerOnboarding"
-  | "accountPilot";
+  | "accountPilot"
+  | "policyInfo";
 
 export const HELP_ONBOARDING_PATTERNS: {
   topic: HelpOnboardingTopic;
   re: RegExp;
 }[] = [
+  {
+    topic: "policyInfo",
+    re: /นโยบาย(?:คือ|มี|อะไร|ใช้)?|(?:ข้อมูล|ข้อมูลส่วนตัว).{0,16}ปลอดภัย|privacy|terms|เงื่อนไข(?:การใช้|ใช้งาน)|นโยบาย(?:ความเป็นส่วนตัว|ประกาศ)|listing\s*policy/i,
+  },
   {
     topic: "accountPilot",
     re: /(?:ต้อง|จำเป็น)(?:สมัคร|ลงทะเบียน)(?:สมาชิก)?(?:ไหม|มั้ย)?|สมัคร(?:สมาชิก)?(?:ไม่ได้|ไม่ผ่าน|ทำไม)|ทำไมสมัครไม่ได้|(?:login|ล็อกอิน|เข้าสู่ระบบ)(?:ทำ)?ยังไง|รอบทดลอง(?:คือ|คืออะไร|คืออะไร)|closed\s*pilot|เปิดสมัครทั่วไป(?:ไหม|มั้ย)?/i,
@@ -181,6 +186,19 @@ export function buildHelpOnboardingReply(
           "ยังไม่เปิดสมัครสมาชิกทั่วไป — ไม่ต้องสมัครใหม่ถ้ายังไม่มีบัญชีจากทีมงาน",
         ]),
         "เข้าสู่ระบบ: กดปุ่ม “เข้าสู่ระบบ” จากแถบข้างหรือเมนูในแชทครับ",
+        "ดูนโยบายเพิ่ม: /policy/terms · /policy/privacy · /policy/listing",
+      ]);
+    case "policyInfo":
+      return joinLines([
+        "นโยบายรอบทดลอง Nong A มี 3 ส่วนหลักครับคุณพี่:",
+        bulletList([
+          "เงื่อนไขการใช้งาน — /policy/terms",
+          "ความเป็นส่วนตัว — /policy/privacy",
+          "นโยบายประกาศขายรถ — /policy/listing",
+        ]),
+        "เป็นนโยบายเบื้องต้นสำหรับ closed pilot ไม่ใช่เอกสารกฎหมายหรือ PDPA ฉบับสมบูรณ์ — เมื่อเปิดวงกว้างควรให้ผู้เชี่ยวชาญตรวจทานอีกครั้ง",
+        "สรุปสั้น ๆ: น้องเอช่วยร่างประกาศ แต่ผู้ขายตรวจข้อมูลจริงก่อนเผยแพร่ ระบบไม่รับประกันขายได้ และยังไม่เปิดสมัครทั่วไปในรอบนี้",
+        "เตือนนุ่ม ๆ: อย่าอัปโหลดเอกสารส่วนตัว ใบหน้า หรือป้ายทะเบียนที่ไม่ได้เบลอ — ดูรายละเอียดในแต่ละหน้านโยบายจาก footer หรือลิงก์ด้านบนครับ",
       ]);
     default:
       return buildHelpOnboardingReply("generalHelp", options);

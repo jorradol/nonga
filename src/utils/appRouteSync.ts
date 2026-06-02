@@ -28,7 +28,8 @@ export type RoutableAppView =
   | "seo-landing"
   | "dealer-showroom"
   | "billing"
-  | "boost";
+  | "boost"
+  | "pilot-policy";
 
 /** Legacy keys that pinned home on "/" before chat-default routing. */
 export const LEGACY_APP_VIEW_KEYS = [
@@ -36,6 +37,16 @@ export const LEGACY_APP_VIEW_KEYS = [
   "nonga_last_view",
   "nonga_active_view",
 ] as const;
+
+export type PilotPolicySlug = "terms" | "privacy" | "listing";
+
+export function resolvePilotPolicySlug(pathname: string): PilotPolicySlug | null {
+  const path = pathname.toLowerCase();
+  if (path === "/policy/terms") return "terms";
+  if (path === "/policy/privacy") return "privacy";
+  if (path === "/policy/listing") return "listing";
+  return null;
+}
 
 export function clearLegacyPinnedHomeView(): void {
   if (typeof window === "undefined") return;
@@ -88,6 +99,7 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/admin/inventory-import") return "inventory-import";
   if (path === "/admin/draft-inventory") return "dealer-draft-inventory";
   if (path.startsWith("/dealer")) return "dealer-portal";
+  if (resolvePilotPolicySlug(path)) return "pilot-policy";
   return "chat";
 }
 
@@ -127,6 +139,8 @@ export function resolvePathnameForView(
       return "/admin/inventory-import";
     case "dealer-draft-inventory":
       return "/admin/draft-inventory";
+    case "pilot-policy":
+      return resolvePilotPolicySlug(currentPath) ? null : "/policy/terms";
     default:
       return null;
   }

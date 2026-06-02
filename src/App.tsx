@@ -37,6 +37,8 @@ import DealerDraftInventoryView from "./components/admin/DealerDraftInventoryVie
 import DealerPortalView from "./components/dealer-portal/DealerPortalView";
 import { dealerTabFromPath } from "./components/dealer-portal/DealerPortalLayout";
 import SearchPageView from "./components/search/SearchPageView";
+import PilotPolicyPageView from "./components/policy/PilotPolicyPageView";
+import { navigatePilotPolicy } from "./utils/pilotPolicyNavigation";
 import { CarVisionDashboard } from "./components/ai/analysis/CarVisionDashboard";
 import { PostGeneratorDashboard } from "./components/ai/post-generator/PostGeneratorDashboard";
 import { CaptionEngineDashboard } from "./components/captions/CaptionEngineDashboard";
@@ -325,6 +327,8 @@ export default function App() {
         return <RegisterView />;
       case "forgot-password":
         return <ForgotPasswordView />;
+      case "pilot-policy":
+        return <PilotPolicyPageView />;
       default:
         return <HomeView />;
     }
@@ -486,11 +490,24 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  disabled
-                  className={comingSoonLinkClass}
-                  title="Coming Soon"
+                  onClick={() => navigatePilotPolicy("terms", setView)}
+                  className="hover:text-orange-500 transition-colors text-left"
                 >
-                  ข้อตกลงและนโยบายส่วนบุคคล (เร็วๆ นี้)
+                  เงื่อนไขการใช้งานรอบทดลอง
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigatePilotPolicy("privacy", setView)}
+                  className="hover:text-orange-500 transition-colors text-left"
+                >
+                  นโยบายความเป็นส่วนตัว
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigatePilotPolicy("listing", setView)}
+                  className="hover:text-orange-500 transition-colors text-left"
+                >
+                  นโยบายประกาศขายรถ
                 </button>
                 <button
                   type="button"

@@ -68,6 +68,7 @@
     "test:v546-troubleshooting-advisor": "tsx scripts/test-v546-troubleshooting-advisor.mts",
     "test:v546-insurance-advisor": "tsx scripts/test-v546-insurance-advisor.mts",
     "test:v547-chat-help-onboarding": "tsx scripts/test-v547-chat-help-onboarding.mts",
+    "test:v547-pilot-policy-pages": "tsx scripts/test-v547-pilot-policy-pages.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
