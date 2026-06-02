@@ -144,10 +144,19 @@ export function tryOrchestrateChatReply(
     };
   }
 
+  const selectedForAdvisor = resolveTargetBuyerCar(message, inventory, contextCars, {
+    allowSessionFallback: /คันนี้|รถคันนี้|คันนั้น/i.test(message),
+  });
+
   const intentGate = tryBuyerIntentGateReply(message, {
     hasTargetCarForFacts: Boolean(
-      resolveTargetBuyerCar(message, inventory, contextCars)
+      resolveTargetBuyerCar(message, inventory, contextCars, {
+        allowSessionFallback:
+          /คันนี้|รถคันนี้|ไมล์|เลขไมล์/i.test(message) ||
+          Boolean(extractSelectedCarId(message)),
+      })
     ),
+    selectedCarForAdvisor: selectedForAdvisor,
   });
   if (intentGate) {
     return {
@@ -159,7 +168,11 @@ export function tryOrchestrateChatReply(
 
   const factsKind = classifyBuyerFactsQuestion(message);
   if (factsKind !== "none") {
-    const targetCar = resolveTargetBuyerCar(message, inventory, contextCars);
+    const targetCar = resolveTargetBuyerCar(message, inventory, contextCars, {
+      allowSessionFallback:
+        /คันนี้|รถคันนี้|คันนั้น/i.test(message) ||
+        Boolean(extractSelectedCarId(message)),
+    });
     if (!targetCar) {
       return {
         text: BUYER_ASK_SELECT_CAR_FIRST,
@@ -303,12 +316,28 @@ export function tryOrchestrateChatReply(
         const nextOffset = searchCtx.offset + 3;
         const nextCars = searchCtx.allCars.slice(searchCtx.offset, nextOffset);
         const hasMore = searchCtx.allCars.length > nextOffset;
-        
-        saveChatSearchContext({ allCars: searchCtx.allCars, offset: nextOffset });
+        const nextPitches = searchCtx.pitchLines?.slice(
+          searchCtx.offset,
+          nextOffset
+        );
+
+        saveChatSearchContext({
+          allCars: searchCtx.allCars,
+          offset: nextOffset,
+          pitchLines: searchCtx.pitchLines,
+        });
         if (nextCars.length > 0) saveChatCarContext(nextCars);
 
+        const pitchBlock =
+          nextPitches && nextPitches.length > 0
+            ? nextPitches.join("\n\n")
+            : "";
+        const text = pitchBlock
+          ? `ต่อด้วยอีก ${nextCars.length} คันที่น่าสนใจครับ\n\n${pitchBlock}`
+          : `ต่อด้วยอีก ${nextCars.length} คันที่น่าสนใจครับ`;
+
         return {
-          text: `ต่อด้วยอีก ${nextCars.length} คันที่น่าสนใจครับ`,
+          text,
           carCards: nextCars,
           skipGemini: true,
           hasMoreCars: hasMore,
@@ -339,6 +368,7 @@ export function tryOrchestrateChatReply(
       saveChatSearchContext({
         allCars: buyerScored.allCarCards,
         offset: 3,
+        pitchLines: buyerScored.pitchLines,
       });
       saveChatCarContext(initialCards);
     }

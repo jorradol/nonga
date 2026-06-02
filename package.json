@@ -77,6 +77,7 @@
     "test:v548a-buyer-search-intent-parser": "tsx scripts/test-v548a-buyer-search-intent-parser.mts",
     "test:v548b-buyer-marketplace-scoring": "tsx scripts/test-v548b-buyer-marketplace-scoring.mts",
     "test:v548c-buyer-scored-search-ux": "tsx scripts/test-v548c-buyer-scored-search-ux.mts",
+    "test:v548d-buyer-search-polish": "tsx scripts/test-v548d-buyer-search-polish.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",

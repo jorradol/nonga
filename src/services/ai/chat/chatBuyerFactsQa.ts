@@ -7,6 +7,7 @@ import {
   loadLastSelectedCarId,
   loadRecentlyViewedCarIds,
 } from "../../../utils/chatCarContext";
+import { detectBuyerAdvisorTopic } from "./chatBuyerAdvisorTemplates";
 import { isMarketplaceSearchIntent } from "./marketplaceChatSearch";
 import {
   summaryToChatCarCardData,
@@ -94,6 +95,7 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
   const t = message.trim();
   if (!t) return "none";
   if (SELLER_ACTION_EXACT.has(t)) return "none";
+  if (detectBuyerAdvisorTopic(t)) return "none";
 
   if (
     /ชน|ถูกชน|เคยชน|น้ำท่วม|flood|เข้าศูนย์|ศูนย์บริการ|service history|มือ(เดียว|หนึ่ง|แรก)|เจ้าของ(คน|เดียว|แรก)|ประกัน|รับประกัน|ไฟแนนซ์|ผ่อ(น|ได้)|สภาพเครื่อง|เครื่องยนต์(ดี|เงียบ)|ช่วงล่าง(ดี|พัง)/i.test(
@@ -116,8 +118,11 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
 
   if (
     /(ควร|ต้อง)(ดู|เช็ค|ตรวจ)|ก่อนซื้อ/.test(t) &&
-    !/ซื้อรถมือสอง(?:ต้อง|ควร)ดู|ซื้อมือสอง(?:ต้อง|ควร)เช็ค/i.test(t)
+    !/ซื้อรถมือสอง(?:ต้อง|ควร)ดู|ซื้อมือสอง(?:ต้อง|ควร)(?:ดู|เช็ค)/i.test(t)
   ) {
+    if (!/คันนี้|รถคันนี้|คันนั้น|\[SELECTED_CAR_ID:/i.test(t)) {
+      return "none";
+    }
     return "prePurchaseCheck";
   }
 
@@ -139,16 +144,28 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
   return "none";
 }
 
+function messageAllowsSessionCarFallback(message: string): boolean {
+  if (extractSelectedCarId(message)) return true;
+  return /คันนี้|รถคันนี้|คันนั้น|\[SELECTED_CAR_ID:/i.test(message);
+}
+
 export function resolveTargetBuyerCar(
   message: string,
   inventory: ChatInventoryCar[],
-  contextCars: ChatCarCardData[] = loadChatCarContext()
+  contextCars: ChatCarCardData[] = loadChatCarContext(),
+  options?: { allowSessionFallback?: boolean }
 ): ChatCarCardData | null {
+  const allowSession =
+    options?.allowSessionFallback ?? messageAllowsSessionCarFallback(message);
+
   let selectedId = extractSelectedCarId(message);
-  if (!selectedId) selectedId = loadLastSelectedCarId();
-  if (!selectedId) {
+  if (!selectedId && allowSession) selectedId = loadLastSelectedCarId();
+  if (!selectedId && allowSession) {
     const viewed = loadRecentlyViewedCarIds();
     if (viewed.length > 0) selectedId = viewed[0];
+  }
+  if (!selectedId && allowSession && contextCars.length > 0) {
+    selectedId = contextCars[0].id;
   }
   if (!selectedId) return null;
 

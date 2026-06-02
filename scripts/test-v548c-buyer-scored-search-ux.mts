@@ -267,6 +267,7 @@ assertNoForbidden(orchCity.text, "city");
 // --- advisor: no cards ---
 const advisorCases = [
   { q: "ซื้อรถมือสองต้องดูอะไร", snippet: /เล่มทะเบียน|ช่าง/ },
+  { q: "ซื้อมือสองต้องดูอะไร", snippet: /เล่มทะเบียน|ช่าง/ },
   { q: "ดาวน์เท่าไหร่ดี", snippet: /ดาวน์|20|30/ },
   { q: "ไฟแนนซ์ต้องเตรียมอะไร", snippet: /บัตรประชาชน/ },
 ];
@@ -275,9 +276,16 @@ for (const { q, snippet } of advisorCases) {
   const orch = tryOrchestrateChatReply(q, INVENTORY_CAMRY);
   ok(`advisor-${q.slice(0, 8)}-handled`, orch != null, "");
   ok(`advisor-${q.slice(0, 8)}-no-cards`, (orch?.carCards.length ?? 0) === 0, "");
+  ok(`advisor-${q.slice(0, 8)}-no-camry`, !/Camry/i.test(orch?.text ?? ""), "");
   ok(`advisor-${q.slice(0, 8)}-body`, snippet.test(orch?.text ?? ""), "");
   assertNoForbidden(orch?.text ?? "", `advisor-${q.slice(0, 6)}`);
 }
+
+ok(
+  "fuel-uses-nong-a-not-hnu",
+  /น้องเอ/.test(orchFuel?.text ?? "") && !/หนู/.test(orchFuel?.text ?? ""),
+  ""
+);
 
 // --- vague clarify ---
 const orchVague = tryOrchestrateChatReply("แนะนำรถหน่อย", INVENTORY_FAMILY)!;

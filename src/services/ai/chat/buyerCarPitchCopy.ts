@@ -1,4 +1,4 @@
-/** v5.4.8c+ — warm buyer car pitch copy from scored listings (deterministic) */
+/** v5.4.8c–8d — warm buyer car pitch copy from scored listings (deterministic) */
 
 import type { BuyerSearchIntent } from "./buyerSearchIntentParser";
 import type { BuyerMarketplaceScoredCandidate } from "./buyerMarketplaceScoring";
@@ -8,7 +8,7 @@ import { buildStableSeed, pickStableVariant } from "./thaiSalesCopyVariation";
 const RANK_LABELS = ["คันแรก", "คันที่สอง", "คันที่สาม"] as const;
 
 export const BUYER_PITCH_FORBIDDEN_CLAIM =
-  /(?:รวยแน่นอน|เจริญแน่นอน|ร่ำรวยแน่นอน|เนื้อคู่ชัวร์|คู่ใจชัวร์|ต้องรีบซื้อ|ไม่เคยชน|ไม่เคยน้ำท่วม|ไม่จุกจิกแน่นอน|ไม่เสียแน่นอน|km\/l|กม\.\/ลิตร|กิโลเมตรต่อลิตร)/i;
+  /(?:รวยแน่นอน|เจริญแน่นอน|ร่ำรวยแน่นอน|เนื้อคู่ชัวร์|คู่ใจชัวร์|ต้องรีบซื้อ|ไม่เคยชน|ไม่เคยน้ำท่วม|ไม่จุกจิกแน่นอน|ไม่เสียแน่นอน|เครื่องดีแน่นอน|ซื้อแล้วค้าขายรุ่งแน่นอน|km\/l|กม\.\/ลิตร|กิโลเมตรต่อลิตร)/i;
 
 function formatPrice(n: number): string {
   return n.toLocaleString("th-TH");
@@ -130,10 +130,13 @@ function buildReasonWeave(ranked: BuyerMarketplaceScoredCandidate): string {
 
 function buildClosingLine(
   ranked: BuyerMarketplaceScoredCandidate,
-  isLast: boolean
+  options?: { compact?: boolean }
 ): string {
+  if (options?.compact) {
+    return "น้องเอแนะนำดูรายละเอียดในการ์ดและทดลองขับก่อนตัดสินใจครับ";
+  }
   if (isOverBudgetCaution(ranked)) {
-    return "หนูแนะนำให้ดูรายละเอียดกับทดลองขับก่อนตัดสินใจครับ";
+    return "น้องเอแนะนำให้ดูรายละเอียดกับทดลองขับก่อนตัดสินใจครับ";
   }
   return "ถ้าตรวจสภาพและประวัติดูแลรักษาแล้วถูกใจ คันนี้ถือว่าน่าดูต่อมากครับ";
 }
@@ -145,14 +148,16 @@ export function buildBuyerCarPitchLine(
   ranked: BuyerMarketplaceScoredCandidate,
   index: number,
   intent: BuyerSearchIntent,
-  options?: { isLastInBatch?: boolean; addCheer?: boolean }
+  options?: { isLastInBatch?: boolean; addCheer?: boolean; compact?: boolean }
 ): string {
   const c = ranked.car;
   const label = rankLabel(index);
-  const headline = `${label} ${c.brand} ${c.model} ราคา ${formatPrice(c.price)} บาท`;
+  const headline = options?.compact
+    ? `${c.brand} ${c.model} ราคา ${formatPrice(c.price)} บาท`
+    : `${label} ${c.brand} ${c.model} ราคา ${formatPrice(c.price)} บาท`;
   const angle = buildWarmAngle(intent, ranked, index);
-  const weave = buildReasonWeave(ranked);
-  const close = buildClosingLine(ranked, options?.isLastInBatch === true);
+  const weave = options?.compact ? "" : buildReasonWeave(ranked);
+  const close = buildClosingLine(ranked, { compact: options?.compact });
   let pitch = `${headline} — ${angle}${weave} ${close}`;
 
   if (options?.addCheer && options.isLastInBatch) {
@@ -163,6 +168,30 @@ export function buildBuyerCarPitchLine(
   return pitch.trim();
 }
 
+/** Pitch lines for every ranked candidate (compact style from index 3+). */
+export function buildAllScoredPitchLines(
+  message: string,
+  intent: BuyerSearchIntent,
+  scoring: BuyerMarketplaceScoringResult
+): string[] {
+  const cheerSeed = buildStableSeed([
+    message,
+    "pitchCheer",
+    ...scoring.candidates.map((c) => c.car.id),
+  ]);
+  const addCheer =
+    scoring.candidates.length >= 2 &&
+    pickStableVariant(cheerSeed, "pitch.cheer", ["yes", "no", "no"]) === "yes";
+
+  return scoring.candidates.map((candidate, i) =>
+    buildBuyerCarPitchLine(candidate, i, intent, {
+      compact: i >= 3,
+      isLastInBatch: i === scoring.candidates.length - 1,
+      addCheer: addCheer && i === scoring.candidates.length - 1,
+    })
+  );
+}
+
 function buildPitchOpener(
   message: string,
   intent: BuyerSearchIntent,
@@ -170,11 +199,7 @@ function buildPitchOpener(
   sparseGlobal?: string[]
 ): string {
   const seed = buildStableSeed([message, "pitchOpener", String(count)]);
-  const who = pickStableVariant(seed, "pitch.who", [
-    "หนู",
-    "น้องเอ",
-    "น้องเอ",
-  ]);
+  const who = "น้องเอ";
 
   let budgetPart = "";
   if (intent.budgetMax != null) {
@@ -228,30 +253,19 @@ export function buildScoredCarPitchCopy(
   message: string,
   intent: BuyerSearchIntent,
   scoring: BuyerMarketplaceScoringResult,
-  options: { hasMore: boolean; ctaLine: string }
+  options: { hasMore: boolean; ctaLine: string; displayCount: number }
 ): string {
-  const highlightCount = Math.min(3, scoring.candidates.length);
+  const displayCount = Math.min(
+    options.displayCount,
+    scoring.candidates.length
+  );
   const parts: string[] = [
-    buildPitchOpener(message, intent, highlightCount, scoring.cautions),
+    buildPitchOpener(message, intent, displayCount, scoring.cautions),
   ];
 
-  const cheerSeed = buildStableSeed([
-    message,
-    "pitchCheer",
-    ...scoring.candidates.map((c) => c.car.id),
-  ]);
-  const addCheer =
-    highlightCount >= 2 &&
-    pickStableVariant(cheerSeed, "pitch.cheer", ["yes", "no", "no"]) === "yes";
-
-  for (let i = 0; i < highlightCount; i++) {
-    const isLast = i === highlightCount - 1;
-    parts.push(
-      buildBuyerCarPitchLine(scoring.candidates[i], i, intent, {
-        isLastInBatch: isLast,
-        addCheer: addCheer && isLast,
-      })
-    );
+  const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
+  for (let i = 0; i < displayCount; i++) {
+    parts.push(pitchLines[i]);
   }
 
   parts.push(

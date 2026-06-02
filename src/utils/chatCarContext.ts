@@ -3,6 +3,8 @@ import type { ChatCarCardData } from "../types";
 export interface ChatSearchContextData {
   allCars: ChatCarCardData[];
   offset: number;
+  /** Parallel warm pitch lines for show-more (buyer scored search) */
+  pitchLines?: string[];
 }
 
 export function saveChatSearchContext(data: ChatSearchContextData): void {

@@ -1,5 +1,6 @@
 /** v5.4.6.1+ — buyer intent gate before marketplace search (no seller flow) */
 
+import type { ChatCarCardData } from "../../../types";
 import {
   buildBuyerAdvisorReply,
   detectBuyerAdvisorTopic,
@@ -25,6 +26,8 @@ export interface BuyerIntentGateReply {
 export interface BuyerIntentGateOptions {
   /** When set, mileage questions defer to car facts Q&A instead of general advisor. */
   hasTargetCarForFacts?: boolean;
+  /** Selected car for advisor copy (e.g. คันนี้ต้องดูอะไร) — never attaches cards */
+  selectedCarForAdvisor?: ChatCarCardData | null;
 }
 
 export type { BuyerAdvisorTopic };
@@ -132,7 +135,10 @@ export function tryBuyerIntentGateReply(
     ) {
       return null;
     }
-    return { text: buildBuyerAdvisorReply(advisor), skipGemini: true };
+    return {
+      text: buildBuyerAdvisorReply(advisor, options?.selectedCarForAdvisor ?? undefined),
+      skipGemini: true,
+    };
   }
 
   if (buyerIntent.isVehicleSearch) {

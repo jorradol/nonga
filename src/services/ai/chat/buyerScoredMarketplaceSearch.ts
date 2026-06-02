@@ -18,6 +18,7 @@ import {
 } from "./marketplaceChatSearch";
 import {
   assertBuyerPitchSafe,
+  buildAllScoredPitchLines,
   buildScoredCarPitchCopy,
 } from "./buyerCarPitchCopy";
 import { buildStableSeed, pickStableVariant } from "./thaiSalesCopyVariation";
@@ -31,6 +32,8 @@ export interface BuyerScoredMarketplaceReply {
   carCards: ChatCarCardData[];
   /** Full ranked set for show-more context (up to 5) */
   allCarCards: ChatCarCardData[];
+  /** Warm pitch per ranked car (parallel to allCarCards) */
+  pitchLines?: string[];
   hasMoreCars?: boolean;
 }
 
@@ -73,7 +76,8 @@ function buildScoredSearchIntro(
   message: string,
   intent: BuyerSearchIntent,
   scoring: BuyerMarketplaceScoringResult,
-  hasMore: boolean
+  hasMore: boolean,
+  displayCount: number
 ): string {
   const seed = buildStableSeed([message, "buyerScored", String(scoring.candidates.length)]);
   const ctas = hasMore
@@ -90,6 +94,7 @@ function buildScoredSearchIntro(
   const text = buildScoredCarPitchCopy(message, intent, scoring, {
     hasMore,
     ctaLine,
+    displayCount,
   });
   assertSafeReplyText(text);
   assertBuyerPitchSafe(text);
@@ -164,12 +169,21 @@ export function tryBuyerScoredMarketplaceReply(
   const allCarCards = summariesToCarCards(summaries, []);
   const initialCards = allCarCards.slice(0, 3);
   const hasMore = allCarCards.length > 3;
-  const introText = buildScoredSearchIntro(message, intent, scoring, hasMore);
+  const displayCount = initialCards.length;
+  const introText = buildScoredSearchIntro(
+    message,
+    intent,
+    scoring,
+    hasMore,
+    displayCount
+  );
+  const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
 
   return {
     text: introText,
     carCards: initialCards,
     allCarCards,
+    pitchLines,
     hasMoreCars: hasMore,
   };
 }

@@ -1,4 +1,6 @@
-/** v5.4.6.2 — deterministic buyer advisor replies (no inventory cards, no Gemini) */
+/** v5.4.6.2+ — deterministic buyer advisor replies (no inventory cards, no Gemini) */
+
+import type { ChatCarCardData } from "../../../types";
 
 export type BuyerAdvisorTopic =
   | "prePurchase"
@@ -25,7 +27,7 @@ const SEARCH_FOLLOW_UP =
 export const BUYER_ADVISOR_PATTERNS: { topic: BuyerAdvisorTopic; re: RegExp }[] = [
   {
     topic: "prePurchase",
-    re: /ซื้อรถมือสอง(?:ต้อง|ควร)ดูอะไร|ซื้อมือสอง(?:ต้อง|ควร)เช็คอะไร/i,
+    re: /ซื้อรถมือสอง(?:ต้อง|ควร)ดูอะไร|ซื้อมือสอง(?:ต้อง|ควร)(?:ดู|เช็ค)อะไร/i,
   },
   {
     topic: "firstCar",
@@ -70,9 +72,15 @@ export function normalizeBuyerAdvisorMessage(message: string): string {
   return message.trim().replace(/\s+/g, " ");
 }
 
+const SELECTED_CAR_PRE_PURCHASE =
+  /(?:คันนี้|รถคันนี้|คันนั้น).*(?:ต้อง|ควร)(?:ดู|เช็ค)|(?:ต้อง|ควร)(?:ดู|เช็ค).*(?:คันนี้|รถคันนี้|คันนั้น)|(?:ก่อน)?ซื้อ(?:รถ)?มือสอง.*(?:คันนี้|รถคันนี้)/i;
+
 export function detectBuyerAdvisorTopic(message: string): BuyerAdvisorTopic | null {
   const t = normalizeBuyerAdvisorMessage(message);
-  if (/คันนี้|รถคันนี้|คันนั้น/i.test(t)) return null;
+  if (/คันนี้|รถคันนี้|คันนั้น/i.test(t)) {
+    if (SELECTED_CAR_PRE_PURCHASE.test(t)) return "prePurchase";
+    return null;
+  }
   for (const { topic, re } of BUYER_ADVISOR_PATTERNS) {
     if (re.test(t)) return topic;
   }
@@ -93,16 +101,49 @@ function joinParagraphs(parts: Array<string | null | undefined>): string {
   return parts.filter((p) => p && p.trim()).join("\n");
 }
 
-export function buildBuyerAdvisorReply(topic: BuyerAdvisorTopic): string {
+function buildPrePurchaseBullets(): string[] {
+  return [
+    "• เล่มทะเบียน สำเนาบัตรผู้ขาย และเอกสารโอน",
+    "• เลขไมล์เทียบกับปีรถและสภาพที่เห็น",
+    "• สภาพเครื่อง ช่วงล่าง สนิม และของเหลว",
+    "• ประวัติซ่อม/เข้าศูนย์ (ถ้ามีเอกสาร)",
+    "• ทดลองขับและให้ช่างช่วยตรวจอีกชั้น",
+  ];
+}
+
+function formatPrice(n: number): string {
+  return n.toLocaleString("th-TH");
+}
+
+export function buildBuyerAdvisorReply(
+  topic: BuyerAdvisorTopic,
+  selectedCar?: ChatCarCardData
+): string {
   switch (topic) {
     case "prePurchase":
+      if (selectedCar) {
+        const label = `${selectedCar.brand} ${selectedCar.model} ปี ${selectedCar.year}`.trim();
+        const listingFacts = [
+          selectedCar.price > 0
+            ? `ราคาในระบบ ${formatPrice(selectedCar.price)} บาท`
+            : null,
+          selectedCar.mileage > 0
+            ? `เลขไมล์ ${formatPrice(selectedCar.mileage)} กม. (ตามประกาศ)`
+            : null,
+        ].filter(Boolean);
+        return joinParagraphs([
+          `ถ้าสนใจ ${label} จริง ๆ น้องเอแนะนำเช็กเพิ่มแบบนี้ครับ:`,
+          ...buildPrePurchaseBullets(),
+          listingFacts.length > 0
+            ? `จากข้อมูลประกาศตอนนี้: ${listingFacts.join(" · ")}`
+            : null,
+          "ข้อมูลสภาพและประวัติชน/น้ำท่วมยังต้องตรวจจริงเพิ่ม — น้องเอไม่มีในระบบครับ",
+          MECHANIC_DISCLAIMER,
+        ]);
+      }
       return joinParagraphs([
         "ก่อนซื้อรถมือสอง น้องเอแนะนำเช็กเบื้องต้นแบบนี้ครับ:",
-        "• เล่มทะเบียน สำเนาบัตรผู้ขาย และเอกสารโอน",
-        "• เลขไมล์เทียบกับปีรถและสภาพที่เห็น",
-        "• สภาพเครื่อง ช่วงล่าง สนิม และของเหลว",
-        "• ประวัติซ่อม/เข้าศูนย์ (ถ้ามีเอกสาร)",
-        "• ทดลองขับและให้ช่างช่วยตรวจอีกชั้น",
+        ...buildPrePurchaseBullets(),
         MECHANIC_DISCLAIMER,
         "ถ้ามีรถคันที่สนใจในแชทแล้ว กดดูรายละเอียดแล้วถามน้องเอเรื่องคันนั้นได้ครับ",
         SEARCH_FOLLOW_UP,
