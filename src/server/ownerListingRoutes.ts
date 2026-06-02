@@ -43,6 +43,26 @@ function listingRepoScope(
   return scope.dealerId || scope.ownerId || resolveCarDealerId(car);
 }
 
+function toPublishConsentPatch(body: unknown): Partial<MarketplaceCarRecord> {
+  if (!body || typeof body !== "object") return {};
+  const b = body as Record<string, unknown>;
+  const next: Partial<MarketplaceCarRecord> = {};
+  if (b.sellerConsentAccepted === true) next.sellerConsentAccepted = true;
+  if (typeof b.sellerConsentAcceptedAt === "string") {
+    next.sellerConsentAcceptedAt = b.sellerConsentAcceptedAt;
+  }
+  if (typeof b.sellerConsentVersion === "string") {
+    next.sellerConsentVersion = b.sellerConsentVersion;
+  }
+  if (typeof b.sellerConsentSource === "string") {
+    next.sellerConsentSource = b.sellerConsentSource;
+  }
+  if (typeof b.sellerConsentTextKey === "string") {
+    next.sellerConsentTextKey = b.sellerConsentTextKey;
+  }
+  return next;
+}
+
 async function getCarAccessOrDeny(
   req: Request,
   res: Response,
@@ -209,10 +229,14 @@ export function registerOwnerListingRoutes(
     const { car, scope } = access;
 
     const hidden = Boolean(req.body?.hidden);
-    const updated = await deps.inventoryRepository.listings.updateVisibility(
+    const patch: Partial<MarketplaceCarRecord> = {
+      listingStatus: hidden ? "hidden" : "published",
+      ...(hidden ? {} : toPublishConsentPatch(req.body)),
+    };
+    const updated = await deps.inventoryRepository.listings.updateListing(
       listingRepoScope(scope, car),
       car.id,
-      hidden ? "hidden" : "published"
+      patch
     );
     if (!updated) {
       return deny(res, 404, "ไม่พบประกาศ");

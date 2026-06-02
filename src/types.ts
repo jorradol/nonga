@@ -18,6 +18,15 @@ export interface Car {
   isSold: boolean;
   /** published = ตลาด; hidden = ซ่อน */
   listingStatus?: "published" | "hidden";
+  /**
+   * v5.4.7e — seller publish consent (closed pilot)
+   * Optional: legacy listings may not have these fields.
+   */
+  sellerConsentAccepted?: true;
+  sellerConsentAcceptedAt?: string;
+  sellerConsentVersion?: string;
+  sellerConsentSource?: string;
+  sellerConsentTextKey?: string;
   createdAt: string;
   boosted?: boolean;
   featured?: boolean;

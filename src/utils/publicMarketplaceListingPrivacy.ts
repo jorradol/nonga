@@ -12,6 +12,15 @@ export const PUBLIC_LISTING_REDACTED_CONTACT_FIELDS = [
   "contactNote",
 ] as const;
 
+/** Internal-only fields that should not be exposed on public marketplace APIs. */
+export const PUBLIC_LISTING_REDACTED_INTERNAL_FIELDS = [
+  "sellerConsentAccepted",
+  "sellerConsentAcceptedAt",
+  "sellerConsentVersion",
+  "sellerConsentSource",
+  "sellerConsentTextKey",
+] as const;
+
 export type PublicListingRedactedContactField =
   (typeof PUBLIC_LISTING_REDACTED_CONTACT_FIELDS)[number];
 
@@ -22,6 +31,11 @@ function redactContactFieldsOnRecord(
   for (const key of PUBLIC_LISTING_REDACTED_CONTACT_FIELDS) {
     if (key in next) {
       next[key] = "";
+    }
+  }
+  for (const key of PUBLIC_LISTING_REDACTED_INTERNAL_FIELDS) {
+    if (key in next) {
+      delete next[key];
     }
   }
   return next;

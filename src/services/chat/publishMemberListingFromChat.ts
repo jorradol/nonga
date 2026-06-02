@@ -30,6 +30,9 @@ import {
   CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE,
   clearPublishConsent,
   hasPublishConsentAccepted,
+  SELLER_PUBLISH_CONSENT_SOURCE,
+  SELLER_PUBLISH_CONSENT_TEXT_KEY,
+  SELLER_PUBLISH_CONSENT_VERSION,
 } from "./chatPublishConsent";
 
 export { CHAT_PUBLISH_CONSENT_LABEL, CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE };
@@ -488,14 +491,18 @@ export function preflightMemberListingRecordForChatPublish(params: {
 
 export type ConfirmMemberPublishListingDeps = {
   fetchMyListings: (ownerId: string) => Promise<Car[]>;
-  setListingVisible: (ownerId: string, listingId: string) => Promise<Car>;
+  setListingVisible: (
+    ownerId: string,
+    listingId: string,
+    patch?: Record<string, unknown>
+  ) => Promise<Car>;
 };
 
 export function createDefaultConfirmMemberPublishDeps(): ConfirmMemberPublishListingDeps {
   return {
     fetchMyListings: (ownerId) => fetchMyListings({ ownerId }),
-    setListingVisible: (ownerId, listingId) =>
-      setMyListingVisibility({ ownerId }, listingId, false),
+    setListingVisible: (ownerId, listingId, patch) =>
+      setMyListingVisibility({ ownerId }, listingId, false, patch),
   };
 }
 
@@ -597,7 +604,13 @@ export async function confirmMemberPublishListingFromChat(
   }
 
   try {
-    await deps.setListingVisible(params.ownerId, ctx.listingId);
+    await deps.setListingVisible(params.ownerId, ctx.listingId, {
+      sellerConsentAccepted: true,
+      sellerConsentAcceptedAt: new Date().toISOString(),
+      sellerConsentVersion: SELLER_PUBLISH_CONSENT_VERSION,
+      sellerConsentSource: SELLER_PUBLISH_CONSENT_SOURCE,
+      sellerConsentTextKey: SELLER_PUBLISH_CONSENT_TEXT_KEY,
+    });
   } catch (error) {
     if (error instanceof AppFriendlyError && error.code === "forbidden") {
       return { kind: "forbidden", message: CHAT_PUBLISH_FORBIDDEN_MESSAGE };

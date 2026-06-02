@@ -6,6 +6,11 @@ export const CHAT_PUBLISH_CONSENT_LABEL =
 export const CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE =
   "กรุณายืนยันสิทธิ์การใช้รูปและข้อมูลรถก่อนเผยแพร่ประกาศครับ";
 
+/** v5.4.7e — persist consent metadata */
+export const SELLER_PUBLISH_CONSENT_VERSION = "pilot-v1";
+export const SELLER_PUBLISH_CONSENT_SOURCE = "chat-publish";
+export const SELLER_PUBLISH_CONSENT_TEXT_KEY = "seller-publish-consent-v1";
+
 const consentBySession = new Map<string, boolean>();
 
 export function setPublishConsentAccepted(sessionId: string, accepted: boolean): void {

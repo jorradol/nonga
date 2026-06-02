@@ -360,7 +360,8 @@ export async function patchMyListing(
 export async function setMyListingVisibility(
   scopeInput: MyListingsApiScopeInput,
   id: string,
-  hidden: boolean
+  hidden: boolean,
+  patch?: Record<string, unknown>
 ): Promise<Car> {
   const scope = normalizeScope(scopeInput);
   if (scope.dealerHeaders) {
@@ -371,7 +372,11 @@ export async function setMyListingVisibility(
   const json = await safeApiFetch<ApiJsonEnvelope>(url, {
     method: "PATCH",
     headers: await ownerHeadersAsync(scope.ownerId),
-    body: JSON.stringify({ hidden, ownerId: scope.ownerId }),
+    body: JSON.stringify({
+      hidden,
+      ownerId: scope.ownerId,
+      ...(patch && typeof patch === "object" ? patch : {}),
+    }),
   });
   assertApiSuccess(json, url);
   return normalizeMarketplaceCar(json.data as Record<string, unknown>);
