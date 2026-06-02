@@ -36,6 +36,7 @@ import {
 import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
 import { tryTroubleshootingAdvisorReply } from "./chatTroubleshootingAdvisorTemplates";
 import { tryInsuranceAdvisorReply } from "./chatInsuranceAdvisorTemplates";
+import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 
 export interface OrchestratedChatReply {
@@ -52,7 +53,7 @@ export interface OrchestratedChatReply {
 export function tryOrchestrateChatReply(
   message: string,
   inventory: ChatInventoryCar[],
-  options?: { attachedImageCount?: number }
+  options?: { attachedImageCount?: number; displayName?: string }
 ): OrchestratedChatReply | null {
   if (isSellIntent(message)) {
     const fields = extractCarFieldsFromMessage(message);
@@ -126,6 +127,17 @@ export function tryOrchestrateChatReply(
   if (insuranceAdvisor) {
     return {
       text: insuranceAdvisor.text,
+      carCards: [],
+      skipGemini: true,
+    };
+  }
+
+  const helpOnboarding = tryHelpOnboardingReply(message, {
+    displayName: options?.displayName,
+  });
+  if (helpOnboarding) {
+    return {
+      text: helpOnboarding.text,
       carCards: [],
       skipGemini: true,
     };

@@ -1499,6 +1499,10 @@ export function useChat() {
       const orchestrated = trimmed
         ? tryOrchestrateChatReply(trimmed, inventory, {
             attachedImageCount: hasImages ? imageAttachments.length : undefined,
+            displayName:
+              (user as { displayName?: string; name?: string } | null)?.displayName ??
+              (user as { name?: string } | null)?.name ??
+              undefined,
           })
         : null;
       if (orchestrated?.skipGemini) {
