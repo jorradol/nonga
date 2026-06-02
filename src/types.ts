@@ -27,6 +27,11 @@ export interface Car {
   sellerConsentVersion?: string;
   sellerConsentSource?: string;
   sellerConsentTextKey?: string;
+  moderationStatus?: "none" | "under_review" | "actioned";
+  adminHiddenReason?: string;
+  adminHiddenAt?: string;
+  adminHiddenBy?: string;
+  reportOpenCount?: number;
   createdAt: string;
   boosted?: boolean;
   featured?: boolean;

@@ -40,6 +40,12 @@ export interface MarketplaceCarRecord {
   sellerConsentVersion?: string;
   sellerConsentSource?: string;
   sellerConsentTextKey?: string;
+  /** v5.4.7f moderation metadata (internal) */
+  moderationStatus?: "none" | "under_review" | "actioned";
+  adminHiddenReason?: string;
+  adminHiddenAt?: string;
+  adminHiddenBy?: string;
+  reportOpenCount?: number;
   createdAt: string;
   boosted?: boolean;
   featured?: boolean;

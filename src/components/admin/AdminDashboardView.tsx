@@ -211,6 +211,15 @@ export default function AdminDashboardView() {
             </button>
 
             <button
+              type="button"
+              onClick={() => setView("admin-reports")}
+              className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/15"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>รายงานประกาศ (Admin Review)</span>
+            </button>
+
+            <button
               onClick={() => adminState.setActiveTab("dealers")}
               className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between text-left transition ${
                 adminState.activeTab === "dealers"

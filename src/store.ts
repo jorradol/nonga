@@ -40,7 +40,7 @@ interface AppState {
   toggleDarkMode: () => void;
 
   // Layout View Routing (replicates App Router within clean, single-screen transitions)
-  currentView: "home" | "marketplace" | "my-listings" | "chat" | "sell" | "dealers" | "saved" | "car-details" | "login" | "register" | "forgot-password" | "profile" | "onboarding" | "dealer-dashboard" | "admin-dashboard" | "inventory-import" | "dealer-draft-inventory" | "dealer-portal" | "search" | "car-vision" | "car-post-generator" | "viral-captions" | "seo-landing" | "dealer-showroom" | "billing" | "boost" | "pilot-policy";
+  currentView: "home" | "marketplace" | "my-listings" | "chat" | "sell" | "dealers" | "saved" | "car-details" | "login" | "register" | "forgot-password" | "profile" | "onboarding" | "dealer-dashboard" | "admin-dashboard" | "inventory-import" | "dealer-draft-inventory" | "dealer-portal" | "search" | "car-vision" | "car-post-generator" | "viral-captions" | "seo-landing" | "dealer-showroom" | "billing" | "boost" | "pilot-policy" | "admin-reports";
   selectedCarId: string | null;
   selectedDealerId: string | null;
   setView: (view: AppState["currentView"], carId?: string | null, dealerId?: string | null) => void;

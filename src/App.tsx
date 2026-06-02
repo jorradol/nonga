@@ -34,6 +34,7 @@ import DealerDashboardView from "./components/DealerDashboardView";
 import AdminDashboardView from "./components/admin/AdminDashboardView";
 import InventoryImportView from "./components/admin/inventory-import/InventoryImportView";
 import DealerDraftInventoryView from "./components/admin/DealerDraftInventoryView";
+import AdminListingReportsView from "./components/admin/AdminListingReportsView";
 import DealerPortalView from "./components/dealer-portal/DealerPortalView";
 import { dealerTabFromPath } from "./components/dealer-portal/DealerPortalLayout";
 import SearchPageView from "./components/search/SearchPageView";
@@ -301,6 +302,12 @@ export default function App() {
         return (
           <RequireAdmin>
             <DealerDraftInventoryView />
+          </RequireAdmin>
+        );
+      case "admin-reports":
+        return (
+          <RequireAdmin>
+            <AdminListingReportsView />
           </RequireAdmin>
         );
       case "dealer-portal":

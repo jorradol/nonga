@@ -29,7 +29,8 @@ export type RoutableAppView =
   | "dealer-showroom"
   | "billing"
   | "boost"
-  | "pilot-policy";
+  | "pilot-policy"
+  | "admin-reports";
 
 /** Legacy keys that pinned home on "/" before chat-default routing. */
 export const LEGACY_APP_VIEW_KEYS = [
@@ -98,6 +99,7 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/forgot-password") return "forgot-password";
   if (path === "/admin/inventory-import") return "inventory-import";
   if (path === "/admin/draft-inventory") return "dealer-draft-inventory";
+  if (path === "/admin/reports") return "admin-reports";
   if (path.startsWith("/dealer")) return "dealer-portal";
   if (resolvePilotPolicySlug(path)) return "pilot-policy";
   return "chat";
@@ -139,6 +141,8 @@ export function resolvePathnameForView(
       return "/admin/inventory-import";
     case "dealer-draft-inventory":
       return "/admin/draft-inventory";
+    case "admin-reports":
+      return "/admin/reports";
     case "pilot-policy":
       return resolvePilotPolicySlug(currentPath) ? null : "/policy/terms";
     default:

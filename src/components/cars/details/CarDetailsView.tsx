@@ -18,6 +18,7 @@ import {
   getListingPrimaryImage,
 } from "../../../utils/listingImages";
 import ListingDescription from "../../listings/ListingDescription";
+import { submitListingReport, type ListingReportReason } from "../../../services/listings/listingReportApi";
 
 export default function CarDetailsView() {
   const { 
@@ -131,6 +132,39 @@ export default function CarDetailsView() {
     sendChatMessage(promptMessage);
   };
 
+  const reportListing = async () => {
+    if (!car) return;
+    const raw = window.prompt(
+      "เลือกเหตุผลการรายงาน:\n1) ข้อมูลรถไม่ถูกต้อง\n2) รูปไม่ตรงกับรถ/ไม่เหมาะสม\n3) สงสัยหลอกลวง\n4) ประกาศซ้ำ\n5) ติดต่อไม่ได้/ข้อมูลไม่ชัดเจน\n6) อื่น ๆ",
+      "1"
+    );
+    if (!raw) return;
+    const reasonMap: Record<string, ListingReportReason> = {
+      "1": "incorrect-info",
+      "2": "image-mismatch-or-inappropriate",
+      "3": "suspected-fraud",
+      "4": "duplicate-listing",
+      "5": "contact-unreachable-or-unclear",
+      "6": "other",
+    };
+    const reason = reasonMap[raw.trim()];
+    if (!reason) {
+      alert("กรุณาเลือกเหตุผล 1-6");
+      return;
+    }
+    const note = window.prompt("รายละเอียดเพิ่มเติม (ไม่บังคับ):", "") || "";
+    const result = await submitListingReport({
+      listingId: car.id,
+      reason,
+      note,
+    });
+    alert(
+      result.ok
+        ? "ขอบคุณที่ช่วยแจ้งครับ ทีมงานจะตรวจสอบประกาศนี้\nการรายงานเป็นการแจ้งให้ตรวจสอบ ไม่ได้หมายความว่าประกาศผิดทันที"
+        : result.message
+    );
+  };
+
   // 6. Comments callback logic
   const handleAddNewComment = async (text: string) => {
     if (!selectedCarId) return;
@@ -236,6 +270,13 @@ export default function CarDetailsView() {
           >
             <Heart className={`w-4 h-4 ${isFav ? "fill-current animate-pulse text-white" : "text-orange-500"}`} />
             <span>{isFav ? "บันทึกแล้ว" : "บันทึกคันนี้"}</span>
+          </button>
+          <button
+            onClick={() => void reportListing()}
+            className="p-2.5 rounded-xl border border-slate-800 text-slate-400 hover:text-orange-500 transition-all text-xs"
+            title="รายงานประกาศ"
+          >
+            รายงานประกาศ
           </button>
         </div>
       </div>

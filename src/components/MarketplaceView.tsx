@@ -3,6 +3,7 @@ import { useAppStore } from "../store";
 import { Car } from "../types";
 import { getListingPrimaryImage } from "../utils/listingImages";
 import { BoostFrame } from "./boost/BoostBadge";
+import { submitListingReport, type ListingReportReason } from "../services/listings/listingReportApi";
 import { Search, SlidersHorizontal, Sparkles, Heart, Fuel, Gauge, Calendar, MessageSquare, ArrowUpDown, ChevronRight, X, Car as CarIcon } from "lucide-react";
 
 export default function MarketplaceView() {
@@ -54,6 +55,38 @@ export default function MarketplaceView() {
 ช่วยให้คะแนนด้านความคุ้มค่า อัตราเร่ง แบตเตอรี่/ความคงทน แนะนำสเป็ก และใส่คำพูด signature ของน้องเอให้แซ่บซ่า ปังปุริเย่ ด้วยนะคร้าบ!`;
     
     sendChatMessage(promptMessage);
+  };
+
+  const reportListing = async (car: Car) => {
+    const raw = window.prompt(
+      "เลือกเหตุผลการรายงาน:\n1) ข้อมูลรถไม่ถูกต้อง\n2) รูปไม่ตรงกับรถ/ไม่เหมาะสม\n3) สงสัยหลอกลวง\n4) ประกาศซ้ำ\n5) ติดต่อไม่ได้/ข้อมูลไม่ชัดเจน\n6) อื่น ๆ\n\nพิมพ์หมายเลข 1-6",
+      "1"
+    );
+    if (!raw) return;
+    const reasonMap: Record<string, ListingReportReason> = {
+      "1": "incorrect-info",
+      "2": "image-mismatch-or-inappropriate",
+      "3": "suspected-fraud",
+      "4": "duplicate-listing",
+      "5": "contact-unreachable-or-unclear",
+      "6": "other",
+    };
+    const reason = reasonMap[raw.trim()];
+    if (!reason) {
+      alert("กรุณาเลือกเหตุผล 1-6");
+      return;
+    }
+    const note = window.prompt("รายละเอียดเพิ่มเติม (ไม่บังคับ):", "") || "";
+    const result = await submitListingReport({
+      listingId: car.id,
+      reason,
+      note,
+    });
+    alert(
+      result.ok
+        ? "ขอบคุณที่ช่วยแจ้งครับ ทีมงานจะตรวจสอบประกาศนี้\nการรายงานเป็นการแจ้งให้ตรวจสอบ ไม่ได้หมายความว่าประกาศผิดทันที"
+        : result.message
+    );
   };
 
   // Perform client-side filter computation
@@ -510,6 +543,15 @@ export default function MarketplaceView() {
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                           <span>ถามน้องเอ AI</span>
+                        </button>
+                      </div>
+                      <div className="px-3 pb-3 -mt-1">
+                        <button
+                          type="button"
+                          onClick={() => void reportListing(car)}
+                          className="text-[11px] text-slate-400 hover:text-orange-500 underline-offset-2 hover:underline"
+                        >
+                          รายงานประกาศ
                         </button>
                       </div>
 

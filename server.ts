@@ -50,6 +50,11 @@ import {
   registerPayloadTooLargeHandler,
 } from "./src/server/httpBodyLimits";
 import { createInventoryRepository } from "./src/server/repositories/inventoryRepository";
+import {
+  createListingReportRepository,
+  type ListingReportReason,
+  type ListingReportStatus,
+} from "./src/server/repositories/listingReportRepository";
 import { registerAiEndpointGuards } from "./src/server/security/aiEndpointGuard";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
@@ -104,6 +109,7 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
 const inventoryRepository = createInventoryRepository();
+const listingReportRepository = createListingReportRepository();
 
 registerJsonBodyParsers(app);
 
@@ -166,6 +172,66 @@ app.get("/api/cars", async (req, res) => {
     contactRedacted: true,
   });
   res.json({ success: true, count: publicData.length, data: publicData });
+});
+
+const LISTING_REPORT_REASONS = new Set<ListingReportReason>([
+  "incorrect-info",
+  "image-mismatch-or-inappropriate",
+  "suspected-fraud",
+  "duplicate-listing",
+  "contact-unreachable-or-unclear",
+  "other",
+]);
+
+app.post("/api/cars/:id/report", async (req, res) => {
+  try {
+    const listingId = String(req.params.id ?? "").trim();
+    if (!listingId) {
+      return res.status(400).json({ success: false, message: "ไม่พบประกาศที่ต้องการรายงาน" });
+    }
+    const listing = await inventoryRepository.listings.getById(listingId);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: "ไม่พบประกาศนี้" });
+    }
+    const reason = String(req.body?.reason ?? "").trim() as ListingReportReason;
+    if (!LISTING_REPORT_REASONS.has(reason)) {
+      return res.status(400).json({ success: false, message: "กรุณาเลือกเหตุผลการรายงาน" });
+    }
+    const noteRaw = typeof req.body?.note === "string" ? req.body.note : "";
+    const note = noteRaw.trim().slice(0, 400);
+
+    let reporterUserId: string | undefined;
+    let reporterRole: string | undefined = "guest";
+    const scoped = await resolveOwnerRequestScope(req);
+    if (scoped.ok) {
+      reporterUserId = scoped.scope.ownerId ?? undefined;
+      reporterRole = scoped.scope.role || "member";
+    }
+
+    await listingReportRepository.create({
+      listingId,
+      listingTitle: listing.title,
+      reason,
+      ...(note ? { note } : {}),
+      ...(reporterUserId ? { reporterUserId } : {}),
+      ...(reporterRole ? { reporterRole } : {}),
+    });
+
+    const openReports = (await listingReportRepository.list("open")).filter((r) => r.listingId === listingId).length;
+    await inventoryRepository.listings.updateListing(resolveCarDealerId(listing), listing.id, {
+      moderationStatus: "under_review",
+      reportOpenCount: openReports,
+    });
+
+    return res.json({
+      success: true,
+      message:
+        "ขอบคุณที่ช่วยแจ้งครับ ทีมงานจะตรวจสอบประกาศนี้ การรายงานเป็นการแจ้งให้ตรวจสอบ ไม่ได้หมายความว่าประกาศผิดทันที",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "ส่งรายงานไม่สำเร็จ";
+    return res.status(500).json({ success: false, message });
+  }
 });
 
 // 2. API: Create car sale post (saves in-memory)
@@ -241,6 +307,71 @@ app.post("/api/cars", async (req, res) => {
 // API auth guards (stub — เตรียมต่อ Firebase ID token)
 app.use("/api/dealer", dealerApiAuth);
 app.use("/api/admin", adminApiAuth);
+
+app.get("/api/admin/listing-reports", async (req, res) => {
+  const statusRaw = String(req.query.status ?? "open").trim() as ListingReportStatus | "";
+  const status =
+    statusRaw === "open" || statusRaw === "reviewed" || statusRaw === "dismissed" || statusRaw === "actioned"
+      ? statusRaw
+      : undefined;
+  const rows = await listingReportRepository.list(status);
+  return res.json({ success: true, count: rows.length, data: rows });
+});
+
+app.patch("/api/admin/listing-reports/:id", async (req, res) => {
+  const reportId = String(req.params.id ?? "").trim();
+  if (!reportId) {
+    return res.status(400).json({ success: false, message: "ไม่พบ report id" });
+  }
+  const action = String(req.body?.action ?? "").trim();
+  if (!action) {
+    return res.status(400).json({ success: false, message: "กรุณาระบุ action" });
+  }
+  const report = await listingReportRepository.getById(reportId);
+  if (!report) {
+    return res.status(404).json({ success: false, message: "ไม่พบรายงานนี้" });
+  }
+
+  const reviewer =
+    String(req.apiAuth?.uid ?? "").trim() ||
+    String(req.headers["x-owner-id"] ?? "").trim() ||
+    "admin";
+  const reviewedAt = new Date().toISOString();
+  const adminNote =
+    typeof req.body?.adminNote === "string" ? req.body.adminNote.trim().slice(0, 400) : "";
+
+  let nextStatus: ListingReportStatus;
+  if (action === "reviewed") nextStatus = "reviewed";
+  else if (action === "dismiss") nextStatus = "dismissed";
+  else if (action === "hide") nextStatus = "actioned";
+  else return res.status(400).json({ success: false, message: "action ไม่ถูกต้อง" });
+
+  const updatedReport = await listingReportRepository.update(reportId, {
+    status: nextStatus,
+    reviewedBy: reviewer,
+    reviewedAt,
+    ...(adminNote ? { adminNote } : {}),
+  });
+
+  const listing = await inventoryRepository.listings.getById(report.listingId);
+  if (listing) {
+    const openReports = (await listingReportRepository.list("open")).filter((r) => r.listingId === report.listingId).length;
+    const basePatch: Partial<MarketplaceCarRecord> = {
+      reportOpenCount: openReports,
+      moderationStatus: nextStatus === "dismissed" && openReports === 0 ? "none" : "under_review",
+    };
+    if (action === "hide") {
+      basePatch.listingStatus = "hidden";
+      basePatch.moderationStatus = "actioned";
+      basePatch.adminHiddenAt = reviewedAt;
+      basePatch.adminHiddenBy = reviewer;
+      basePatch.adminHiddenReason = adminNote || "reported-listing";
+    }
+    await inventoryRepository.listings.updateListing(resolveCarDealerId(listing), listing.id, basePatch);
+  }
+
+  return res.json({ success: true, data: updatedReport });
+});
 
 // 2b. API: Smart bulk commit — published + draft buckets
 app.post("/api/admin/inventory-import/commit", async (req, res) => {

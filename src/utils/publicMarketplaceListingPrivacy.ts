@@ -19,6 +19,12 @@ export const PUBLIC_LISTING_REDACTED_INTERNAL_FIELDS = [
   "sellerConsentVersion",
   "sellerConsentSource",
   "sellerConsentTextKey",
+  "moderationStatus",
+  "adminHiddenReason",
+  "adminHiddenAt",
+  "adminHiddenBy",
+  "reportOpenCount",
+  "reports",
 ] as const;
 
 export type PublicListingRedactedContactField =
