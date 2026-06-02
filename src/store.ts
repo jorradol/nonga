@@ -13,6 +13,7 @@ import { addRecentlyViewedCarId } from "./utils/chatCarContext";
 import {
   bootstrapAppRouteState,
   resolvePathnameForView,
+  resolveCarIdFromPathname,
   resolveViewFromPathname,
 } from "./utils/appRouteSync";
 
@@ -144,9 +145,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (typeof window === "undefined") return;
     bootstrapAppRouteState();
     const pathname = window.location.pathname;
+    const carIdFromPath = resolveCarIdFromPathname(pathname);
+    if (carIdFromPath) {
+      if (get().currentView !== "car-details" || get().selectedCarId !== carIdFromPath) {
+        set({ currentView: "car-details", selectedCarId: carIdFromPath });
+      }
+      return;
+    }
     const viewFromPath = resolveViewFromPathname(pathname);
-    if (get().currentView !== viewFromPath) {
-      set({ currentView: viewFromPath });
+    const patch: Partial<AppState> = { currentView: viewFromPath };
+    if (get().currentView === "car-details" && viewFromPath !== "car-details") {
+      patch.selectedCarId = null;
+    }
+    if (get().currentView !== viewFromPath || patch.selectedCarId === null) {
+      set(patch);
     }
   },
   setView: (view, carId = null, dealerId = null) => {
@@ -161,9 +173,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     if (typeof window !== "undefined") {
       const pathname = window.location.pathname;
-      const nextPath = resolvePathnameForView(view, pathname);
-      if (nextPath && nextPath !== pathname) {
-        window.history.replaceState(null, "", nextPath);
+      if (view === "car-details" && carId) {
+        const nextPath = `/cars/${encodeURIComponent(carId)}`;
+        if (pathname !== nextPath) {
+          window.history.replaceState(null, "", nextPath);
+        }
+      } else {
+        const nextPath = resolvePathnameForView(view, pathname);
+        if (nextPath && nextPath !== pathname) {
+          window.history.replaceState(null, "", nextPath);
+        }
       }
     }
     window.scrollTo({ top: 0, behavior: "smooth" });

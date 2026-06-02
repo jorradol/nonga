@@ -84,8 +84,20 @@ export function isChatEntryPath(pathname: string): boolean {
   return path === "/" || path === "/chat";
 }
 
+/** Public share links: /cars/{listingId} */
+export function resolveCarIdFromPathname(pathname: string): string | null {
+  const match = pathname.match(/^\/cars\/([^/]+)\/?$/i);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export function resolveViewFromPathname(pathname: string): RoutableAppView {
   const path = pathname.toLowerCase();
+  if (resolveCarIdFromPathname(pathname)) return "car-details";
   if (path === "/" || path === "/chat") return "chat";
   if (path === "/home") return "home";
   if (path === "/marketplace") return "marketplace";
@@ -143,6 +155,8 @@ export function resolvePathnameForView(
       return "/admin/draft-inventory";
     case "admin-reports":
       return "/admin/reports";
+    case "car-details":
+      return null;
     case "pilot-policy":
       return resolvePilotPolicySlug(currentPath) ? null : "/policy/terms";
     default:
