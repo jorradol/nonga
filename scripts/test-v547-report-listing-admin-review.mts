@@ -9,6 +9,10 @@ import {
   createListingReportRepository,
   type ListingReportReason,
 } from "../src/server/repositories/listingReportRepository.ts";
+import {
+  buildListingPatchForAdminReportAction,
+  buildListingPatchForNewReport,
+} from "../src/server/listingModeration.ts";
 import { isVisibleOnMarketplace, type MarketplaceCarRecord } from "../src/server/marketplaceInventory.ts";
 import { toPublicMarketplaceCarDto } from "../src/utils/publicMarketplaceListingPrivacy.ts";
 
@@ -53,6 +57,20 @@ const actioned = await repo.update(created.reportId, {
   adminNote: "hide listing temporarily",
 });
 ok("admin-actioned-hide", actioned?.status === "actioned", actioned?.status ?? "");
+
+const createReportPatch = buildListingPatchForNewReport(2) as Record<string, unknown>;
+ok("create-report-does-not-hide-listing", !("listingStatus" in createReportPatch), "");
+ok("create-report-sets-under-review", createReportPatch.moderationStatus === "under_review", "");
+
+const hidePatch = buildListingPatchForAdminReportAction({
+  action: "hide",
+  nextStatus: "actioned",
+  openReports: 0,
+  reviewedAt: new Date().toISOString(),
+  reviewer: "admin-1",
+  adminNote: "reported",
+}) as Record<string, unknown>;
+ok("admin-hide-sets-listing-hidden", hidePatch.listingStatus === "hidden", "");
 
 // 2) Hidden listing disappears from marketplace
 const hiddenCar: MarketplaceCarRecord = {

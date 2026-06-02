@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useAppStore } from "../store";
 import { Car } from "../types";
 import { getListingPrimaryImage } from "../utils/listingImages";
+import { resolveMarketplaceUiState } from "../utils/marketplaceUiState";
 import { BoostFrame } from "./boost/BoostBadge";
 import { submitListingReport, type ListingReportReason } from "../services/listings/listingReportApi";
 import { Search, SlidersHorizontal, Sparkles, Heart, Fuel, Gauge, Calendar, MessageSquare, ArrowUpDown, ChevronRight, X, Car as CarIcon } from "lucide-react";
@@ -10,6 +11,8 @@ export default function MarketplaceView() {
   const { 
     cars, 
     isLoadingCars, 
+    carsLoadState,
+    carsLoadError,
     fetchCars, 
     filters, 
     setFilters, 
@@ -82,6 +85,9 @@ export default function MarketplaceView() {
       reason,
       note,
     });
+    if (result.ok) {
+      void fetchCars();
+    }
     alert(
       result.ok
         ? "ขอบคุณที่ช่วยแจ้งครับ ทีมงานจะตรวจสอบประกาศนี้\nการรายงานเป็นการแจ้งให้ตรวจสอบ ไม่ได้หมายความว่าประกาศผิดทันที"
@@ -131,6 +137,13 @@ export default function MarketplaceView() {
       return b.year - a.year;
     }
     return 0;
+  });
+
+  const uiState = resolveMarketplaceUiState({
+    isLoadingCars,
+    carsLoadState,
+    carsCount: cars.length,
+    filteredCarsCount: filteredCars.length,
   });
 
   return (
@@ -313,13 +326,59 @@ export default function MarketplaceView() {
           </div>
 
           {/* Loading Skeleton fallback */}
-          {isLoadingCars ? (
+          {carsLoadState === "error" && (
+            <div
+              className={`p-4 rounded-2xl border text-xs sm:text-sm ${
+                isDarkMode
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                  : "bg-amber-50 border-amber-200 text-amber-800"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p>{carsLoadError || "โหลดข้อมูลรถไม่สำเร็จชั่วคราว"}</p>
+                <button
+                  onClick={() => void fetchCars()}
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-all"
+                >
+                  ลองใหม่
+                </button>
+              </div>
+            </div>
+          )}
+
+          {uiState === "loading" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className={`animate-pulse rounded-2xl h-[380px] ${isDarkMode ? "bg-slate-900" : "bg-slate-100"}`}></div>
               ))}
             </div>
-          ) : cars.length === 0 ? (
+          ) : uiState === "error" ? (
+            <div
+              className={`p-12 text-center rounded-2xl border ${
+                isDarkMode
+                  ? "bg-slate-900/10 border-slate-800"
+                  : "bg-slate-50 border-slate-200"
+              } space-y-4`}
+            >
+              <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                <X className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-display font-semibold text-lg">
+                  โหลดรายการรถไม่สำเร็จ
+                </h4>
+                <p className="text-slate-500 text-xs sm:text-sm">
+                  ข้อมูลอาจขัดข้องชั่วคราว กรุณาลองโหลดใหม่อีกครั้ง
+                </p>
+              </div>
+              <button
+                onClick={() => void fetchCars()}
+                className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-xs hover:bg-orange-700 transition-all font-medium"
+              >
+                ลองโหลดใหม่
+              </button>
+            </div>
+          ) : uiState === "empty" ? (
             <div
               className={`p-12 text-center rounded-2xl border ${
                 isDarkMode
@@ -345,7 +404,7 @@ export default function MarketplaceView() {
                 ลงประกาศขายรถ
               </button>
             </div>
-          ) : filteredCars.length === 0 ? (
+          ) : uiState === "filtered-empty" ? (
             <div
               className={`p-12 text-center rounded-2xl border ${
                 isDarkMode

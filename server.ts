@@ -55,6 +55,10 @@ import {
   type ListingReportReason,
   type ListingReportStatus,
 } from "./src/server/repositories/listingReportRepository";
+import {
+  buildListingPatchForAdminReportAction,
+  buildListingPatchForNewReport,
+} from "./src/server/listingModeration";
 import { registerAiEndpointGuards } from "./src/server/security/aiEndpointGuard";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
@@ -218,10 +222,11 @@ app.post("/api/cars/:id/report", async (req, res) => {
     });
 
     const openReports = (await listingReportRepository.list("open")).filter((r) => r.listingId === listingId).length;
-    await inventoryRepository.listings.updateListing(resolveCarDealerId(listing), listing.id, {
-      moderationStatus: "under_review",
-      reportOpenCount: openReports,
-    });
+    await inventoryRepository.listings.updateListing(
+      resolveCarDealerId(listing),
+      listing.id,
+      buildListingPatchForNewReport(openReports)
+    );
 
     return res.json({
       success: true,
@@ -356,17 +361,14 @@ app.patch("/api/admin/listing-reports/:id", async (req, res) => {
   const listing = await inventoryRepository.listings.getById(report.listingId);
   if (listing) {
     const openReports = (await listingReportRepository.list("open")).filter((r) => r.listingId === report.listingId).length;
-    const basePatch: Partial<MarketplaceCarRecord> = {
-      reportOpenCount: openReports,
-      moderationStatus: nextStatus === "dismissed" && openReports === 0 ? "none" : "under_review",
-    };
-    if (action === "hide") {
-      basePatch.listingStatus = "hidden";
-      basePatch.moderationStatus = "actioned";
-      basePatch.adminHiddenAt = reviewedAt;
-      basePatch.adminHiddenBy = reviewer;
-      basePatch.adminHiddenReason = adminNote || "reported-listing";
-    }
+    const basePatch = buildListingPatchForAdminReportAction({
+      action: action as "reviewed" | "dismiss" | "hide",
+      nextStatus,
+      openReports,
+      reviewedAt,
+      reviewer,
+      adminNote: adminNote || undefined,
+    });
     await inventoryRepository.listings.updateListing(resolveCarDealerId(listing), listing.id, basePatch);
   }
 

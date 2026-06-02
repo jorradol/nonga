@@ -23,6 +23,9 @@ import { submitListingReport, type ListingReportReason } from "../../../services
 export default function CarDetailsView() {
   const { 
     cars, 
+    fetchCars,
+    isLoadingCars,
+    carsLoadState,
     selectedCarId, 
     setView, 
     toggleFavorite, 
@@ -158,6 +161,9 @@ export default function CarDetailsView() {
       reason,
       note,
     });
+    if (result.ok) {
+      void fetchCars();
+    }
     alert(
       result.ok
         ? "ขอบคุณที่ช่วยแจ้งครับ ทีมงานจะตรวจสอบประกาศนี้\nการรายงานเป็นการแจ้งให้ตรวจสอบ ไม่ได้หมายความว่าประกาศผิดทันที"
@@ -204,12 +210,59 @@ export default function CarDetailsView() {
     }
   };
 
+  useEffect(() => {
+    if (!selectedCarId) return;
+    if (!car && carsLoadState !== "loading") {
+      void fetchCars();
+    }
+  }, [selectedCarId, car, carsLoadState, fetchCars]);
+
   if (!car) {
+    if (isLoadingCars || carsLoadState === "loading" || carsLoadState === "idle") {
+      return (
+        <div className="text-center py-24 text-slate-400">
+          <HelpCircle className="w-14 h-14 mx-auto mb-4 text-orange-500 animate-pulse" />
+          <h3 className="text-lg font-bold text-white">กำลังโหลดข้อมูลรถยนต์</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุดจากตลาดรถ
+          </p>
+        </div>
+      );
+    }
+
+    if (carsLoadState === "error") {
+      return (
+        <div className="text-center py-24 text-slate-400">
+          <HelpCircle className="w-14 h-14 mx-auto mb-4 text-orange-500" />
+          <h3 className="text-lg font-bold text-white">ยังโหลดรายละเอียดรถไม่สำเร็จ</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            เครือข่ายอาจขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={() => void fetchCars()}
+              className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-lg"
+            >
+              ลองโหลดใหม่
+            </button>
+            <button
+              onClick={() => setView("marketplace")}
+              className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs transition-all cursor-pointer"
+            >
+              กลับสู่โชว์รูมตลาดรถยนต์
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="text-center py-24 text-slate-400">
         <HelpCircle className="w-14 h-14 mx-auto mb-4 text-orange-500 animate-bounce" />
         <h3 className="text-lg font-bold text-white">ไม่พบข้อมูลรถยนต์ที่คุณตามหา</h3>
-        <p className="text-xs text-slate-400 mt-1">รถคันดังกล่าวอาจถูกระงับ ถอดถอน หรือยกเลิกการเผยแพร่ชั่วคราวครับ</p>
+        <p className="text-xs text-slate-400 mt-1">
+          ลิงก์อาจไม่ถูกต้อง หรือประกาศอาจไม่มีอยู่แล้วในรายการล่าสุด
+        </p>
         <button 
           onClick={() => setView("marketplace")}
           className="mt-6 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs hover:scale-103 active:scale-97 transition-all cursor-pointer shadow-lg"

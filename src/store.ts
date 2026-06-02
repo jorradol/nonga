@@ -6,9 +6,9 @@ import {
 } from "./services/ai/post-generator/apiHelpers";
 import { queuePendingChatMessage } from "./utils/pendingChatMessage";
 import {
-  normalizePublicMarketplaceCar,
   devClientMarketplaceLog,
 } from "./utils/marketplaceCarMapper";
+import { applyCarsFetchPayload } from "./services/cars/carsFetchState";
 import { addRecentlyViewedCarId } from "./utils/chatCarContext";
 import {
   bootstrapAppRouteState,
@@ -57,6 +57,8 @@ interface AppState {
   // Marketplace Listings State
   cars: Car[];
   isLoadingCars: boolean;
+  carsLoadState: "idle" | "loading" | "success" | "error";
+  carsLoadError: string | null;
   filters: MarketplaceFilters;
   setFilters: (filters: Partial<MarketplaceFilters>) => void;
   resetFilters: () => void;
@@ -210,6 +212,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Cars directory
   cars: [],
   isLoadingCars: false,
+  carsLoadState: "idle",
+  carsLoadError: null,
   filters: initialFilters,
   setFilters: (updatedFilters) => {
     set((state) => ({ filters: { ...state.filters, ...updatedFilters } }));
@@ -217,26 +221,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetFilters: () => set({ filters: initialFilters }),
   
   fetchCars: async () => {
-    set({ isLoadingCars: true });
+    set({ isLoadingCars: true, carsLoadState: "loading", carsLoadError: null });
     try {
       const response = await fetch("/api/cars", { cache: "no-store" });
       const result = await response.json();
-      if (result.success && Array.isArray(result.data)) {
-        const normalized = (result.data as Record<string, unknown>[]).map(
-          normalizePublicMarketplaceCar
-        );
+      const next = applyCarsFetchPayload({ cars: get().cars }, result);
+      if (next.carsLoadState === "success") {
         devClientMarketplaceLog("fetchCars", {
-          count: normalized.length,
+          count: next.cars.length,
           source: "GET /api/cars → data/marketplace-inventory.json",
         });
-        set({ cars: normalized });
+        set(next);
       } else {
         devClientMarketplaceLog("fetchCars-empty", { result });
-        set({ cars: [] });
+        console.warn("[fetchCars] unexpected payload shape", result);
+        set(next);
       }
     } catch (err) {
       console.error("Store error loading cars list", err);
-      set({ cars: [] });
+      set({
+        carsLoadState: "error",
+        carsLoadError: "เชื่อมต่อรายการรถไม่สำเร็จชั่วคราว กรุณาลองใหม่",
+      });
     } finally {
       set({ isLoadingCars: false });
     }
