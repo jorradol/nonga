@@ -9,6 +9,10 @@ import {
 } from "./chatBuyerAdvisorTemplates";
 import { classifyBuyerFactsQuestion } from "./chatBuyerFactsQa";
 import {
+  parseBuyerSearchIntent,
+  type BuyerSearchIntent,
+} from "./buyerSearchIntentParser";
+import {
   hasSufficientSearchCriteria,
   parseMarketplaceSearchQuery,
 } from "./marketplaceChatSearch";
@@ -26,7 +30,7 @@ export interface BuyerIntentGateOptions {
 export type { BuyerAdvisorTopic };
 
 const VAGUE_UNCLEAR =
-  /^(?:ช่วยหน่อย|แนะนำหน่อย|มีอะไรบ้าง|มีอะไรน่าสนใจ(?:บ้าง)?|เอาแบบไหนดี|อยากได้รถ(?:หน่อย)?|หาหน่อย|แนะนำรถหน่อย|แนะนำหน่อยครับ|ช่วยแนะนำหน่อย)$/i;
+  /^(?:ช่วยหน่อย|แนะนำหน่อย|มีอะไรบ้าง|มีอะไรน่าสนใจ(?:บ้าง)?|เอาแบบไหนดี|อยากได้รถ(?:หน่อย)?|หาหน่อย|แนะนำรถหน่อย|แนะนำหน่อยครับ|ช่วยแนะนำหน่อย|อยากได้รถดี\s*ๆ|อยากได้รถดีๆ)$/i;
 
 const VAGUE_WITH_SOFT_ADVISE =
   /^(?:แนะนำ(?:รถ)?(?:ให้)?(?:หน่อย)?|ช่วยแนะนำ(?:รถ)?(?:หน่อย)?|มีอะไร(?:น่าสนใจ|ดี)(?:บ้าง)?)(?:ครับ|ค่ะ|นะ)?$/i;
@@ -38,9 +42,36 @@ const SOFT_SEARCH_HINT =
   /(?:มี|หา|ค้นหา|แนะนำ|งบ|ราคา|แสน|ล้าน|น่าสนใจ)/i;
 
 function hasConcreteSearchSignals(text: string): boolean {
+  if (parseBuyerSearchIntent(text).isVehicleSearch) return true;
   const criteria = parseMarketplaceSearchQuery(text);
   if (!criteria) return false;
   return hasSufficientSearchCriteria(criteria, text);
+}
+
+/** Search-style messages with usage/budget — defer advisor template to scored search (v5.4.8c). */
+function shouldDeferAdvisorForBuyerSearch(
+  intent: BuyerSearchIntent,
+  topic: BuyerAdvisorTopic,
+  message: string
+): boolean {
+  if (!intent.isVehicleSearch) return false;
+  const searchDeferTopics: BuyerAdvisorTopic[] = [
+    "firstCar",
+    "easyMaintenance",
+    "lowMaintenance",
+  ];
+  if (!searchDeferTopics.includes(topic)) return false;
+  const tagCount = intent.usageTags?.length ?? 0;
+  if (tagCount >= 2) return true;
+  if (intent.budgetMax != null) return true;
+  if (intent.seatsMin != null) return true;
+  if (
+    tagCount >= 1 &&
+    /(?:มี|หา|อยากได้|ต้องการ).{0,40}(?:รถ|คัน)/i.test(message)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function isVagueUnclearBuyerMessage(message: string): boolean {
@@ -85,8 +116,13 @@ export function tryBuyerIntentGateReply(
   const t = normalizeBuyerAdvisorMessage(message);
   if (!t) return null;
 
+  const buyerIntent = parseBuyerSearchIntent(t);
+
   const advisor = detectBuyerAdvisorTopic(t);
   if (advisor) {
+    if (shouldDeferAdvisorForBuyerSearch(buyerIntent, advisor, t)) {
+      return null;
+    }
     if (
       shouldDeferAdvisorToCarFacts(
         advisor,
@@ -97,6 +133,10 @@ export function tryBuyerIntentGateReply(
       return null;
     }
     return { text: buildBuyerAdvisorReply(advisor), skipGemini: true };
+  }
+
+  if (buyerIntent.isVehicleSearch) {
+    return null;
   }
 
   if (

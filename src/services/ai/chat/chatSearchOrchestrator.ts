@@ -38,6 +38,7 @@ import { tryTroubleshootingAdvisorReply } from "./chatTroubleshootingAdvisorTemp
 import { tryInsuranceAdvisorReply } from "./chatInsuranceAdvisorTemplates";
 import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
+import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -326,6 +327,28 @@ export function tryOrchestrateChatReply(
         skipGemini: true,
       };
     }
+  }
+
+  const buyerScored = tryBuyerScoredMarketplaceReply(message, inventory);
+  if (buyerScored) {
+    const initialCards = buyerScored.carCards;
+    const hasMore =
+      buyerScored.hasMoreCars ?? buyerScored.allCarCards.length > 3;
+
+    if (buyerScored.allCarCards.length > 0) {
+      saveChatSearchContext({
+        allCars: buyerScored.allCarCards,
+        offset: 3,
+      });
+      saveChatCarContext(initialCards);
+    }
+
+    return {
+      text: buyerScored.text,
+      carCards: initialCards,
+      skipGemini: true,
+      hasMoreCars: hasMore,
+    };
   }
 
   if (!isMarketplaceSearchIntent(message)) return null;
