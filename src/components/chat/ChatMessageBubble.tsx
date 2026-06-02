@@ -67,9 +67,10 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
   
   const handleSaveEdit = async (updatedText: string) => {
-    if (activeSessionId) {
-      await editMessage(activeSessionId, message.id, updatedText);
+    if (!activeSessionId) {
+      throw new Error("ไม่พบเซสชันแชท — ลองรีเฟรชแล้วแก้ไขใหม่อีกครั้ง");
     }
+    await editMessage(activeSessionId, message.id, updatedText);
   };
 
   const {
@@ -81,7 +82,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     saveEditing
   } = useEditableMessage({
     initialText: message.text,
-    onSave: handleSaveEdit
+    onSave: handleSaveEdit,
   });
 
   const isLiked = isFavorite(message.id);
@@ -368,7 +369,8 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 ยกเลิก
               </button>
               <button
-                onClick={saveEditing}
+                type="button"
+                onClick={() => void saveEditing()}
                 className="px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 rounded-lg text-white font-bold transition flex items-center gap-1 cursor-pointer"
               >
                 <Save className="w-3.6 h-3.6" />

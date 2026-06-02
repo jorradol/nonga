@@ -37,7 +37,7 @@ export default function MyListingsView() {
   const listingApiScope: MyListingsApiScope = useMemo(
     () => ({
       ownerId,
-      ...(canAccessPortal ? { dealerHeaders: apiHeaders } : {}),
+      ...(canAccessPortal && apiHeaders ? { dealerHeaders: apiHeaders } : {}),
     }),
     [apiHeaders, canAccessPortal, ownerId]
   );

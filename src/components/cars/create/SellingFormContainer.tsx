@@ -359,7 +359,7 @@ export default function SellingFormContainer({
   };
 
   const handleSaveDraft = async () => {
-    if (!canAccessPortal) {
+    if (!canAccessPortal || !apiHeaders) {
       showToast("ต้องเข้าสู่ระบบด้วยบัญชี Dealer ก่อนจึงจะบันทึก Draft ได้ครับ");
       return;
     }

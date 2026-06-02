@@ -112,6 +112,7 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/admin/inventory-import") return "inventory-import";
   if (path === "/admin/draft-inventory") return "dealer-draft-inventory";
   if (path === "/admin/reports") return "admin-reports";
+  if (path === "/admin/dashboard" || path === "/admin") return "admin-dashboard";
   if (path.startsWith("/dealer")) return "dealer-portal";
   if (resolvePilotPolicySlug(path)) return "pilot-policy";
   return "chat";
@@ -155,6 +156,8 @@ export function resolvePathnameForView(
       return "/admin/draft-inventory";
     case "admin-reports":
       return "/admin/reports";
+    case "admin-dashboard":
+      return "/admin/dashboard";
     case "car-details":
       return null;
     case "pilot-policy":

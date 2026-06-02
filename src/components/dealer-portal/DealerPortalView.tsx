@@ -20,11 +20,19 @@ import { navigateToDealerDraftsAfterPasteSave } from "../../utils/dealer/dealerP
 import { parseDealerDraftFocusFromLocation } from "../../utils/dealer/dealerDraftNavigation";
 import { AlertCircle } from "lucide-react";
 import { DuplicateReviewSection } from "../duplicate/DuplicateReviewSection";
+import { DealerPortalAdminScopeNotice } from "./DealerPortalAdminScopeNotice";
 
 export default function DealerPortalView() {
   const { isDarkMode, setView, fetchCars } = useAppStore();
-  const { canAccessPortal, apiHeaders, importOwner, ownerContext } = useDealerPortal();
-  const { isDealer, isAdmin } = useRole();
+  const {
+    canAccessPortal,
+    apiHeaders,
+    hasDealerInventoryScope,
+    importOwner,
+    ownerContext,
+    isAdmin,
+  } = useDealerPortal();
+  const { isDealer } = useRole();
   const [tab, setTab] = useState<DealerPortalTab>(() =>
     typeof window !== "undefined"
       ? dealerTabFromPath(window.location.pathname)
@@ -61,6 +69,14 @@ export default function DealerPortalView() {
           ไปตั้งค่าโปรไฟล์
         </button>
       </div>
+    );
+  }
+
+  if (!hasDealerInventoryScope || !apiHeaders) {
+    return (
+      <DealerPortalLayout activeTab={tab} dealerName={ownerContext.showroomName}>
+        <DealerPortalAdminScopeNotice />
+      </DealerPortalLayout>
     );
   }
 

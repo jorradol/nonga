@@ -38,6 +38,16 @@ export function resolveDealerIdFromUser(user: {
   return THOR_AUTO_DEALER_ID;
 }
 
+/** Dealer inventory API scope — admin without dealerId must not fall back to admin uid. */
+export function resolveDealerInventoryScopeId(
+  user: { dealerId?: string; uid?: string; role?: string } | null,
+  role: string | undefined
+): string | null {
+  if (user?.dealerId?.trim()) return normalizeDealerId(user.dealerId);
+  if (role === "dealer") return resolveDealerIdFromUser(user);
+  return null;
+}
+
 export function buildThorAutoOwnerContext(
   overrides: Partial<DealerOwnerContext> = {}
 ): DealerOwnerContext {

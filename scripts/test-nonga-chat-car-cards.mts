@@ -454,10 +454,14 @@ async function main() {
     "utf8"
   );
   ok("v542-component-expand-btn", buyerCardSource.includes('data-testid="chat-car-card-expand-btn"'), "");
-  ok("v542-component-expand-label", buyerCardSource.includes("ดูรายละเอียดในแชท"), "");
+  ok("v542-component-expand-label", buyerCardSource.includes("ดูรายละเอียดรถ"), "");
   ok("v542-component-collapse-label", buyerCardSource.includes("ย่อรายละเอียด"), "");
   ok("v542-component-full-detail-secondary", buyerCardSource.includes('data-testid="chat-car-card-full-detail-btn"'), "");
-  ok("v542-component-full-detail-label", buyerCardSource.includes("ดูรายละเอียดเต็ม"), "");
+  ok(
+    "v542-component-full-detail-label",
+    buyerCardSource.includes("เปิดหน้ารถเต็ม") && buyerCardSource.includes("window.open"),
+    ""
+  );
   ok("v542-component-spec-summary", buyerCardSource.includes("chat-car-card-spec-summary"), "");
   ok("v542-component-spec-detail", buyerCardSource.includes("chat-car-card-spec-detail"), "");
   ok("v542-component-gallery", buyerCardSource.includes("chat-car-card-gallery"), "");
@@ -466,7 +470,12 @@ async function main() {
   ok("v542-no-ask-ai-button", !buyerCardSource.includes("ถามน้องเอ"), "");
   ok("v542-no-talk-ai-button", !buyerCardSource.includes("คุยกับน้องเอ"), "");
   ok("v542-no-message-circle-cta", !buyerCardSource.includes("MessageCircle"), "");
-  ok("v542-setview-only-for-full-detail", buyerCardSource.includes("handleFullDetail") && buyerCardSource.includes('setView("car-details"'), "");
+  ok(
+    "v549b-chat-card-no-setview-navigation",
+    !buyerCardSource.includes('setView("car-details"') &&
+      !buyerCardSource.includes("useAppStore"),
+    ""
+  );
 
   const publishedCardSource = fs.readFileSync(
     path.join(process.cwd(), "src/components/chat/ChatPublishedMemberListingCard.tsx"),
@@ -677,8 +686,8 @@ async function main() {
   );
   ok(
     "v543-full-detail-still-remembers-selected",
-    v543BuyerCardSource.includes("handleFullDetail") &&
-      v543BuyerCardSource.includes('setView("car-details"'),
+    v543BuyerCardSource.includes("handleOpenFullDetailInNewTab") &&
+      v543BuyerCardSource.includes("rememberSelectedCar"),
     ""
   );
   ok("v543-no-ask-ai-button", !v543BuyerCardSource.includes("ถามน้องเอ"), "");

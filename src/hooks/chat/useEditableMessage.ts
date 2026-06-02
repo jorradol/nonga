@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface UseEditableMessageProps {
   initialText: string;
@@ -9,6 +9,12 @@ export function useEditableMessage({ initialText, onSave }: UseEditableMessagePr
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(initialText);
 
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(initialText);
+    }
+  }, [initialText, isEditing]);
+
   const startEditing = useCallback((currentText: string) => {
     setEditValue(currentText);
     setIsEditing(true);
@@ -16,12 +22,18 @@ export function useEditableMessage({ initialText, onSave }: UseEditableMessagePr
 
   const cancelEditing = useCallback(() => {
     setIsEditing(false);
-  }, []);
+    setEditValue(initialText);
+  }, [initialText]);
 
   const saveEditing = useCallback(async () => {
-    if (!editValue.trim()) return;
-    await onSave(editValue.trim());
-    setIsEditing(false);
+    const trimmed = editValue.trim();
+    if (!trimmed) return;
+    try {
+      await onSave(trimmed);
+      setIsEditing(false);
+    } catch {
+      // Keep edit mode open when persistence fails.
+    }
   }, [editValue, onSave]);
 
   return {

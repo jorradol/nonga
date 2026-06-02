@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Car, ChevronDown, ChevronUp, ExternalLink, ImageOff } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
-import { useAppStore } from "../../store";
 import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
 
 interface ChatCarCardProps {
@@ -165,7 +164,6 @@ function ExpandableDescription({ text }: { text: string }) {
 }
 
 export function ChatCarCard({ car }: ChatCarCardProps) {
-  const { setView } = useAppStore();
   const [expanded, setExpanded] = useState(false);
 
   const brandModel = `${car.brand} ${car.model}`.trim();
@@ -212,9 +210,11 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
     });
   };
 
-  const handleFullDetail = () => {
+  const handleOpenFullDetailInNewTab = () => {
     rememberSelectedCar();
-    setView("car-details", car.id);
+    if (typeof window === "undefined") return;
+    const path = `/cars/${encodeURIComponent(car.id)}`;
+    window.open(path, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -279,19 +279,19 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
           ) : (
             <>
               <ChevronDown className="w-3.5 h-3.5 shrink-0" />
-              ดูรายละเอียดในแชท
+              ดูรายละเอียดรถ
             </>
           )}
         </button>
 
         <button
           type="button"
-          onClick={handleFullDetail}
+          onClick={handleOpenFullDetailInNewTab}
           className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-semibold rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/80 transition cursor-pointer min-h-[40px]"
           data-testid="chat-car-card-full-detail-btn"
         >
           <ExternalLink className="w-3 h-3 shrink-0" />
-          ดูรายละเอียดเต็ม
+          เปิดหน้ารถเต็ม (แท็บใหม่)
         </button>
       </div>
     </article>
