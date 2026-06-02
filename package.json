@@ -74,6 +74,7 @@
     "test:v547f-public-report-ui-state": "tsx scripts/test-v547f-public-report-ui-state.mts",
     "test:v547f-admin-staging-smoke": "tsx scripts/test-v547f-admin-staging-smoke.mts",
     "test:v547g-car-detail-routing": "tsx scripts/test-v547g-car-detail-routing.mts",
+    "test:v548a-buyer-search-intent-parser": "tsx scripts/test-v548a-buyer-search-intent-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",
