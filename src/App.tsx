@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect } from "react";
 import { useAppStore } from "./store";
 import { getListingPrimaryImage } from "./utils/listingImages";
 import { useRole } from "./hooks/auth/useRole";
-import { queuePendingChatMessage } from "./utils/pendingChatMessage";
+import { saveLastSelectedCarId } from "./utils/chatCarContext";
 import {
   navigateDealerSignupEntry,
   navigateDealerSystemEntry,
@@ -65,6 +65,7 @@ import {
 export default function App() {
   const { 
     currentView,
+    selectedCarId,
     setView,
     enforcePathnameView,
     isDarkMode, 
@@ -91,9 +92,9 @@ export default function App() {
   ]);
   const showFloatingChatButton = !hideFloatingChatViews.has(currentView);
   const openFloatingChat = () => {
-    queuePendingChatMessage(
-      "สวัสดีน้องเอ ช่วยแนะนำการซื้อรถ ขายรถ หรือฝากขายรถให้หน่อยครับ"
-    );
+    if (currentView === "car-details" && selectedCarId) {
+      saveLastSelectedCarId(selectedCarId);
+    }
     setView("chat");
   };
   const comingSoonLinkClass =

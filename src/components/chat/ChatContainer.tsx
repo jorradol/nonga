@@ -13,6 +13,7 @@ import { useChatMobileViewportInset } from "../../hooks/chat/useChatMobileViewpo
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { ChatComposerContext } from "../../contexts/chat/ChatComposerContext";
 import { useAppStore } from "../../store";
+import { loadLastSelectedCarId } from "../../utils/chatCarContext";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { ChatMessageBubble } from "./ChatMessageBubble";
 import { SuggestionsGrid } from "./SuggestionsGrid";
@@ -52,7 +53,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     sendMessage,
   } = useChatContext();
 
-  const { setView } = useAppStore();
+  const { setView, cars } = useAppStore();
   const { isSignedIn } = useAuth();
 
   const [inputText, setInputText] = useState("");
@@ -276,6 +277,19 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     sendMessage(queryText);
   };
 
+  const contextualCarId = loadLastSelectedCarId();
+  const contextualCar = useMemo(
+    () => (contextualCarId ? cars.find((c) => c.id === contextualCarId) : undefined),
+    [cars, contextualCarId]
+  );
+
+  const handleAskAboutContextualCar = () => {
+    if (!contextualCar) return;
+    sendMessage(
+      `[SELECTED_CAR_ID:${contextualCar.id}] ช่วยสรุปและให้ความเห็นเกี่ยวกับรถคันนี้หน่อยครับ`
+    );
+  };
+
   return (
     <ChatComposerContext.Provider value={composerContextValue}>
     <div className="flex-1 flex min-h-0 w-full min-w-0 bg-slate-950 text-slate-100 h-full relative" id="chat-container">
@@ -369,6 +383,17 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                     {CHAT_PILOT_CLOSED_INVITE_NOTICE}
                   </p>
                 </div>
+                {contextualCar && (
+                  <button
+                    type="button"
+                    onClick={handleAskAboutContextualCar}
+                    className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-xs font-semibold text-orange-300 hover:bg-orange-500/20 hover:text-orange-200 transition-colors"
+                    id="chat-contextual-car-chip"
+                  >
+                    <Car className="w-3.5 h-3.5" />
+                    ถามน้องเอเกี่ยวกับ {contextualCar.brand} {contextualCar.model}
+                  </button>
+                )}
                 <div className="w-full mt-4">
                   <SuggestionsGrid onSelectSuggestion={handleSuggestionSelect} />
                 </div>
