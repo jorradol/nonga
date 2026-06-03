@@ -66,6 +66,14 @@ export type BuyerLeadSource = "chat";
 /** v5.6D — Per-listing interest queue lifecycle (no PII across buyers). */
 export type BuyerLeadQueueLifecycle = "active" | "superseded" | "withdrawn";
 
+/** v5.6E — Seller skip before contact reveal (staging MVP). */
+export type SellerSkipReason =
+  | "offer_below_expectation"
+  | "purchase_method_mismatch"
+  | "insufficient_info"
+  | "suspected_inaccurate"
+  | "other";
+
 export type SuccessFeeModel = "tier_b" | "percent_1";
 
 export type TrustRewardTier = "none" | "silver" | "gold" | "platinum";
@@ -105,6 +113,10 @@ export interface BuyerLead {
   queuePosition: number;
   /** Active until listing pending_sale/sold or buyer withdraws. */
   queueLifecycle: BuyerLeadQueueLifecycle;
+  /** v5.6E — set when seller skips before reveal. */
+  sellerSkipReason?: SellerSkipReason;
+  sellerSkipNote?: string;
+  buyerQueueFeedback?: string;
   floorAtCapture?: number;
   createdAt: string;
   updatedAt: string;
@@ -129,6 +141,14 @@ export interface SellerMaskedQueueEntry {
   leadContactOutcome?: LeadContactOutcome;
   contactMasked: boolean;
   isCurrentSellerTurn: boolean;
+  preferredContactWindow: string;
+  budgetLabel: string;
+  offeredPriceLabel: string | null;
+  /** null when it is seller's turn */
+  waitingReason: string | null;
+  canSkip: boolean;
+  /** v5.6E — full reveal UI not enabled in this MVP */
+  canRevealContact: boolean;
 }
 
 /** Minimal shape for policy helpers and tests. */
@@ -145,7 +165,8 @@ export type LeadContactLogAction =
   | "outcome_updated"
   | "suspicious_buyer_reported"
   | "admin_review_opened"
-  | "admin_review_closed";
+  | "admin_review_closed"
+  | "queue_skipped_before_reveal";
 
 export interface LeadContactLog {
   id: string;

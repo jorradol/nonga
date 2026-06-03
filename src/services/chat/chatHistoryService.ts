@@ -209,6 +209,9 @@ function normalizeMessage(
     ...(raw.hasMoreCars ? { hasMoreCars: Boolean(raw.hasMoreCars) } : {}),
     ...(raw.isDraftPreview ? { isDraftPreview: Boolean(raw.isDraftPreview) } : {}),
     ...(raw.isBuyerLeadReady ? { isBuyerLeadReady: Boolean(raw.isBuyerLeadReady) } : {}),
+    ...(raw.isBuyerLeadProfileReuse
+      ? { isBuyerLeadProfileReuse: Boolean(raw.isBuyerLeadProfileReuse) }
+      : {}),
     ...(raw.draftFields ? { draftFields: raw.draftFields } : {}),
     ...(typeof raw.savedDraftId === "string" ? { savedDraftId: raw.savedDraftId } : {}),
     ...(typeof raw.savedMemberListingId === "string"
@@ -424,6 +427,9 @@ function messageToFirestoreData(message: ChatMessage) {
     ...(safe.hasMoreCars ? { hasMoreCars: safe.hasMoreCars } : {}),
     ...(safe.isDraftPreview ? { isDraftPreview: safe.isDraftPreview } : {}),
     ...(safe.isBuyerLeadReady ? { isBuyerLeadReady: safe.isBuyerLeadReady } : {}),
+    ...(safe.isBuyerLeadProfileReuse
+      ? { isBuyerLeadProfileReuse: safe.isBuyerLeadProfileReuse }
+      : {}),
     ...(safe.draftFields ? { draftFields: safe.draftFields } : {}),
     ...(safe.savedDraftId ? { savedDraftId: safe.savedDraftId } : {}),
     ...(safe.savedMemberListingId
@@ -628,6 +634,7 @@ export async function appendChatMessage(
     ...(input.hasMoreCars ? { hasMoreCars: input.hasMoreCars } : {}),
     ...(input.isDraftPreview ? { isDraftPreview: input.isDraftPreview } : {}),
     ...(input.isBuyerLeadReady ? { isBuyerLeadReady: true } : {}),
+    ...(input.isBuyerLeadProfileReuse ? { isBuyerLeadProfileReuse: true } : {}),
     ...(input.draftFields ? { draftFields: input.draftFields } : {}),
     ...(input.savedDraftId ? { savedDraftId: input.savedDraftId } : {}),
     ...(input.savedMemberListingId

@@ -200,8 +200,7 @@ export async function getSellerMaskedQueueForListing(
 export function sellerQueueListNeverShowsFullPhoneOfOthers(
   entries: SellerMaskedQueueEntry[]
 ): boolean {
-  const revealed = entries.filter((e) => !e.contactMasked);
-  return revealed.length <= 1;
+  return entries.every((e) => e.contactMasked);
 }
 
 export function buyerSelfViewHasOnlyOwnQueueFields(

@@ -34,6 +34,7 @@ export interface AIUserProfile {
 
 export type AddMessageListingExtras = {
   isBuyerLeadReady?: boolean;
+  isBuyerLeadProfileReuse?: boolean;
   isPendingListingCard?: boolean;
   pendingListingCard?: PendingListingCardData;
   isSavedMemberListingCard?: boolean;
@@ -260,6 +261,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(hasMoreCars ? { hasMoreCars } : {}),
       ...(isDraftPreview ? { isDraftPreview } : {}),
       ...(listingExtras?.isBuyerLeadReady ? { isBuyerLeadReady: true } : {}),
+      ...(listingExtras?.isBuyerLeadProfileReuse
+        ? { isBuyerLeadProfileReuse: true }
+        : {}),
       ...(draftFields ? { draftFields } : {}),
       ...(savedDraftId ? { savedDraftId } : {}),
       ...(savedMemberListingId ? { savedMemberListingId } : {}),

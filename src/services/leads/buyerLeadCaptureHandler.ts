@@ -4,9 +4,14 @@
 
 import { createBuyerLeadFromChat } from "./buyerLeadApi";
 import {
+  saveBuyerPurchaseProfileFromDraft,
+} from "./buyerPurchaseProfile";
+import {
   buildBuyerLeadCollectingPrompt,
+  buildBuyerLeadEditProfileReply,
   buildBuyerLeadOpenModalAckReply,
   buildBuyerLeadReadySummaryReply,
+  buildBuyerLeadSavedProfileSummaryReply,
   buildBuyerLeadSelectCarFirstReply,
   buildBuyerLeadStartFromCarReply,
   buildBuyerLeadSuccessReply,
@@ -25,6 +30,7 @@ import {
 } from "./buyerLeadCaptureFlow";
 import {
   containsForbiddenSensitiveDocument,
+  isBuyerLeadEditSavedProfileAction,
   normalizeThaiPhone,
 } from "./buyerLeadValidation";
 import type { ChatCarCardData } from "../../types";
@@ -43,6 +49,7 @@ export type HandleBuyerLeadCaptureResult =
       reply: string;
       openConsentModal?: boolean;
       isBuyerLeadReady?: boolean;
+      isBuyerLeadProfileReuse?: boolean;
     };
 
 export async function handleBuyerLeadCaptureTurn(
@@ -73,6 +80,18 @@ export async function handleBuyerLeadCaptureTurn(
     };
   }
 
+  if (isBuyerLeadEditSavedProfileAction(params.message)) {
+    const editCtx = getBuyerLeadCaptureContext(params.sessionId);
+    if (editCtx) {
+      return {
+        handled: true,
+        reply: buildBuyerLeadEditProfileReply(
+          listMissingBuyerLeadFields(editCtx.fields)
+        ),
+      };
+    }
+  }
+
   const sessionCtx = getBuyerLeadCaptureContext(params.sessionId);
   if (!sessionCtx) {
     return { handled: true, reply: buildBuyerLeadSelectCarFirstReply() };
@@ -81,6 +100,14 @@ export async function handleBuyerLeadCaptureTurn(
   const miss = listMissingBuyerLeadFields(sessionCtx.fields);
   if (!sessionCtx.fields.listingId?.trim()) {
     return { handled: true, reply: buildBuyerLeadSelectCarFirstReply() };
+  }
+
+  if (sessionCtx.stage === "reuse_profile_choice") {
+    return {
+      handled: true,
+      reply: buildBuyerLeadSavedProfileSummaryReply(sessionCtx.fields),
+      isBuyerLeadProfileReuse: true,
+    };
   }
 
   if (sessionCtx.stage === "ready_for_modal" && miss.length === 0) {
@@ -100,11 +127,23 @@ export async function handleBuyerLeadCaptureTurn(
 export function handleBuyerLeadCaptureFromCarCard(params: {
   sessionId: string;
   car: ChatCarCardData;
-}): { reply: string } {
-  startBuyerLeadCaptureFromCar(params.sessionId, params.car);
-  const miss = listMissingBuyerLeadFields(
-    getBuyerLeadCaptureContext(params.sessionId)?.fields ?? {}
+  buyerUserId?: string;
+}): { reply: string; isBuyerLeadProfileReuse?: boolean } {
+  const ctx = startBuyerLeadCaptureFromCar(
+    params.sessionId,
+    params.car,
+    params.buyerUserId
   );
+  if (ctx.stage === "reuse_profile_choice") {
+    return {
+      reply:
+        buildBuyerLeadStartFromCarReply(params.car) +
+        "\n\n" +
+        buildBuyerLeadSavedProfileSummaryReply(ctx.fields),
+      isBuyerLeadProfileReuse: true,
+    };
+  }
+  const miss = listMissingBuyerLeadFields(ctx.fields);
   return {
     reply:
       buildBuyerLeadStartFromCarReply(params.car) +
@@ -121,6 +160,7 @@ export async function submitBuyerLeadFromModal(params: {
   sessionId: string;
   contactPhone: string;
   isSignedIn: boolean;
+  buyerUserId?: string;
 }): Promise<SubmitBuyerLeadFromModalResult> {
   const ctx = getBuyerLeadCaptureContext(params.sessionId);
   if (!ctx || ctx.stage !== "ready_for_modal") {
@@ -176,6 +216,10 @@ export async function submitBuyerLeadFromModal(params: {
 
   if (!api.ok) {
     return { ok: false, message: api.message };
+  }
+
+  if (params.buyerUserId) {
+    saveBuyerPurchaseProfileFromDraft(params.buyerUserId, updated.fields);
   }
 
   clearBuyerLeadCaptureContext(params.sessionId);

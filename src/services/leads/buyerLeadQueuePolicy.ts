@@ -12,6 +12,7 @@ import type {
   BuyerLeadQueueLifecycle,
   BuyerLeadRevealState,
   ListingSaleStatus,
+  PurchaseMethod,
   SellerMaskedQueueEntry,
 } from "./leadTypes";
 
@@ -154,6 +155,26 @@ export function supersedeActiveQueueForListingSale<T extends BuyerLead>(
   return { updated, buyerNotifications };
 }
 
+function formatPurchaseMethodLabel(method: PurchaseMethod): string {
+  if (method === "cash") return "เงินสด";
+  if (method === "finance") return "ไฟแนนซ์";
+  return "ยังไม่แน่ใจ";
+}
+
+function formatLeadBudgetLabel(lead: Pick<BuyerLead, "budgetMin" | "budgetMax" | "offeredPrice">): string {
+  if (lead.offeredPrice != null && lead.offeredPrice > 0) {
+    return `เสนอ ${lead.offeredPrice.toLocaleString("th-TH")} บาท`;
+  }
+  if (lead.budgetMin != null && lead.budgetMax != null && lead.budgetMin !== lead.budgetMax) {
+    return `${lead.budgetMin.toLocaleString("th-TH")}–${lead.budgetMax.toLocaleString("th-TH")} บาท`;
+  }
+  const v = lead.budgetMax ?? lead.budgetMin;
+  if (v != null && v > 0) {
+    return `ประมาณ ${v.toLocaleString("th-TH")} บาท`;
+  }
+  return "ไม่ระบุ";
+}
+
 export function toSellerMaskedQueue(
   leads: BuyerLead[],
   listingId: string
@@ -164,13 +185,12 @@ export function toSellerMaskedQueue(
   const nextId = getNextRevealableLead(activeSorted, listingId)?.id;
 
   return activeSorted.map((lead) => {
-    const reveal =
-      lead.id === nextId && lead.contactRevealStatus === "revealed";
     const masked = maskBuyerContact({
       displayName: lead.displayName,
       contactPhone: lead.contactPhone,
-      revealContact: reveal,
+      revealContact: false,
     });
+    const isTurn = lead.id === nextId;
     return {
       leadId: lead.id,
       queuePosition: lead.queuePosition,
@@ -181,8 +201,17 @@ export function toSellerMaskedQueue(
       status: lead.status,
       contactRevealStatus: lead.contactRevealStatus,
       leadContactOutcome: lead.leadContactOutcome,
-      contactMasked: masked.phoneMasked || masked.nameMasked,
-      isCurrentSellerTurn: lead.id === nextId,
+      contactMasked: true,
+      isCurrentSellerTurn: isTurn,
+      preferredContactWindow: lead.preferredContactWindow,
+      budgetLabel: formatLeadBudgetLabel(lead),
+      offeredPriceLabel:
+        lead.offeredPrice != null && lead.offeredPrice > 0
+          ? `${lead.offeredPrice.toLocaleString("th-TH")} บาท`
+          : null,
+      waitingReason: isTurn ? null : "รอผลคิวก่อนหน้า",
+      canSkip: isTurn && lead.contactRevealStatus === "locked",
+      canRevealContact: false,
     };
   });
 }

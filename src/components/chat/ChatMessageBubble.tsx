@@ -14,7 +14,11 @@ import { useChatComposer } from "../../contexts/chat/ChatComposerContext";
 import {
   CHAT_CONFIRM_CREATE_DRAFT_ACTION,
 } from "../../services/ai/chat/chatDraftActions";
-import { CHAT_BUYER_LEAD_OPEN_MODAL_ACTION } from "../../services/leads/buyerLeadCaptureCopy";
+import {
+  CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION,
+  CHAT_BUYER_LEAD_OPEN_MODAL_ACTION,
+  CHAT_BUYER_LEAD_USE_SAVED_PROFILE_ACTION,
+} from "../../services/leads/buyerLeadCaptureCopy";
 import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import { ChatCarCard } from "./ChatCarCard";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
@@ -603,6 +607,33 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   }
                 }}
               />
+            )}
+
+            {message.isBuyerLeadProfileReuse && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeSessionId) return;
+                    void sendMessage(CHAT_BUYER_LEAD_USE_SAVED_PROFILE_ACTION);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  data-testid="buyer-lead-use-profile-btn"
+                >
+                  {CHAT_BUYER_LEAD_USE_SAVED_PROFILE_ACTION}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeSessionId) return;
+                    void sendMessage(CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION);
+                  }}
+                  className="px-4 py-2 border border-slate-600 text-slate-200 text-xs font-bold rounded-xl hover:bg-slate-800 cursor-pointer"
+                  data-testid="buyer-lead-edit-profile-btn"
+                >
+                  {CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION}
+                </button>
+              </div>
             )}
 
             {message.isBuyerLeadReady && (

@@ -29,6 +29,7 @@ import {
   validateMemberListingRecordReadyToPublish,
 } from "../services/listings/memberListingPublishGuard";
 import { useDealerPortal } from "../hooks/dealer/useDealerPortal";
+import { SellerMaskedLeadQueuePanel } from "./leads/SellerMaskedLeadQueuePanel";
 
 export default function MyListingsView() {
   const { user, fetchCars, setView, setFilters, isDarkMode } = useAppStore();
@@ -340,6 +341,14 @@ export default function MyListingsView() {
                     ลบ
                   </button>
                 </div>
+                {ownerId ? (
+                  <div className="w-full lg:basis-full">
+                    <SellerMaskedLeadQueuePanel
+                      listingId={car.id}
+                      isDarkMode={isDarkMode}
+                    />
+                  </div>
+                ) : null}
               </article>
             );
           })}

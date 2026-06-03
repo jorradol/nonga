@@ -918,8 +918,15 @@ export function useChat() {
             undefined,
             undefined,
             undefined,
-            buyerLeadCapture.isBuyerLeadReady
-              ? { isBuyerLeadReady: true }
+            buyerLeadCapture.isBuyerLeadReady || buyerLeadCapture.isBuyerLeadProfileReuse
+              ? {
+                  ...(buyerLeadCapture.isBuyerLeadReady
+                    ? { isBuyerLeadReady: true }
+                    : {}),
+                  ...(buyerLeadCapture.isBuyerLeadProfileReuse
+                    ? { isBuyerLeadProfileReuse: true }
+                    : {}),
+                }
               : undefined
           );
           if (buyerLeadCapture.openConsentModal) {
@@ -1963,10 +1970,25 @@ export function useChat() {
           return;
         }
       }
-      const { reply } = handleBuyerLeadCaptureFromCarCard({ sessionId, car });
-      await addMessage(sessionId, "ai", reply);
+      const { reply, isBuyerLeadProfileReuse } = handleBuyerLeadCaptureFromCarCard({
+        sessionId,
+        car,
+        buyerUserId: user?.uid,
+      });
+      await addMessage(
+        sessionId,
+        "ai",
+        reply,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        isBuyerLeadProfileReuse ? { isBuyerLeadProfileReuse: true } : undefined
+      );
     },
-    [activeSessionId, chatScope, createSession, addMessage]
+    [activeSessionId, chatScope, createSession, addMessage, user?.uid]
   );
 
   const submitBuyerLeadConsent = useCallback(
@@ -1979,6 +2001,7 @@ export function useChat() {
         sessionId,
         contactPhone,
         isSignedIn,
+        buyerUserId: user?.uid,
       });
       if (result.ok === true) {
         useBuyerLeadCaptureStore.getState().closeConsentModal();
@@ -1991,7 +2014,7 @@ export function useChat() {
       }
       return { ok: false, message: failed.message };
     },
-    [activeSessionId, isSignedIn, addMessage]
+    [activeSessionId, isSignedIn, user?.uid, addMessage]
   );
 
   return {

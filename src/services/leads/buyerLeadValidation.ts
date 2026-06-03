@@ -101,6 +101,17 @@ export function isBuyerLeadOpenModalAction(text: string): boolean {
   );
 }
 
+/** v5.6E.1 — Reuse saved purchase profile on a new listing. */
+export function isBuyerLeadUseSavedProfileAction(text: string): boolean {
+  const t = text.trim();
+  return t === "ใช้ข้อมูลนี้ต่อ" || t.startsWith("ใช้ข้อมูลนี้ต่อ");
+}
+
+export function isBuyerLeadEditSavedProfileAction(text: string): boolean {
+  const t = text.trim();
+  return t === "แก้ไขข้อมูล" || t.startsWith("แก้ไขข้อมูล");
+}
+
 export function validateBuyerLeadCreateInput(
   input: BuyerLeadCreateInput,
   options?: { checkForbiddenInSummary?: boolean }

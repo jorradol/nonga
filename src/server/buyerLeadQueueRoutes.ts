@@ -15,6 +15,7 @@ import {
   sellerRecordQueueOutcome,
   sellerRevealQueueLead,
 } from "../services/leads/buyerLeadQueueService";
+import { sellerSkipQueueLead } from "../services/leads/sellerSkipQueueService";
 import type { LeadContactOutcome } from "../services/leads/leadTypes";
 
 const TERMINAL_OUTCOMES: LeadContactOutcome[] = [
@@ -72,6 +73,46 @@ export function registerBuyerLeadQueueRoutes(
       }
       const message = err instanceof Error ? err.message : "โหลดคิวไม่สำเร็จ";
       return res.status(500).json({ success: false, message });
+    }
+  });
+
+  app.post("/api/seller/buyer-leads/:leadId/skip", async (req, res) => {
+    try {
+      const auth = await getServerAuthContext(req);
+      const leadId = String(req.params.leadId ?? "").trim();
+      const body = (req.body ?? {}) as { reason?: string; note?: string };
+      const lead = await repository.getBuyerLeadById(leadId);
+      if (!lead) {
+        return res.status(404).json({ success: false, message: "ไม่พบลีด" });
+      }
+      if (lead.sellerId !== auth.uid && !canAccessAdmin(auth)) {
+        return res.status(403).json({ success: false, message: "ไม่มีสิทธิ์ข้ามลีดนี้ครับ" });
+      }
+      const result = await sellerSkipQueueLead({
+        repository,
+        listingId: lead.listingId,
+        sellerId: lead.sellerId,
+        leadId,
+        reason: String(body.reason ?? "").trim(),
+        note: typeof body.note === "string" ? body.note : undefined,
+        actorUserId: auth.uid,
+      });
+      if (result.ok === false) {
+        return res.status(result.status).json({ success: false, message: result.message });
+      }
+      return res.json({
+        success: true,
+        data: {
+          leadId: result.lead.id,
+          buyerQueueFeedback: result.buyerQueueFeedback,
+          nextRevealableLeadId: result.nextRevealableLeadId ?? null,
+        },
+      });
+    } catch (err) {
+      if (err instanceof ServerAuthError) {
+        return res.status(err.status).json({ success: false, message: err.message });
+      }
+      return res.status(500).json({ success: false, message: "ข้ามคิวไม่สำเร็จ" });
     }
   });
 

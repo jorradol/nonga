@@ -158,7 +158,7 @@ let lead3Id = "";
   const all = await repo.listBuyerLeadsByListingId(listing.id);
   const masked = toSellerMaskedQueue(all, listing.id);
   const fullPhones = masked.filter((e) => !e.contactMasked);
-  ok("at most one unmasked in list", fullPhones.length <= 1);
+  ok("seller list is fully masked (v5.6E)", fullPhones.length === 0);
   ok("masked rows have queue order", masked[0]?.queuePosition === 1);
 }
 

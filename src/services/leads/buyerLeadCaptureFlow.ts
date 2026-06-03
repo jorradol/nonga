@@ -10,9 +10,15 @@ import {
 import { saveLastSelectedCarId } from "../../utils/chatCarContext";
 import type { ChatCarCardData } from "../../types";
 import {
+  getBuyerPurchaseProfile,
+  profileToDraftFields,
+} from "./buyerPurchaseProfile";
+import {
   containsForbiddenSensitiveDocument,
   isBuyerLeadConsentConfirmation,
+  isBuyerLeadEditSavedProfileAction,
   isBuyerLeadOpenModalAction,
+  isBuyerLeadUseSavedProfileAction,
   normalizeThaiPhone,
   parsePurchaseMethod,
   type BuyerLeadCreateInput,
@@ -22,6 +28,7 @@ import {
 export type BuyerLeadCaptureStage =
   | "idle"
   | "collecting"
+  | "reuse_profile_choice"
   | "ready_for_modal"
   | "submitting"
   | "completed";
@@ -84,7 +91,11 @@ const LINE_CONTACT_WINDOW =
 export function isActiveBuyerLeadCaptureSession(sessionId: string): boolean {
   const ctx = bySession.get(sessionId);
   if (!ctx) return false;
-  return ctx.stage === "collecting" || ctx.stage === "ready_for_modal";
+  return (
+    ctx.stage === "collecting" ||
+    ctx.stage === "reuse_profile_choice" ||
+    ctx.stage === "ready_for_modal"
+  );
 }
 
 export function shouldRunBuyerLeadCaptureTurn(
@@ -264,10 +275,10 @@ export function hasBuyerLeadBudgetOrOffer(fields: BuyerLeadDraftFields): boolean
 
 export function listMissingBuyerLeadFields(
   fields: BuyerLeadDraftFields,
-  options?: { requirePhone?: boolean }
+  options?: { requirePhone?: boolean; requireListing?: boolean }
 ): string[] {
   const missing: string[] = [];
-  if (!fields.listingId?.trim()) {
+  if (options?.requireListing !== false && !fields.listingId?.trim()) {
     missing.push('รถที่สนใจ (กดปุ่ม "ให้ผู้ขายติดต่อกลับ" ที่การ์ดรถ)');
   }
   if (!fields.displayName?.trim()) missing.push("ชื่อหรือชื่อเล่น");
@@ -332,10 +343,20 @@ export function beginBuyerLeadCaptureWithListing(
 
 export function startBuyerLeadCaptureFromCar(
   sessionId: string,
-  car: ChatCarCardData
+  car: ChatCarCardData,
+  buyerUserId?: string
 ): BuyerLeadCaptureContext {
   setBuyerLeadTargetFromCar(car);
   saveLastSelectedCarId(car.id);
+  const saved = getBuyerPurchaseProfile(buyerUserId);
+  if (saved) {
+    const ctx: BuyerLeadCaptureContext = {
+      stage: "reuse_profile_choice",
+      fields: profileToDraftFields(saved, car.id),
+    };
+    bySession.set(sessionId, ctx);
+    return ctx;
+  }
   return beginBuyerLeadCaptureWithListing(sessionId, car.id);
 }
 
@@ -403,6 +424,40 @@ export function processBuyerLeadCaptureTurn(params: {
 
   if (!ctx || ctx.stage === "completed" || ctx.stage === "submitting") {
     return { handled: false };
+  }
+
+  if (ctx.stage === "reuse_profile_choice") {
+    if (isBuyerLeadUseSavedProfileAction(trimmed)) {
+      const ready: BuyerLeadCaptureContext = {
+        ...ctx,
+        stage: "ready_for_modal",
+        fields: { ...ctx.fields, contactPhone: undefined },
+      };
+      bySession.set(params.sessionId, ready);
+      return {
+        handled: true,
+        reply: "",
+        stage: "ready_for_modal",
+        openConsentModal: true,
+      };
+    }
+    if (isBuyerLeadEditSavedProfileAction(trimmed)) {
+      bySession.set(params.sessionId, {
+        ...ctx,
+        stage: "collecting",
+        fields: { ...ctx.fields, contactPhone: undefined },
+      });
+      return { handled: true, reply: "", stage: "collecting" };
+    }
+    ctx = {
+      ...ctx,
+      stage: "collecting",
+      fields: mergeBuyerLeadFieldsFromMessage(
+        { ...ctx.fields, contactPhone: undefined },
+        trimmed
+      ),
+    };
+    return advanceAfterFieldMerge(params.sessionId, ctx);
   }
 
   if (

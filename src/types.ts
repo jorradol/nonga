@@ -111,6 +111,7 @@ export interface ChatMessage {
   isDraftPreview?: boolean;
   /** v5.6D.1 — สรุป lead พร้อมเปิด modal (ปุ่มตรวจสอบและส่ง) */
   isBuyerLeadReady?: boolean;
+  isBuyerLeadProfileReuse?: boolean;
   /** หลังบันทึกประกาศจากแชท — ใช้ปุ่มไปหน้า Draft */
   savedDraftId?: string;
   /** หลัง member บันทึกผ่าน POST /api/cars — ใช้ปุ่มไปประกาศของฉัน */
