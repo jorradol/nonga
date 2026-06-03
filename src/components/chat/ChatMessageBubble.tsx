@@ -45,7 +45,7 @@ interface ChatMessageBubbleProps {
 
 export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const isUser = message.sender === "user";
-  const { activeSessionId, editMessage, sendMessage } = useChat();
+  const { activeSessionId, editMessage, sendMessage, startBuyerLeadFromCar } = useChat();
   const { openImageAttachmentPicker } = useChatComposer();
   const setView = useAppStore((s) => s.setView);
   const [publishConsentChecked, setPublishConsentChecked] = useState(false);
@@ -424,7 +424,10 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               >
                 {Array.from(new Map(message.carCards.map(c => [c.id, c])).values()).map((car) => (
                   <div key={car.id} className="w-full min-w-0 max-w-full">
-                    <ChatCarCard car={car} />
+                    <ChatCarCard
+                      car={car}
+                      onRequestSellerCallback={startBuyerLeadFromCar}
+                    />
                   </div>
                 ))}
               </div>

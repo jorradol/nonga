@@ -14,6 +14,7 @@ import { toPublicBuyerLead, type BuyerLeadViewerRole } from "./buyerLeadView";
 import type { BuyerLead, LeadContactLog, PurchaseMethod } from "./leadTypes";
 import { LEAD_ENGINE_COLLECTIONS } from "./leadTypes";
 import type { BuyerLeadRepository } from "../../server/repositories/buyerLeadRepository";
+import { assignQueuePositionOnCreate, buyerSuccessMessageForQueue } from "./buyerLeadQueueService";
 
 export interface CreateBuyerLeadParams {
   input: BuyerLeadCreateInput;
@@ -23,7 +24,13 @@ export interface CreateBuyerLeadParams {
 }
 
 export type CreateBuyerLeadResult =
-  | { ok: true; lead: BuyerLead; publicLead: ReturnType<typeof toPublicBuyerLead> }
+  | {
+      ok: true;
+      lead: BuyerLead;
+      publicLead: ReturnType<typeof toPublicBuyerLead>;
+      queuePosition: number;
+      buyerMessage: string;
+    }
   | { ok: false; status: 400 | 403; message: string; errors?: string[] };
 
 export function resolveListingSellerId(
@@ -53,6 +60,10 @@ export async function createConsentedBuyerLead(
   }
 
   const now = new Date().toISOString();
+  const queuePosition = await assignQueuePositionOnCreate(
+    params.repository,
+    params.listing.id
+  );
   const id = `blead-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const summary =
     params.input.buyerSummary?.trim() ||
@@ -88,6 +99,8 @@ export async function createConsentedBuyerLead(
     source: "chat",
     status: "consented",
     contactRevealStatus: "locked",
+    queuePosition,
+    queueLifecycle: "active",
     createdAt: now,
     updatedAt: now,
   };
@@ -108,6 +121,8 @@ export async function createConsentedBuyerLead(
     ok: true,
     lead: saved,
     publicLead: toPublicBuyerLead(saved, "buyer_self"),
+    queuePosition: saved.queuePosition,
+    buyerMessage: buyerSuccessMessageForQueue(saved.queuePosition),
   };
 }
 

@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
-import { Car, ChevronDown, ChevronUp, ImageOff, Quote, Sparkles } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { fetchListingInterestQueueStats } from "../../services/leads/buyerLeadApi";
+import { buildPublicInterestLabel } from "../../services/leads/buyerLeadQueuePolicy";
+import { Car, ChevronDown, ChevronUp, ImageOff, PhoneCall, Quote, Sparkles } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
 import {
@@ -9,6 +11,7 @@ import {
 
 interface ChatCarCardProps {
   car: ChatCarCardData;
+  onRequestSellerCallback?: (car: ChatCarCardData) => void;
 }
 
 const TEXT_PREVIEW_CHARS = 140;
@@ -189,8 +192,24 @@ function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
   );
 }
 
-export function ChatCarCard({ car }: ChatCarCardProps) {
+export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [interestCount, setInterestCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchListingInterestQueueStats(car.id).then((stats) => {
+      if (!cancelled && stats) setInterestCount(stats.interestCount);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [car.id]);
+
+  const interestLabel =
+    interestCount != null && interestCount > 0
+      ? buildPublicInterestLabel(interestCount)
+      : "";
 
   const brandModel = `${car.brand} ${car.model}`.trim();
   const priceLabel =
@@ -255,6 +274,14 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
               ? "รายละเอียดรถในช่องแชท — จากข้อมูลจริงในระบบ"
               : "แตะดูรายละเอียดในแชทได้โดยไม่ต้องออกจากหน้านี้"}
           </p>
+          {interestLabel ? (
+            <p
+              className="text-[10px] text-amber-400/90 mt-1 font-medium"
+              data-testid="chat-car-card-interest-queue"
+            >
+              {interestLabel}
+            </p>
+          ) : null}
         </div>
         {car.matchKind === "alternative" && (
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
@@ -286,7 +313,21 @@ export function ChatCarCard({ car }: ChatCarCardProps) {
         ) : null}
       </div>
 
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 space-y-2">
+        {onRequestSellerCallback ? (
+          <button
+            type="button"
+            onClick={() => {
+              rememberSelectedCar();
+              onRequestSellerCallback(car);
+            }}
+            className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 bg-orange-500/90 hover:bg-orange-400 text-slate-950 text-xs font-bold rounded-xl border border-orange-400/50 transition-colors cursor-pointer min-h-[44px]"
+            data-testid="chat-car-card-seller-callback-btn"
+          >
+            <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+            ให้ผู้ขายติดต่อกลับ
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={handleToggleInChatDetail}

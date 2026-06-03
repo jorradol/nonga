@@ -454,6 +454,12 @@ async function main() {
     "utf8"
   );
   ok("v542-component-expand-btn", buyerCardSource.includes('data-testid="chat-car-card-expand-btn"'), "");
+  ok(
+    "v56c1-seller-callback-btn",
+    buyerCardSource.includes('data-testid="chat-car-card-seller-callback-btn"'),
+    ""
+  );
+  ok("v56c1-seller-callback-label", buyerCardSource.includes("ให้ผู้ขายติดต่อกลับ"), "");
   ok("v542-component-expand-label", buyerCardSource.includes("ดูรายละเอียดรถ"), "");
   ok("v542-component-collapse-label", buyerCardSource.includes("ย่อรายละเอียด"), "");
   ok("v549c-no-full-page-button", !buyerCardSource.includes("chat-car-card-full-detail-btn"), "");

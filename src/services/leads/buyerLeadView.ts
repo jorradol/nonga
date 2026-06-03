@@ -28,6 +28,8 @@ export interface PublicBuyerLead {
   createdAt: string;
   updatedAt: string;
   contactMasked: boolean;
+  queuePosition?: number;
+  queueLifecycle?: BuyerLead["queueLifecycle"];
 }
 
 export function resolveBuyerLeadViewerRole(params: {
@@ -72,5 +74,11 @@ export function toPublicBuyerLead(
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt,
     contactMasked: masked.phoneMasked || masked.nameMasked,
+    ...(viewerRole === "buyer_self"
+      ? {
+          queuePosition: lead.queuePosition,
+          queueLifecycle: lead.queueLifecycle,
+        }
+      : {}),
   };
 }

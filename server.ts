@@ -42,6 +42,7 @@ import { toPublicMarketplaceCarDtoList } from "./src/utils/publicMarketplaceList
 import { sanitizeListingImagesForId } from "./src/utils/listingImages";
 import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
 import { registerBuyerLeadRoutes } from "./src/server/buyerLeadRoutes";
+import { registerBuyerLeadQueueRoutes } from "./src/server/buyerLeadQueueRoutes";
 import {
   resolveCreateListingOwner,
   resolveOwnerRequestScope,
@@ -521,6 +522,7 @@ registerDealerPortalRoutes(app, { inventoryRepository });
 registerDuplicateRoutes(app);
 registerOwnerListingRoutes(app, { inventoryRepository });
 registerBuyerLeadRoutes(app, { inventoryRepository });
+registerBuyerLeadQueueRoutes(app, { inventoryRepository });
 registerPayloadTooLargeHandler(app);
 
 // v5.4.4e — AI / vision / Gemini abuse guard (rate limit + threat foundation)

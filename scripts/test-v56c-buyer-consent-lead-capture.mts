@@ -159,7 +159,8 @@ ok("start intent detected", isBuyerLeadStartIntent("ขอให้ผู้ข�
   );
   setBuyerLeadCaptureContextForTest(sid, { stage: "collecting", fields });
   const t2 = processBuyerLeadCaptureTurn({ sessionId: sid, message: "ok" });
-  ok("awaiting consent when complete", t2.handled && t2.stage === "awaiting_consent");
+  ok("ready for modal when complete", t2.handled && t2.stage === "ready_for_modal");
+  ok("opens consent modal flag", t2.handled && t2.openConsentModal === true);
   const inputNoConsent = draftToCreateInput(fields, false);
   ok("draft without consent flag fails validation path", inputNoConsent?.consentConfirmed === false);
 }

@@ -1,8 +1,14 @@
 /**
- * v5.6C — In-chat buyer lead capture state machine (deterministic, no Gemini).
+ * v5.6C / v5.6C.1 — In-chat buyer lead capture state machine (deterministic, no Gemini).
  */
 
-import { loadLastSelectedCarId } from "../../utils/chatCarContext";
+import {
+  getBuyerLeadTarget,
+  setBuyerLeadTargetFromCar,
+  type BuyerLeadTargetCar,
+} from "../../utils/buyerLeadTarget";
+import { saveLastSelectedCarId } from "../../utils/chatCarContext";
+import type { ChatCarCardData } from "../../types";
 import {
   containsForbiddenSensitiveDocument,
   extractPhoneFromText,
@@ -16,7 +22,7 @@ import {
 export type BuyerLeadCaptureStage =
   | "idle"
   | "collecting"
-  | "awaiting_consent"
+  | "ready_for_modal"
   | "submitting"
   | "completed";
 
@@ -104,11 +110,6 @@ export function mergeBuyerLeadFieldsFromMessage(
   const next = { ...fields };
   const t = message.trim();
 
-  if (!next.listingId) {
-    const selected = loadLastSelectedCarId();
-    if (selected) next.listingId = selected;
-  }
-
   for (const pattern of NAME_PATTERNS) {
     const m = t.match(pattern);
     if (m?.[1]) {
@@ -160,7 +161,9 @@ export function listMissingBuyerLeadFields(
   fields: BuyerLeadDraftFields
 ): string[] {
   const missing: string[] = [];
-  if (!fields.listingId?.trim()) missing.push("รถที่สนใจ (กดดูรายละเอียดรถในแชทก่อน)");
+  if (!fields.listingId?.trim()) {
+    missing.push('รถที่สนใจ (กดปุ่ม "ให้ผู้ขายติดต่อกลับ" ที่การ์ดรถ)');
+  }
   if (!fields.displayName?.trim()) missing.push("ชื่อหรือชื่อเล่น");
   if (!fields.contactPhone?.trim() || !normalizeThaiPhone(fields.contactPhone)) {
     missing.push("เบอร์โทร");
@@ -174,12 +177,12 @@ export function draftToCreateInput(
   fields: BuyerLeadDraftFields,
   consentConfirmed: boolean
 ): BuyerLeadCreateInput | null {
-  if (!fields.listingId || !fields.displayName || !fields.contactPhone) return null;
+  if (!fields.listingId?.trim() || !fields.displayName || !fields.contactPhone) return null;
   if (!fields.purchaseMethod || !fields.preferredContactWindow) return null;
   const phone = normalizeThaiPhone(fields.contactPhone);
   if (!phone) return null;
   return {
-    listingId: fields.listingId,
+    listingId: fields.listingId.trim(),
     displayName: fields.displayName,
     contactPhone: phone,
     purchaseMethod: fields.purchaseMethod,
@@ -193,13 +196,58 @@ export function draftToCreateInput(
 }
 
 export function beginBuyerLeadCapture(sessionId: string): BuyerLeadCaptureContext {
-  const listingId = loadLastSelectedCarId() ?? undefined;
+  const explicitTarget = getBuyerLeadTarget();
   const ctx: BuyerLeadCaptureContext = {
     stage: "collecting",
-    fields: { ...(listingId ? { listingId } : {}) },
+    fields: explicitTarget?.listingId
+      ? { listingId: explicitTarget.listingId }
+      : {},
   };
   bySession.set(sessionId, ctx);
   return ctx;
+}
+
+export function beginBuyerLeadCaptureWithListing(
+  sessionId: string,
+  listingId: string
+): BuyerLeadCaptureContext {
+  const ctx: BuyerLeadCaptureContext = {
+    stage: "collecting",
+    fields: { listingId: listingId.trim() },
+  };
+  bySession.set(sessionId, ctx);
+  return ctx;
+}
+
+export function startBuyerLeadCaptureFromCar(
+  sessionId: string,
+  car: ChatCarCardData
+): BuyerLeadCaptureContext {
+  setBuyerLeadTargetFromCar(car);
+  saveLastSelectedCarId(car.id);
+  return beginBuyerLeadCaptureWithListing(sessionId, car.id);
+}
+
+export function updateBuyerLeadDraftPhone(
+  sessionId: string,
+  contactPhone: string
+): BuyerLeadCaptureContext | null {
+  const ctx = bySession.get(sessionId);
+  if (!ctx) return null;
+  const next = {
+    ...ctx,
+    fields: { ...ctx.fields, contactPhone },
+  };
+  bySession.set(sessionId, next);
+  return next;
+}
+
+export function resolveBuyerLeadTargetForFields(
+  fields: BuyerLeadDraftFields
+): BuyerLeadTargetCar | null {
+  const target = getBuyerLeadTarget();
+  if (!target?.listingId || !fields.listingId?.trim()) return null;
+  return target.listingId === fields.listingId.trim() ? target : null;
 }
 
 export type BuyerLeadCaptureTurnResult =
@@ -208,9 +256,27 @@ export type BuyerLeadCaptureTurnResult =
       handled: true;
       reply: string;
       stage: BuyerLeadCaptureStage;
-      shouldSubmit?: boolean;
-      createInput?: BuyerLeadCreateInput;
+      openConsentModal?: boolean;
     };
+
+function advanceAfterFieldMerge(
+  sessionId: string,
+  ctx: BuyerLeadCaptureContext
+): BuyerLeadCaptureTurnResult {
+  const missing = listMissingBuyerLeadFields(ctx.fields);
+  if (missing.length > 0) {
+    bySession.set(sessionId, { ...ctx, stage: "collecting" });
+    return { handled: true, reply: "", stage: "collecting" };
+  }
+  const ready = { ...ctx, stage: "ready_for_modal" as const };
+  bySession.set(sessionId, ready);
+  return {
+    handled: true,
+    reply: "",
+    stage: "ready_for_modal",
+    openConsentModal: true,
+  };
+}
 
 export function processBuyerLeadCaptureTurn(params: {
   sessionId: string;
@@ -225,51 +291,25 @@ export function processBuyerLeadCaptureTurn(params: {
     ctx = beginBuyerLeadCapture(params.sessionId);
   }
 
-  if (!ctx || ctx.stage === "completed") {
+  if (!ctx || ctx.stage === "completed" || ctx.stage === "submitting") {
     return { handled: false };
   }
 
-  if (ctx.stage === "collecting") {
+  if (ctx.stage === "collecting" || ctx.stage === "ready_for_modal") {
     ctx = {
       ...ctx,
       fields: mergeBuyerLeadFieldsFromMessage(ctx.fields, trimmed),
     };
-    bySession.set(params.sessionId, ctx);
-    const missing = listMissingBuyerLeadFields(ctx.fields);
-    if (missing.length > 0) {
-      return { handled: true, reply: "", stage: "collecting" };
-    }
-    ctx = { ...ctx, stage: "awaiting_consent" };
-    bySession.set(params.sessionId, ctx);
-    return { handled: true, reply: "", stage: "awaiting_consent" };
-  }
-
-  if (ctx.stage === "awaiting_consent") {
-    if (!isBuyerLeadConsentConfirmation(trimmed)) {
-      ctx = {
-        ...ctx,
-        fields: mergeBuyerLeadFieldsFromMessage(ctx.fields, trimmed),
+    if (isBuyerLeadConsentConfirmation(trimmed) && ctx.stage === "ready_for_modal") {
+      bySession.set(params.sessionId, ctx);
+      return {
+        handled: true,
+        reply: "",
+        stage: "ready_for_modal",
+        openConsentModal: true,
       };
-      bySession.set(params.sessionId, ctx);
-      const missing = listMissingBuyerLeadFields(ctx.fields);
-      if (missing.length === 0) {
-        return { handled: true, reply: "", stage: "awaiting_consent" };
-      }
-      return { handled: true, reply: "", stage: "collecting" };
     }
-    const input = draftToCreateInput(ctx.fields, true);
-    if (!input) {
-      ctx = { ...ctx, stage: "collecting" };
-      bySession.set(params.sessionId, ctx);
-      return { handled: true, reply: "", stage: "collecting" };
-    }
-    return {
-      handled: true,
-      reply: "",
-      stage: "submitting",
-      shouldSubmit: true,
-      createInput: input,
-    };
+    return advanceAfterFieldMerge(params.sessionId, ctx);
   }
 
   return { handled: false };

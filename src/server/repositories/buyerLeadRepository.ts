@@ -8,6 +8,8 @@ import { LEAD_ENGINE_COLLECTIONS } from "../../services/leads/leadTypes";
 export interface BuyerLeadRepository {
   createBuyerLead(lead: BuyerLead): Promise<BuyerLead>;
   getBuyerLeadById(id: string): Promise<BuyerLead | null>;
+  listBuyerLeadsByListingId(listingId: string): Promise<BuyerLead[]>;
+  updateBuyerLead(lead: BuyerLead): Promise<BuyerLead>;
   appendContactLog(log: LeadContactLog): Promise<LeadContactLog>;
 }
 
@@ -22,6 +24,16 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
 
   async getBuyerLeadById(id: string): Promise<BuyerLead | null> {
     return this.leads.get(id) ?? null;
+  }
+
+  async listBuyerLeadsByListingId(listingId: string): Promise<BuyerLead[]> {
+    const id = listingId.trim();
+    return [...this.leads.values()].filter((l) => l.listingId === id);
+  }
+
+  async updateBuyerLead(lead: BuyerLead): Promise<BuyerLead> {
+    this.leads.set(lead.id, lead);
+    return lead;
   }
 
   async appendContactLog(log: LeadContactLog): Promise<LeadContactLog> {

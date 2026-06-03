@@ -64,8 +64,8 @@ export function registerBuyerLeadRoutes(
 
       return res.status(201).json({
         success: true,
-        message:
-          "บันทึกความยินยอมและข้อมูลติดต่อแล้วครับ ผู้ขายจะได้รับสรุปความสนใจ (ยังไม่เปิดเบอร์เต็มในรอบนี้)",
+        message: result.buyerMessage,
+        queuePosition: result.queuePosition,
         data: result.publicLead,
       });
     } catch (err) {

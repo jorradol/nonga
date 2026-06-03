@@ -34,6 +34,7 @@ import {
   type PendingChatImageAttachment,
 } from "../../features/chat-image-attachment-v1/types";
 import { ChatComposerTextarea } from "./ChatComposerTextarea";
+import { BuyerLeadConsentModalHost } from "./BuyerLeadConsentModalHost";
 
 interface ChatContainerProps {
   onToggleSidebar: () => void;
@@ -564,6 +565,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         </div>
       )}
     </div>
+      <BuyerLeadConsentModalHost />
     </ChatComposerContext.Provider>
   );
 }

@@ -8,7 +8,13 @@ import {
   chunkTextForStream,
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
-import { handleBuyerLeadCaptureTurn } from "../../services/leads/buyerLeadCaptureHandler";
+import {
+  handleBuyerLeadCaptureFromCarCard,
+  handleBuyerLeadCaptureTurn,
+  submitBuyerLeadFromModal,
+} from "../../services/leads/buyerLeadCaptureHandler";
+import type { ChatCarCardData } from "../../types";
+import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
 import {
   getChatStorageScope,
@@ -902,6 +908,9 @@ export function useChat() {
         });
         if (buyerLeadCapture.handled) {
           await addMessage(sessionId, "ai", buyerLeadCapture.reply);
+          if (buyerLeadCapture.openConsentModal) {
+            useBuyerLeadCaptureStore.getState().openConsentModal(sessionId);
+          }
           setGenerating(false);
           return;
         }
@@ -1930,6 +1939,47 @@ export function useChat() {
     [user, chatScope]
   );
 
+  const startBuyerLeadFromCar = useCallback(
+    async (car: ChatCarCardData) => {
+      let sessionId = activeSessionId;
+      if (!sessionId) {
+        try {
+          sessionId = await createSession(chatScope, "ปรึกษาซื้อขาย");
+        } catch {
+          return;
+        }
+      }
+      const { reply } = handleBuyerLeadCaptureFromCarCard({ sessionId, car });
+      await addMessage(sessionId, "ai", reply);
+    },
+    [activeSessionId, chatScope, createSession, addMessage]
+  );
+
+  const submitBuyerLeadConsent = useCallback(
+    async (contactPhone: string): Promise<{ ok: boolean; message?: string }> => {
+      const sessionId = activeSessionId;
+      if (!sessionId) {
+        return { ok: false, message: "ไม่พบบทสนทนาที่ใช้งาน" };
+      }
+      const result = await submitBuyerLeadFromModal({
+        sessionId,
+        contactPhone,
+        isSignedIn,
+      });
+      if (result.ok === true) {
+        useBuyerLeadCaptureStore.getState().closeConsentModal();
+        await addMessage(sessionId, "ai", result.reply);
+        return { ok: true };
+      }
+      const failed = result;
+      if (failed.requireLogin) {
+        requireGuestLoginFromChat("chat");
+      }
+      return { ok: false, message: failed.message };
+    },
+    [activeSessionId, isSignedIn, addMessage]
+  );
+
   return {
     sessions,
     activeSessionId,
@@ -1954,5 +2004,7 @@ export function useChat() {
     removeChat,
     selectSession: switchChatSession,
     editMessage,
+    startBuyerLeadFromCar,
+    submitBuyerLeadConsent,
   };
 }

@@ -63,6 +63,9 @@ export type PurchaseMethod = "cash" | "finance" | "undecided";
 
 export type BuyerLeadSource = "chat";
 
+/** v5.6D — Per-listing interest queue lifecycle (no PII across buyers). */
+export type BuyerLeadQueueLifecycle = "active" | "superseded" | "withdrawn";
+
 export type SuccessFeeModel = "tier_b" | "percent_1";
 
 export type TrustRewardTier = "none" | "silver" | "gold" | "platinum";
@@ -98,9 +101,34 @@ export interface BuyerLead {
   contactRevealStatus: ContactRevealStatus;
   leadContactOutcome?: LeadContactOutcome;
   contactRevealedAt?: string;
+  /** 1-based position in this listing's interest queue (immutable after create). */
+  queuePosition: number;
+  /** Active until listing pending_sale/sold or buyer withdraws. */
+  queueLifecycle: BuyerLeadQueueLifecycle;
   floorAtCapture?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Public aggregate — no buyer PII (v5.6D). */
+export interface ListingInterestQueueStats {
+  listingId: string;
+  interestCount: number;
+}
+
+/** Seller inbox row — masked, ordered by queue (v5.6D). */
+export interface SellerMaskedQueueEntry {
+  leadId: string;
+  queuePosition: number;
+  displayName: string;
+  contactPhone: string;
+  purchaseMethod: PurchaseMethod;
+  buyerSummary: string;
+  status: BuyerLeadStatus;
+  contactRevealStatus: ContactRevealStatus;
+  leadContactOutcome?: LeadContactOutcome;
+  contactMasked: boolean;
+  isCurrentSellerTurn: boolean;
 }
 
 /** Minimal shape for policy helpers and tests. */

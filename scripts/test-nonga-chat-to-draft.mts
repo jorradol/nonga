@@ -3043,10 +3043,11 @@ assertEqual(
   false,
   "useChat does not redirect to full login page directly"
 );
+// v5.6C.1 adds a 4th gate: submitBuyerLeadConsent when guest confirms lead modal.
 assertEqual(
   useChatSourceForLoginModal.match(/requireGuestLoginFromChat\(/g)?.length ?? 0,
-  3,
-  "useChat gates guest login in three places via modal helper"
+  4,
+  "useChat gates guest login in four places via modal helper (incl. buyer lead consent submit)"
 );
 assertEqual(
   requestChatLoginSource.includes("setChatLoginModalOpen(true)"),
