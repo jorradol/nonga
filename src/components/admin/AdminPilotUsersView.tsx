@@ -107,11 +107,14 @@ export default function AdminPilotUsersView() {
         <div className="text-sm text-slate-300 leading-relaxed">
           <p className="font-bold text-orange-300 mb-1">Closed Pilot — ผู้ใช้งานทดลอง</p>
           <p>
+            เพิ่มเฉพาะผู้ทดลองที่ได้รับเชิญเท่านั้น — <strong className="text-orange-200/90">public signup ยังปิดอยู่</strong>
+          </p>
+          <p className="mt-1">
             UID ต้องเป็น Firebase Auth UID ของผู้ทดลองที่ login แล้ว หรือที่ลุงมีจาก Firebase Console
             — เพิ่ม member/dealer ได้หลายคน ทีละ UID
           </p>
           <p className="mt-1 text-slate-500">
-            ไม่สร้างรหัสผ่าน · ไม่เปิด public signup
+            ไม่สร้างรหัสผ่านจากหน้านี้ · คู่มือ ops: docs/v5.5-closed-pilot-launch-checklist.md
           </p>
         </div>
       </div>
