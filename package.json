@@ -85,6 +85,7 @@
     "test:v5410c-dealer-chat-draft-image-preview": "tsx scripts/test-v5410c-dealer-chat-draft-image-preview.mts",
     "test:v5411-closed-pilot-user-provisioning": "tsx scripts/test-v5411-closed-pilot-user-provisioning.mts",
     "test:v56b-lead-engine-foundation": "tsx scripts/test-v56b-lead-engine-foundation.mts",
+    "test:v56c-buyer-consent-lead-capture": "tsx scripts/test-v56c-buyer-consent-lead-capture.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",

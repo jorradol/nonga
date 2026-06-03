@@ -41,6 +41,7 @@ import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
 import { toPublicMarketplaceCarDtoList } from "./src/utils/publicMarketplaceListingPrivacy";
 import { sanitizeListingImagesForId } from "./src/utils/listingImages";
 import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
+import { registerBuyerLeadRoutes } from "./src/server/buyerLeadRoutes";
 import {
   resolveCreateListingOwner,
   resolveOwnerRequestScope,
@@ -519,6 +520,7 @@ app.delete("/api/admin/draft-inventory/:id", (req, res) => {
 registerDealerPortalRoutes(app, { inventoryRepository });
 registerDuplicateRoutes(app);
 registerOwnerListingRoutes(app, { inventoryRepository });
+registerBuyerLeadRoutes(app, { inventoryRepository });
 registerPayloadTooLargeHandler(app);
 
 // v5.4.4e — AI / vision / Gemini abuse guard (rate limit + threat foundation)

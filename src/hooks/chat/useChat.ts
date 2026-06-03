@@ -8,6 +8,7 @@ import {
   chunkTextForStream,
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
+import { handleBuyerLeadCaptureTurn } from "../../services/leads/buyerLeadCaptureHandler";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
 import {
   getChatStorageScope,
@@ -892,6 +893,19 @@ export function useChat() {
 
       const historyAfterUser =
         useChatStore.getState().messages[sessionId] || [];
+
+      if (!memberConsumerSellerFlow) {
+        const buyerLeadCapture = await handleBuyerLeadCaptureTurn({
+          sessionId,
+          message: trimmed,
+          isSignedIn,
+        });
+        if (buyerLeadCapture.handled) {
+          await addMessage(sessionId, "ai", buyerLeadCapture.reply);
+          setGenerating(false);
+          return;
+        }
+      }
 
       if (memberConsumerSellerFlow) {
         if (isMemberCancelPublishListingChatAction(trimmed)) {

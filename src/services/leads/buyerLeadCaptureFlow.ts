@@ -1,0 +1,284 @@
+/**
+ * v5.6C — In-chat buyer lead capture state machine (deterministic, no Gemini).
+ */
+
+import { loadLastSelectedCarId } from "../../utils/chatCarContext";
+import {
+  containsForbiddenSensitiveDocument,
+  extractPhoneFromText,
+  isBuyerLeadConsentConfirmation,
+  normalizeThaiPhone,
+  parsePurchaseMethod,
+  type BuyerLeadCreateInput,
+  BUYER_LEAD_CONSENT_VERSION,
+} from "./buyerLeadValidation";
+
+export type BuyerLeadCaptureStage =
+  | "idle"
+  | "collecting"
+  | "awaiting_consent"
+  | "submitting"
+  | "completed";
+
+export interface BuyerLeadDraftFields {
+  listingId?: string;
+  displayName?: string;
+  contactPhone?: string;
+  purchaseMethod?: "cash" | "finance" | "undecided";
+  budgetMin?: number;
+  budgetMax?: number;
+  offeredPrice?: number;
+  preferredContactWindow?: string;
+}
+
+export interface BuyerLeadCaptureContext {
+  stage: BuyerLeadCaptureStage;
+  fields: BuyerLeadDraftFields;
+  createdLeadId?: string;
+}
+
+const bySession = new Map<string, BuyerLeadCaptureContext>();
+
+const START_INTENT_PATTERNS: RegExp[] = [
+  /ขอให้ผู้ขายติดต่อกลับ/i,
+  /ให้ผู้ขายติดต่อ/i,
+  /อยากให้(?:ผู้ขาย|เจ้าของ|เต็นท์)?ติดต่อกลับ/i,
+  /ติดต่อกลับ(?:เรื่องรถ)?/i,
+  /สนใจ(?:รถ)?(?:คัน)?นี้.*ติดต่อ/i,
+  /ขอเบอร์ผู้ขาย/i,
+];
+
+const CANCEL_PATTERNS = [/^ยกเลิก$/i, /ไม่ส่งข้อมูลแล้ว/i];
+
+const NAME_PATTERNS = [
+  /(?:ชื่อ|เรียก)(?:ว่า)?[:\s]*([^\n,]{2,40})/i,
+  /^ชื่อ\s+(.+)$/i,
+];
+
+const CONTACT_WINDOW_PATTERNS = [
+  /สะดวก(?:ติดต่อ)?[:\s]*([^\n]{3,80})/i,
+  /ติดต่อ(?:ได้)?(?:ช่วง|เวลา)[:\s]*([^\n]{3,80})/i,
+];
+
+const BUDGET_PATTERN =
+  /(?:งบ|งบประมาณ|ไม่เกิน|ไม่เกิน)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
+const OFFER_PATTERN = /(?:เสนอ|เสนอราคา|ราคา)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
+
+export function getBuyerLeadCaptureContext(
+  sessionId: string
+): BuyerLeadCaptureContext | null {
+  return bySession.get(sessionId) ?? null;
+}
+
+export function clearBuyerLeadCaptureContext(sessionId: string): void {
+  bySession.delete(sessionId);
+}
+
+export function isBuyerLeadStartIntent(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  return START_INTENT_PATTERNS.some((p) => p.test(t));
+}
+
+export function isBuyerLeadCancelIntent(message: string): boolean {
+  const t = message.trim();
+  return CANCEL_PATTERNS.some((p) => p.test(t));
+}
+
+export function parseBahtFromText(fragment: string): number | null {
+  const raw = fragment.replace(/,/g, "").trim();
+  const num = Number.parseFloat(raw);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  if (/ล้าน/.test(fragment)) return Math.round(num * 1_000_000);
+  if (/แสน/.test(fragment)) return Math.round(num * 100_000);
+  if (num < 1000 && !/บาท/.test(fragment)) {
+    if (num <= 50) return Math.round(num * 100_000);
+  }
+  return Math.round(num);
+}
+
+export function mergeBuyerLeadFieldsFromMessage(
+  fields: BuyerLeadDraftFields,
+  message: string
+): BuyerLeadDraftFields {
+  const next = { ...fields };
+  const t = message.trim();
+
+  if (!next.listingId) {
+    const selected = loadLastSelectedCarId();
+    if (selected) next.listingId = selected;
+  }
+
+  for (const pattern of NAME_PATTERNS) {
+    const m = t.match(pattern);
+    if (m?.[1]) {
+      next.displayName = m[1].trim().slice(0, 60);
+      break;
+    }
+  }
+  if (!next.displayName && t.length >= 2 && t.length <= 40 && !/\d{5,}/.test(t)) {
+    if (/^(?:ผม|ดิฉัน|ฉัน|หนู)?\s*[\u0E00-\u0E7F]{2,30}$/u.test(t)) {
+      next.displayName = t.replace(/^(?:ผม|ดิฉัน|ฉัน|หนู)\s*/u, "").trim();
+    }
+  }
+
+  const phone = extractPhoneFromText(t);
+  if (phone) next.contactPhone = phone;
+
+  const method = parsePurchaseMethod(t);
+  if (method) next.purchaseMethod = method;
+
+  const budgetMatch = t.match(BUDGET_PATTERN);
+  if (budgetMatch) {
+    const v = parseBahtFromText(budgetMatch[0]);
+    if (v != null) next.budgetMax = v;
+  }
+  const offerMatch = t.match(OFFER_PATTERN);
+  if (offerMatch) {
+    const v = parseBahtFromText(offerMatch[0]);
+    if (v != null) next.offeredPrice = v;
+  }
+
+  for (const pattern of CONTACT_WINDOW_PATTERNS) {
+    const m = t.match(pattern);
+    if (m?.[1]) {
+      next.preferredContactWindow = m[1].trim().slice(0, 120);
+      break;
+    }
+  }
+  if (
+    !next.preferredContactWindow &&
+    /(?:เช้า|บ่าย|เย็น|วันหยุด|โทร|ทัก|line|ไลน์|after|ก่อน|หลัง)/i.test(t)
+  ) {
+    next.preferredContactWindow = t.slice(0, 120);
+  }
+
+  return next;
+}
+
+export function listMissingBuyerLeadFields(
+  fields: BuyerLeadDraftFields
+): string[] {
+  const missing: string[] = [];
+  if (!fields.listingId?.trim()) missing.push("รถที่สนใจ (กดดูรายละเอียดรถในแชทก่อน)");
+  if (!fields.displayName?.trim()) missing.push("ชื่อหรือชื่อเล่น");
+  if (!fields.contactPhone?.trim() || !normalizeThaiPhone(fields.contactPhone)) {
+    missing.push("เบอร์โทร");
+  }
+  if (!fields.purchaseMethod) missing.push("วิธีซื้อ (เงินสด/ไฟแนนซ์/ยังไม่แน่ใจ)");
+  if (!fields.preferredContactWindow?.trim()) missing.push("เวลาที่สะดวกให้ติดต่อ");
+  return missing;
+}
+
+export function draftToCreateInput(
+  fields: BuyerLeadDraftFields,
+  consentConfirmed: boolean
+): BuyerLeadCreateInput | null {
+  if (!fields.listingId || !fields.displayName || !fields.contactPhone) return null;
+  if (!fields.purchaseMethod || !fields.preferredContactWindow) return null;
+  const phone = normalizeThaiPhone(fields.contactPhone);
+  if (!phone) return null;
+  return {
+    listingId: fields.listingId,
+    displayName: fields.displayName,
+    contactPhone: phone,
+    purchaseMethod: fields.purchaseMethod,
+    preferredContactWindow: fields.preferredContactWindow,
+    consentConfirmed,
+    consentVersion: BUYER_LEAD_CONSENT_VERSION,
+    ...(fields.budgetMin != null ? { budgetMin: fields.budgetMin } : {}),
+    ...(fields.budgetMax != null ? { budgetMax: fields.budgetMax } : {}),
+    ...(fields.offeredPrice != null ? { offeredPrice: fields.offeredPrice } : {}),
+  };
+}
+
+export function beginBuyerLeadCapture(sessionId: string): BuyerLeadCaptureContext {
+  const listingId = loadLastSelectedCarId() ?? undefined;
+  const ctx: BuyerLeadCaptureContext = {
+    stage: "collecting",
+    fields: { ...(listingId ? { listingId } : {}) },
+  };
+  bySession.set(sessionId, ctx);
+  return ctx;
+}
+
+export type BuyerLeadCaptureTurnResult =
+  | { handled: false }
+  | {
+      handled: true;
+      reply: string;
+      stage: BuyerLeadCaptureStage;
+      shouldSubmit?: boolean;
+      createInput?: BuyerLeadCreateInput;
+    };
+
+export function processBuyerLeadCaptureTurn(params: {
+  sessionId: string;
+  message: string;
+}): BuyerLeadCaptureTurnResult {
+  const trimmed = params.message.trim();
+  if (!trimmed) return { handled: false };
+
+  let ctx = bySession.get(params.sessionId);
+
+  if (!ctx && isBuyerLeadStartIntent(trimmed)) {
+    ctx = beginBuyerLeadCapture(params.sessionId);
+  }
+
+  if (!ctx || ctx.stage === "completed") {
+    return { handled: false };
+  }
+
+  if (ctx.stage === "collecting") {
+    ctx = {
+      ...ctx,
+      fields: mergeBuyerLeadFieldsFromMessage(ctx.fields, trimmed),
+    };
+    bySession.set(params.sessionId, ctx);
+    const missing = listMissingBuyerLeadFields(ctx.fields);
+    if (missing.length > 0) {
+      return { handled: true, reply: "", stage: "collecting" };
+    }
+    ctx = { ...ctx, stage: "awaiting_consent" };
+    bySession.set(params.sessionId, ctx);
+    return { handled: true, reply: "", stage: "awaiting_consent" };
+  }
+
+  if (ctx.stage === "awaiting_consent") {
+    if (!isBuyerLeadConsentConfirmation(trimmed)) {
+      ctx = {
+        ...ctx,
+        fields: mergeBuyerLeadFieldsFromMessage(ctx.fields, trimmed),
+      };
+      bySession.set(params.sessionId, ctx);
+      const missing = listMissingBuyerLeadFields(ctx.fields);
+      if (missing.length === 0) {
+        return { handled: true, reply: "", stage: "awaiting_consent" };
+      }
+      return { handled: true, reply: "", stage: "collecting" };
+    }
+    const input = draftToCreateInput(ctx.fields, true);
+    if (!input) {
+      ctx = { ...ctx, stage: "collecting" };
+      bySession.set(params.sessionId, ctx);
+      return { handled: true, reply: "", stage: "collecting" };
+    }
+    return {
+      handled: true,
+      reply: "",
+      stage: "submitting",
+      shouldSubmit: true,
+      createInput: input,
+    };
+  }
+
+  return { handled: false };
+}
+
+/** Test helper */
+export function setBuyerLeadCaptureContextForTest(
+  sessionId: string,
+  ctx: BuyerLeadCaptureContext
+): void {
+  bySession.set(sessionId, ctx);
+}
