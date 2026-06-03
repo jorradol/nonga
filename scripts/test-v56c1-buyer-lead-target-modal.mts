@@ -7,14 +7,18 @@ import {
   beginBuyerLeadCaptureWithListing,
   clearBuyerLeadCaptureContext,
   draftToCreateInput,
+  isActiveBuyerLeadCaptureSession,
   listMissingBuyerLeadFields,
   mergeBuyerLeadFieldsFromMessage,
   processBuyerLeadCaptureTurn,
   setBuyerLeadCaptureContextForTest,
+  shouldRunBuyerLeadCaptureTurn,
   startBuyerLeadCaptureFromCar,
   getBuyerLeadCaptureContext,
   updateBuyerLeadDraftPhone,
 } from "../src/services/leads/buyerLeadCaptureFlow.ts";
+import { buildBuyerLeadReadySummaryReply } from "../src/services/leads/buyerLeadCaptureCopy.ts";
+import { handleBuyerLeadCaptureTurn } from "../src/services/leads/buyerLeadCaptureHandler.ts";
 import {
   submitBuyerLeadFromModal,
 } from "../src/services/leads/buyerLeadCaptureHandler.ts";
@@ -200,6 +204,58 @@ ok("modal consent contact", BUYER_LEAD_MODAL_CONSENT_CONTACT.includes("ราย
   clearBuyerLeadCaptureContext(sid);
   const ctx = beginBuyerLeadCapture(sid);
   ok("plain begin has no listingId", !ctx.fields.listingId);
+}
+
+// --- v5.6D.1 state bug: member + multiline structured input ---
+{
+  const sid = "sess-multiline-member";
+  clearBuyerLeadCaptureContext(sid);
+  startBuyerLeadCaptureFromCar(sid, sampleCar);
+  ok("active session after CTA", isActiveBuyerLeadCaptureSession(sid));
+  ok(
+    "member flow still runs lead handler when active",
+    shouldRunBuyerLeadCaptureTurn(sid, true)
+  );
+  ok(
+    "member flow skips lead handler when idle",
+    !shouldRunBuyerLeadCaptureTurn("sess-idle", true)
+  );
+  const multiline = [
+    "ชื่อหรือชื่อเล่น ดล",
+    "วิธีซื้อ: ไฟแนนซ์",
+    "ราคาที่เสนอ: 480,000",
+    "เวลาที่สะดวกให้ติดต่อ หลังห้าโมงเย็น",
+  ].join("\n");
+  const merged = mergeBuyerLeadFieldsFromMessage(
+    getBuyerLeadCaptureContext(sid)!.fields,
+    multiline
+  );
+  ok("parse nickname", merged.displayName === "ดล");
+  ok("parse finance method", merged.purchaseMethod === "finance");
+  ok("parse offer price", merged.offeredPrice === 480000);
+  ok("parse contact window", merged.preferredContactWindow === "หลังห้าโมงเย็น");
+  ok("multiline fields complete", listMissingBuyerLeadFields(merged).length === 0);
+  processBuyerLeadCaptureTurn({ sessionId: sid, message: multiline });
+  const handler = await handleBuyerLeadCaptureTurn({
+    sessionId: sid,
+    message: multiline,
+    isSignedIn: true,
+  });
+  ok("handler returns summary not search", handler.handled && handler.isBuyerLeadReady === true);
+  if (handler.handled) {
+    ok(
+      "summary copy prefix",
+      handler.reply.includes("น้องเอสรุปข้อมูลที่จะส่งให้ผู้ขายก่อนนะครับ")
+    );
+    ok(
+      "summary has review button phrase",
+      handler.reply.includes("ตรวจสอบและส่งข้อมูลให้ผู้ขาย")
+    );
+  }
+  ok(
+    "ready summary builder",
+    buildBuyerLeadReadySummaryReply(merged).includes("ดล")
+  );
 }
 
 // --- v5.6D.1 UX ---

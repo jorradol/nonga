@@ -69,7 +69,31 @@ const CONTACT_WINDOW_PATTERNS = [
 const BUDGET_PATTERN =
   /(?:งบประมาณ|ไม่เกิน|งบ)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
 const OFFER_PATTERN =
-  /(?:เสนอราคา|เสนอ|ราคา)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
+  /(?:ราคาที่เสนอ|เสนอราคา|เสนอ)\s*[:：]?\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
+
+const LINE_DISPLAY_NAME =
+  /(?:ชื่อหรือชื่อเล่น|ชื่อเล่น|ชื่อ)\s*[:：]?\s*(.+)$/iu;
+const LINE_PURCHASE_METHOD = /วิธีซื้อ\s*[:：]?\s*(.+)$/iu;
+const LINE_OFFER_PRICE =
+  /(?:ราคาที่เสนอ|ราคาเสนอ|เสนอราคา|เสนอ)\s*[:：]?\s*([\d,.]+)/iu;
+const LINE_BUDGET =
+  /(?:งบประมาณ|งบ)\s*[:：]?\s*([\d,.]+)/iu;
+const LINE_CONTACT_WINDOW =
+  /(?:เวลาที่สะดวกให้ติดต่อ|เวลาที่สะดวก(?:ให้)?ติดต่อ|สะดวก(?:ให้)?ติดต่อ)\s*[:：]?\s*(.+)$/iu;
+
+export function isActiveBuyerLeadCaptureSession(sessionId: string): boolean {
+  const ctx = bySession.get(sessionId);
+  if (!ctx) return false;
+  return ctx.stage === "collecting" || ctx.stage === "ready_for_modal";
+}
+
+export function shouldRunBuyerLeadCaptureTurn(
+  sessionId: string,
+  memberConsumerSellerFlow: boolean
+): boolean {
+  if (isActiveBuyerLeadCaptureSession(sessionId)) return true;
+  return !memberConsumerSellerFlow;
+}
 
 export function getBuyerLeadCaptureContext(
   sessionId: string
@@ -105,12 +129,48 @@ export function parseBahtFromText(fragment: string): number | null {
   return Math.round(num);
 }
 
-export function mergeBuyerLeadFieldsFromMessage(
-  fields: BuyerLeadDraftFields,
-  message: string
-): BuyerLeadDraftFields {
-  const next = { ...fields };
-  const t = message.trim();
+function mergeBuyerLeadFieldsFromLine(
+  next: BuyerLeadDraftFields,
+  rawLine: string
+): void {
+  const line = rawLine.trim().replace(/^[-•*]\s*/, "");
+  if (!line) return;
+
+  const nameLine = line.match(LINE_DISPLAY_NAME);
+  if (nameLine?.[1]) {
+    next.displayName = nameLine[1].trim().slice(0, 60);
+  }
+
+  const methodLine = line.match(LINE_PURCHASE_METHOD);
+  if (methodLine?.[1]) {
+    const method = parsePurchaseMethod(methodLine[1]);
+    if (method) next.purchaseMethod = method;
+  }
+
+  const offerLine = line.match(LINE_OFFER_PRICE);
+  if (offerLine?.[1]) {
+    const v = parseBahtFromText(offerLine[0]);
+    if (v != null) next.offeredPrice = v;
+  }
+
+  const budgetLine = line.match(LINE_BUDGET);
+  if (budgetLine?.[1]) {
+    const v = parseBahtFromText(budgetLine[0]);
+    if (v != null) next.budgetMax = v;
+  }
+
+  const contactLine = line.match(LINE_CONTACT_WINDOW);
+  if (contactLine?.[1]) {
+    next.preferredContactWindow = contactLine[1].trim().slice(0, 120);
+  }
+}
+
+function mergeBuyerLeadFieldsFromBlob(
+  next: BuyerLeadDraftFields,
+  blob: string
+): void {
+  const t = blob.trim();
+  if (!t) return;
 
   for (const pattern of NAME_PATTERNS) {
     const m = t.match(pattern);
@@ -121,6 +181,11 @@ export function mergeBuyerLeadFieldsFromMessage(
       break;
     }
   }
+  const structuredName = t.match(LINE_DISPLAY_NAME);
+  if (structuredName?.[1]) {
+    next.displayName = structuredName[1].trim().slice(0, 60);
+  }
+
   if (!next.displayName && t.length >= 2 && t.length <= 40 && !/\d{5,}/.test(t)) {
     if (/^(?:ผม|ดิฉัน|ฉัน|หนู)?\s*[\u0E00-\u0E7F]{2,30}$/u.test(t)) {
       next.displayName = t.replace(/^(?:ผม|ดิฉัน|ฉัน|หนู)\s*/u, "").trim();
@@ -148,11 +213,43 @@ export function mergeBuyerLeadFieldsFromMessage(
       break;
     }
   }
+  const structuredContact = t.match(LINE_CONTACT_WINDOW);
+  if (structuredContact?.[1]) {
+    next.preferredContactWindow = structuredContact[1].trim().slice(0, 120);
+  }
   if (
     !next.preferredContactWindow &&
-    /(?:เช้า|บ่าย|เย็น|วันหยุด|โทร|ทัก|line|ไลน์|after|ก่อน|หลัง)/i.test(t)
+    /(?:เช้า|บ่าย|เย็น|วันหยุด|โทร|ทัก|line|ไลน์|after|ก่อน|หลัง|ห้าโมง)/i.test(t)
   ) {
-    next.preferredContactWindow = t.slice(0, 120);
+    const contactHint = t.match(LINE_CONTACT_WINDOW);
+    if (contactHint?.[1]) {
+      next.preferredContactWindow = contactHint[1].trim().slice(0, 120);
+    }
+  }
+}
+
+export function mergeBuyerLeadFieldsFromMessage(
+  fields: BuyerLeadDraftFields,
+  message: string
+): BuyerLeadDraftFields {
+  const next = { ...fields };
+  const trimmed = message.trim();
+  if (!trimmed) return next;
+
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length > 1) {
+    for (const line of lines) {
+      mergeBuyerLeadFieldsFromLine(next, line);
+    }
+  }
+
+  mergeBuyerLeadFieldsFromBlob(next, trimmed);
+  for (const line of lines) {
+    mergeBuyerLeadFieldsFromBlob(next, line);
   }
 
   return next;

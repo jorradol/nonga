@@ -13,6 +13,7 @@ import {
   handleBuyerLeadCaptureTurn,
   submitBuyerLeadFromModal,
 } from "../../services/leads/buyerLeadCaptureHandler";
+import { shouldRunBuyerLeadCaptureTurn } from "../../services/leads/buyerLeadCaptureFlow";
 import type { ChatCarCardData } from "../../types";
 import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
@@ -900,7 +901,7 @@ export function useChat() {
       const historyAfterUser =
         useChatStore.getState().messages[sessionId] || [];
 
-      if (!memberConsumerSellerFlow) {
+      if (shouldRunBuyerLeadCaptureTurn(sessionId, memberConsumerSellerFlow)) {
         const buyerLeadCapture = await handleBuyerLeadCaptureTurn({
           sessionId,
           message: trimmed,

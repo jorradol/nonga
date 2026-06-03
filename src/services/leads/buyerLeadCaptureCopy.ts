@@ -86,7 +86,7 @@ export function buildBuyerLeadReadySummaryReply(fields: {
           ? `เสนอ ${fields.offeredPrice.toLocaleString("th-TH")} บาท`
           : "—";
   return [
-    "สรุปข้อมูลที่จะส่งให้ผู้ขายครับ:",
+    "น้องเอสรุปข้อมูลที่จะส่งให้ผู้ขายก่อนนะครับ:",
     `• ชื่อ/ชื่อเล่น: ${fields.displayName?.trim() || "—"}`,
     `• วิธีซื้อ: ${method}`,
     `• งบประมาณ/ราคาที่เสนอ: ${budget}`,
