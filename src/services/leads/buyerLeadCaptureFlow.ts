@@ -11,8 +11,8 @@ import { saveLastSelectedCarId } from "../../utils/chatCarContext";
 import type { ChatCarCardData } from "../../types";
 import {
   containsForbiddenSensitiveDocument,
-  extractPhoneFromText,
   isBuyerLeadConsentConfirmation,
+  isBuyerLeadOpenModalAction,
   normalizeThaiPhone,
   parsePurchaseMethod,
   type BuyerLeadCreateInput,
@@ -67,8 +67,9 @@ const CONTACT_WINDOW_PATTERNS = [
 ];
 
 const BUDGET_PATTERN =
-  /(?:งบ|งบประมาณ|ไม่เกิน|ไม่เกิน)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
-const OFFER_PATTERN = /(?:เสนอ|เสนอราคา|ราคา)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
+  /(?:งบประมาณ|ไม่เกิน|งบ)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
+const OFFER_PATTERN =
+  /(?:เสนอราคา|เสนอ|ราคา)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
 
 export function getBuyerLeadCaptureContext(
   sessionId: string
@@ -92,8 +93,9 @@ export function isBuyerLeadCancelIntent(message: string): boolean {
 }
 
 export function parseBahtFromText(fragment: string): number | null {
-  const raw = fragment.replace(/,/g, "").trim();
-  const num = Number.parseFloat(raw);
+  const digitMatch = fragment.replace(/,/g, "").match(/([\d.]+)/);
+  if (!digitMatch) return null;
+  const num = Number.parseFloat(digitMatch[1]);
   if (!Number.isFinite(num) || num <= 0) return null;
   if (/ล้าน/.test(fragment)) return Math.round(num * 1_000_000);
   if (/แสน/.test(fragment)) return Math.round(num * 100_000);
@@ -113,7 +115,9 @@ export function mergeBuyerLeadFieldsFromMessage(
   for (const pattern of NAME_PATTERNS) {
     const m = t.match(pattern);
     if (m?.[1]) {
-      next.displayName = m[1].trim().slice(0, 60);
+      const rawName = m[1].trim();
+      const trimmedName = rawName.split(/\s+(?:เงินสด|ไฟแนนซ์|งบ|เสนอ|สะดวก)/i)[0]?.trim();
+      next.displayName = (trimmedName || rawName).slice(0, 60);
       break;
     }
   }
@@ -123,19 +127,16 @@ export function mergeBuyerLeadFieldsFromMessage(
     }
   }
 
-  const phone = extractPhoneFromText(t);
-  if (phone) next.contactPhone = phone;
-
   const method = parsePurchaseMethod(t);
   if (method) next.purchaseMethod = method;
 
   const budgetMatch = t.match(BUDGET_PATTERN);
-  if (budgetMatch) {
+  if (budgetMatch?.[1]) {
     const v = parseBahtFromText(budgetMatch[0]);
     if (v != null) next.budgetMax = v;
   }
   const offerMatch = t.match(OFFER_PATTERN);
-  if (offerMatch) {
+  if (offerMatch?.[1]) {
     const v = parseBahtFromText(offerMatch[0]);
     if (v != null) next.offeredPrice = v;
   }
@@ -157,19 +158,32 @@ export function mergeBuyerLeadFieldsFromMessage(
   return next;
 }
 
+export function hasBuyerLeadBudgetOrOffer(fields: BuyerLeadDraftFields): boolean {
+  if (fields.budgetMin != null && fields.budgetMin > 0) return true;
+  if (fields.budgetMax != null && fields.budgetMax > 0) return true;
+  if (fields.offeredPrice != null && fields.offeredPrice > 0) return true;
+  return false;
+}
+
 export function listMissingBuyerLeadFields(
-  fields: BuyerLeadDraftFields
+  fields: BuyerLeadDraftFields,
+  options?: { requirePhone?: boolean }
 ): string[] {
   const missing: string[] = [];
   if (!fields.listingId?.trim()) {
     missing.push('รถที่สนใจ (กดปุ่ม "ให้ผู้ขายติดต่อกลับ" ที่การ์ดรถ)');
   }
   if (!fields.displayName?.trim()) missing.push("ชื่อหรือชื่อเล่น");
-  if (!fields.contactPhone?.trim() || !normalizeThaiPhone(fields.contactPhone)) {
-    missing.push("เบอร์โทร");
-  }
   if (!fields.purchaseMethod) missing.push("วิธีซื้อ (เงินสด/ไฟแนนซ์/ยังไม่แน่ใจ)");
+  if (!hasBuyerLeadBudgetOrOffer(fields)) {
+    missing.push("งบประมาณหรือราคาที่เสนอ");
+  }
   if (!fields.preferredContactWindow?.trim()) missing.push("เวลาที่สะดวกให้ติดต่อ");
+  if (options?.requirePhone) {
+    if (!fields.contactPhone?.trim() || !normalizeThaiPhone(fields.contactPhone)) {
+      missing.push("เบอร์โทร");
+    }
+  }
   return missing;
 }
 
@@ -274,7 +288,6 @@ function advanceAfterFieldMerge(
     handled: true,
     reply: "",
     stage: "ready_for_modal",
-    openConsentModal: true,
   };
 }
 
@@ -295,20 +308,23 @@ export function processBuyerLeadCaptureTurn(params: {
     return { handled: false };
   }
 
+  if (
+    ctx.stage === "ready_for_modal" &&
+    (isBuyerLeadOpenModalAction(trimmed) || isBuyerLeadConsentConfirmation(trimmed))
+  ) {
+    return {
+      handled: true,
+      reply: "",
+      stage: "ready_for_modal",
+      openConsentModal: true,
+    };
+  }
+
   if (ctx.stage === "collecting" || ctx.stage === "ready_for_modal") {
     ctx = {
       ...ctx,
       fields: mergeBuyerLeadFieldsFromMessage(ctx.fields, trimmed),
     };
-    if (isBuyerLeadConsentConfirmation(trimmed) && ctx.stage === "ready_for_modal") {
-      bySession.set(params.sessionId, ctx);
-      return {
-        handled: true,
-        reply: "",
-        stage: "ready_for_modal",
-        openConsentModal: true,
-      };
-    }
     return advanceAfterFieldMerge(params.sessionId, ctx);
   }
 

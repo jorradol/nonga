@@ -92,6 +92,15 @@ export function isBuyerLeadConsentConfirmation(text: string): boolean {
   );
 }
 
+/** Opens consent modal when chat draft is complete (v5.6D.1). */
+export function isBuyerLeadOpenModalAction(text: string): boolean {
+  const t = text.trim();
+  return (
+    t === "ตรวจสอบและส่งข้อมูลให้ผู้ขาย" ||
+    t.startsWith("ตรวจสอบและส่งข้อมูลให้ผู้ขาย")
+  );
+}
+
 export function validateBuyerLeadCreateInput(
   input: BuyerLeadCreateInput,
   options?: { checkForbiddenInSummary?: boolean }

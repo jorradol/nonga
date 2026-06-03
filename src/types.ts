@@ -109,6 +109,8 @@ export interface ChatMessage {
   draftFields?: any;
   /** เป็นข้อความแสดง Draft Preview หรือไม่ */
   isDraftPreview?: boolean;
+  /** v5.6D.1 — สรุป lead พร้อมเปิด modal (ปุ่มตรวจสอบและส่ง) */
+  isBuyerLeadReady?: boolean;
   /** หลังบันทึกประกาศจากแชท — ใช้ปุ่มไปหน้า Draft */
   savedDraftId?: string;
   /** หลัง member บันทึกผ่าน POST /api/cars — ใช้ปุ่มไปประกาศของฉัน */

@@ -4,7 +4,9 @@ import { Car, Loader2, Phone, X } from "lucide-react";
 import {
   BUYER_LEAD_MODAL_CONSENT_CONTACT,
   BUYER_LEAD_MODAL_CONSENT_PRIMARY,
+  BUYER_LEAD_MODAL_PHONE_INVALID_HINT,
 } from "../../services/leads/buyerLeadConsentModalCopy";
+import { normalizeThaiPhone } from "../../services/leads/buyerLeadValidation";
 import type { BuyerLeadModalPreview } from "../../services/leads/buyerLeadPreview";
 
 export type BuyerLeadConsentModalProps = {
@@ -27,11 +29,8 @@ export function BuyerLeadConsentModal({
   const [phone, setPhone] = useState("");
 
   useEffect(() => {
-    if (open && preview?.contactPhone) {
-      setPhone(preview.contactPhone);
-    }
     if (!open) setPhone("");
-  }, [open, preview?.contactPhone]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +41,9 @@ export function BuyerLeadConsentModal({
     };
   }, [open]);
 
-  const canConfirm = useMemo(() => phone.replace(/\D/g, "").length >= 9, [phone]);
+  const normalizedPhone = useMemo(() => normalizeThaiPhone(phone), [phone]);
+  const canConfirm = Boolean(normalizedPhone);
+  const showPhoneError = phone.trim().length > 0 && !normalizedPhone;
 
   if (!open) return null;
 
@@ -128,6 +129,14 @@ export function BuyerLeadConsentModal({
                           data-testid="buyer-lead-modal-phone"
                         />
                       </label>
+                      {showPhoneError ? (
+                        <p
+                          className="mt-1 text-[11px] text-amber-400"
+                          data-testid="buyer-lead-modal-phone-error"
+                        >
+                          {BUYER_LEAD_MODAL_PHONE_INVALID_HINT}
+                        </p>
+                      ) : null}
                     </dd>
                   </div>
                   <PreviewRow label="วิธีซื้อ" value={preview.purchaseMethodLabel} />
@@ -165,7 +174,9 @@ export function BuyerLeadConsentModal({
             <button
               type="button"
               disabled={!preview || !canConfirm || isSubmitting}
-              onClick={() => onConfirm(phone.trim())}
+              onClick={() => {
+                if (normalizedPhone) onConfirm(normalizedPhone);
+              }}
               className="w-full min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
               data-testid="buyer-lead-confirm-submit"
             >

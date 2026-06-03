@@ -33,6 +33,7 @@ export interface AIUserProfile {
 }
 
 export type AddMessageListingExtras = {
+  isBuyerLeadReady?: boolean;
   isPendingListingCard?: boolean;
   pendingListingCard?: PendingListingCardData;
   isSavedMemberListingCard?: boolean;
@@ -258,6 +259,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(carCards && carCards.length > 0 ? { carCards } : {}),
       ...(hasMoreCars ? { hasMoreCars } : {}),
       ...(isDraftPreview ? { isDraftPreview } : {}),
+      ...(listingExtras?.isBuyerLeadReady ? { isBuyerLeadReady: true } : {}),
       ...(draftFields ? { draftFields } : {}),
       ...(savedDraftId ? { savedDraftId } : {}),
       ...(savedMemberListingId ? { savedMemberListingId } : {}),

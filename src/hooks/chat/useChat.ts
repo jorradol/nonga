@@ -907,7 +907,20 @@ export function useChat() {
           isSignedIn,
         });
         if (buyerLeadCapture.handled) {
-          await addMessage(sessionId, "ai", buyerLeadCapture.reply);
+          await addMessage(
+            sessionId,
+            "ai",
+            buyerLeadCapture.reply,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            buyerLeadCapture.isBuyerLeadReady
+              ? { isBuyerLeadReady: true }
+              : undefined
+          );
           if (buyerLeadCapture.openConsentModal) {
             useBuyerLeadCaptureStore.getState().openConsentModal(sessionId);
           }

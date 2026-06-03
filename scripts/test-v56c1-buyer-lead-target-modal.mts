@@ -22,6 +22,11 @@ import {
   BUYER_LEAD_MODAL_CONSENT_CONTACT,
   BUYER_LEAD_MODAL_CONSENT_PRIMARY,
 } from "../src/services/leads/buyerLeadConsentModalCopy.ts";
+import { buildBuyerLeadCollectingPrompt } from "../src/services/leads/buyerLeadCaptureCopy.ts";
+import {
+  isBuyerLeadOpenModalAction,
+  normalizeThaiPhone,
+} from "../src/services/leads/buyerLeadValidation.ts";
 import {
   buildBuyerLeadModalPreview,
   isReadyForBuyerLeadConsentModal,
@@ -76,13 +81,13 @@ const sampleCar: ChatCarCardData = {
   startBuyerLeadCaptureFromCar(sid, sampleCar);
   const ctx = processBuyerLeadCaptureTurn({
     sessionId: sid,
-    message: "ชื่อ มานี เบอร์ 0891112233 เงินสด สะดวกเย็น",
+    message: "ชื่อ มานี เงินสด งบประมาณ 320000 บาท สะดวกเย็น",
   });
   ok("capture from car has listing on complete", ctx.handled);
-  if (ctx.handled) {
-    ok("opens modal when complete", ctx.openConsentModal === true);
-    ok("stage ready_for_modal", ctx.stage === "ready_for_modal");
-  }
+  const ctxAfter = getBuyerLeadCaptureContext(sid);
+  ok("v5.6D.1 no auto modal when complete", !("openConsentModal" in ctx && ctx.openConsentModal));
+  ok("stage ready_for_modal", ctxAfter?.stage === "ready_for_modal");
+  ok("chat draft has no phone yet", !ctxAfter?.fields.contactPhone);
 }
 
 // --- start intent without car → ask select first (no modal) ---
@@ -95,7 +100,7 @@ const sampleCar: ChatCarCardData = {
   });
   const t2 = processBuyerLeadCaptureTurn({
     sessionId: sid,
-    message: "ชื่อ มานี เบอร์ 0891112233 เงินสด สะดวกเย็น",
+    message: "ชื่อ มานี เงินสด งบประมาณ 320000 บาท สะดวกเย็น",
   });
   ok("no car: still collecting missing listing", t2.handled && t2.stage === "collecting");
   ok("no car: no modal", !("openConsentModal" in t2 && t2.openConsentModal));
@@ -106,7 +111,6 @@ const sampleCar: ChatCarCardData = {
   const fields = {
     listingId: sampleCar.id,
     displayName: "มานี",
-    contactPhone: "0891112233",
     purchaseMethod: "cash" as const,
     preferredContactWindow: "เย็น ๆ",
     budgetMax: 350000,
@@ -128,7 +132,7 @@ const sampleCar: ChatCarCardData = {
 
 // --- consent copy ---
 ok("modal consent primary", BUYER_LEAD_MODAL_CONSENT_PRIMARY.includes("น้องเอจะส่งข้อมูลนี้"));
-ok("modal consent contact", BUYER_LEAD_MODAL_CONSENT_CONTACT.includes("วัตถุประสงค์อื่น"));
+ok("modal consent contact", BUYER_LEAD_MODAL_CONSENT_CONTACT.includes("รายการนี้"));
 
 // --- phone from modal updates payload ---
 {
@@ -140,15 +144,15 @@ ok("modal consent contact", BUYER_LEAD_MODAL_CONSENT_CONTACT.includes("วัต
     fields: {
       listingId: sampleCar.id,
       displayName: "มานี",
-      contactPhone: "0811111111",
       purchaseMethod: "cash",
       preferredContactWindow: "เช้า",
+      budgetMax: 300000,
     },
   });
-  updateBuyerLeadDraftPhone(sid, "0822223333");
+  updateBuyerLeadDraftPhone(sid, "082-222-3333");
   const updatedCtx = getBuyerLeadCaptureContext(sid);
   const input = draftToCreateInput(updatedCtx?.fields ?? {}, true);
-  ok("modal phone in draft", input?.contactPhone === "0822223333");
+  ok("modal phone normalized in draft", input?.contactPhone === "0822223333");
 }
 
 // --- consent required before API (validation) ---
@@ -174,9 +178,9 @@ ok("modal consent contact", BUYER_LEAD_MODAL_CONSENT_CONTACT.includes("วัต
     fields: {
       listingId: sampleCar.id,
       displayName: "มานี",
-      contactPhone: "0812345678",
       purchaseMethod: "cash",
       preferredContactWindow: "เย็น",
+      budgetMax: 250000,
     },
   });
   const guest = await submitBuyerLeadFromModal({
@@ -196,6 +200,60 @@ ok("modal consent contact", BUYER_LEAD_MODAL_CONSENT_CONTACT.includes("วัต
   clearBuyerLeadCaptureContext(sid);
   const ctx = beginBuyerLeadCapture(sid);
   ok("plain begin has no listingId", !ctx.fields.listingId);
+}
+
+// --- v5.6D.1 UX ---
+{
+  const prompt = buildBuyerLeadCollectingPrompt(["ชื่อหรือชื่อเล่น"]);
+  ok("collecting prompt does not ask phone in chat", !prompt.includes("• เบอร์โทร"));
+  ok("collecting prompt mentions modal phone", prompt.includes("หน้าต่างสรุป"));
+}
+ok("open modal action phrase", isBuyerLeadOpenModalAction("ตรวจสอบและส่งข้อมูลให้ผู้ขาย"));
+ok("normalize dashed thai phone", normalizeThaiPhone("081-234-5678") === "0812345678");
+ok("invalid phone short", normalizeThaiPhone("08123") === null);
+ok("valid 09x phone", normalizeThaiPhone("0912345678") === "0912345678");
+ok("valid 06x phone", normalizeThaiPhone("0612345678") === "0612345678");
+{
+  const merged = mergeBuyerLeadFieldsFromMessage(
+    {},
+    "ชื่อ มานี เบอร์ 0891112233 เงินสด งบประมาณ 200000 บาท สะดวกเย็น"
+  );
+  ok("chat merge ignores phone", !merged.contactPhone);
+}
+{
+  const sid = "sess-open-modal-action";
+  clearBuyerLeadCaptureContext(sid);
+  beginBuyerLeadCaptureWithListing(sid, sampleCar.id);
+  setBuyerLeadCaptureContextForTest(sid, {
+    stage: "ready_for_modal",
+    fields: {
+      listingId: sampleCar.id,
+      displayName: "มานี",
+      purchaseMethod: "cash",
+      preferredContactWindow: "เย็น",
+      budgetMax: 320_000,
+    },
+  });
+  const open = processBuyerLeadCaptureTurn({
+    sessionId: sid,
+    message: "ตรวจสอบและส่งข้อมูลให้ผู้ขาย",
+  });
+  ok("open modal only on explicit action", open.handled && open.openConsentModal === true);
+}
+{
+  const sid = "sess-no-post-before-phone";
+  clearBuyerLeadCaptureContext(sid);
+  setBuyerLeadCaptureContextForTest(sid, {
+    stage: "ready_for_modal",
+    fields: {
+      listingId: sampleCar.id,
+      displayName: "มานี",
+      purchaseMethod: "cash",
+      preferredContactWindow: "เย็น",
+      budgetMax: 200000,
+    },
+  });
+  ok("no API payload before modal phone", draftToCreateInput(getBuyerLeadCaptureContext(sid)!.fields, true) === null);
 }
 
 console.log("\nDone v5.6C.1 buyer lead target + consent modal tests.");

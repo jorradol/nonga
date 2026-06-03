@@ -6,7 +6,10 @@ export const BUYER_LEAD_START_HINT =
   "เมื่อสนใจรถคันใด กดปุ่ม “ให้ผู้ขายติดต่อกลับ” ที่การ์ดรถ หรือพิมพ์ “ขอให้ผู้ขายติดต่อกลับ” หลังเลือกคันแล้ว — น้องเอจะช่วยเก็บข้อมูลและให้ตรวจสอบก่อนส่งให้ผู้ขายครับ";
 
 export const BUYER_LEAD_FORBIDDEN_DOC_REPLY =
-  "รอบนี้ยังไม่รับเอกสารสำคัญครับ (เช่น บัตรประชาชน เล่มทะเบียน สลิปเงินเดือน เลขบัญชี สัญญาไฟแนนซ์) — ขอแค่ชื่อ/ชื่อเล่น เบอร์โทร และความสนใจรถเท่านั้นนะครับ";
+  "รอบนี้ยังไม่รับเอกสารสำคัญครับ (เช่น บัตรประชาชน เล่มทะเบียน สลิปเงินเดือน เลขบัญชี สัญญาไฟแนนซ์) — ขอแค่ชื่อ/ชื่อเล่น วิธีซื้อ งบหรือราคาที่เสนอ และเวลาที่สะดวกติดต่อในแชท เบอร์โทรกรอกในหน้าต่างสรุปก่อนส่งนะครับ";
+
+/** User taps or sends this to open consent modal after chat fields are complete. */
+export const CHAT_BUYER_LEAD_OPEN_MODAL_ACTION = "ตรวจสอบและส่งข้อมูลให้ผู้ขาย";
 
 export const BUYER_LEAD_LOGIN_REQUIRED_REPLY =
   "ก่อนส่งข้อมูลให้ผู้ขาย กรุณาเข้าสู่ระบบก่อนนะครับ (รอบทดลองยังไม่เปิดสมัครเอง — ใช้บัญชีที่ทีมเชิญ) แล้วกดยืนยันในหน้าต่างสรุปอีกครั้งครับ";
@@ -18,12 +21,13 @@ export function buildBuyerLeadCollectingPrompt(missing: string[]): string {
   const lines = [
     "รับทราบครับ น้องเอช่วยส่งข้อมูลให้ผู้ขายติดต่อกลับเรื่องรถคันที่สนใจได้",
     "",
-    "ขอข้อมูลขั้นต่ำ (ทีละข้อความหรือรวมในข้อความเดียวก็ได้):",
+    "ขอข้อมูลในแชท (ทีละข้อความหรือรวมในข้อความเดียวก็ได้):",
     "• ชื่อหรือชื่อเล่น",
-    "• เบอร์โทร",
     "• วิธีซื้อ: เงินสด / ไฟแนนซ์ / ยังไม่แน่ใจ",
-    "• งบประมาณหรือราคาที่เสนอ (ถ้ามี)",
+    "• งบประมาณหรือราคาที่เสนอ",
     "• เวลาที่สะดวกให้ติดต่อ",
+    "",
+    "เบอร์โทรจะกรอกในหน้าต่างสรุปก่อนส่งให้ผู้ขายครับ",
     "",
   ];
   if (missing.length > 0) {
@@ -53,10 +57,42 @@ export function buildBuyerLeadStartFromCarReply(car: {
   return `รับทราบครับ สนใจ **${title} ปี ${car.year}** — น้องเอจะช่วยเก็บข้อมูลและให้ตรวจสอบก่อนส่งให้เจ้าของรถคันนี้ครับ`;
 }
 
-export function buildBuyerLeadOpenModalReply(): string {
+export function buildBuyerLeadOpenModalAckReply(): string {
+  return "เปิดหน้าต่างสรุปให้แล้วครับ กรุณากรอกเบอร์โทรและกดยืนยันส่งข้อมูลให้ผู้ขาย (ต้องเข้าสู่ระบบก่อนบันทึก)";
+}
+
+export function buildBuyerLeadReadySummaryReply(fields: {
+  displayName?: string;
+  purchaseMethod?: "cash" | "finance" | "undecided";
+  budgetMin?: number;
+  budgetMax?: number;
+  offeredPrice?: number;
+  preferredContactWindow?: string;
+}): string {
+  const method =
+    fields.purchaseMethod === "cash"
+      ? "เงินสด"
+      : fields.purchaseMethod === "finance"
+        ? "ไฟแนนซ์"
+        : fields.purchaseMethod === "undecided"
+          ? "ยังไม่แน่ใจ"
+          : "—";
+  const budget =
+    fields.budgetMax != null
+      ? `ประมาณ ${fields.budgetMax.toLocaleString("th-TH")} บาท`
+      : fields.budgetMin != null
+        ? `ประมาณ ${fields.budgetMin.toLocaleString("th-TH")} บาท`
+        : fields.offeredPrice != null && fields.offeredPrice > 0
+          ? `เสนอ ${fields.offeredPrice.toLocaleString("th-TH")} บาท`
+          : "—";
   return [
-    "ข้อมูลครบแล้วครับ เปิดหน้าต่างสรุปให้ตรวจสอบแล้ว",
-    "กรุณาตรวจเบอร์ติดต่อและกด **ยืนยันส่งข้อมูลให้ผู้ขาย** (ต้องเข้าสู่ระบบก่อนบันทึก)",
+    "สรุปข้อมูลที่จะส่งให้ผู้ขายครับ:",
+    `• ชื่อ/ชื่อเล่น: ${fields.displayName?.trim() || "—"}`,
+    `• วิธีซื้อ: ${method}`,
+    `• งบประมาณ/ราคาที่เสนอ: ${budget}`,
+    `• เวลาที่สะดวกให้ติดต่อ: ${fields.preferredContactWindow?.trim() || "—"}`,
+    "",
+    `กดปุ่ม **${CHAT_BUYER_LEAD_OPEN_MODAL_ACTION}** เพื่อกรอกเบอร์โทรและยืนยันในหน้าต่างสรุป (ต้องเข้าสู่ระบบก่อนบันทึก)`,
     "พิมพ์ “ยกเลิก” ถ้าไม่ต้องการส่งครับ",
   ].join("\n");
 }

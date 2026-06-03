@@ -127,10 +127,13 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
   useEffect(() => {
     if (currentMessages.length > messageCountRef.current) {
       const last = currentMessages[currentMessages.length - 1];
-      if (last?.sender === "user") {
+      const shouldScrollToLatest =
+        last?.sender === "user" ||
+        (last?.sender === "ai" && !userScrolledAwayRef.current);
+      if (shouldScrollToLatest) {
         requestAnimationFrame(() => {
           messagesEndRef.current?.scrollIntoView({
-            behavior: "smooth",
+            behavior: last?.sender === "user" ? "smooth" : "auto",
             block: "end",
           });
         });

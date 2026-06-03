@@ -5,7 +5,7 @@
 import type { BuyerLeadTargetCar } from "../../utils/buyerLeadTarget";
 import { buyerLeadTargetTitle } from "../../utils/buyerLeadTarget";
 import {
-  listMissingBuyerLeadFields,
+  hasBuyerLeadBudgetOrOffer,
   type BuyerLeadDraftFields,
 } from "./buyerLeadCaptureFlow";
 import type { PurchaseMethod } from "./leadTypes";
@@ -16,7 +16,6 @@ export interface BuyerLeadModalPreview {
   carTitle: string;
   carPriceLabel: string;
   displayName: string;
-  contactPhone: string;
   purchaseMethodLabel: string;
   budgetLabel: string;
   offeredPriceLabel: string | null;
@@ -44,10 +43,9 @@ export function buildBuyerLeadModalPreview(
   fields: BuyerLeadDraftFields,
   target: BuyerLeadTargetCar | null
 ): BuyerLeadModalPreview | null {
-  if (!fields.listingId?.trim() || !fields.displayName?.trim() || !fields.contactPhone?.trim()) {
-    return null;
-  }
+  if (!fields.listingId?.trim() || !fields.displayName?.trim()) return null;
   if (!fields.purchaseMethod || !fields.preferredContactWindow?.trim()) return null;
+  if (!hasBuyerLeadBudgetOrOffer(fields)) return null;
 
   const carTitle = target
     ? buyerLeadTargetTitle(target)
@@ -77,7 +75,6 @@ export function buildBuyerLeadModalPreview(
     carTitle,
     carPriceLabel,
     displayName: fields.displayName,
-    contactPhone: fields.contactPhone,
     purchaseMethodLabel: formatPurchaseMethodLabel(fields.purchaseMethod),
     budgetLabel: formatBudgetLabel(fields),
     offeredPriceLabel,
@@ -87,5 +84,11 @@ export function buildBuyerLeadModalPreview(
 }
 
 export function isReadyForBuyerLeadConsentModal(fields: BuyerLeadDraftFields): boolean {
-  return listMissingBuyerLeadFields(fields).length === 0;
+  return (
+    Boolean(fields.listingId?.trim()) &&
+    Boolean(fields.displayName?.trim()) &&
+    Boolean(fields.purchaseMethod) &&
+    Boolean(fields.preferredContactWindow?.trim()) &&
+    hasBuyerLeadBudgetOrOffer(fields)
+  );
 }

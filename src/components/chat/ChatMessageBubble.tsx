@@ -14,6 +14,8 @@ import { useChatComposer } from "../../contexts/chat/ChatComposerContext";
 import {
   CHAT_CONFIRM_CREATE_DRAFT_ACTION,
 } from "../../services/ai/chat/chatDraftActions";
+import { CHAT_BUYER_LEAD_OPEN_MODAL_ACTION } from "../../services/leads/buyerLeadCaptureCopy";
+import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import { ChatCarCard } from "./ChatCarCard";
 import { ChatMessageAttachments } from "./ChatMessageAttachments";
 import { ChatPendingListingCard } from "./ChatPendingListingCard";
@@ -601,6 +603,22 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   }
                 }}
               />
+            )}
+
+            {message.isBuyerLeadReady && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeSessionId) return;
+                    useBuyerLeadCaptureStore.getState().openConsentModal(activeSessionId);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                  data-testid="buyer-lead-open-modal-btn"
+                >
+                  {CHAT_BUYER_LEAD_OPEN_MODAL_ACTION}
+                </button>
+              </div>
             )}
 
             {message.isDraftPreview && !message.isPendingListingCard && (

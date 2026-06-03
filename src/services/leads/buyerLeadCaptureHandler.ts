@@ -5,7 +5,8 @@
 import { createBuyerLeadFromChat } from "./buyerLeadApi";
 import {
   buildBuyerLeadCollectingPrompt,
-  buildBuyerLeadOpenModalReply,
+  buildBuyerLeadOpenModalAckReply,
+  buildBuyerLeadReadySummaryReply,
   buildBuyerLeadSelectCarFirstReply,
   buildBuyerLeadStartFromCarReply,
   buildBuyerLeadSuccessReply,
@@ -22,7 +23,10 @@ import {
   startBuyerLeadCaptureFromCar,
   updateBuyerLeadDraftPhone,
 } from "./buyerLeadCaptureFlow";
-import { containsForbiddenSensitiveDocument } from "./buyerLeadValidation";
+import {
+  containsForbiddenSensitiveDocument,
+  normalizeThaiPhone,
+} from "./buyerLeadValidation";
 import type { ChatCarCardData } from "../../types";
 import { clearBuyerLeadTarget } from "../../utils/buyerLeadTarget";
 
@@ -34,7 +38,12 @@ export interface HandleBuyerLeadCaptureParams {
 
 export type HandleBuyerLeadCaptureResult =
   | { handled: false }
-  | { handled: true; reply: string; openConsentModal?: boolean };
+  | {
+      handled: true;
+      reply: string;
+      openConsentModal?: boolean;
+      isBuyerLeadReady?: boolean;
+    };
 
 export async function handleBuyerLeadCaptureTurn(
   params: HandleBuyerLeadCaptureParams
@@ -59,7 +68,7 @@ export async function handleBuyerLeadCaptureTurn(
   if (turn.openConsentModal) {
     return {
       handled: true,
-      reply: buildBuyerLeadOpenModalReply(),
+      reply: buildBuyerLeadOpenModalAckReply(),
       openConsentModal: true,
     };
   }
@@ -72,6 +81,14 @@ export async function handleBuyerLeadCaptureTurn(
   const miss = listMissingBuyerLeadFields(sessionCtx.fields);
   if (!sessionCtx.fields.listingId?.trim()) {
     return { handled: true, reply: buildBuyerLeadSelectCarFirstReply() };
+  }
+
+  if (sessionCtx.stage === "ready_for_modal" && miss.length === 0) {
+    return {
+      handled: true,
+      reply: buildBuyerLeadReadySummaryReply(sessionCtx.fields),
+      isBuyerLeadReady: true,
+    };
   }
 
   return {
@@ -110,13 +127,18 @@ export async function submitBuyerLeadFromModal(params: {
     return { ok: false, message: "ยังไม่พร้อมส่งข้อมูล กรุณากรอกข้อมูลในแชทให้ครบก่อนครับ" };
   }
 
-  updateBuyerLeadDraftPhone(params.sessionId, params.contactPhone.trim());
+  const normalizedPhone = normalizeThaiPhone(params.contactPhone.trim());
+  if (!normalizedPhone) {
+    return { ok: false, message: "กรุณากรอกเบอร์โทรไทย 10 หลัก" };
+  }
+
+  updateBuyerLeadDraftPhone(params.sessionId, normalizedPhone);
   const updated = getBuyerLeadCaptureContext(params.sessionId);
   if (!updated) {
     return { ok: false, message: "ไม่พบข้อมูลที่จะส่งครับ" };
   }
 
-  const missing = listMissingBuyerLeadFields(updated.fields);
+  const missing = listMissingBuyerLeadFields(updated.fields, { requirePhone: true });
   if (missing.length > 0) {
     return {
       ok: false,

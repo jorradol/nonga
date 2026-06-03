@@ -155,14 +155,27 @@ ok("start intent detected", isBuyerLeadStartIntent("ขอให้ผู้ข�
   ok("flow begins", t1.handled && t1.stage === "collecting");
   const fields = mergeBuyerLeadFieldsFromMessage(
     { listingId: listing.id },
-    "ชื่อ มานี เบอร์ 0899998888 ไฟแนนซ์ สะดวกเย็น"
+    "ชื่อ มานี ไฟแนนซ์ งบ 4 แสน สะดวกเย็น"
   );
-  setBuyerLeadCaptureContextForTest(sid, { stage: "collecting", fields });
-  const t2 = processBuyerLeadCaptureTurn({ sessionId: sid, message: "ok" });
-  ok("ready for modal when complete", t2.handled && t2.stage === "ready_for_modal");
-  ok("opens consent modal flag", t2.handled && t2.openConsentModal === true);
-  const inputNoConsent = draftToCreateInput(fields, false);
-  ok("draft without consent flag fails validation path", inputNoConsent?.consentConfirmed === false);
+  ok("v5.6D.1 chat merge ignores phone", !fields.contactPhone);
+  setBuyerLeadCaptureContextForTest(sid, {
+    stage: "ready_for_modal",
+    fields: {
+      ...fields,
+      listingId: listing.id,
+      budgetMax: 400_000,
+      purchaseMethod: "finance",
+      preferredContactWindow: "เย็น",
+      displayName: "มานี",
+    },
+  });
+  const t2 = processBuyerLeadCaptureTurn({
+    sessionId: sid,
+    message: "ตรวจสอบและส่งข้อมูลให้ผู้ขาย",
+  });
+  ok("open modal on explicit action when ready", t2.handled && t2.openConsentModal === true);
+  const inputNoPhone = draftToCreateInput(fields, true);
+  ok("no POST payload before modal phone", inputNoPhone === null);
 }
 
 // --- guest: submit requires login (handler level — no API call in test) ---
