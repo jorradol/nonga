@@ -83,6 +83,7 @@
     "test:v5410-seller-dealer-readiness-fixes": "tsx scripts/test-v5410-seller-dealer-readiness-fixes.mts",
     "test:v5410b-floating-chat-resume": "tsx scripts/test-v5410b-floating-chat-resume.mts",
     "test:v5410c-dealer-chat-draft-image-preview": "tsx scripts/test-v5410c-dealer-chat-draft-image-preview.mts",
+    "test:v5411-closed-pilot-user-provisioning": "tsx scripts/test-v5411-closed-pilot-user-provisioning.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",

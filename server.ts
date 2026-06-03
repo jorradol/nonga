@@ -60,6 +60,7 @@ import {
   buildListingPatchForNewReport,
 } from "./src/server/listingModeration";
 import { registerAiEndpointGuards } from "./src/server/security/aiEndpointGuard";
+import { registerAdminPilotUserRoutes } from "./src/server/adminPilotUserRoutes";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
   return getPublishedMarketplaceCars();
@@ -328,6 +329,7 @@ app.post("/api/cars", async (req, res) => {
 // API auth guards (stub — เตรียมต่อ Firebase ID token)
 app.use("/api/dealer", dealerApiAuth);
 app.use("/api/admin", adminApiAuth);
+registerAdminPilotUserRoutes(app);
 
 app.get("/api/admin/listing-reports", async (req, res) => {
   const statusRaw = String(req.query.status ?? "open").trim() as ListingReportStatus | "";

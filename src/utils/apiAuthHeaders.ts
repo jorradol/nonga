@@ -120,3 +120,20 @@ export function adminAuthHeaders(): HeadersInit {
     "X-User-Role": "admin",
   };
 }
+
+export async function adminAuthHeadersAsync(
+  role: "admin" | "superadmin" = "admin"
+): Promise<HeadersInit> {
+  const firebaseHeaders = (await getFirebaseAuthHeaders()) as Record<string, string>;
+  if (firebaseHeaders.Authorization) {
+    return {
+      ...firebaseHeaders,
+      "Content-Type": "application/json",
+      "X-User-Role": role,
+    };
+  }
+  return {
+    ...adminAuthHeaders(),
+    "X-User-Role": role,
+  };
+}

@@ -35,6 +35,7 @@ import AdminDashboardView from "./components/admin/AdminDashboardView";
 import InventoryImportView from "./components/admin/inventory-import/InventoryImportView";
 import DealerDraftInventoryView from "./components/admin/DealerDraftInventoryView";
 import AdminListingReportsView from "./components/admin/AdminListingReportsView";
+import AdminPilotUsersView from "./components/admin/AdminPilotUsersView";
 import DealerPortalView from "./components/dealer-portal/DealerPortalView";
 import { dealerTabFromPath } from "./components/dealer-portal/DealerPortalLayout";
 import SearchPageView from "./components/search/SearchPageView";
@@ -89,6 +90,7 @@ export default function App() {
     "admin-dashboard",
     "inventory-import",
     "dealer-draft-inventory",
+    "admin-pilot-users",
   ]);
   const showFloatingChatButton = !hideFloatingChatViews.has(currentView);
   const openFloatingChat = () => {
@@ -309,6 +311,12 @@ export default function App() {
         return (
           <RequireAdmin>
             <AdminListingReportsView />
+          </RequireAdmin>
+        );
+      case "admin-pilot-users":
+        return (
+          <RequireAdmin>
+            <AdminPilotUsersView />
           </RequireAdmin>
         );
       case "dealer-portal":

@@ -133,6 +133,10 @@ function initializeFirebaseAdminApp() {
   );
 }
 
+export function getServerFirestore() {
+  return getFirestore(initializeFirebaseAdminApp());
+}
+
 function identityFromDecodedToken(decoded: DecodedIdToken): VerifiedFirebaseIdentity {
   return {
     uid: decoded.uid,
