@@ -40,6 +40,10 @@ import {
   type ExtractedCarFields,
 } from "../../services/ai/chat/sellIntentParser";
 import { uploadListingImagesApi } from "../../services/dealer/dealerListingImageApi";
+import {
+  attachmentsForSavedDealerDraft,
+  buildDealerChatImageUploadNote,
+} from "../../services/chat/dealerChatDraftImageSave";
 import { fileToPasteUploadPayload } from "../../utils/inventoryImport/pasteUploadedImageQueue";
 import {
   clearChatImageAttachmentScope,
@@ -293,7 +297,11 @@ export function useChat() {
     (params: {
       sessionId: string;
       fields: Record<string, unknown>;
-    }) => Promise<{ text: string; savedDraftId?: string }>
+    }) => Promise<{
+      text: string;
+      savedDraftId?: string;
+      uploadedImageUrls?: string[];
+    }>
   >(async () => ({
     text: "กำลังเตรียมระบบบันทึกประกาศครับ กรุณารอสักครู่",
   }));
@@ -605,7 +613,11 @@ export function useChat() {
     async (params: {
       sessionId: string;
       fields: Record<string, unknown>;
-    }): Promise<{ text: string; savedDraftId?: string }> => {
+    }): Promise<{
+      text: string;
+      savedDraftId?: string;
+      uploadedImageUrls?: string[];
+    }> => {
       const { payload } = buildDealerDraftPayloadFromChat(
         params.fields as Parameters<typeof buildDealerDraftPayloadFromChat>[0]
       );
@@ -666,6 +678,7 @@ export function useChat() {
         const newDraftId = result.data?.id;
         let missingFields = [...(result.data?.missingFields ?? [])];
         let uploadNote = "";
+        let uploadedImageUrls: string[] | undefined;
         const imagesToUpload = newDraftId
           ? collectChatImagesForDraft(storageScopeKey, params.sessionId, sessionMessages)
           : [];
@@ -678,18 +691,25 @@ export function useChat() {
               draftDealerId,
               apiRole
             );
+            uploadedImageUrls = uploadResult.storedUrls;
             clearChatImagesForDraft(storageScopeKey, params.sessionId);
             missingFields = resolveMissingFieldsAfterChatImageUpload(
               missingFields,
               uploadResult.storedUrls
             );
-            if (uploadResult.storedUrls.length > 0) {
-              uploadNote = `\n\nแนบรูปภาพแล้ว ${uploadResult.storedUrls.length} รูปครับ`;
-            }
+            uploadNote = buildDealerChatImageUploadNote(
+              imagesToUpload.length,
+              uploadResult
+            );
           } catch (uploadErr) {
             console.error("[chat-image-attachment-v1-upload]", uploadErr);
-            uploadNote =
-              "\n\nแนบรูปไม่สำเร็จทั้งหมด กรุณาลองอัปโหลดใหม่ในหน้าประกาศที่ยังไม่ลงขาย";
+            uploadNote = buildDealerChatImageUploadNote(imagesToUpload.length, {
+              storedUrls: [],
+              failed: imagesToUpload.map((item) => ({
+                name: item.metadata.originalFileName ?? item.metadata.name,
+                error: "upload failed",
+              })),
+            });
           }
         }
 
@@ -701,7 +721,7 @@ export function useChat() {
 
         notifyDealerDraftSaved(newDraftId);
         clearPendingChatDraftSnapshot();
-        return { text: saveText, savedDraftId: newDraftId };
+        return { text: saveText, savedDraftId: newDraftId, uploadedImageUrls };
       } catch (e) {
         logChatDraftSave("error", {
           endpoint,
@@ -854,7 +874,10 @@ export function useChat() {
           undefined,
           undefined,
           saved.savedDraftId,
-          attachmentMeta.length > 0 ? attachmentMeta : undefined
+          attachmentsForSavedDealerDraft(
+            saved.uploadedImageUrls,
+            attachmentMeta.length > 0 ? attachmentMeta : undefined
+          )
         );
         clearPrecheckContext(sessionId);
         if (saved.savedDraftId) {
@@ -1274,7 +1297,10 @@ export function useChat() {
             undefined,
             undefined,
             saved.savedDraftId,
-            resolvePrecheckDraftAttachments()
+            attachmentsForSavedDealerDraft(
+              saved.uploadedImageUrls,
+              resolvePrecheckDraftAttachments()
+            )
           );
           clearPrecheckContext(sessionId);
           if (saved.savedDraftId) {
@@ -1513,6 +1539,8 @@ export function useChat() {
 
       const inventory = await fetchInventoryForChat();
 
+      let dealerSavedImageUrls: string[] | undefined;
+
       const orchestrated = trimmed
         ? tryOrchestrateChatReply(trimmed, inventory, {
             attachedImageCount: hasImages ? imageAttachments.length : undefined,
@@ -1629,23 +1657,16 @@ export function useChat() {
                         draftDealerId,
                         apiRole
                       );
+                      dealerSavedImageUrls = uploadResult.storedUrls;
                       clearChatImagesForDraft(storageScopeKey, sessionId);
-                      const failedCount = uploadResult.failed?.length ?? 0;
-                      const uploadedCount = uploadResult.storedUrls.length;
-                      const totalCount = imagesToUpload.length;
-                      if (uploadedCount > 0) {
-                        missingFields = resolveMissingFieldsAfterChatImageUpload(
-                          missingFields,
-                          uploadResult.storedUrls
-                        );
-                        uploadNote =
-                          failedCount > 0
-                            ? `\n\nแนบรูปสำเร็จ ${uploadedCount} จาก ${totalCount} รูปครับ มีบางรูปอัปโหลดไม่สำเร็จ กรุณาตรวจสอบในหน้าประกาศที่ยังไม่ลงขายอีกครั้ง`
-                            : `\n\nแนบรูปภาพแล้ว ${uploadedCount} รูปครับ`;
-                      } else if (failedCount > 0 || totalCount > 0) {
-                        uploadNote =
-                          `\n\nแนบรูปไม่สำเร็จทั้งหมด ${totalCount} รูป กรุณาลองอัปโหลดใหม่ในหน้าประกาศที่ยังไม่ลงขาย`;
-                      }
+                      missingFields = resolveMissingFieldsAfterChatImageUpload(
+                        missingFields,
+                        uploadResult.storedUrls
+                      );
+                      uploadNote = buildDealerChatImageUploadNote(
+                        imagesToUpload.length,
+                        uploadResult
+                      );
                     } catch (uploadErr) {
                       console.error("[chat-image-attachment-v1-upload]", {
                         draftId: newDraftId,
@@ -1655,8 +1676,16 @@ export function useChat() {
                             ? uploadErr.message
                             : String(uploadErr),
                       });
-                      uploadNote =
-                        `\n\nแนบรูปไม่สำเร็จทั้งหมด ${imagesToUpload.length} รูป กรุณาลองอัปโหลดใหม่ในหน้าประกาศที่ยังไม่ลงขาย`;
+                      uploadNote = buildDealerChatImageUploadNote(
+                        imagesToUpload.length,
+                        {
+                          storedUrls: [],
+                          failed: imagesToUpload.map((item) => ({
+                            name: item.metadata.originalFileName ?? item.metadata.name,
+                            error: "upload failed",
+                          })),
+                        }
+                      );
                     }
                   }
 
@@ -1736,7 +1765,10 @@ export function useChat() {
           orchestrated.isDraftPreview,
           orchestrated.draftFields,
           orchestrated.savedDraftId,
-          orchestrated.isDraftPreview && hasImages ? attachmentMeta : undefined
+          attachmentsForSavedDealerDraft(
+            dealerSavedImageUrls,
+            orchestrated.isDraftPreview && hasImages ? attachmentMeta : undefined
+          )
         );
         setGenerating(false);
         return;
