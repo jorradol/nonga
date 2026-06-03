@@ -25,6 +25,9 @@ import {
   deleteMyListing,
   type MyListingsApiScope,
 } from "../services/listings/myListingsApi";
+import {
+  validateMemberListingRecordReadyToPublish,
+} from "../services/listings/memberListingPublishGuard";
 import { useDealerPortal } from "../hooks/dealer/useDealerPortal";
 
 export default function MyListingsView() {
@@ -90,6 +93,14 @@ export default function MyListingsView() {
 
   const handleVisibility = async (car: Car) => {
     const hidden = car.listingStatus !== "hidden";
+    if (!hidden) {
+      const readiness = validateMemberListingRecordReadyToPublish(car);
+      if (readiness.ok === false) {
+        notifyFriendlyError(new Error(readiness.message), "เผยแพร่ประกาศ");
+        return;
+      }
+    }
+
     const msg = hidden
       ? "ซ่อนประกาศนี้จากตลาด?"
       : "แสดงประกาศนี้ในตลาดอีกครั้ง?";

@@ -15,6 +15,7 @@ import {
   persistListingImageUploads,
 } from "./listingImageUploadBody";
 import type { InventoryRepository } from "./repositories/inventoryRepository";
+import { validateMemberListingRecordReadyToPublish } from "../services/listings/memberListingPublishGuard";
 
 export type OwnerListingRoutesDeps = {
   inventoryRepository: InventoryRepository;
@@ -229,6 +230,21 @@ export function registerOwnerListingRoutes(
     const { car, scope } = access;
 
     const hidden = Boolean(req.body?.hidden);
+    if (!hidden) {
+      const guard = validateMemberListingRecordReadyToPublish(car);
+      if (guard.ok === false) {
+        return res.status(422).json({
+          success: false,
+          error: "listing_not_ready_to_publish",
+          reason: guard.reason,
+          message: guard.message,
+          ...(guard.missingCoreLabels?.length
+            ? { missingCoreLabels: guard.missingCoreLabels }
+            : {}),
+        });
+      }
+    }
+
     const patch: Partial<MarketplaceCarRecord> = {
       listingStatus: hidden ? "hidden" : "published",
       ...(hidden ? {} : toPublishConsentPatch(req.body)),

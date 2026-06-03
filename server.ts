@@ -258,6 +258,22 @@ app.post("/api/cars", async (req, res) => {
     const safeImages = sanitizeListingImagesForId(body.images, carId);
     const safeDescription = String(body.description ?? "").slice(0, 4000);
 
+    const requestedStatusRaw = body.listingStatus;
+    const requestedHidden = body.hidden;
+    let listingStatus: "published" | "hidden" = "published";
+    if (
+      requestedStatusRaw === "hidden" ||
+      requestedStatusRaw === "published"
+    ) {
+      listingStatus = requestedStatusRaw;
+    } else if (requestedHidden === true) {
+      listingStatus = "hidden";
+    } else if (requestedHidden === false) {
+      listingStatus = "published";
+    } else if (!ownership.dealerId) {
+      listingStatus = "hidden";
+    }
+
     const categoryType = inferMarketplaceCategoryType({
       type: body.type,
       fuelType: body.fuelType,
@@ -285,7 +301,7 @@ app.post("/api/cars", async (req, res) => {
       ownerPhone: String(body.ownerPhone ?? ""),
       ...(body.showroomName ? { showroomName: String(body.showroomName) } : {}),
       isSold: false,
-      listingStatus: "published",
+      listingStatus,
       createdAt: new Date().toISOString(),
       ...(body.boosted != null ? { boosted: Boolean(body.boosted) } : {}),
       ...(body.featured != null ? { featured: Boolean(body.featured) } : {}),

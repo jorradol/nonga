@@ -24,7 +24,6 @@ import { inferMarketplaceCategoryType } from "../../utils/marketplaceCarMapper";
 import {
   createLegacyMarketplaceListing,
   patchMyListing,
-  setMyListingVisibility,
 } from "../listings/myListingsApi";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
 import { requireFirebaseAuthHeaders } from "../auth/firebaseAuthHeaders";
@@ -104,7 +103,8 @@ export function buildMemberListingApiPayload(params: {
     [brand, model, Number.isFinite(year) ? String(year) : ""].filter(Boolean).join(" ").trim() ||
     "ประกาศรถจากแชท";
 
-  const apiPayload = buildMarketplaceApiCarPayload({
+  const apiPayload = {
+    ...buildMarketplaceApiCarPayload({
     title,
     brand,
     model,
@@ -119,7 +119,9 @@ export function buildMemberListingApiPayload(params: {
     ownerId: params.ownerId,
     ownerName: params.ownerName || "สมาชิก Nong A",
     ownerPhone: params.ownerPhone || "",
-  });
+  }),
+    listingStatus: "hidden" as const,
+  };
 
   return { payload: apiPayload, missing };
 }
@@ -370,8 +372,6 @@ export async function saveMemberListingFromChat(params: {
         };
       }
     }
-
-    await setMyListingVisibility(params.ownerId, listingId, true);
 
     const savedCard = buildSavedMemberListingCardData({
       listingId,

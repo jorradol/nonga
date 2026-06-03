@@ -58,6 +58,8 @@ export type MyListingsApiScopeInput = string | MyListingsApiScope;
 export interface LegacyCreateListingInput {
   ownerId?: unknown;
   dealerId?: unknown;
+  listingStatus?: "hidden" | "published";
+  hidden?: boolean;
 }
 
 function normalizeScope(scope: MyListingsApiScopeInput): MyListingsApiScope {

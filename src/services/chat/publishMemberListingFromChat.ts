@@ -5,7 +5,6 @@ import {
   setMyListingVisibility,
 } from "../listings/myListingsApi";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
-import { isValidListingImageUrl } from "../../utils/listingImages";
 import { filterSavedCardImageUrls } from "./chatSavedMemberListing";
 import {
   hasCoreFieldsComplete,
@@ -34,6 +33,14 @@ import {
   SELLER_PUBLISH_CONSENT_TEXT_KEY,
   SELLER_PUBLISH_CONSENT_VERSION,
 } from "./chatPublishConsent";
+import {
+  buildMemberPublishMissingCoreFieldsMessage,
+  carRecordToExtractedFields,
+  countRealListingImagesOnRecord,
+  MEMBER_PUBLISH_MISSING_IMAGES_MESSAGE,
+} from "../listings/memberListingPublishGuard";
+
+export { carRecordToExtractedFields, countRealListingImagesOnRecord };
 
 export { CHAT_PUBLISH_CONSENT_LABEL, CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE };
 
@@ -330,7 +337,7 @@ export function buildPublishBlockedMessage(reason: PublishBlockedReason): string
     case "missing-core-fields":
       return "ข้อมูลหลักยังไม่ครบสำหรับเผยแพร่ครับ กรุณาไปแก้ไขที่ “ประกาศของฉัน” ให้ครบก่อน แล้วกลับมากด “พร้อมลงตลาด” อีกครั้ง";
     case "missing-images":
-      return "ต้องมีรูปอย่างน้อย 1 รูปก่อนเผยแพร่ครับ กรุณาเพิ่มรูปที่ “ประกาศของฉัน” แล้วกลับมายืนยันอีกครั้ง";
+      return MEMBER_PUBLISH_MISSING_IMAGES_MESSAGE;
     default:
       return "ยังไม่พร้อมเผยแพร่ประกาศนี้ครับ กรุณาตรวจสอบที่ “ประกาศของฉัน”";
   }
@@ -346,12 +353,10 @@ export function buildPublishMissingCoreFieldsMessage(
   const intro = options?.cardHadCompleteFields
     ? "ข้อมูลในแชทครบแล้ว แต่ข้อมูลในระบบ (ประกาศของฉัน) ยังไม่ครบสำหรับเผยแพร่ครับ"
     : "ข้อมูลในระบบยังไม่ครบสำหรับเผยแพร่ครับ";
-  return [
-    intro,
-    `ยังขาด: ${missingLabels.join(", ")}`,
-    "",
-    'กรุณาแก้ไขที่ "ประกาศของฉัน" ให้ครบก่อน แล้วกลับมากด "พร้อมลงตลาด" อีกครั้ง',
-  ].join("\n");
+  return buildMemberPublishMissingCoreFieldsMessage(missingLabels).replace(
+    "ข้อมูลในระบบยังไม่ครบสำหรับเผยแพร่ครับ",
+    intro
+  );
 }
 
 export function buildPublishSuccessMessage(
@@ -374,48 +379,6 @@ export function buildPublishSuccessMessage(
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-export function countRealListingImagesOnRecord(car: Car): number {
-  return car.images.filter((url) => isValidListingImageUrl(url, car.id)).length;
-}
-
-function extractTransmissionFromListingRecord(car: Car): string | undefined {
-  if (typeof car.transmission === "string" && car.transmission.trim()) {
-    return car.transmission.trim();
-  }
-
-  const candidates = [car.condition, car.description].filter(
-    (value): value is string => typeof value === "string" && Boolean(value.trim())
-  );
-
-  for (const text of candidates) {
-    const normalized = text.trim();
-    const labeled = normalized.match(/(?:เกียร์)\s*(ออโต้|อัตโนมัติ|auto|at|mt|manual|ธรรมดา|cvt)/i);
-    if (labeled) {
-      const raw = labeled[1];
-      if (/ออโต้|อัตโนมัติ|auto|cvt|^at$/i.test(raw)) return "เกียร์ออโต้";
-      if (/^mt$|manual|ธรรมดา/i.test(raw)) return "เกียร์ธรรมดา";
-      return `เกียร์ ${raw.trim()}`;
-    }
-    if (/ออโต้|อัตโนมัติ|automatic|cvt/i.test(normalized)) return "เกียร์ออโต้";
-    if (/manual|ธรรมดา/i.test(normalized)) return "เกียร์ธรรมดา";
-  }
-
-  return undefined;
-}
-
-export function carRecordToExtractedFields(car: Car): ExtractedCarFields {
-  return {
-    brand: car.brand,
-    model: car.model,
-    year: car.year,
-    price: car.price,
-    mileage: car.mileage,
-    transmission: extractTransmissionFromListingRecord(car),
-    color: car.color,
-    description: car.description,
-  };
 }
 
 export function preflightMemberListingRecordForChatPublish(params: {

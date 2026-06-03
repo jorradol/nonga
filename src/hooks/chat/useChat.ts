@@ -18,7 +18,10 @@ import {
 } from "../../utils/chatStorageScope";
 import { resetEphemeralGuestChatMemory } from "../../services/chat/chatHistoryService";
 import { logDealerDraftEditUrl } from "../../utils/dealer/dealerDraftNavigation";
-import { resolveDealerIdFromUser } from "../../utils/dealerIdentity";
+import { resolveDealerInventoryScopeId } from "../../utils/dealerIdentity";
+import {
+  resolveChatDealerDraftScopeBlockMessage,
+} from "../../services/ai/chat/chatDraftAccess";
 import { dealerAuthHeadersAsync } from "../../utils/apiAuthHeaders";
 import { useAuth } from "../auth/useAuth";
 import { useRole } from "../auth/useRole";
@@ -28,7 +31,6 @@ import {
   buildDealerDraftPayloadFromChat,
   logChatDraftSave,
 } from "../../services/ai/chat/chatDraftActions";
-import { resolveChatDraftSaveBlockMessage } from "../../services/ai/chat/chatDraftAccess";
 import {
   getChatDraftSaveMissingLabels,
   resolveMissingFieldsAfterChatImageUpload,
@@ -607,11 +609,13 @@ export function useChat() {
       const { payload } = buildDealerDraftPayloadFromChat(
         params.fields as Parameters<typeof buildDealerDraftPayloadFromChat>[0]
       );
-      const draftSaveBlock = resolveChatDraftSaveBlockMessage({
+      const draftSaveBlock = resolveChatDealerDraftScopeBlockMessage({
         isSignedIn,
         chatScope,
         isDealer,
         isAdmin,
+        user,
+        role,
       });
       if (draftSaveBlock) {
         if (!isSignedIn) {
@@ -620,7 +624,10 @@ export function useChat() {
         return { text: draftSaveBlock };
       }
 
-      const draftDealerId = resolveDealerIdFromUser(user);
+      const draftDealerId = resolveDealerInventoryScopeId(user, role);
+      if (!draftDealerId) {
+        return { text: "ไม่พบ dealer scope สำหรับบันทึก draft" };
+      }
       const apiRole = isAdmin ? "admin" : "dealer";
       const endpoint = "/api/dealer/drafts/new";
       const sessionMessages = useChatStore.getState().messages[params.sessionId] || [];
@@ -1401,11 +1408,13 @@ export function useChat() {
       }
 
       if (hasImages && latestSavedDraftId && !isListingCreateWithImages) {
-        const draftImageBlock = resolveChatDraftSaveBlockMessage({
+        const draftImageBlock = resolveChatDealerDraftScopeBlockMessage({
           isSignedIn,
           chatScope,
           isDealer,
           isAdmin,
+          user,
+          role,
         });
         if (draftImageBlock) {
           updateStreamedReply(draftImageBlock);
@@ -1413,7 +1422,15 @@ export function useChat() {
           setGenerating(false);
           return;
         }
-        const draftDealerId = resolveDealerIdFromUser(user);
+        const draftDealerId = resolveDealerInventoryScopeId(user, role);
+        if (!draftDealerId) {
+          updateStreamedReply(
+            "บัญชีนี้ยังไม่มี dealer scope สำหรับบันทึก draft ดีลเลอร์ครับ"
+          );
+          await finalizeStreamedReply(sessionId);
+          setGenerating(false);
+          return;
+        }
         const apiRole = isAdmin ? "admin" : "dealer";
         const imagesForMessage = getChatImagesForMessage(
           storageScopeKey,
@@ -1515,11 +1532,13 @@ export function useChat() {
             const { payload, missing } = buildDealerDraftPayloadFromChat(
               lastDraftMsg.draftFields
             );
-            const draftSaveBlock = resolveChatDraftSaveBlockMessage({
+            const draftSaveBlock = resolveChatDealerDraftScopeBlockMessage({
               isSignedIn,
               chatScope,
               isDealer,
               isAdmin,
+              user,
+              role,
             });
 
             if (draftSaveBlock) {
@@ -1528,7 +1547,11 @@ export function useChat() {
                 requireGuestLoginFromChat("chat");
               }
             } else {
-              const draftDealerId = resolveDealerIdFromUser(user);
+              const draftDealerId = resolveDealerInventoryScopeId(user, role);
+              if (!draftDealerId) {
+                orchestrated.text =
+                  "บัญชีนี้ยังไม่มี dealer scope สำหรับบันทึก draft ดีลเลอร์ครับ";
+              } else {
               const apiRole = isAdmin ? "admin" : "dealer";
               const endpoint = "/api/dealer/drafts/new";
 
@@ -1665,6 +1688,7 @@ export function useChat() {
                 });
                 orchestrated.text =
                   "เกิดข้อผิดพลาดในการเชื่อมต่อระบบบันทึกประกาศครับ รบกวนลองใหม่อีกครั้ง";
+              }
               }
             }
           } else {
