@@ -1,5 +1,5 @@
 /**
- * v5.4.11 — closed pilot user provisioning (admin portal)
+ * v5.4.11 / v5.5A.2 — closed pilot user provisioning (admin portal)
  * npm run test:v5411-closed-pilot-user-provisioning
  */
 import fs from "node:fs";
@@ -11,6 +11,10 @@ import {
   canSuspendSuperadmin,
 } from "../src/services/admin/pilotUserProvisioningCore.ts";
 import { isPublicSignupEnabled } from "../src/services/auth/authService.ts";
+import {
+  PILOT_AUTH_USER_NOT_FOUND_MESSAGE,
+  resolvePilotProvisionInput,
+} from "../src/server/adminPilotUserRoutes.ts";
 
 function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
@@ -25,7 +29,7 @@ const memberOk = validatePilotProvisionRequest(
 ok("admin-can-provision-member", memberOk.ok === true, "");
 
 const dealerMissing = validatePilotProvisionRequest(
-  { uid: "dealer-uid-1", role: "dealer", status: "active" },
+  { uid: "dealer-uid-1", email: "d@t.com", role: "dealer", status: "active" },
   "admin"
 );
 ok("dealer-requires-dealer-id", dealerMissing.ok === false, "");
@@ -33,6 +37,7 @@ ok("dealer-requires-dealer-id", dealerMissing.ok === false, "");
 const dealerOk = validatePilotProvisionRequest(
   {
     uid: "dealer-uid-1",
+    email: "d@t.com",
     role: "dealer",
     status: "active",
     dealerId: "thor-auto",
@@ -41,20 +46,38 @@ const dealerOk = validatePilotProvisionRequest(
 );
 ok("admin-can-provision-dealer-with-id", dealerOk.ok === true, "");
 
+const emailOnlyPreResolve = validatePilotProvisionRequest(
+  { email: "m@t.com", role: "member", status: "active" },
+  "admin"
+);
+ok("email-only-needs-resolved-uid", emailOnlyPreResolve.ok === false, "");
+
+const noIdentity = validatePilotProvisionRequest(
+  { role: "member", status: "active" },
+  "admin"
+);
+ok("requires-email-when-no-uid", noIdentity.ok === false, "");
+
+const badEmail = validatePilotProvisionRequest(
+  { uid: "u1", email: "not-an-email", role: "member", status: "active" },
+  "admin"
+);
+ok("rejects-invalid-email", badEmail.ok === false, "");
+
 const superCreate = validatePilotProvisionRequest(
-  { uid: "x", role: "superadmin", status: "active" },
+  { uid: "x", email: "x@t.com", role: "superadmin", status: "active" },
   "superadmin"
 );
 ok("cannot-create-superadmin", superCreate.ok === false, "");
 
 const adminByAdmin = validatePilotProvisionRequest(
-  { uid: "a", role: "admin", status: "active" },
+  { uid: "a", email: "a@t.com", role: "admin", status: "active" },
   "admin"
 );
 ok("admin-cannot-create-admin", adminByAdmin.ok === false, "");
 
 const adminBySuper = validatePilotProvisionRequest(
-  { uid: "a", role: "admin", status: "active" },
+  { uid: "a", email: "a@t.com", role: "admin", status: "active" },
   "superadmin"
 );
 ok("superadmin-can-create-admin", adminBySuper.ok === true, "");
@@ -69,6 +92,47 @@ ok("inactive-maps-to-suspended", normalizePilotStatus("inactive") === "suspended
 
 const lastSuperadminBlock = canSuspendSuperadmin("superadmin", "suspended", 1);
 ok("cannot-disable-last-superadmin", lastSuperadminBlock.ok === false, "");
+
+console.log("\n--- Email resolve (server) ---");
+ok(
+  "auth-not-found-message-constant",
+  PILOT_AUTH_USER_NOT_FOUND_MESSAGE.includes("ยังไม่พบบัญชีนี้ใน Firebase Authentication"),
+  ""
+);
+
+try {
+  await resolvePilotProvisionInput({ email: "definitely-missing-pilot-user@nonga.invalid" });
+  ok("missing-auth-user-returns-400", false, "expected throw");
+} catch (err) {
+  const status =
+    err && typeof err === "object" && "status" in err ? (err as { status: number }).status : 0;
+  const message = err instanceof Error ? err.message : "";
+  const noAdminCreds = message.includes("Firebase Admin credentials are not configured");
+  ok(
+    "missing-auth-user-returns-400",
+    noAdminCreds ||
+      (status === 400 && message === PILOT_AUTH_USER_NOT_FOUND_MESSAGE),
+    noAdminCreds ? "skipped: no firebase admin creds locally" : message
+  );
+}
+
+try {
+  await resolvePilotProvisionInput({ role: "member" });
+  ok("resolve-requires-email-or-uid", false, "expected throw");
+} catch (err) {
+  const message = err instanceof Error ? err.message : "";
+  ok("resolve-requires-email-or-uid", message.includes("อีเมล"), message);
+}
+
+const passthrough = await resolvePilotProvisionInput({
+  uid: "existing-uid-99",
+  email: "keep@t.com",
+});
+ok(
+  "resolve-passthrough-when-uid-present",
+  passthrough.uid === "existing-uid-99" && passthrough.email === "keep@t.com",
+  ""
+);
 
 console.log("\n--- Server routes & guards ---");
 const serverTs = fs.readFileSync(path.resolve("server.ts"), "utf8");
@@ -98,6 +162,17 @@ ok(
   routesTs.includes("getServerFirestore") &&
     routesTs.includes('collection("users")') &&
     routesTs.includes('collection("dealerMembers")'),
+  ""
+);
+ok(
+  "routes-resolve-uid-by-email",
+  routesTs.includes("getFirebaseAuthUserByEmail") &&
+    routesTs.includes("resolvePilotProvisionInput"),
+  ""
+);
+ok(
+  "routes-no-create-auth-user",
+  !routesTs.includes("createUser(") && !routesTs.includes("createUserWithEmailAndPassword"),
   ""
 );
 ok(
@@ -154,9 +229,21 @@ ok(
   ""
 );
 ok(
+  "ui-email-primary",
+  pilotUi.includes("อีเมลผู้ทดลอง *") &&
+    pilotUi.includes('type="email"') &&
+    pilotUi.includes("หา Firebase UID ให้อัตโนมัติ"),
+  ""
+);
+ok(
+  "ui-uid-not-required-field",
+  !pilotUi.includes("Firebase UID *") && pilotUi.includes("ไม่ต้องกรอก"),
+  ""
+);
+ok(
   "dealer-scope-still-uses-membership",
   dealerIdentity.includes("resolveDealerInventoryScopeId"),
   ""
 );
 
-console.log("\nDone v5.4.11 closed pilot user provisioning tests.");
+console.log("\nDone v5.4.11 / v5.5A.2 closed pilot user provisioning tests.");

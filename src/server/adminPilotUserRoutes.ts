@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { getServerFirestore } from "./serverAuthContext";
+import { getFirebaseAuthUserByEmail, getServerFirestore } from "./serverAuthContext";
 import {
   buildPilotUserListItem,
   validatePilotProvisionRequest,
@@ -8,6 +8,51 @@ import {
 } from "../services/admin/pilotUserProvisioningCore";
 import { normalizeDealerId } from "../utils/dealerIdentity";
 import { normalizeRole } from "../utils/rbac";
+
+export const PILOT_AUTH_USER_NOT_FOUND_MESSAGE =
+  "ยังไม่พบบัญชีนี้ใน Firebase Authentication กรุณาสร้างผู้ใช้หรือส่ง password reset ก่อน";
+
+function isAuthUserNotFound(err: unknown): boolean {
+  return (
+    !!err &&
+    typeof err === "object" &&
+    "code" in err &&
+    String((err as { code: string }).code) === "auth/user-not-found"
+  );
+}
+
+/** Resolve Firebase UID from email when admin submits email-only (no Auth user creation). */
+export async function resolvePilotProvisionInput(
+  input: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const raw = { ...(input ?? {}) };
+  const uid = String(raw.uid ?? "").trim();
+  const email = String(raw.email ?? "").trim();
+
+  if (!uid && !email) {
+    throw Object.assign(new Error("กรุณาระบุอีเมลผู้ทดลอง"), { status: 400 });
+  }
+
+  if (uid) {
+    return { ...raw, uid, ...(email ? { email } : {}) };
+  }
+
+  try {
+    const authUser = await getFirebaseAuthUserByEmail(email);
+    const displayName = String(raw.displayName ?? "").trim();
+    return {
+      ...raw,
+      uid: authUser.uid,
+      email: authUser.email ?? email,
+      displayName: displayName || authUser.displayName || authUser.email || email,
+    };
+  } catch (err) {
+    if (isAuthUserNotFound(err)) {
+      throw Object.assign(new Error(PILOT_AUTH_USER_NOT_FOUND_MESSAGE), { status: 400 });
+    }
+    throw err;
+  }
+}
 
 async function getExistingUser(uid: string): Promise<Record<string, unknown> | null> {
   const snapshot = await getServerFirestore().collection("users").doc(uid).get();
@@ -132,8 +177,11 @@ export function registerAdminPilotUserRoutes(app: Express): void {
         });
       }
 
+      const resolvedInput = await resolvePilotProvisionInput(
+        (req.body ?? {}) as Record<string, unknown>
+      );
       const result = await provisionPilotUser({
-        input: req.body ?? {},
+        input: resolvedInput,
         actorUid,
         actorRole,
       });

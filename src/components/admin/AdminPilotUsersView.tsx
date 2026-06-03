@@ -30,6 +30,7 @@ export default function AdminPilotUsersView() {
   const [dealerId, setDealerId] = useState("");
   const [dealerName, setDealerName] = useState("");
   const [note, setNote] = useState("");
+  const [showUidDebug, setShowUidDebug] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -54,9 +55,9 @@ export default function AdminPilotUsersView() {
     setError(null);
     setSuccess(null);
     try {
-      await provisionPilotUser(actorRole, {
-        uid: uid.trim(),
-        email: email.trim() || undefined,
+      const result = await provisionPilotUser(actorRole, {
+        ...(uid.trim() ? { uid: uid.trim() } : {}),
+        email: email.trim(),
         displayName: displayName.trim() || undefined,
         role: formRole,
         status: formStatus,
@@ -64,7 +65,13 @@ export default function AdminPilotUsersView() {
         dealerName: formRole === "dealer" ? dealerName.trim() || undefined : undefined,
         note: note.trim() || undefined,
       });
-      setSuccess("บันทึกสิทธิผู้ใช้ทดลองเรียบร้อยแล้ว");
+      const resolvedUid = String(result.user?.uid ?? uid.trim());
+      setSuccess(
+        resolvedUid
+          ? `บันทึกสิทธิผู้ใช้ทดลองเรียบร้อยแล้ว (UID: ${resolvedUid})`
+          : "บันทึกสิทธิผู้ใช้ทดลองเรียบร้อยแล้ว"
+      );
+      if (resolvedUid) setUid(resolvedUid);
       await loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
@@ -85,6 +92,7 @@ export default function AdminPilotUsersView() {
     }
     setDealerId(row.dealerId ?? "");
     setDealerName(row.dealerName ?? "");
+    setShowUidDebug(!!row.uid);
     setSuccess(null);
     setError(null);
   };
@@ -110,11 +118,14 @@ export default function AdminPilotUsersView() {
             เพิ่มเฉพาะผู้ทดลองที่ได้รับเชิญเท่านั้น — <strong className="text-orange-200/90">public signup ยังปิดอยู่</strong>
           </p>
           <p className="mt-1">
-            UID ต้องเป็น Firebase Auth UID ของผู้ทดลองที่ login แล้ว หรือที่ลุงมีจาก Firebase Console
-            — เพิ่ม member/dealer ได้หลายคน ทีละ UID
+            กรอก<strong className="text-orange-200/90">อีเมล</strong>ที่มีบัญชีใน Firebase Authentication แล้ว
+            — ระบบจะหา Firebase UID ให้อัตโนมัติ (ไม่ต้อง copy UID เองใน flow ปกติ)
           </p>
           <p className="mt-1 text-slate-500">
-            ไม่สร้างรหัสผ่านจากหน้านี้ · คู่มือ ops: docs/v5.5-closed-pilot-launch-checklist.md
+            ถ้ายังไม่มีบัญชี → สร้างผู้ใช้ใน Firebase Console หรือส่ง password reset ก่อน · ไม่สร้างรหัสผ่านจากหน้านี้
+          </p>
+          <p className="mt-1 text-slate-500">
+            คู่มือ ops: docs/v5.5-closed-pilot-launch-checklist.md
           </p>
         </div>
       </div>
@@ -131,19 +142,11 @@ export default function AdminPilotUsersView() {
           </h1>
 
           <label className="block space-y-1">
-            <span className="text-xs font-semibold text-slate-400">Firebase UID *</span>
+            <span className="text-xs font-semibold text-slate-400">อีเมลผู้ทดลอง *</span>
             <input
               required
-              value={uid}
-              onChange={(e) => setUid(e.target.value)}
-              className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
-              placeholder="uid จาก Firebase Authentication"
-            />
-          </label>
-
-          <label className="block space-y-1">
-            <span className="text-xs font-semibold text-slate-400">อีเมล (อ้างอิง)</span>
-            <input
+              type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
@@ -157,8 +160,30 @@ export default function AdminPilotUsersView() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+              placeholder="ชื่อสำหรับแสดงในระบบ (ไม่บังคับ)"
             />
           </label>
+
+          <div className="rounded-xl border border-slate-800/80 bg-slate-950/40">
+            <button
+              type="button"
+              onClick={() => setShowUidDebug((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition"
+            >
+              <span>Firebase UID (ระบบภายใน — ไม่ต้องกรอก)</span>
+              <span className="text-[10px] uppercase tracking-wide">{showUidDebug ? "ซ่อน" : "แสดง"}</span>
+            </button>
+            {showUidDebug && (
+              <div className="px-3 pb-3">
+                <input
+                  value={uid}
+                  readOnly
+                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs font-mono text-slate-400"
+                  placeholder="ระบบเติมหลังบันทึก หรือเมื่อเลือกจากรายการ"
+                />
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button
@@ -294,16 +319,19 @@ export default function AdminPilotUsersView() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-slate-100 truncate">
-                        {row.displayName || row.uid}
+                        {row.displayName || row.email || row.uid}
                       </span>
                       <span className="text-[10px] font-mono text-orange-400 uppercase shrink-0">
                         {row.role}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 truncate">{row.email || row.uid}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{row.email || "—"}</p>
                     {row.dealerId && (
                       <p className="text-[10px] text-amber-400/90 mt-0.5">dealerId: {row.dealerId}</p>
                     )}
+                    <p className="text-[10px] text-slate-600 mt-0.5 font-mono truncate" title={row.uid}>
+                      uid: {row.uid}
+                    </p>
                     <p className="text-[10px] text-slate-600 mt-0.5">
                       {row.status} · {row.updatedAt ? row.updatedAt.slice(0, 19) : "—"}
                     </p>

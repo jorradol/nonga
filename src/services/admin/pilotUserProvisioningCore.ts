@@ -72,14 +72,33 @@ export type ValidatedPilotProvision = {
   roleInDealer: DealerRoleInDealer;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validatePilotProvisionRequest(
   input: PilotProvisionInput,
   actorRole: AuthRole
 ): { ok: true; data: ValidatedPilotProvision } | { ok: false; message: string } {
   const uid = String(input.uid ?? "").trim();
   const email = String(input.email ?? "").trim();
+
+  if (!email && !uid) {
+    return { ok: false, message: "กรุณาระบุอีเมลผู้ทดลอง" };
+  }
+  if (!email) {
+    return {
+      ok: false,
+      message: "กรุณาระบุอีเมลผู้ทดลองที่มีบัญชีใน Firebase Authentication",
+    };
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    return { ok: false, message: "รูปแบบอีเมลไม่ถูกต้อง" };
+  }
   if (!uid) {
-    return { ok: false, message: "กรุณาระบุ uid ของผู้ใช้ที่ล็อกอินด้วย Firebase Auth แล้ว" };
+    return {
+      ok: false,
+      message:
+        "ไม่พบ UID จากอีเมลนี้ — สร้างผู้ใช้ใน Firebase Authentication ก่อน แล้วลองใหม่",
+    };
   }
 
   const role = normalizePilotProvisionRole(input.role);

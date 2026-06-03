@@ -137,6 +137,14 @@ export function getServerFirestore() {
   return getFirestore(initializeFirebaseAdminApp());
 }
 
+export async function getFirebaseAuthUserByEmail(email: string) {
+  const normalized = email.trim();
+  if (!normalized) {
+    throw Object.assign(new Error("กรุณาระบุอีเมลผู้ทดลอง"), { status: 400 });
+  }
+  return getAuth(initializeFirebaseAdminApp()).getUserByEmail(normalized);
+}
+
 function identityFromDecodedToken(decoded: DecodedIdToken): VerifiedFirebaseIdentity {
   return {
     uid: decoded.uid,
