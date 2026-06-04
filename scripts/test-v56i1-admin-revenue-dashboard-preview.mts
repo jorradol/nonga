@@ -1,16 +1,18 @@
 /**
- * v5.6I.1 — Admin revenue dashboard preview
+ * v5.6I.1 / v5.6I.2 — Admin revenue dashboard preview
  * npm run test:v56i1-admin-revenue-dashboard-preview
  */
 import { readFileSync } from "node:fs";
 import {
   ADMIN_REVENUE_EMPTY_STATE_MESSAGE,
+  ADMIN_REVENUE_ESTIMATED_PRICE_LABEL,
   ADMIN_REVENUE_PREVIEW_WARNING,
   ADMIN_REVENUE_TERM,
   assertNoBuyerPiiInRevenuePreviewText,
   assertNoCommissionWording,
   buildAdminRevenueDashboardSummary,
   buildPreviewRowFromClosedDeal,
+  deriveAdminRevenuePreviewRowsFromListings,
   formatAdminScopeId,
   getAdminRevenuePreviewRows,
   previewSuccessFeeForClosedPrice,
@@ -102,9 +104,48 @@ function ok(name: string, pass: boolean, detail = "") {
   ok("summary expected fee", summary.expectedServiceFeeTotal === 3_000);
 }
 
-// --- runtime rows empty ---
+// --- runtime rows / derive from pending_sale (v5.6I.2) ---
 {
-  ok("runtime preview rows empty", getAdminRevenuePreviewRows().length === 0);
+  ok("runtime preview rows empty without listings", getAdminRevenuePreviewRows().length === 0);
+  const rows480 = deriveAdminRevenuePreviewRowsFromListings([
+    {
+      id: "car-480k",
+      title: "Honda City",
+      price: 480_000,
+      ownerId: "owner-480",
+      saleStatus: "pending_sale",
+      listingStatus: "hidden",
+      pendingSaleAt: "2026-06-01T10:00:00.000Z",
+    },
+  ]);
+  ok("derives row from pending_sale", rows480.length === 1);
+  ok("fee 480k -> 4000", rows480[0]?.feeAmount === 4_000);
+  ok("estimated price label", rows480[0]?.priceSourceLabel === ADMIN_REVENUE_ESTIMATED_PRICE_LABEL);
+  ok("status unbilled", rows480[0]?.settlementStatus === "unbilled");
+  ok("paid zero", rows480[0]?.paidAmount === 0);
+  ok("remaining equals fee", rows480[0]?.remainingAmount === rows480[0]?.feeAmount);
+
+  const rows12 = deriveAdminRevenuePreviewRowsFromListings([
+    {
+      id: "car-12m",
+      price: 1_200_000,
+      ownerId: "owner-12m",
+      saleStatus: "pending_sale",
+    },
+  ]);
+  ok("fee 1.2M -> 12000", rows12[0]?.feeAmount === 12_000);
+
+  const published = deriveAdminRevenuePreviewRowsFromListings([
+    { id: "car-pub", price: 500_000, saleStatus: undefined, ownerId: "o1" },
+  ]);
+  ok("empty when no pending_sale", published.length === 0);
+
+  const summary = buildAdminRevenueDashboardSummary(rows480, {
+    pendingSaleListingsCount: 1,
+  });
+  ok("summary expected fee total", summary.expectedServiceFeeTotal === 4_000);
+  ok("summary awaiting total", summary.awaitingPaymentTotal === 4_000);
+  ok("summary paid zero", summary.paidTotal === 0);
 }
 
 // --- scope id mask ---
@@ -131,6 +172,7 @@ function ok(name: string, pass: boolean, detail = "") {
   ok("ui no save submit", !ui.includes('type="submit"'));
   ok("ui readonly badge", ui.includes("admin-revenue-readonly-badge"));
   ok("ui empty state testid", ui.includes("admin-revenue-empty-state"));
+  ok("ui estimated note", ui.includes("admin-revenue-estimated-note"));
   ok("ui no buyer phone field", !ui.includes("buyerPhone"));
   ok("ui no commission word", assertNoCommissionWording(ui));
   ok("ui PII guard sample", assertNoBuyerPiiInRevenuePreviewText(ui));
@@ -144,6 +186,7 @@ function ok(name: string, pass: boolean, detail = "") {
     dash.includes("AdminRevenueDashboardPreview") &&
       dash.includes('setActiveTab("revenue-preview")')
   );
+  ok("revenue passes listings", dash.includes("listings={adminState.cars}"));
   ok(
     "admin/superadmin guard",
     dash.includes("showAdminRevenuePreview") &&

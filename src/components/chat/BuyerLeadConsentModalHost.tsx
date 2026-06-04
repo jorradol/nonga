@@ -34,7 +34,10 @@ export function BuyerLeadConsentModalHost() {
     setIsSubmitting(true);
     try {
       const result = await submitBuyerLeadConsent(phone);
-      if (!result.ok) {
+      if (result.ok) {
+        setSubmitError(null);
+        closeConsentModal();
+      } else {
         setSubmitError(result.message?.trim() || BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR);
       }
     } catch {

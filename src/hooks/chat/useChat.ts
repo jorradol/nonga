@@ -2005,9 +2005,9 @@ export function useChat() {
         buyerUserId: user?.uid,
       });
       if (result.ok === true) {
+        useBuyerLeadCaptureStore.getState().closeConsentModal();
         try {
           await addMessage(sessionId, "ai", result.reply);
-          useBuyerLeadCaptureStore.getState().closeConsentModal();
           return { ok: true };
         } catch {
           return {

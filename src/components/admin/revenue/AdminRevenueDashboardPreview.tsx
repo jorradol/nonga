@@ -4,12 +4,15 @@
 
 import {
   ADMIN_REVENUE_EMPTY_STATE_MESSAGE,
+  ADMIN_REVENUE_ESTIMATED_FROM_LISTING_NOTE,
   ADMIN_REVENUE_PREVIEW_WARNING,
   ADMIN_REVENUE_TERM,
   buildAdminRevenueDashboardSummary,
+  deriveAdminRevenuePreviewRowsFromListings,
   formatAdminScopeId,
   formatBaht,
   getAdminRevenuePreviewRows,
+  type AdminRevenueListingPreviewSource,
   type AdminRevenuePreviewRow,
 } from "../../../services/leads/adminRevenuePreview";
 import { getSuccessFeePolicyLabel } from "../../../services/leads/successFeePolicy";
@@ -55,16 +58,25 @@ function SummaryCard({
 
 export type AdminRevenueDashboardPreviewProps = {
   previewRows?: AdminRevenuePreviewRow[];
+  listings?: AdminRevenueListingPreviewSource[];
   pendingSaleListingsCount?: number;
 };
 
 export function AdminRevenueDashboardPreview({
   previewRows,
-  pendingSaleListingsCount = 0,
+  listings = [],
+  pendingSaleListingsCount,
 }: AdminRevenueDashboardPreviewProps) {
-  const rows = previewRows ?? getAdminRevenuePreviewRows();
+  const rows =
+    previewRows ??
+    (listings.length > 0
+      ? deriveAdminRevenuePreviewRowsFromListings(listings)
+      : getAdminRevenuePreviewRows());
+  const pendingCount =
+    pendingSaleListingsCount ??
+    listings.filter((c) => c.saleStatus === "pending_sale").length;
   const summary = buildAdminRevenueDashboardSummary(rows, {
-    pendingSaleListingsCount,
+    pendingSaleListingsCount: pendingCount,
   });
   const isEmpty = rows.length === 0;
 
@@ -100,6 +112,13 @@ export function AdminRevenueDashboardPreview({
       >
         <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
         <span>{ADMIN_REVENUE_PREVIEW_WARNING}</span>
+      </p>
+
+      <p
+        className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+        data-testid="admin-revenue-estimated-note"
+      >
+        {ADMIN_REVENUE_ESTIMATED_FROM_LISTING_NOTE}
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -203,9 +222,21 @@ export function AdminRevenueDashboardPreview({
                       {formatAdminScopeId(row.sellerScopeId)}
                     </td>
                     <td className="px-2 py-2 font-mono">
-                      {formatAdminScopeId(row.buyerLeadId)}
+                      {row.buyerLeadId === "preview"
+                        ? "—"
+                        : formatAdminScopeId(row.buyerLeadId)}
                     </td>
-                    <td className="px-2 py-2">{formatBaht(row.closedDealPrice)}</td>
+                    <td className="px-2 py-2">
+                      <span>{formatBaht(row.closedDealPrice)}</span>
+                      {row.priceSourceLabel ? (
+                        <span
+                          className="block text-[9px] text-amber-300/90 mt-0.5"
+                          data-testid={`admin-revenue-price-source-${row.id}`}
+                        >
+                          {row.priceSourceLabel}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-2 py-2">{formatBaht(row.feeAmount)}</td>
                     <td className="px-2 py-2 font-mono">{row.feePolicyType}</td>
                     <td className="px-2 py-2">{formatBaht(row.paidAmount)}</td>

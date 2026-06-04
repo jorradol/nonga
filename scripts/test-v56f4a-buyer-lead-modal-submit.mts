@@ -93,6 +93,14 @@ ok(
   ok("host sets error on !result.ok", host.includes("setSubmitError"));
   ok("host finally clears loading", host.includes("setIsSubmitting(false)"));
   ok("host passes submitError to modal", host.includes("submitError={submitError}"));
+  ok(
+    "host closes modal on success",
+    host.includes("if (result.ok)") && host.includes("closeConsentModal()")
+  );
+  ok(
+    "host keeps modal open on failure",
+    host.includes("} else {") && host.includes("setSubmitError")
+  );
 }
 
 {
@@ -111,7 +119,13 @@ ok(
     useChatSrc.includes("consentModalSessionId") &&
       useChatSrc.includes("submitBuyerLeadFromModal")
   );
-  ok("close modal after addMessage", useChatSrc.includes("await addMessage(sessionId"));
+  ok(
+    "close modal before addMessage on success",
+    useChatSrc.includes("closeConsentModal();") &&
+      useChatSrc.indexOf("closeConsentModal();") <
+        useChatSrc.indexOf('await addMessage(sessionId, "ai", result.reply)')
+  );
+  ok("success chat message on ok", useChatSrc.includes('await addMessage(sessionId, "ai", result.reply)'));
 }
 
 {

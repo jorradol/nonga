@@ -19,12 +19,102 @@ import { createSuccessFeeRecordDraftPreview } from "./successFeeSettlement";
 export const ADMIN_REVENUE_PREVIEW_WARNING =
   "รอบนี้เป็น Preview สำหรับแอดมิน ยังไม่มีการเรียกเก็บเงินจริง ไม่มีการออกใบแจ้งหนี้ และไม่มีการเชื่อมต่อ payment gateway";
 
+export const ADMIN_REVENUE_ESTIMATED_FROM_LISTING_NOTE =
+  "ค่าบริการนี้เป็นการประมาณการจากสถานะรอดำเนินการขาย";
+
+export const ADMIN_REVENUE_ESTIMATED_PRICE_LABEL = "ประมาณการจากราคาประกาศ";
+
+export const ADMIN_REVENUE_PENDING_SALE_PREVIEW_NOTE =
+  "Preview จาก pending_sale ยังไม่เรียกเก็บเงินจริง";
+
 export const ADMIN_REVENUE_EMPTY_STATE_MESSAGE =
   "ยังไม่มีรายการค่าบริการเมื่อขายสำเร็จในรอบนี้";
 
-/** Runtime rows for dashboard — empty until persistence/API is enabled. */
-export function getAdminRevenuePreviewRows(): AdminRevenuePreviewRow[] {
-  return [];
+export type AdminRevenueListingPreviewSource = {
+  id: string;
+  title?: string;
+  price: number;
+  ownerId?: string;
+  dealerId?: string;
+  saleStatus?: string;
+  listingStatus?: string;
+  pendingSaleAt?: string;
+  createdAt?: string;
+  /** When available from future deal outcome records. */
+  closedDealPrice?: number;
+};
+
+/** Runtime rows — derived from admin listings (read-only; no persistence). */
+export function getAdminRevenuePreviewRows(
+  listings: AdminRevenueListingPreviewSource[] = []
+): AdminRevenuePreviewRow[] {
+  return deriveAdminRevenuePreviewRowsFromListings(listings);
+}
+
+export function deriveAdminRevenuePreviewRowsFromListings(
+  listings: AdminRevenueListingPreviewSource[]
+): AdminRevenuePreviewRow[] {
+  return listings
+    .filter(isPendingSaleListingForRevenuePreview)
+    .map(buildDerivedRevenuePreviewRowFromListing)
+    .filter((row): row is AdminRevenuePreviewRow => row !== null);
+}
+
+export function isPendingSaleListingForRevenuePreview(
+  listing: AdminRevenueListingPreviewSource
+): boolean {
+  return listing.saleStatus === "pending_sale";
+}
+
+function buildDerivedRevenuePreviewRowFromListing(
+  listing: AdminRevenueListingPreviewSource
+): AdminRevenuePreviewRow | null {
+  const listingPrice = Math.max(0, Math.floor(Number(listing.price) || 0));
+  if (listingPrice < 1) return null;
+
+  const hasClosedDealPrice =
+    typeof listing.closedDealPrice === "number" &&
+    Number.isFinite(listing.closedDealPrice) &&
+    listing.closedDealPrice >= 1;
+  const closedDealPrice = hasClosedDealPrice
+    ? Math.floor(listing.closedDealPrice!)
+    : listingPrice;
+  const isEstimatedFromListingPrice = !hasClosedDealPrice;
+
+  let feeAmount: number;
+  try {
+    feeAmount = calculateSuccessFeeByClosedPrice(closedDealPrice);
+  } catch {
+    return null;
+  }
+
+  const sellerScopeId =
+    listing.ownerId?.trim() || listing.dealerId?.trim() || listing.id;
+  const date =
+    listing.pendingSaleAt?.trim() ||
+    listing.createdAt?.trim() ||
+    new Date().toISOString();
+
+  return {
+    id: `preview-pending-${listing.id}`,
+    date,
+    listingId: listing.id,
+    listingTitle: listing.title,
+    sellerScopeId,
+    ownerScopeId: listing.ownerId,
+    buyerLeadId: "preview",
+    closedDealPrice,
+    feeAmount,
+    feePolicyType: DEFAULT_SUCCESS_FEE_POLICY,
+    paidAmount: 0,
+    remainingAmount: feeAmount,
+    settlementStatus: "unbilled",
+    isEstimatedFromListingPrice,
+    priceSourceLabel: isEstimatedFromListingPrice
+      ? ADMIN_REVENUE_ESTIMATED_PRICE_LABEL
+      : undefined,
+    adminNotePreview: ADMIN_REVENUE_PENDING_SALE_PREVIEW_NOTE,
+  };
 }
 
 export type AdminRevenuePreviewRow = {
@@ -42,6 +132,9 @@ export type AdminRevenuePreviewRow = {
   remainingAmount: number;
   settlementStatus: SettlementStatus;
   adminNotePreview?: string;
+  /** v5.6I.2 — true when closedDealPrice came from listing.price. */
+  isEstimatedFromListingPrice?: boolean;
+  priceSourceLabel?: string;
 };
 
 export type AdminRevenueDashboardSummary = {
@@ -179,7 +272,10 @@ export function buildAdminRevenueDashboardSummary(
 
   return {
     closedDealsCount: rows.length,
-    pendingSaleListingsCount: Math.max(0, options?.pendingSaleListingsCount ?? 0),
+    pendingSaleListingsCount: Math.max(
+      0,
+      options?.pendingSaleListingsCount ?? rows.length
+    ),
     expectedServiceFeeTotal,
     awaitingPaymentTotal,
     partiallyPaidTotal,
