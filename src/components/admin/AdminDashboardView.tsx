@@ -1313,10 +1313,7 @@ export default function AdminDashboardView() {
 
         {adminState.activeTab === "revenue-preview" && showAdminRevenuePreview && (
           <div data-testid="admin-revenue-preview-tab-panel">
-            <AdminRevenueDashboardPreview
-              listings={adminState.cars}
-              pendingSaleListingsCount={pendingSaleListingsCount}
-            />
+            <AdminRevenueDashboardPreview />
           </div>
         )}
 

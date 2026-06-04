@@ -186,7 +186,10 @@ function ok(name: string, pass: boolean, detail = "") {
     dash.includes("AdminRevenueDashboardPreview") &&
       dash.includes('setActiveTab("revenue-preview")')
   );
-  ok("revenue passes listings", dash.includes("listings={adminState.cars}"));
+  ok(
+    "revenue no adminState.cars only",
+    !dash.includes("listings={adminState.cars}")
+  );
   ok(
     "admin/superadmin guard",
     dash.includes("showAdminRevenuePreview") &&
@@ -199,12 +202,29 @@ function ok(name: string, pass: boolean, detail = "") {
   );
 }
 
-// --- member/dealer/buyer cannot see ---
+// --- v5.6I.3 backend API wiring ---
+{
+  const adminUi = readFileSync(
+    "src/components/admin/revenue/AdminRevenueDashboardPreview.tsx",
+    "utf8"
+  );
+  ok("admin ui uses backend api", adminUi.includes("fetchAdminRevenuePreview"));
+  ok("admin ui loading state", adminUi.includes("admin-revenue-loading"));
+  ok("admin ui error state", adminUi.includes("admin-revenue-error"));
+  ok("admin ui backend source attr", adminUi.includes('data-source="backend-api"'));
+
+  const routes = readFileSync("src/server/revenuePreviewRoutes.ts", "utf8");
+  ok("admin revenue route", routes.includes("/api/admin/revenue/preview"));
+  ok("seller revenue route", routes.includes("/api/my/revenue/preview"));
+}
+
+// --- member/dealer/buyer cannot see admin revenue ---
 {
   const app = readFileSync("src/App.tsx", "utf8");
   ok("app no revenue in member views", !app.includes("AdminRevenueDashboardPreview"));
   const my = readFileSync("src/components/MyListingsView.tsx", "utf8");
-  ok("my listings no revenue", !my.includes("admin-revenue-dashboard-preview"));
+  ok("my listings has seller statement", my.includes("MyRevenueStatementSection"));
+  ok("my listings no admin preview", !my.includes("admin-revenue-dashboard-preview"));
   const modal = readFileSync("src/components/chat/BuyerLeadConsentModal.tsx", "utf8");
   for (const term of SUCCESS_FEE_BUYER_FORBIDDEN_TERMS) {
     ok(`buyer modal no ${term}`, !modal.includes(term));

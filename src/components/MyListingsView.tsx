@@ -31,6 +31,7 @@ import {
 } from "../services/listings/memberListingPublishGuard";
 import { useDealerPortal } from "../hooks/dealer/useDealerPortal";
 import { ListingLeadQueueSection } from "./leads/ListingLeadQueueSection";
+import { MyRevenueStatementSection } from "./leads/MyRevenueStatementSection";
 import {
   PENDING_SALE_OWNER_BADGE,
   PENDING_SALE_OWNER_NOTICE,
@@ -237,6 +238,10 @@ export default function MyListingsView() {
           </button>
         </div>
       </div>
+
+      {ownerId ? (
+        <MyRevenueStatementSection scope={listingApiScope} isDarkMode={isDarkMode} />
+      ) : null}
 
       {loadFailed && (
         <div

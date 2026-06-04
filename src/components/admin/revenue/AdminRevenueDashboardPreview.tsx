@@ -1,25 +1,28 @@
 /**
- * v5.6I.1 — Admin revenue / success fee preview (read-only, no payment I/O).
+ * v5.6I.3 — Admin revenue dashboard preview (backend API source).
  */
 
+import { useCallback, useEffect, useState } from "react";
 import {
   ADMIN_REVENUE_EMPTY_STATE_MESSAGE,
   ADMIN_REVENUE_ESTIMATED_FROM_LISTING_NOTE,
   ADMIN_REVENUE_PREVIEW_WARNING,
   ADMIN_REVENUE_TERM,
-  buildAdminRevenueDashboardSummary,
-  deriveAdminRevenuePreviewRowsFromListings,
   formatAdminScopeId,
   formatBaht,
-  getAdminRevenuePreviewRows,
-  type AdminRevenueListingPreviewSource,
   type AdminRevenuePreviewRow,
 } from "../../../services/leads/adminRevenuePreview";
+import { fetchAdminRevenuePreview } from "../../../services/leads/adminRevenuePreviewApi";
+import type {
+  RevenuePreviewApiPayload,
+  RevenuePreviewApiRow,
+} from "../../../services/leads/revenuePreviewBackend";
 import { getSuccessFeePolicyLabel } from "../../../services/leads/successFeePolicy";
 import type { SettlementStatus } from "../../../services/leads/leadTypes";
 import {
   AlertTriangle,
   Banknote,
+  Loader2,
   Lock,
   Receipt,
 } from "lucide-react";
@@ -56,35 +59,79 @@ function SummaryCard({
   );
 }
 
+function apiRowToDisplayRow(row: RevenuePreviewApiRow): AdminRevenuePreviewRow {
+  return {
+    id: row.id,
+    date: row.previewAt,
+    listingId: row.listingId,
+    listingTitle: row.listingTitle,
+    sellerScopeId: row.sellerScopeIdMasked,
+    ownerScopeId: row.ownerScopeIdMasked,
+    buyerLeadId: "preview",
+    closedDealPrice: row.closedDealPrice,
+    feeAmount: row.feeAmount,
+    feePolicyType: row.feePolicyType,
+    paidAmount: row.paidAmount,
+    remainingAmount: row.remainingAmount,
+    settlementStatus: row.settlementStatus,
+    isEstimatedFromListingPrice: row.priceSource === "listing_price_estimate",
+    priceSourceLabel: row.priceSourceLabel,
+    adminNotePreview: row.adminNote,
+  };
+}
+
 export type AdminRevenueDashboardPreviewProps = {
-  previewRows?: AdminRevenuePreviewRow[];
-  listings?: AdminRevenueListingPreviewSource[];
-  pendingSaleListingsCount?: number;
+  /** Test / story override — skips API fetch when provided. */
+  previewPayload?: RevenuePreviewApiPayload;
 };
 
 export function AdminRevenueDashboardPreview({
-  previewRows,
-  listings = [],
-  pendingSaleListingsCount,
-}: AdminRevenueDashboardPreviewProps) {
-  const rows =
-    previewRows ??
-    (listings.length > 0
-      ? deriveAdminRevenuePreviewRowsFromListings(listings)
-      : getAdminRevenuePreviewRows());
-  const pendingCount =
-    pendingSaleListingsCount ??
-    listings.filter((c) => c.saleStatus === "pending_sale").length;
-  const summary = buildAdminRevenueDashboardSummary(rows, {
-    pendingSaleListingsCount: pendingCount,
-  });
-  const isEmpty = rows.length === 0;
+  previewPayload,
+}: AdminRevenueDashboardPreviewProps = {}) {
+  const [payload, setPayload] = useState<RevenuePreviewApiPayload | null>(
+    previewPayload ?? null
+  );
+  const [loading, setLoading] = useState(!previewPayload);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (previewPayload) {
+      setPayload(previewPayload);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAdminRevenuePreview();
+      setPayload(data);
+    } catch (err) {
+      setPayload(null);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "โหลดรายได้ preview ไม่สำเร็จครับ"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [previewPayload]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const summary = payload?.summary;
+  const rows = payload?.rows.map(apiRowToDisplayRow) ?? [];
+  const isEmpty = !loading && !error && rows.length === 0;
 
   return (
     <section
       className="rounded-2xl border border-emerald-500/25 bg-emerald-950/15 p-5 space-y-5 text-left"
       data-testid="admin-revenue-dashboard-preview"
       data-readonly="true"
+      data-source="backend-api"
       aria-label="Admin revenue dashboard preview"
     >
       <div className="flex flex-wrap items-start gap-3">
@@ -94,7 +141,7 @@ export function AdminRevenueDashboardPreview({
             รายได้ / {ADMIN_REVENUE_TERM}
           </h2>
           <p className="text-[11px] text-emerald-200/80 leading-relaxed">
-            Settlement preview สำหรับแอดมิน — ไม่แสดงต่อผู้ซื้อ
+            Settlement preview จาก backend inventory — ไม่แสดงต่อผู้ซื้อ
           </p>
         </div>
         <span
@@ -111,7 +158,7 @@ export function AdminRevenueDashboardPreview({
         data-testid="admin-revenue-preview-warning"
       >
         <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-        <span>{ADMIN_REVENUE_PREVIEW_WARNING}</span>
+        <span>{payload?.previewWarning ?? ADMIN_REVENUE_PREVIEW_WARNING}</span>
       </p>
 
       <p
@@ -121,48 +168,69 @@ export function AdminRevenueDashboardPreview({
         {ADMIN_REVENUE_ESTIMATED_FROM_LISTING_NOTE}
       </p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        <SummaryCard
-          label="ดีลปิดการขายได้ (preview rows)"
-          value={String(summary.closedDealsCount)}
-          testId="admin-revenue-summary-closed-deals"
-        />
-        <SummaryCard
-          label="รถ pending_sale"
-          value={String(summary.pendingSaleListingsCount)}
-          testId="admin-revenue-summary-pending-sale"
-        />
-        <SummaryCard
-          label="ค่าบริการคาดการณ์"
-          value={formatBaht(summary.expectedServiceFeeTotal)}
-          testId="admin-revenue-summary-expected-fee"
-        />
-        <SummaryCard
-          label="ยอดรอชำระ"
-          value={formatBaht(summary.awaitingPaymentTotal)}
-          testId="admin-revenue-summary-awaiting"
-        />
-        <SummaryCard
-          label="ชำระบางส่วน (คงเหลือ)"
-          value={formatBaht(summary.partiallyPaidTotal)}
-          testId="admin-revenue-summary-partial"
-        />
-        <SummaryCard
-          label="ชำระแล้ว"
-          value={formatBaht(summary.paidTotal)}
-          testId="admin-revenue-summary-paid"
-        />
-        <SummaryCard
-          label="ยกเว้น"
-          value={formatBaht(summary.waivedTotal)}
-          testId="admin-revenue-summary-waived"
-        />
-        <SummaryCard
-          label="โต้แย้ง / ยกเลิก"
-          value={`${summary.disputedCount} / ${summary.cancelledCount}`}
-          testId="admin-revenue-summary-disputed-cancelled"
-        />
-      </div>
+      {loading ? (
+        <div
+          className="flex items-center justify-center gap-2 py-10 text-slate-400 text-sm"
+          data-testid="admin-revenue-loading"
+        >
+          <Loader2 className="w-4 h-4 animate-spin" />
+          กำลังโหลดรายได้จาก backend…
+        </div>
+      ) : null}
+
+      {error ? (
+        <div
+          className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[12px] text-red-200"
+          data-testid="admin-revenue-error"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {!loading && !error && summary ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <SummaryCard
+            label="รถ pending_sale"
+            value={String(summary.pendingSaleCount)}
+            testId="admin-revenue-summary-pending-sale"
+          />
+          <SummaryCard
+            label="ดีลปิดการขายได้ (closed_won preview)"
+            value={String(summary.closedWonCount)}
+            testId="admin-revenue-summary-closed-deals"
+          />
+          <SummaryCard
+            label="ค่าบริการคาดการณ์"
+            value={formatBaht(summary.estimatedFeeTotal)}
+            testId="admin-revenue-summary-expected-fee"
+          />
+          <SummaryCard
+            label="ยอดค้างชำระ (unbilled)"
+            value={formatBaht(summary.unbilledTotal)}
+            testId="admin-revenue-summary-awaiting"
+          />
+          <SummaryCard
+            label="ชำระบางส่วน (คงเหลือ)"
+            value={formatBaht(summary.partiallyPaidTotal)}
+            testId="admin-revenue-summary-partial"
+          />
+          <SummaryCard
+            label="ชำระแล้ว"
+            value={formatBaht(summary.paidTotal)}
+            testId="admin-revenue-summary-paid"
+          />
+          <SummaryCard
+            label="ยกเว้น"
+            value={formatBaht(summary.waivedTotal)}
+            testId="admin-revenue-summary-waived"
+          />
+          <SummaryCard
+            label="โต้แย้ง / ยกเลิก"
+            value={`${summary.disputedTotal} / ${summary.cancelledTotal}`}
+            testId="admin-revenue-summary-disputed-cancelled"
+          />
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-white/[0.06] overflow-hidden">
         <div className="px-3 py-2 border-b border-white/[0.06] flex items-center gap-2 bg-black/20">
@@ -179,7 +247,9 @@ export function AdminRevenueDashboardPreview({
           >
             {ADMIN_REVENUE_EMPTY_STATE_MESSAGE}
           </p>
-        ) : (
+        ) : null}
+
+        {!loading && !error && rows.length > 0 ? (
           <div className="overflow-x-auto">
             <table
               className="w-full text-[10px] text-left"
@@ -252,7 +322,7 @@ export function AdminRevenueDashboardPreview({
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </div>
 
       <p className="text-[10px] text-slate-500">

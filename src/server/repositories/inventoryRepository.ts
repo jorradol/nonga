@@ -4,6 +4,7 @@ import {
   addMarketplaceCar,
   getDealerInventoryCars,
   getMarketplaceCarById,
+  getMarketplaceInventorySorted,
   getPublishedMarketplaceCars,
   removeMarketplaceCar,
   resolveCarDealerId,
@@ -33,6 +34,8 @@ export type ListingVisibility = "published" | "hidden";
 
 export interface ListingRepository {
   listPublished(): Promise<MarketplaceCarRecord[]>;
+  /** Admin read-only — full inventory snapshot from backend source of truth. */
+  listAll(): Promise<MarketplaceCarRecord[]>;
   listByDealer(dealerId: string): Promise<MarketplaceCarRecord[]>;
   getById(id: string): Promise<MarketplaceCarRecord | null>;
   createListing(dealerId: string, record: MarketplaceCarRecord): Promise<MarketplaceCarRecord>;
@@ -110,6 +113,10 @@ function sortDrafts(list: DealerDraftRecord[]): DealerDraftRecord[] {
 export class FileListingRepository implements ListingRepository {
   async listPublished(): Promise<MarketplaceCarRecord[]> {
     return getPublishedMarketplaceCars();
+  }
+
+  async listAll(): Promise<MarketplaceCarRecord[]> {
+    return getMarketplaceInventorySorted();
   }
 
   async listByDealer(dealerId: string): Promise<MarketplaceCarRecord[]> {
@@ -261,6 +268,11 @@ export class FirestoreListingRepository implements ListingRepository {
 
   async listPublished(): Promise<MarketplaceCarRecord[]> {
     const snap = await this.collection().where("listingStatus", "==", "published").get();
+    return sortListings(snap.docs.map(snapshotToListing).filter(Boolean) as MarketplaceCarRecord[]);
+  }
+
+  async listAll(): Promise<MarketplaceCarRecord[]> {
+    const snap = await this.collection().get();
     return sortListings(snap.docs.map(snapshotToListing).filter(Boolean) as MarketplaceCarRecord[]);
   }
 

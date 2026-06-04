@@ -41,6 +41,7 @@ import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
 import { toPublicMarketplaceCarDtoList } from "./src/utils/publicMarketplaceListingPrivacy";
 import { sanitizeListingImagesForId } from "./src/utils/listingImages";
 import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
+import { registerRevenuePreviewRoutes } from "./src/server/revenuePreviewRoutes";
 import { registerBuyerLeadRoutes } from "./src/server/buyerLeadRoutes";
 import { registerBuyerLeadQueueRoutes } from "./src/server/buyerLeadQueueRoutes";
 import {
@@ -521,6 +522,7 @@ app.delete("/api/admin/draft-inventory/:id", (req, res) => {
 registerDealerPortalRoutes(app, { inventoryRepository });
 registerDuplicateRoutes(app);
 registerOwnerListingRoutes(app, { inventoryRepository });
+registerRevenuePreviewRoutes(app, { inventoryRepository });
 registerBuyerLeadRoutes(app, { inventoryRepository });
 registerBuyerLeadQueueRoutes(app, { inventoryRepository });
 registerPayloadTooLargeHandler(app);

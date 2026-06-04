@@ -229,6 +229,13 @@ async function run() {
       async listPublished() {
         return this.inner.listPublished();
       }
+      async listAll() {
+        const fromInner = await this.inner.listAll();
+        const fromOnly = [...this.onlyInRepo.values()];
+        const merged = new Map<string, MarketplaceCarRecord>();
+        for (const car of [...fromInner, ...fromOnly]) merged.set(car.id, car);
+        return [...merged.values()];
+      }
       async listByDealer(dealerId: string) {
         const fromInner = await this.inner.listByDealer(dealerId);
         const fromOnly = [...this.onlyInRepo.values()].filter(
