@@ -1,3 +1,5 @@
+import type { ListingSaleStatus } from "./services/leads/leadTypes";
+
 export interface Car {
   id: string;
   title: string;
@@ -18,6 +20,9 @@ export interface Car {
   isSold: boolean;
   /** published = ตลาด; hidden = ซ่อน */
   listingStatus?: "published" | "hidden";
+  /** v5.6H — pending_sale = ซ่อนจากตลาดชั่วคราวหลังปิดดีล */
+  saleStatus?: ListingSaleStatus;
+  pendingSaleAt?: string;
   /**
    * v5.4.7e — seller publish consent (closed pilot)
    * Optional: legacy listings may not have these fields.

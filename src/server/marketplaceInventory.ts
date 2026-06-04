@@ -4,6 +4,8 @@ import type { DuplicateMeta } from "../utils/duplicateDetection/types";
 import { shouldHideFromMarketplace } from "../utils/duplicateDetection/duplicateEngine";
 import { normalizeDealerId } from "../utils/dealerIdentity";
 import { withSanitizedListingImages } from "../utils/listingImages";
+import type { ListingSaleStatus } from "../services/leads/leadTypes";
+import { isListingSaleBlockingPublic } from "../services/leads/listingSaleOutcome";
 
 /** บันทึกรถตลาด — source of truth เดียวกับ GET/POST /api/cars */
 export interface MarketplaceCarRecord {
@@ -31,6 +33,9 @@ export interface MarketplaceCarRecord {
   dealerId?: string;
   /** published = ตลาด; hidden = ซ่อนจากตลาด */
   listingStatus?: "published" | "hidden";
+  /** v5.6H — sale pipeline; pending_sale hides from public marketplace */
+  saleStatus?: ListingSaleStatus;
+  pendingSaleAt?: string;
   /**
    * v5.4.7e — seller publish consent (closed pilot)
    * Optional: legacy listings may not have these fields.
@@ -66,6 +71,9 @@ export function isPublishedListing(car: MarketplaceCarRecord): boolean {
 }
 
 export function isVisibleOnMarketplace(car: MarketplaceCarRecord): boolean {
+  if (isListingSaleBlockingPublic(car.saleStatus)) {
+    return false;
+  }
   if (
     shouldHideFromMarketplace({
       duplicateStatus: car.duplicateStatus,

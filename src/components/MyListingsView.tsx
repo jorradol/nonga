@@ -30,6 +30,10 @@ import {
 } from "../services/listings/memberListingPublishGuard";
 import { useDealerPortal } from "../hooks/dealer/useDealerPortal";
 import { ListingLeadQueueSection } from "./leads/ListingLeadQueueSection";
+import {
+  PENDING_SALE_OWNER_BADGE,
+  PENDING_SALE_OWNER_NOTICE,
+} from "../services/leads/listingSaleCopy";
 
 export default function MyListingsView() {
   const { user, fetchCars, setView, setFilters, isDarkMode } = useAppStore();
@@ -93,6 +97,15 @@ export default function MyListingsView() {
   };
 
   const handleVisibility = async (car: Car) => {
+    if (car.saleStatus === "pending_sale") {
+      notifyFriendlyError(
+        new Error(
+          "รถคันนี้อยู่ระหว่างดำเนินการขาย ยังไม่สามารถเปลี่ยนการแสดงในตลาดจากปุ่มนี้ได้ครับ"
+        ),
+        "เปลี่ยนการแสดงประกาศ"
+      );
+      return;
+    }
     const hidden = car.listingStatus !== "hidden";
     if (!hidden) {
       const readiness = validateMemberListingRecordReadyToPublish(car);
@@ -257,6 +270,7 @@ export default function MyListingsView() {
           {myCars.map((car) => {
             const busy = actionId === car.id;
             const hidden = car.listingStatus === "hidden";
+            const pendingSale = car.saleStatus === "pending_sale";
 
             return (
               <article
@@ -282,16 +296,33 @@ export default function MyListingsView() {
                 <div className="flex-1 space-y-2 text-left min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold text-sm truncate">{car.title}</h3>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        hidden
-                          ? "bg-slate-700 text-slate-300"
-                          : "bg-green-500/15 text-green-400"
-                      }`}
-                    >
-                      {hidden ? "ซ่อนอยู่" : "แสดงในตลาด"}
-                    </span>
+                    {pendingSale ? (
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300"
+                        data-testid="my-listings-pending-sale-badge"
+                      >
+                        {PENDING_SALE_OWNER_BADGE}
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          hidden
+                            ? "bg-slate-700 text-slate-300"
+                            : "bg-green-500/15 text-green-400"
+                        }`}
+                      >
+                        {hidden ? "ซ่อนอยู่" : "แสดงในตลาด"}
+                      </span>
+                    )}
                   </div>
+                  {pendingSale ? (
+                    <p
+                      className="text-[11px] text-amber-200/90 leading-relaxed"
+                      data-testid="my-listings-pending-sale-notice"
+                    >
+                      {PENDING_SALE_OWNER_NOTICE}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-slate-400 font-mono truncate">
                     ID: {car.id}
                   </p>

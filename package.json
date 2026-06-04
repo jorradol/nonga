@@ -99,6 +99,7 @@
     "test:v56f2-firestore-lead-rules": "firebase emulators:exec --only firestore --project demo-nonga-v544f \"tsx scripts/test-v56f2-firestore-lead-rules.mts\"",
     "test:v56f4a-buyer-lead-modal-submit": "tsx scripts/test-v56f4a-buyer-lead-modal-submit.mts",
     "test:v56g-seller-contact-reveal-mvp": "tsx scripts/test-v56g-seller-contact-reveal-mvp.mts",
+    "test:v56h-deal-outcome-pending-sale": "tsx scripts/test-v56h-deal-outcome-pending-sale.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",

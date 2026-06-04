@@ -4,6 +4,8 @@
 
 import type { Car } from "../../types";
 import type { MarketplaceCarRecord } from "../../server/marketplaceInventory";
+import { isListingSaleBlockingPublic } from "../leads/listingSaleOutcome";
+import { MEMBER_PUBLISH_BLOCKED_PENDING_SALE_MESSAGE } from "../leads/listingSaleCopy";
 import type { ExtractedCarFields } from "../ai/chat/sellIntentParser";
 import { getMissingCoreFieldLabels } from "../ai/chat/chatPrecheckLayer";
 import { isValidListingImageUrl } from "../../utils/listingImages";
@@ -36,6 +38,7 @@ export type MemberListingLike = Pick<
   | "color"
   | "images"
   | "listingStatus"
+  | "saleStatus"
 >;
 
 export function countRealListingImagesOnRecord(car: {
@@ -115,6 +118,13 @@ export const MEMBER_PUBLISH_ALREADY_PUBLISHED_MESSAGE =
 export function validateMemberListingRecordReadyToPublish(
   car: MemberListingLike
 ): MemberListingPublishValidation {
+  if (isListingSaleBlockingPublic(car.saleStatus)) {
+    return {
+      ok: false,
+      reason: "missing-core-fields",
+      message: MEMBER_PUBLISH_BLOCKED_PENDING_SALE_MESSAGE,
+    };
+  }
   if (car.listingStatus === "published") {
     return {
       ok: false,

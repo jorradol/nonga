@@ -23,6 +23,7 @@ export interface MockCarListing {
   type?: string;
   isSold?: boolean;
   listingStatus?: string;
+  saleStatus?: string;
   createdAt?: string;
   images?: string[];
   showroomName?: string;
@@ -61,6 +62,8 @@ function activeCars(cars: MockCarListing[]): MockCarListing[] {
   return cars.filter(
     (c) =>
       !c.isSold &&
+      c.saleStatus !== "pending_sale" &&
+      c.saleStatus !== "sold" &&
       (!c.listingStatus || c.listingStatus === "published")
   );
 }

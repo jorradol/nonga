@@ -36,6 +36,7 @@ export interface ChatInventoryCar {
   ownerName?: string;
   isSold?: boolean;
   listingStatus?: "published" | "hidden" | string;
+  saleStatus?: string;
 }
 
 export interface ChatSearchCriteria {
@@ -114,6 +115,7 @@ const COLOR_ALIASES: Record<string, string> = {
 function isVisibleOnMarketplaceChat(car: ChatInventoryCar): boolean {
   if (car.isSold) return false;
   if (car.listingStatus === "hidden") return false;
+  if (car.saleStatus === "pending_sale" || car.saleStatus === "sold") return false;
   return true;
 }
 

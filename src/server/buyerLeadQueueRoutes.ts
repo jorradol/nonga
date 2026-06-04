@@ -19,6 +19,7 @@ import { resolveListingSellerId } from "../services/leads/buyerLeadService";
 import { sellerSkipQueueLead } from "../services/leads/sellerSkipQueueService";
 import type { LeadContactOutcome } from "../services/leads/leadTypes";
 import { SELLER_REVEAL_OUTCOME_VALUES } from "../services/leads/sellerLeadRevealCopy";
+import { applyClosedWonPendingSaleForListing } from "../services/leads/listingSaleOutcome";
 import {
   canManageListingWithScope,
   type OwnerRequestScope,
@@ -198,11 +199,30 @@ export function registerBuyerLeadQueueRoutes(
       if (result.ok === false) {
         return res.status(result.status).json({ success: false, message: result.message });
       }
+
+      let listingSaleStatus: string | null = null;
+      let queueSupersededCount = 0;
+      if (outcome === "closed_won") {
+        const pending = await applyClosedWonPendingSaleForListing({
+          inventoryRepository: deps.inventoryRepository,
+          buyerLeadRepository: repository,
+          listingId: lead.listingId,
+          sellerId: lead.sellerId,
+        });
+        if (pending.ok === false) {
+          return res.status(400).json({ success: false, message: pending.message });
+        }
+        listingSaleStatus = pending.listing.saleStatus ?? "pending_sale";
+        queueSupersededCount = pending.supersededCount;
+      }
+
       return res.json({
         success: true,
         data: {
           leadId: result.lead.id,
           nextRevealableLeadId: result.nextRevealableLeadId ?? null,
+          listingSaleStatus,
+          queueSupersededCount,
         },
       });
     } catch (err) {

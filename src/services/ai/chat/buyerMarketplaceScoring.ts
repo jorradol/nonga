@@ -50,6 +50,7 @@ const FORBIDDEN_REASON_CLAIM =
 function isVisibleListing(car: ChatInventoryCar): boolean {
   if (car.isSold) return false;
   if (car.listingStatus === "hidden") return false;
+  if (car.saleStatus === "pending_sale" || car.saleStatus === "sold") return false;
   return true;
 }
 
