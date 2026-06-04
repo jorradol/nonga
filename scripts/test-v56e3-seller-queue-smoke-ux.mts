@@ -216,8 +216,9 @@ for (const reason of [
   ok("skip form actions column on mobile", panel.includes("seller-lead-skip-form-actions"));
   ok("skip note textarea block visible", panel.includes("seller-lead-skip-note") && panel.includes("min-h-[4.5rem]"));
   ok("reveal before skip in source order", panel.indexOf("seller-lead-reveal-btn") < panel.indexOf("seller-lead-skip-btn"));
-  ok("my listings card flex-wrap desktop", listings.includes("lg:flex-wrap"));
-  ok("queue panel wrapper full width row", listings.includes("basis-full shrink-0 grow"));
+  ok("my listings main row no flex-wrap hack", !listings.includes("lg:flex-wrap"));
+  ok("queue section below card via ListingLeadQueueSection", listings.includes("ListingLeadQueueSection"));
+  ok("my listings card image testid", listings.includes('data-testid="my-listings-card-image"'));
 }
 
 // --- route auth guard strings (skip/reveal owner-only) ---

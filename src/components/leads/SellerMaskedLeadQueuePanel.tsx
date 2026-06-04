@@ -121,7 +121,7 @@ export function SellerMaskedLeadQueuePanel({
   if (view === "loading") {
     return (
       <div
-        className={`mt-3 w-full min-w-0 p-3 rounded-xl border flex items-center gap-2 text-xs ${panelBorder}`}
+        className={`w-full min-w-0 p-3 rounded-xl border flex items-center gap-2 text-xs ${panelBorder}`}
         data-testid="seller-lead-queue-loading"
       >
         <Loader2 className="w-4 h-4 animate-spin text-orange-400 shrink-0" />
@@ -133,7 +133,7 @@ export function SellerMaskedLeadQueuePanel({
   if (view === "notice") {
     return (
       <div
-        className={`mt-3 w-full min-w-0 px-3 py-2 rounded-lg border text-[11px] ${panelBorder}`}
+        className={`w-full min-w-0 px-3 py-2 rounded-lg border text-[11px] ${panelBorder}`}
         data-testid="seller-lead-queue-notice"
       >
         <p className={muted}>{notice}</p>
@@ -153,7 +153,7 @@ export function SellerMaskedLeadQueuePanel({
 
   return (
     <div
-      className={`mt-3 w-full min-w-0 rounded-xl border ${panelBorder}`}
+      className={`w-full min-w-0 rounded-xl border ${panelBorder}`}
       data-testid="seller-lead-queue-panel"
       data-layout="seller-lead-queue-vertical"
     >

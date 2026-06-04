@@ -313,7 +313,11 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
         ) : null}
       </div>
 
-      <div className="px-3 pb-3 space-y-2">
+      <div
+        className="px-3 pb-3 space-y-2"
+        data-testid="chat-car-card-actions"
+        data-layout="chat-car-card-actions-footer"
+      >
         {onRequestSellerCallback ? (
           <button
             type="button"

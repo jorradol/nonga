@@ -29,7 +29,7 @@ import {
   validateMemberListingRecordReadyToPublish,
 } from "../services/listings/memberListingPublishGuard";
 import { useDealerPortal } from "../hooks/dealer/useDealerPortal";
-import { SellerMaskedLeadQueuePanel } from "./leads/SellerMaskedLeadQueuePanel";
+import { ListingLeadQueueSection } from "./leads/ListingLeadQueueSection";
 
 export default function MyListingsView() {
   const { user, fetchCars, setView, setFilters, isDarkMode } = useAppStore();
@@ -261,13 +261,21 @@ export default function MyListingsView() {
             return (
               <article
                 key={car.id}
-                className={`p-4 rounded-2xl border flex flex-col lg:flex-row lg:flex-wrap gap-4 ${panel}`}
+                className={`p-4 rounded-2xl border flex flex-col gap-4 ${panel}`}
+                data-testid="my-listings-card"
+                data-listing-id={car.id}
               >
+                <div
+                  className="flex flex-col lg:flex-row gap-4 min-w-0"
+                  data-testid="my-listings-card-main"
+                  data-layout="my-listings-card-main-row"
+                >
                 <img
                   key={`${car.id}-cover`}
                   src={getListingPrimaryImage(car)}
                   alt={car.title}
                   className="w-full lg:w-44 h-28 object-cover rounded-xl bg-slate-800 shrink-0"
+                  data-testid="my-listings-card-image"
                 />
                 <div className="flex-1 space-y-2 text-left min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -341,14 +349,13 @@ export default function MyListingsView() {
                     ลบ
                   </button>
                 </div>
+                </div>
                 {ownerId ? (
-                  <div className="w-full min-w-0 basis-full shrink-0 grow">
-                    <SellerMaskedLeadQueuePanel
-                      listingId={car.id}
-                      isListingOwnerContext
-                      isDarkMode={isDarkMode}
-                    />
-                  </div>
+                  <ListingLeadQueueSection
+                    listingId={car.id}
+                    isListingOwnerContext
+                    isDarkMode={isDarkMode}
+                  />
                 ) : null}
               </article>
             );
