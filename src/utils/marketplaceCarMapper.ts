@@ -97,6 +97,10 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
         : undefined,
     pendingSaleAt:
       typeof raw.pendingSaleAt === "string" ? raw.pendingSaleAt : undefined,
+    saleCancelledAt:
+      typeof raw.saleCancelledAt === "string" ? raw.saleCancelledAt : undefined,
+    saleCancelReason:
+      typeof raw.saleCancelReason === "string" ? raw.saleCancelReason : undefined,
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
     boosted: Boolean(raw.boosted),
     featured: Boolean(raw.featured),

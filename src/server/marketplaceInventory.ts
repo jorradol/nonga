@@ -36,6 +36,9 @@ export interface MarketplaceCarRecord {
   /** v5.6H — sale pipeline; pending_sale hides from public marketplace */
   saleStatus?: ListingSaleStatus;
   pendingSaleAt?: string;
+  /** v5.6H.1 — audit when seller cancels pending sale / relists */
+  saleCancelledAt?: string;
+  saleCancelReason?: string;
   /**
    * v5.4.7e — seller publish consent (closed pilot)
    * Optional: legacy listings may not have these fields.

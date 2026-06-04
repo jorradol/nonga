@@ -23,6 +23,7 @@ import {
   patchMyListing,
   setMyListingVisibility,
   deleteMyListing,
+  cancelPendingSaleRelist,
   type MyListingsApiScope,
 } from "../services/listings/myListingsApi";
 import {
@@ -33,6 +34,8 @@ import { ListingLeadQueueSection } from "./leads/ListingLeadQueueSection";
 import {
   PENDING_SALE_OWNER_BADGE,
   PENDING_SALE_OWNER_NOTICE,
+  CANCEL_PENDING_SALE_ACTION_LABEL,
+  CANCEL_PENDING_SALE_CONFIRM_MESSAGE,
 } from "../services/leads/listingSaleCopy";
 
 export default function MyListingsView() {
@@ -55,6 +58,7 @@ export default function MyListingsView() {
   const [friendlyHint, setFriendlyHint] = useState<string | null>(null);
   const [editingCar, setEditingCar] = useState<Car | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [cancelPendingSaleId, setCancelPendingSaleId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!ownerId) {
@@ -96,11 +100,32 @@ export default function MyListingsView() {
     await load();
   };
 
+  const handleCancelPendingSale = async (car: Car) => {
+    setActionId(car.id);
+    try {
+      const result = await cancelPendingSaleRelist(listingApiScope, car.id);
+      setMyCars((list) =>
+        list.map((c) => (c.id === result.car.id ? result.car : c))
+      );
+      setCancelPendingSaleId(null);
+      await fetchCars();
+      if (result.published) {
+        notifySuccess("กลับไปขายต่อแล้วค่ะ", result.message);
+      } else {
+        notifyFriendlyError(new Error(result.message), "ยกเลิกสถานะรอขาย");
+      }
+    } catch (e) {
+      notifyFriendlyError(e, "ยกเลิกสถานะรอขาย");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const handleVisibility = async (car: Car) => {
     if (car.saleStatus === "pending_sale") {
       notifyFriendlyError(
         new Error(
-          "รถคันนี้อยู่ระหว่างดำเนินการขาย ยังไม่สามารถเปลี่ยนการแสดงในตลาดจากปุ่มนี้ได้ครับ"
+          "รถคันนี้อยู่ระหว่างดำเนินการขาย กรุณาใช้ปุ่ม “ยกเลิกดีล / กลับไปขายต่อ” ครับ"
         ),
         "เปลี่ยนการแสดงประกาศ"
       );
@@ -316,12 +341,54 @@ export default function MyListingsView() {
                     )}
                   </div>
                   {pendingSale ? (
-                    <p
-                      className="text-[11px] text-amber-200/90 leading-relaxed"
-                      data-testid="my-listings-pending-sale-notice"
-                    >
-                      {PENDING_SALE_OWNER_NOTICE}
-                    </p>
+                    <div className="space-y-2" data-testid="my-listings-pending-sale-block">
+                      <p
+                        className="text-[11px] text-amber-200/90 leading-relaxed"
+                        data-testid="my-listings-pending-sale-notice"
+                      >
+                        {PENDING_SALE_OWNER_NOTICE}
+                      </p>
+                      {cancelPendingSaleId === car.id ? (
+                        <div
+                          className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-2 space-y-2"
+                          data-testid="my-listings-cancel-pending-sale-confirm"
+                        >
+                          <p className="text-[11px] text-amber-100 leading-relaxed">
+                            {CANCEL_PENDING_SALE_CONFIRM_MESSAGE}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void handleCancelPendingSale(car)}
+                              className="px-3 py-2 text-[11px] font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                              data-testid="my-listings-cancel-pending-sale-confirm-btn"
+                            >
+                              {busy ? "กำลังดำเนินการ…" : "ยืนยันกลับไปขายต่อ"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setCancelPendingSaleId(null)}
+                              className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                              data-testid="my-listings-cancel-pending-sale-cancel-btn"
+                            >
+                              ยกเลิก
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy || canAccessPortal}
+                          onClick={() => setCancelPendingSaleId(car.id)}
+                          className="w-full sm:w-auto px-3 py-2 text-[11px] font-semibold rounded-lg border border-amber-500/50 text-amber-200 hover:bg-amber-500/10 disabled:opacity-40"
+                          data-testid="my-listings-cancel-pending-sale-btn"
+                        >
+                          {CANCEL_PENDING_SALE_ACTION_LABEL}
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                   <p className="text-xs text-slate-400 font-mono truncate">
                     ID: {car.id}
@@ -346,22 +413,24 @@ export default function MyListingsView() {
                     <Pencil className="w-3.5 h-3.5" />
                     แก้ไข
                   </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => handleVisibility(car)}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    {hidden ? (
-                      <>
-                        <Eye className="w-3.5 h-3.5" /> แสดงอีกครั้ง
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="w-3.5 h-3.5" /> ซ่อนประกาศ
-                      </>
-                    )}
-                  </button>
+                  {!pendingSale ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => handleVisibility(car)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {hidden ? (
+                        <>
+                          <Eye className="w-3.5 h-3.5" /> แสดงอีกครั้ง
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" /> ซ่อนประกาศ
+                        </>
+                      )}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={busy || hidden}

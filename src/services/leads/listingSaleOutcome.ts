@@ -7,6 +7,8 @@ import type { BuyerLeadRepository } from "../../server/repositories/buyerLeadRep
 import type { MarketplaceCarRecord } from "../../server/marketplaceInventory";
 import type { ListingSaleStatus } from "./leadTypes";
 import { applyListingSaleToBuyerQueue } from "./buyerLeadQueueService";
+import { validateMemberListingRecordReadyToPublish } from "../listings/memberListingPublishGuard";
+import { CANCEL_PENDING_SALE_NOT_PENDING_MESSAGE } from "./listingSaleCopy";
 
 export function isListingSaleBlockingPublic(
   saleStatus?: ListingSaleStatus
@@ -66,4 +68,101 @@ export async function applyClosedWonPendingSaleForListing(params: {
     listing: updated,
     supersededCount: queueClose.supersededCount,
   };
+}
+
+export function buildCancelPendingSaleRelistPatch(params: {
+  listing: MarketplaceCarRecord;
+  now: string;
+  reason?: string;
+}): {
+  patch: Partial<MarketplaceCarRecord>;
+  canPublish: boolean;
+  guardMessage?: string;
+} {
+  const forGuard: MarketplaceCarRecord = {
+    ...params.listing,
+    saleStatus: "sale_cancelled",
+    listingStatus: "hidden",
+  };
+  const guard = validateMemberListingRecordReadyToPublish(forGuard);
+  const canPublish = guard.ok === true;
+  return {
+    canPublish,
+    guardMessage: canPublish ? undefined : guard.message,
+    patch: {
+      saleStatus: "sale_cancelled",
+      saleCancelledAt: params.now,
+      ...(params.reason?.trim()
+        ? { saleCancelReason: params.reason.trim().slice(0, 200) }
+        : {}),
+      listingStatus: canPublish ? "published" : "hidden",
+    },
+  };
+}
+
+export async function cancelPendingSaleAndRelist(params: {
+  inventoryRepository: InventoryRepository;
+  listingId: string;
+  repoScopeId: string;
+  reason?: string;
+}): Promise<
+  | { ok: true; listing: MarketplaceCarRecord; published: boolean }
+  | {
+      ok: false;
+      status: 400 | 403 | 404 | 422;
+      message: string;
+      listing?: MarketplaceCarRecord;
+      published: false;
+    }
+> {
+  const listing = await params.inventoryRepository.listings.getById(params.listingId);
+  if (!listing) {
+    return {
+      ok: false,
+      status: 404,
+      message: "ไม่พบประกาศครับ",
+      published: false,
+    };
+  }
+  if (listing.saleStatus !== "pending_sale") {
+    return {
+      ok: false,
+      status: 400,
+      message: CANCEL_PENDING_SALE_NOT_PENDING_MESSAGE,
+      published: false,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const { patch, canPublish, guardMessage } = buildCancelPendingSaleRelistPatch({
+    listing,
+    now,
+    reason: params.reason,
+  });
+
+  const updated = await params.inventoryRepository.listings.updateListing(
+    params.repoScopeId,
+    params.listingId,
+    patch
+  );
+  if (!updated) {
+    return {
+      ok: false,
+      status: 404,
+      message: "อัปเดตประกาศไม่สำเร็จครับ",
+      published: false,
+    };
+  }
+
+  if (!canPublish) {
+    return {
+      ok: false,
+      status: 422,
+      message: guardMessage ?? "ข้อมูลประกาศยังไม่พร้อมลงตลาดครับ",
+      listing: updated,
+      published: false,
+    };
+  }
+
+  return { ok: true, listing: updated, published: true };
 }

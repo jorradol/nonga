@@ -384,6 +384,37 @@ export async function setMyListingVisibility(
   return normalizeMarketplaceCar(json.data as Record<string, unknown>);
 }
 
+export async function cancelPendingSaleRelist(
+  scopeInput: MyListingsApiScopeInput,
+  id: string,
+  options?: { reason?: string }
+): Promise<{ car: Car; published: boolean; message: string }> {
+  const scope = normalizeScope(scopeInput);
+  const url = `/api/my/listings/${encodeURIComponent(id)}/cancel-pending-sale`;
+  const json = await safeApiFetch<ApiJsonEnvelope>(url, {
+    method: "POST",
+    headers: await ownerHeadersAsync(scope.ownerId),
+    body: JSON.stringify(
+      options?.reason?.trim() ? { reason: options.reason.trim() } : {}
+    ),
+  });
+  assertApiSuccess(json, url);
+
+  const published = Boolean(json.published);
+  const message =
+    typeof json.message === "string" && json.message.trim()
+      ? json.message
+      : published
+        ? "รถกลับแสดงในตลาดแล้วครับ"
+        : "ยกเลิกสถานะรอขายแล้วครับ";
+
+  return {
+    car: normalizeMarketplaceCar((json.data ?? {}) as Record<string, unknown>),
+    published,
+    message,
+  };
+}
+
 export async function deleteMyListing(
   scopeInput: MyListingsApiScopeInput,
   id: string,

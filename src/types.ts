@@ -23,6 +23,8 @@ export interface Car {
   /** v5.6H — pending_sale = ซ่อนจากตลาดชั่วคราวหลังปิดดีล */
   saleStatus?: ListingSaleStatus;
   pendingSaleAt?: string;
+  saleCancelledAt?: string;
+  saleCancelReason?: string;
   /**
    * v5.4.7e — seller publish consent (closed pilot)
    * Optional: legacy listings may not have these fields.

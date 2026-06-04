@@ -16,6 +16,8 @@ import {
 } from "./listingImageUploadBody";
 import type { InventoryRepository } from "./repositories/inventoryRepository";
 import { validateMemberListingRecordReadyToPublish } from "../services/listings/memberListingPublishGuard";
+import { cancelPendingSaleAndRelist } from "../services/leads/listingSaleOutcome";
+import { CANCEL_PENDING_SALE_GUARD_FAIL_MESSAGE } from "../services/leads/listingSaleCopy";
 
 export type OwnerListingRoutesDeps = {
   inventoryRepository: InventoryRepository;
@@ -175,6 +177,45 @@ export function registerOwnerListingRoutes(
         storedUrls: persisted.storedUrls,
         ...(failedFiles.length > 0 ? { failedFiles } : {}),
       },
+    });
+  });
+
+  app.post("/api/my/listings/:id/cancel-pending-sale", async (req, res) => {
+    const access = await getCarAccessOrDeny(req, res, deps);
+    if (!access) return;
+    const { car, scope } = access;
+
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason : undefined;
+    const result = await cancelPendingSaleAndRelist({
+      inventoryRepository: deps.inventoryRepository,
+      listingId: car.id,
+      repoScopeId: listingRepoScope(scope, car),
+      reason,
+    });
+
+    if (result.ok === false) {
+      const payload: Record<string, unknown> = {
+        success: false,
+        message: result.message,
+        published: result.published,
+      };
+      if (result.listing) {
+        payload.data = result.listing;
+      }
+      if (result.status === 422) {
+        payload.message = CANCEL_PENDING_SALE_GUARD_FAIL_MESSAGE;
+      }
+      return res.status(result.status).json(payload);
+    }
+
+    return res.json({
+      success: true,
+      data: result.listing,
+      published: result.published,
+      message: result.published
+        ? "ยกเลิกสถานะรอขายแล้ว รถกลับแสดงในตลาดครับ"
+        : "ยกเลิกสถานะรอขายแล้วครับ",
     });
   });
 
