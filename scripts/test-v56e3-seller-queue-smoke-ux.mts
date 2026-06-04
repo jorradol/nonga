@@ -67,7 +67,7 @@ const leadId = r1.ok ? r1.lead.id : "";
     ok("buyer summary present", row.buyerSummary.length > 0);
     ok("waiting label for non-turn N/A", row.isCurrentSellerTurn || row.waitingReason === "รอผลคิวก่อนหน้า");
     ok("no full phone in row", sellerMaskedQueueEntryHasNoFullPhone(row));
-    ok("reveal disabled", row.canRevealContact === false);
+    ok("reveal enabled on head turn", row.canRevealContact === true);
     ok("skip enabled on turn", row.canSkip === true);
   }
 }
@@ -198,7 +198,8 @@ for (const reason of [
 // --- UI hardening strings present in panel source ---
 {
   const src = readFileSync("src/components/leads/SellerMaskedLeadQueuePanel.tsx", "utf8");
-  ok("reveal disabled label in UI", src.includes("เปิดข้อมูลติดต่อ — ยังไม่เปิดในรอบนี้"));
+  ok("reveal enabled label in UI", src.includes("เปิดข้อมูลติดต่อ") && !src.includes("ยังไม่เปิดในรอบนี้"));
+  ok("reveal confirm in UI", src.includes("seller-lead-reveal-confirm"));
   ok("waiting reason label in UI", src.includes("รอผลคิวก่อนหน้า") || src.includes("waitingReason"));
   ok("skip other note gate in UI", src.includes('skipReason === "other"') && src.includes("skipNote.trim().length"));
   ok("error retry in UI", src.includes("seller-lead-queue-retry"));

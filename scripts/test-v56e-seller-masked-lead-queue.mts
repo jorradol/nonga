@@ -82,7 +82,8 @@ let lead3Id = "";
     ok("first is seller turn", queue[0]?.isCurrentSellerTurn === true);
     ok("second waits", queue[1]?.waitingReason === "รอผลคิวก่อนหน้า");
     ok("can skip only current", queue[0]?.canSkip === true && queue[1]?.canSkip === false);
-    ok("reveal disabled in MVP", queue.every((e) => e.canRevealContact === false));
+    ok("head can reveal in v5.6G", queue[0]?.canRevealContact === true);
+    ok("non-head cannot reveal", queue.slice(1).every((e) => e.canRevealContact === false));
     ok("list never shows full phones", sellerQueueListNeverShowsFullPhoneOfOthers(queue));
     for (const row of queue) {
       ok(`row ${row.queuePosition} masked phone`, sellerMaskedQueueEntryHasNoFullPhone(row));

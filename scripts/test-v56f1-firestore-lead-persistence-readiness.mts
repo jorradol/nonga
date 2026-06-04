@@ -161,7 +161,7 @@ function makeLead(partial: Partial<BuyerLead> & { id: string; queuePosition: num
       queue.every((r) => sellerMaskedQueueEntryHasNoFullPhone(r))
     );
     ok("all rows contactMasked", queue.every((r) => r.contactMasked));
-    ok("canRevealContact false MVP", queue.every((r) => r.canRevealContact === false));
+    ok("head canRevealContact when locked (v5.6G)", queue[0]?.canRevealContact === true);
   }
   const direct = toSellerMaskedQueue(await listLeadsForListing(repo, listing.id), listing.id);
   ok("policy masked phone", direct[0]?.contactPhone !== "0811111111");

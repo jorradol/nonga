@@ -148,8 +148,10 @@ export interface SellerMaskedQueueEntry {
   /** null when it is seller's turn */
   waitingReason: string | null;
   canSkip: boolean;
-  /** v5.6E — full reveal UI not enabled in this MVP */
+  /** v5.6G — true when this row is head of queue and contact still locked */
   canRevealContact: boolean;
+  /** v5.6G — seller must record outcome before next reveal */
+  needsOutcome: boolean;
 }
 
 /** Minimal shape for policy helpers and tests. */

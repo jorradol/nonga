@@ -18,19 +18,12 @@ import {
 import { resolveListingSellerId } from "../services/leads/buyerLeadService";
 import { sellerSkipQueueLead } from "../services/leads/sellerSkipQueueService";
 import type { LeadContactOutcome } from "../services/leads/leadTypes";
+import { SELLER_REVEAL_OUTCOME_VALUES } from "../services/leads/sellerLeadRevealCopy";
 import {
   canManageListingWithScope,
   type OwnerRequestScope,
 } from "./ownerListingAccess";
 import type { MarketplaceCarRecord } from "./marketplaceInventory";
-
-const TERMINAL_OUTCOMES: LeadContactOutcome[] = [
-  "unreachable",
-  "no_progress",
-  "not_closed",
-  "closed_won",
-  "reported_to_admin",
-];
 
 function ownerScopeFromAuth(auth: Awaited<ReturnType<typeof getServerAuthContext>>): OwnerRequestScope {
   return {
@@ -161,7 +154,16 @@ export function registerBuyerLeadQueueRoutes(
       if (result.ok === false) {
         return res.status(result.status).json({ success: false, message: result.message });
       }
-      return res.json({ success: true, data: { leadId: result.lead.id } });
+      return res.json({
+        success: true,
+        data: {
+          leadId: result.lead.id,
+          contactPhone: result.lead.contactPhone,
+          displayName: result.lead.displayName,
+          contactRevealStatus: result.lead.contactRevealStatus,
+          contactRevealedAt: result.lead.contactRevealedAt ?? null,
+        },
+      });
     } catch (err) {
       if (err instanceof ServerAuthError) {
         return res.status(err.status).json({ success: false, message: err.message });
@@ -175,7 +177,7 @@ export function registerBuyerLeadQueueRoutes(
       const auth = await getServerAuthContext(req);
       const leadId = String(req.params.leadId ?? "").trim();
       const outcome = String((req.body as { outcome?: string })?.outcome ?? "").trim() as LeadContactOutcome;
-      if (!TERMINAL_OUTCOMES.includes(outcome)) {
+      if (!SELLER_REVEAL_OUTCOME_VALUES.has(outcome)) {
         return res.status(400).json({ success: false, message: "ผลลัพธ์ไม่ถูกต้องครับ" });
       }
       const lead = await repository.getBuyerLeadById(leadId);

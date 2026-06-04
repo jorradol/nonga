@@ -3,7 +3,7 @@
  */
 
 import { requireFirebaseAuthHeaders } from "../auth/firebaseAuthHeaders";
-import type { SellerMaskedQueueEntry, SellerSkipReason } from "./leadTypes";
+import type { LeadContactOutcome, SellerMaskedQueueEntry, SellerSkipReason } from "./leadTypes";
 import {
   mapSellerQueueFetchError,
   type SellerLeadQueuePanelErrorKind,
@@ -151,6 +151,102 @@ export async function skipSellerQueueLead(params: {
   return {
     ok: true,
     buyerQueueFeedback: json.data.buyerQueueFeedback,
+    nextRevealableLeadId: json.data.nextRevealableLeadId ?? null,
+  };
+}
+
+export async function revealSellerQueueLead(params: {
+  leadId: string;
+}): Promise<
+  | {
+      ok: true;
+      leadId: string;
+      contactPhone: string;
+      displayName: string;
+      contactRevealStatus: string;
+      contactRevealedAt: string | null;
+    }
+  | { ok: false; message: string }
+> {
+  let headers: HeadersInit;
+  try {
+    headers = await requireFirebaseAuthHeaders();
+  } catch {
+    return { ok: false, message: "กรุณาเข้าสู่ระบบก่อนดำเนินการครับ" };
+  }
+
+  const res = await fetch(
+    `/api/seller/buyer-leads/${encodeURIComponent(params.leadId)}/reveal`,
+    {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: "{}",
+    }
+  );
+
+  const json = (await res.json().catch(() => null)) as {
+    success?: boolean;
+    message?: string;
+    data?: {
+      leadId?: string;
+      contactPhone?: string;
+      displayName?: string;
+      contactRevealStatus?: string;
+      contactRevealedAt?: string | null;
+    };
+  } | null;
+
+  const phone = json?.data?.contactPhone?.trim();
+  if (!res.ok || !json?.success || !json.data?.leadId || !phone) {
+    return { ok: false, message: json?.message || "เปิดข้อมูลติดต่อไม่สำเร็จ" };
+  }
+
+  return {
+    ok: true,
+    leadId: json.data.leadId,
+    contactPhone: phone,
+    displayName: String(json.data.displayName ?? "").trim() || "ผู้ซื้อ",
+    contactRevealStatus: String(json.data.contactRevealStatus ?? "revealed"),
+    contactRevealedAt: json.data.contactRevealedAt ?? null,
+  };
+}
+
+export async function recordSellerQueueOutcome(params: {
+  leadId: string;
+  outcome: LeadContactOutcome;
+}): Promise<
+  | { ok: true; leadId: string; nextRevealableLeadId: string | null }
+  | { ok: false; message: string }
+> {
+  let headers: HeadersInit;
+  try {
+    headers = await requireFirebaseAuthHeaders();
+  } catch {
+    return { ok: false, message: "กรุณาเข้าสู่ระบบก่อนดำเนินการครับ" };
+  }
+
+  const res = await fetch(
+    `/api/seller/buyer-leads/${encodeURIComponent(params.leadId)}/outcome`,
+    {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ outcome: params.outcome }),
+    }
+  );
+
+  const json = (await res.json().catch(() => null)) as {
+    success?: boolean;
+    message?: string;
+    data?: { leadId?: string; nextRevealableLeadId?: string | null };
+  } | null;
+
+  if (!res.ok || !json?.success || !json.data?.leadId) {
+    return { ok: false, message: json?.message || "บันทึกผลการติดต่อไม่สำเร็จ" };
+  }
+
+  return {
+    ok: true,
+    leadId: json.data.leadId,
     nextRevealableLeadId: json.data.nextRevealableLeadId ?? null,
   };
 }

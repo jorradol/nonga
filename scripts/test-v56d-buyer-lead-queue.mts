@@ -17,6 +17,7 @@ import {
 import {
   applyListingSaleToBuyerQueue,
   getListingInterestStats,
+  sellerQueueListNeverShowsFullPhoneOfOthers,
   sellerRecordQueueOutcome,
   sellerRevealQueueLead,
 } from "../src/services/leads/buyerLeadQueueService.ts";
@@ -158,7 +159,8 @@ let lead3Id = "";
   const all = await repo.listBuyerLeadsByListingId(listing.id);
   const masked = toSellerMaskedQueue(all, listing.id);
   const fullPhones = masked.filter((e) => !e.contactMasked);
-  ok("seller list is fully masked (v5.6E)", fullPhones.length === 0);
+  ok("seller list at most one unmasked (v5.6G)", fullPhones.length <= 1);
+  ok("seller list privacy guard", sellerQueueListNeverShowsFullPhoneOfOthers(masked));
   ok("masked rows have queue order", masked[0]?.queuePosition === 1);
 }
 

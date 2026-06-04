@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Users, Loader2, AlertCircle, SkipForward, PhoneOff } from "lucide-react";
-import type { SellerMaskedQueueEntry, SellerSkipReason } from "../../services/leads/leadTypes";
+import {
+  Users,
+  Loader2,
+  AlertCircle,
+  SkipForward,
+  Phone,
+  Shield,
+} from "lucide-react";
+import type { LeadContactOutcome, SellerMaskedQueueEntry, SellerSkipReason } from "../../services/leads/leadTypes";
 import {
   fetchSellerMaskedLeadQueue,
+  recordSellerQueueOutcome,
+  revealSellerQueueLead,
   skipSellerQueueLead,
 } from "../../services/leads/sellerLeadQueueApi";
 import {
@@ -11,6 +20,12 @@ import {
   shouldHideSellerQueuePanel,
 } from "../../services/leads/sellerLeadQueuePanelMessages";
 import { SELLER_SKIP_REASON_OPTIONS } from "../../services/leads/sellerSkipQueuePolicy";
+import {
+  SELLER_REVEAL_CONFIRM_MESSAGE,
+  SELLER_REVEAL_OUTCOME_OPTIONS,
+  SELLER_REVEAL_PRIVACY_NOTICE,
+  SELLER_REVEAL_WAITING_PREVIOUS,
+} from "../../services/leads/sellerLeadRevealCopy";
 import { formatPurchaseMethodLabel } from "../../services/leads/buyerLeadPreview";
 
 type Props = {
@@ -39,6 +54,11 @@ export function SellerMaskedLeadQueuePanel({
   const [skipReason, setSkipReason] = useState<SellerSkipReason>("offer_below_expectation");
   const [skipNote, setSkipNote] = useState("");
   const [skipSubmitting, setSkipSubmitting] = useState(false);
+  const [revealConfirmLeadId, setRevealConfirmLeadId] = useState<string | null>(null);
+  const [revealSubmitting, setRevealSubmitting] = useState(false);
+  const [outcomeLeadId, setOutcomeLeadId] = useState<string | null>(null);
+  const [outcomeValue, setOutcomeValue] = useState<LeadContactOutcome>("contacting");
+  const [outcomeSubmitting, setOutcomeSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setView((v) => (v === "checking" ? "checking" : "loading"));
@@ -86,6 +106,8 @@ export function SellerMaskedLeadQueuePanel({
       return;
     }
 
+    const needsOutcomeEntry = result.entries.find((e) => e.needsOutcome);
+    setOutcomeLeadId(needsOutcomeEntry?.leadId ?? null);
     setView("queue");
   }, [isListingOwnerContext, listingId]);
 
@@ -95,6 +117,7 @@ export function SellerMaskedLeadQueuePanel({
 
   const panelBorder = isDarkMode ? "border-slate-700/80 bg-slate-950/50" : "border-slate-200 bg-slate-50";
   const muted = isDarkMode ? "text-slate-400" : "text-slate-600";
+  const hasRevealedContact = entries.some((e) => !e.contactMasked);
 
   const handleSkipConfirm = async () => {
     if (!skipLeadId) return;
@@ -111,6 +134,37 @@ export function SellerMaskedLeadQueuePanel({
     }
     setSkipLeadId(null);
     setSkipNote("");
+    setRevealConfirmLeadId(null);
+    await load();
+  };
+
+  const handleRevealConfirm = async (leadId: string) => {
+    setRevealSubmitting(true);
+    setError(null);
+    const result = await revealSellerQueueLead({ leadId });
+    setRevealSubmitting(false);
+    if (result.ok === false) {
+      setError(result.message);
+      return;
+    }
+    setRevealConfirmLeadId(null);
+    await load();
+  };
+
+  const handleOutcomeConfirm = async () => {
+    if (!outcomeLeadId) return;
+    setOutcomeSubmitting(true);
+    setError(null);
+    const result = await recordSellerQueueOutcome({
+      leadId: outcomeLeadId,
+      outcome: outcomeValue,
+    });
+    setOutcomeSubmitting(false);
+    if (result.ok === false) {
+      setError(result.message);
+      return;
+    }
+    setOutcomeLeadId(null);
     await load();
   };
 
@@ -162,8 +216,10 @@ export function SellerMaskedLeadQueuePanel({
           <Users className="w-4 h-4 shrink-0" />
           คิวผู้สนใจ ({interestCount} คน)
         </div>
-        <span className={`text-[10px] leading-snug ${muted}`}>
-          ข้อมูลแบบคัดกรอง — ยังไม่เปิดเบอร์
+        <span className={`text-[10px] leading-snug ${muted}`} data-testid="seller-lead-queue-header-hint">
+          {hasRevealedContact
+            ? "เปิดเบอร์ทีละ 1 ราย — อัปเดตผลก่อนคิวถัดไป"
+            : "ข้อมูลแบบคัดกรอง — ยังไม่เปิดเบอร์"}
         </span>
       </div>
 
@@ -186,6 +242,23 @@ export function SellerMaskedLeadQueuePanel({
           >
             <div className="space-y-2 min-w-0">
               <p className="text-sm font-semibold break-words">{entry.displayName}</p>
+              {!entry.contactMasked ? (
+                <div
+                  className="rounded-lg border border-green-500/30 bg-green-950/30 px-3 py-2 space-y-1"
+                  data-testid={`seller-lead-revealed-contact-${entry.queuePosition}`}
+                >
+                  <p className="text-[11px] text-green-300 font-semibold flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 shrink-0" />
+                    <span data-testid={`seller-lead-contact-phone-${entry.queuePosition}`}>
+                      {entry.contactPhone}
+                    </span>
+                  </p>
+                  <p className={`text-[10px] leading-snug flex gap-1.5 ${muted}`}>
+                    <Shield className="w-3 h-3 shrink-0 mt-0.5 text-slate-500" />
+                    {SELLER_REVEAL_PRIVACY_NOTICE}
+                  </p>
+                </div>
+              ) : null}
               <dl className={`grid grid-cols-1 gap-2 text-[11px] ${muted}`}>
                 <div className="min-w-0">
                   <dt className="text-slate-500 mb-0.5">วิธีซื้อ</dt>
@@ -207,10 +280,14 @@ export function SellerMaskedLeadQueuePanel({
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-300 shrink-0">
                 คิวที่ {entry.queuePosition}
               </span>
-              {entry.isCurrentSellerTurn ? (
+              {entry.needsOutcome ? (
+                <span className="text-[10px] font-bold text-amber-400">รอผลการติดต่อ</span>
+              ) : entry.isCurrentSellerTurn ? (
                 <span className="text-[10px] font-bold text-green-400">ถึงคิวของคุณ</span>
               ) : (
-                <span className={`text-[10px] ${muted}`}>{entry.waitingReason}</span>
+                <span className={`text-[10px] ${muted}`}>
+                  {entry.waitingReason ?? SELLER_REVEAL_WAITING_PREVIOUS}
+                </span>
               )}
             </div>
 
@@ -219,20 +296,60 @@ export function SellerMaskedLeadQueuePanel({
               data-testid={`seller-lead-queue-actions-${entry.queuePosition}`}
               data-layout="seller-lead-queue-actions-column"
             >
-              <button
-                type="button"
-                disabled
-                title="ยังไม่เปิดในรอบ staging นี้"
-                className={`${actionBtnBase} border border-slate-700 text-slate-500 cursor-not-allowed opacity-70 shrink-0`}
-                data-testid={`seller-lead-reveal-btn-${entry.queuePosition}`}
-              >
-                <PhoneOff className="w-3.5 h-3.5 shrink-0" />
-                <span className="break-words">เปิดข้อมูลติดต่อ — ยังไม่เปิดในรอบนี้</span>
-              </button>
+              {revealConfirmLeadId === entry.leadId ? (
+                <div
+                  className="rounded-lg border border-orange-500/40 bg-slate-900/80 px-3 py-3 space-y-2"
+                  data-testid={`seller-lead-reveal-confirm-${entry.queuePosition}`}
+                >
+                  <p className="text-[11px] text-slate-200 leading-relaxed">
+                    {SELLER_REVEAL_CONFIRM_MESSAGE}
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      disabled={revealSubmitting}
+                      onClick={() => void handleRevealConfirm(entry.leadId)}
+                      className={`${actionBtnBase} sm:w-auto bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50`}
+                      data-testid={`seller-lead-reveal-confirm-btn-${entry.queuePosition}`}
+                    >
+                      {revealSubmitting ? "กำลังเปิดข้อมูล…" : "ยืนยันเปิดข้อมูลติดต่อ"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={revealSubmitting}
+                      onClick={() => setRevealConfirmLeadId(null)}
+                      className={`${actionBtnBase} sm:w-auto border border-slate-600 text-slate-300 hover:bg-slate-800 disabled:opacity-50`}
+                      data-testid={`seller-lead-reveal-cancel-btn-${entry.queuePosition}`}
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!entry.canRevealContact || revealSubmitting}
+                  title={
+                    entry.canRevealContact
+                      ? undefined
+                      : entry.waitingReason ?? SELLER_REVEAL_WAITING_PREVIOUS
+                  }
+                  onClick={() => {
+                    setError(null);
+                    setRevealConfirmLeadId(entry.leadId);
+                  }}
+                  className={`${actionBtnBase} border border-orange-500/50 text-orange-100 hover:bg-orange-500/10 disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}
+                  data-testid={`seller-lead-reveal-btn-${entry.queuePosition}`}
+                >
+                  <Phone className="w-3.5 h-3.5 shrink-0" />
+                  <span className="break-words">เปิดข้อมูลติดต่อ</span>
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!entry.canSkip}
                 onClick={() => {
+                  setRevealConfirmLeadId(null);
                   setSkipReason("offer_below_expectation");
                   setSkipNote("");
                   setSkipLeadId(entry.leadId);
@@ -244,6 +361,42 @@ export function SellerMaskedLeadQueuePanel({
                 <span>ข้ามคิวนี้</span>
               </button>
             </div>
+
+            {entry.needsOutcome && outcomeLeadId === entry.leadId ? (
+              <div
+                className="rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-3 space-y-2"
+                data-testid={`seller-lead-outcome-form-${entry.queuePosition}`}
+              >
+                <p className="text-xs font-bold text-amber-200">อัปเดตผลการติดต่อ</p>
+                <fieldset className="space-y-2 border-0 p-0 m-0">
+                  <legend className="sr-only">ผลการติดต่อ</legend>
+                  {SELLER_REVEAL_OUTCOME_OPTIONS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex items-start gap-2.5 text-[11px] text-slate-300 cursor-pointer py-1 min-h-[1.75rem]"
+                    >
+                      <input
+                        type="radio"
+                        name={`outcome-${entry.leadId}`}
+                        checked={outcomeValue === opt.value}
+                        onChange={() => setOutcomeValue(opt.value)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <span className="break-words leading-snug">{opt.label}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                <button
+                  type="button"
+                  disabled={outcomeSubmitting}
+                  onClick={() => void handleOutcomeConfirm()}
+                  className={`${actionBtnBase} bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50`}
+                  data-testid={`seller-lead-outcome-submit-${entry.queuePosition}`}
+                >
+                  {outcomeSubmitting ? "กำลังบันทึก…" : "บันทึกผลการติดต่อ"}
+                </button>
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

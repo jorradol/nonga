@@ -7,8 +7,8 @@ import {
   deriveContactRevealStatusAfterOutcome,
   deriveContactRevealStatusAfterReveal,
   getNextLeadOutcomeRequiredMessage,
-  TERMINAL_LEAD_CONTACT_OUTCOMES,
 } from "./leadPolicy";
+import { SELLER_REVEAL_OUTCOME_VALUES } from "./sellerLeadRevealCopy";
 import type {
   BuyerLead,
   LeadContactOutcome,
@@ -117,11 +117,11 @@ export async function sellerRecordQueueOutcome(params: {
   | { ok: true; lead: BuyerLead; nextRevealableLeadId?: string }
   | { ok: false; status: 400 | 403 | 404; message: string }
 > {
-  if (!TERMINAL_LEAD_CONTACT_OUTCOMES.has(params.outcome)) {
+  if (!SELLER_REVEAL_OUTCOME_VALUES.has(params.outcome)) {
     return {
       ok: false,
       status: 400,
-      message: "ผลลัพธ์นี้ยังไม่ปล่อยคิวถัดไปครับ กรุณาเลือกผลที่ชัดเจนก่อน",
+      message: "ผลการติดต่อไม่ถูกต้องครับ กรุณาเลือกจากตัวเลือกที่มี",
     };
   }
 
@@ -137,11 +137,21 @@ export async function sellerRecordQueueOutcome(params: {
   }
 
   const now = new Date().toISOString();
+  const nextStatus =
+    params.outcome === "closed_won"
+      ? "closed_won"
+      : params.outcome === "reported_to_admin"
+        ? "reported"
+        : params.outcome === "contacting"
+          ? "in_contact"
+          : params.outcome === "viewing_scheduled"
+            ? "viewing_scheduled"
+            : lead.status;
   const updated: BuyerLead = {
     ...lead,
     leadContactOutcome: params.outcome,
     contactRevealStatus: deriveContactRevealStatusAfterOutcome(params.outcome),
-    status: params.outcome === "closed_won" ? "closed_won" : lead.status,
+    status: nextStatus,
     updatedAt: now,
   };
   await params.repository.updateBuyerLead(updated);
@@ -196,11 +206,12 @@ export async function getSellerMaskedQueueForListing(
   return toSellerMaskedQueue(leads, listingId);
 }
 
-/** Ensures seller masked rows never leak another buyer's full phone in list view. */
+/** At most one queue row may show full phone (the active revealed lead). */
 export function sellerQueueListNeverShowsFullPhoneOfOthers(
   entries: SellerMaskedQueueEntry[]
 ): boolean {
-  return entries.every((e) => e.contactMasked);
+  const unmasked = entries.filter((e) => !e.contactMasked);
+  return unmasked.length <= 1;
 }
 
 export function buyerSelfViewHasOnlyOwnQueueFields(
