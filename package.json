@@ -101,6 +101,7 @@
     "test:v56g-seller-contact-reveal-mvp": "tsx scripts/test-v56g-seller-contact-reveal-mvp.mts",
     "test:v56h-deal-outcome-pending-sale": "tsx scripts/test-v56h-deal-outcome-pending-sale.mts",
     "test:v56h1-cancel-pending-sale-relist": "tsx scripts/test-v56h1-cancel-pending-sale-relist.mts",
+    "test:v56i-manual-success-fee-admin-settlement": "tsx scripts/test-v56i-manual-success-fee-admin-settlement.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",

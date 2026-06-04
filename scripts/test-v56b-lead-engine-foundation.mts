@@ -103,11 +103,12 @@ ok(
   !shouldHideListingFromMarketplace("sale_cancelled")
 );
 
-// --- success fee tiers ---
+// --- success fee tiers (v5.6I pilot formula) ---
 for (const { maxClosePrice, fee } of SUCCESS_FEE_TIER_EXAMPLES) {
   ok(`tier fee at ${maxClosePrice}`, calculateSuccessFeeByTier(maxClosePrice) === fee);
 }
-ok("tier at 100_001", calculateSuccessFeeByTier(100_001) === 1_000);
+ok("tier at 100_000", calculateSuccessFeeByTier(100_000) === 1_000);
+ok("tier at 99_999", calculateSuccessFeeByTier(99_999) === 500);
 ok("tier at 1", calculateSuccessFeeByTier(1) === 500);
 
 // --- suspicious report: no auto penalty ---
@@ -140,10 +141,10 @@ ok("tier at 1", calculateSuccessFeeByTier(1) === 500);
 {
   const balance = computeSettlementBalance({
     feeAmount: 1_000,
-    amountReceived: 400,
-    amountWaived: 0,
+    paidAmount: 400,
+    waivedAmount: 0,
   });
-  ok("partial payment outstanding", balance.outstanding === 600);
+  ok("partial payment remaining", balance.remainingAmount === 600);
   ok("partially_paid status", deriveSettlementStatus(balance) === "partially_paid");
 }
 

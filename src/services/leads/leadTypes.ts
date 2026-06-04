@@ -75,6 +75,13 @@ export type SellerSkipReason =
   | "suspected_inaccurate"
   | "other";
 
+/** v5.6I pilot default policy id. */
+export type SuccessFeePolicyType =
+  | "hundred_thousand_floor_tier"
+  | "percent"
+  | "manual_adjusted";
+
+/** @deprecated v5.6B — maps to SuccessFeePolicyType in new records. */
 export type SuccessFeeModel = "tier_b" | "percent_1";
 
 export type TrustRewardTier = "none" | "silver" | "gold" | "platinum";
@@ -205,21 +212,34 @@ export interface SuccessFeePaymentLogEntry {
   recordedByAdminId: string;
 }
 
+/** Alias for admin manual payment log (v5.6I). */
+export type SettlementPaymentRecord = SuccessFeePaymentLogEntry;
+
 export interface SuccessFeeRecord {
   id: string;
-  dealOutcomeId: string;
-  buyerLeadId: string;
   listingId: string;
+  buyerLeadId: string;
   sellerId: string;
-  feeModel: SuccessFeeModel;
+  /** Member owner scope when distinct from dealer sellerId. */
+  ownerId?: string;
+  dealOutcomeId: string;
+  /** v5.6I canonical closed price field. */
+  closedDealPrice: number;
+  /** @deprecated use closedDealPrice — kept for v5.6B compat. */
   closedPrice: number;
   feeAmount: number;
+  feePolicyType: SuccessFeePolicyType;
+  /** @deprecated use feePolicyType */
+  feeModel?: SuccessFeeModel;
+  settlementStatus: SettlementStatus;
+  paidAmount: number;
+  remainingAmount: number;
   amountDue: number;
   amountReceived: number;
   amountWaived: number;
-  settlementStatus: SettlementStatus;
   paymentLogs: SuccessFeePaymentLogEntry[];
   adminNote?: string;
+  dueAt?: string;
   createdAt: string;
   updatedAt: string;
 }
