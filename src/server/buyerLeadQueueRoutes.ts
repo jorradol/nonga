@@ -15,8 +15,14 @@ import {
   sellerRecordQueueOutcome,
   sellerRevealQueueLead,
 } from "../services/leads/buyerLeadQueueService";
+import { resolveListingSellerId } from "../services/leads/buyerLeadService";
 import { sellerSkipQueueLead } from "../services/leads/sellerSkipQueueService";
 import type { LeadContactOutcome } from "../services/leads/leadTypes";
+import {
+  canManageListingWithScope,
+  type OwnerRequestScope,
+} from "./ownerListingAccess";
+import type { MarketplaceCarRecord } from "./marketplaceInventory";
 
 const TERMINAL_OUTCOMES: LeadContactOutcome[] = [
   "unreachable",
@@ -25,6 +31,24 @@ const TERMINAL_OUTCOMES: LeadContactOutcome[] = [
   "closed_won",
   "reported_to_admin",
 ];
+
+function ownerScopeFromAuth(auth: Awaited<ReturnType<typeof getServerAuthContext>>): OwnerRequestScope {
+  return {
+    ownerId: auth.uid,
+    dealerId: auth.dealerId ?? null,
+    isAdmin: canAccessAdmin(auth),
+    role: auth.role,
+    provider: "firebase",
+  };
+}
+
+function canViewSellerQueueForListing(
+  auth: Awaited<ReturnType<typeof getServerAuthContext>>,
+  listing: MarketplaceCarRecord
+): boolean {
+  if (canAccessAdmin(auth)) return true;
+  return canManageListingWithScope(ownerScopeFromAuth(auth), listing);
+}
 
 export function registerBuyerLeadQueueRoutes(
   app: Express,
@@ -58,10 +82,10 @@ export function registerBuyerLeadQueueRoutes(
       if (!listing) {
         return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
       }
-      const sellerId = String(listing.ownerId ?? "").trim();
-      if (sellerId !== auth.uid) {
+      if (!canViewSellerQueueForListing(auth, listing)) {
         return res.status(403).json({ success: false, message: "ไม่มีสิทธิ์ดูคิวนี้ครับ" });
       }
+      const sellerId = resolveListingSellerId(listing);
       const queue = await getSellerMaskedQueueForListing(repository, listingId, sellerId);
       if (!Array.isArray(queue)) {
         return res.status(403).json({ success: false, message: queue.message });

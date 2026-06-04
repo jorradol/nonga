@@ -345,6 +345,7 @@ export default function MyListingsView() {
                   <div className="w-full min-w-0 basis-full shrink-0 grow">
                     <SellerMaskedLeadQueuePanel
                       listingId={car.id}
+                      isListingOwnerContext
                       isDarkMode={isDarkMode}
                     />
                   </div>

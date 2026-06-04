@@ -5,19 +5,33 @@ import {
   fetchSellerMaskedLeadQueue,
   skipSellerQueueLead,
 } from "../../services/leads/sellerLeadQueueApi";
+import {
+  SELLER_QUEUE_NO_LEADS_MESSAGE,
+  SELLER_QUEUE_SYNC_MISMATCH_MESSAGE,
+  shouldHideSellerQueuePanel,
+} from "../../services/leads/sellerLeadQueuePanelMessages";
 import { SELLER_SKIP_REASON_OPTIONS } from "../../services/leads/sellerSkipQueuePolicy";
 import { formatPurchaseMethodLabel } from "../../services/leads/buyerLeadPreview";
 
 type Props = {
   listingId: string;
+  /** My Listings page — owner/dealer context; map 403 to sync/empty not forbidden. */
+  isListingOwnerContext?: boolean;
   isDarkMode?: boolean;
 };
+
+type PanelView = "hidden" | "checking" | "loading" | "queue" | "notice";
 
 const actionBtnBase =
   "w-full min-h-[2.5rem] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold text-left sm:text-center";
 
-export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Props) {
-  const [loading, setLoading] = useState(true);
+export function SellerMaskedLeadQueuePanel({
+  listingId,
+  isListingOwnerContext = false,
+  isDarkMode = true,
+}: Props) {
+  const [view, setView] = useState<PanelView>("checking");
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<SellerMaskedQueueEntry[]>([]);
   const [interestCount, setInterestCount] = useState(0);
@@ -27,19 +41,53 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
   const [skipSubmitting, setSkipSubmitting] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setView((v) => (v === "checking" ? "checking" : "loading"));
     setError(null);
-    const result = await fetchSellerMaskedLeadQueue(listingId);
+    setNotice(null);
+
+    const result = await fetchSellerMaskedLeadQueue(listingId, {
+      isListingOwnerContext,
+    });
+
     if (result.ok === false) {
       setEntries([]);
-      setInterestCount(0);
-      setError(result.message);
-    } else {
-      setEntries(result.entries);
       setInterestCount(result.interestCount);
+      if (
+        shouldHideSellerQueuePanel({
+          interestCount: result.interestCount,
+          entryCount: 0,
+          errorKind: result.errorKind,
+          hidePanel: result.hidePanel,
+        })
+      ) {
+        setView("hidden");
+        return;
+      }
+      setNotice(result.message);
+      setView("notice");
+      return;
     }
-    setLoading(false);
-  }, [listingId]);
+
+    setEntries(result.entries);
+    setInterestCount(result.interestCount);
+
+    if (result.interestCount <= 0 && result.entries.length === 0) {
+      setView("hidden");
+      return;
+    }
+
+    if (result.entries.length === 0) {
+      setNotice(
+        isListingOwnerContext
+          ? SELLER_QUEUE_SYNC_MISMATCH_MESSAGE
+          : SELLER_QUEUE_NO_LEADS_MESSAGE
+      );
+      setView("notice");
+      return;
+    }
+
+    setView("queue");
+  }, [isListingOwnerContext, listingId]);
 
   useEffect(() => {
     void load();
@@ -66,7 +114,11 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
     await load();
   };
 
-  if (loading) {
+  if (view === "hidden" || view === "checking") {
+    return null;
+  }
+
+  if (view === "loading") {
     return (
       <div
         className={`mt-3 w-full min-w-0 p-3 rounded-xl border flex items-center gap-2 text-xs ${panelBorder}`}
@@ -78,48 +130,23 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
     );
   }
 
-  if (error && entries.length === 0) {
+  if (view === "notice") {
     return (
       <div
-        className={`mt-3 w-full min-w-0 p-3 rounded-xl border space-y-2 text-xs ${panelBorder}`}
-        data-testid="seller-lead-queue-error"
+        className={`mt-3 w-full min-w-0 px-3 py-2 rounded-lg border text-[11px] ${panelBorder}`}
+        data-testid="seller-lead-queue-notice"
       >
-        <div className="flex gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-          <span className={muted}>{error}</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800"
-          data-testid="seller-lead-queue-retry"
-        >
-          ลองโหลดใหม่
-        </button>
-      </div>
-    );
-  }
-
-  if (interestCount <= 0 && entries.length === 0) {
-    return null;
-  }
-
-  if (entries.length === 0) {
-    return (
-      <div
-        className={`mt-3 w-full min-w-0 p-3 rounded-xl border text-xs ${panelBorder}`}
-        data-testid="seller-lead-queue-empty"
-      >
-        <p className={`${muted} mb-1`}>
-          มีผู้สนใจ {interestCount} คน — กำลังเตรียมข้อมูลคิวให้ดู
-        </p>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800"
-        >
-          รีเฟรชคิว
-        </button>
+        <p className={muted}>{notice}</p>
+        {notice === SELLER_QUEUE_SYNC_MISMATCH_MESSAGE ? (
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-2 px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800"
+            data-testid="seller-lead-queue-retry"
+          >
+            รีเฟรชคิว
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -141,7 +168,13 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
       </div>
 
       {error ? (
-        <p className="px-3 py-2 text-[11px] text-amber-400 border-b border-slate-800/60">{error}</p>
+        <div
+          className="px-3 py-2 text-[11px] text-amber-400 border-b border-slate-800/60 flex gap-2 items-start"
+          data-testid="seller-lead-queue-error"
+        >
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
       ) : null}
 
       <ul className="divide-y divide-slate-800/80">

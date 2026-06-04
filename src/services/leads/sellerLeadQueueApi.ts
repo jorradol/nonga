@@ -4,29 +4,75 @@
 
 import { requireFirebaseAuthHeaders } from "../auth/firebaseAuthHeaders";
 import type { SellerMaskedQueueEntry, SellerSkipReason } from "./leadTypes";
+import {
+  mapSellerQueueFetchError,
+  type SellerLeadQueuePanelErrorKind,
+} from "./sellerLeadQueuePanelMessages";
+
+export type SellerMaskedLeadQueueFetchResult =
+  | { ok: true; entries: SellerMaskedQueueEntry[]; interestCount: number }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      errorKind: SellerLeadQueuePanelErrorKind;
+      hidePanel: boolean;
+      interestCount: number;
+    };
+
+export async function fetchListingInterestCount(listingId: string): Promise<number> {
+  try {
+    const res = await fetch(
+      `/api/listings/${encodeURIComponent(listingId)}/interest-queue-stats`,
+      { cache: "no-store" }
+    );
+    const json = (await res.json().catch(() => null)) as {
+      success?: boolean;
+      data?: { interestCount?: number };
+    } | null;
+    if (!res.ok || !json?.success || !json.data) return 0;
+    const n = json.data.interestCount;
+    return typeof n === "number" && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export async function fetchSellerMaskedLeadQueue(
-  listingId: string
-): Promise<
-  | { ok: true; entries: SellerMaskedQueueEntry[]; interestCount: number }
-  | { ok: false; status: number; message: string }
-> {
+  listingId: string,
+  options?: { isListingOwnerContext?: boolean; knownInterestCount?: number }
+): Promise<SellerMaskedLeadQueueFetchResult> {
+  const interestFromStats =
+    options?.knownInterestCount ??
+    (await fetchListingInterestCount(listingId));
+
+  if (interestFromStats <= 0) {
+    return { ok: true, entries: [], interestCount: 0 };
+  }
+
   let headers: HeadersInit;
   try {
     headers = await requireFirebaseAuthHeaders();
   } catch {
-    return { ok: false, status: 401, message: "กรุณาเข้าสู่ระบบก่อนดูคิวผู้สนใจครับ" };
+    const mapped = mapSellerQueueFetchError({
+      status: 401,
+      interestCount: interestFromStats,
+      isListingOwnerContext: options?.isListingOwnerContext,
+    });
+    return {
+      ok: false,
+      status: 401,
+      message: mapped.message,
+      errorKind: mapped.kind,
+      hidePanel: mapped.hidePanel,
+      interestCount: interestFromStats,
+    };
   }
 
-  const [queueRes, statsRes] = await Promise.all([
-    fetch(`/api/seller/listings/${encodeURIComponent(listingId)}/buyer-lead-queue`, {
-      headers,
-      cache: "no-store",
-    }),
-    fetch(`/api/listings/${encodeURIComponent(listingId)}/interest-queue-stats`, {
-      cache: "no-store",
-    }),
-  ]);
+  const queueRes = await fetch(
+    `/api/seller/listings/${encodeURIComponent(listingId)}/buyer-lead-queue`,
+    { headers, cache: "no-store" }
+  );
 
   const queueJson = (await queueRes.json().catch(() => null)) as {
     success?: boolean;
@@ -35,24 +81,27 @@ export async function fetchSellerMaskedLeadQueue(
   } | null;
 
   if (!queueRes.ok || !queueJson?.success || !Array.isArray(queueJson.data)) {
+    const mapped = mapSellerQueueFetchError({
+      status: queueRes.status,
+      message: queueJson?.message,
+      interestCount: interestFromStats,
+      isListingOwnerContext: options?.isListingOwnerContext,
+    });
     return {
       ok: false,
       status: queueRes.status,
-      message: queueJson?.message || "โหลดคิวผู้สนใจไม่สำเร็จ",
+      message: mapped.message,
+      errorKind: mapped.kind,
+      hidePanel: mapped.hidePanel,
+      interestCount: interestFromStats,
     };
   }
 
-  let interestCount = queueJson.data.length;
-  const statsJson = (await statsRes.json().catch(() => null)) as {
-    success?: boolean;
-    data?: { interestCount?: number };
-  } | null;
-  if (statsRes.ok && statsJson?.success && statsJson.data) {
-    const n = statsJson.data.interestCount;
-    if (typeof n === "number" && n >= 0) interestCount = n;
-  }
-
-  return { ok: true, entries: queueJson.data, interestCount };
+  return {
+    ok: true,
+    entries: queueJson.data,
+    interestCount: interestFromStats,
+  };
 }
 
 export async function skipSellerQueueLead(params: {
