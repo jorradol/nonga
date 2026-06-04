@@ -261,7 +261,7 @@ export default function MyListingsView() {
             return (
               <article
                 key={car.id}
-                className={`p-4 rounded-2xl border flex flex-col lg:flex-row gap-4 ${panel}`}
+                className={`p-4 rounded-2xl border flex flex-col lg:flex-row lg:flex-wrap gap-4 ${panel}`}
               >
                 <img
                   key={`${car.id}-cover`}
@@ -342,7 +342,7 @@ export default function MyListingsView() {
                   </button>
                 </div>
                 {ownerId ? (
-                  <div className="w-full lg:basis-full">
+                  <div className="w-full min-w-0 basis-full shrink-0 grow">
                     <SellerMaskedLeadQueuePanel
                       listingId={car.id}
                       isDarkMode={isDarkMode}

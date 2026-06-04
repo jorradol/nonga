@@ -204,6 +204,22 @@ for (const reason of [
   ok("error retry in UI", src.includes("seller-lead-queue-retry"));
 }
 
+// --- v5.6E.4 layout: no overlap / vertical actions ---
+{
+  const panel = readFileSync("src/components/leads/SellerMaskedLeadQueuePanel.tsx", "utf8");
+  const listings = readFileSync("src/components/MyListingsView.tsx", "utf8");
+  ok("panel no overflow-hidden clip", !panel.includes("overflow-hidden"));
+  ok("actions column layout marker", panel.includes('data-layout="seller-lead-queue-actions-column"'));
+  ok("actions use flex-col stack", panel.includes("flex flex-col gap-2 w-full"));
+  ok("action buttons full width", panel.includes("w-full min-h-[2.5rem]"));
+  ok("skip form block marker", panel.includes('data-layout="seller-lead-queue-skip-form-block"'));
+  ok("skip form actions column on mobile", panel.includes("seller-lead-skip-form-actions"));
+  ok("skip note textarea block visible", panel.includes("seller-lead-skip-note") && panel.includes("min-h-[4.5rem]"));
+  ok("reveal before skip in source order", panel.indexOf("seller-lead-reveal-btn") < panel.indexOf("seller-lead-skip-btn"));
+  ok("my listings card flex-wrap desktop", listings.includes("lg:flex-wrap"));
+  ok("queue panel wrapper full width row", listings.includes("basis-full shrink-0 grow"));
+}
+
 // --- route auth guard strings (skip/reveal owner-only) ---
 {
   const routes = readFileSync("src/server/buyerLeadQueueRoutes.ts", "utf8");
