@@ -197,6 +197,8 @@ ok("not visible public", !isVisibleOnMarketplace(pending));
   ok("cancel route", routes.includes("cancel-pending-sale"));
   ok("cancel btn", panel.includes("my-listings-cancel-pending-sale-btn"));
   ok("confirm copy", panel.includes("CANCEL_PENDING_SALE_CONFIRM_MESSAGE"));
+  ok("cancel success refetches listings", panel.includes("await load();"));
+  ok("revenue refresh after cancel", panel.includes("setRevenueRefreshKey"));
   ok("no payment", !routes.includes("successFee"));
 }
 

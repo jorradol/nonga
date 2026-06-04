@@ -104,6 +104,7 @@
     "test:v56i-manual-success-fee-admin-settlement": "tsx scripts/test-v56i-manual-success-fee-admin-settlement.mts",
     "test:v56i1-admin-revenue-dashboard-preview": "tsx scripts/test-v56i1-admin-revenue-dashboard-preview.mts",
     "test:v56i3-revenue-backend-source-seller-statements": "tsx scripts/test-v56i3-revenue-backend-source-seller-statements.mts",
+    "test:v56i3a-my-listings-cancel-pending-sale-refresh": "tsx scripts/test-v56i3a-my-listings-cancel-pending-sale-refresh.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",

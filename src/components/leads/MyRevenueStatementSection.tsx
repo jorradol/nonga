@@ -12,11 +12,14 @@ import { AlertTriangle, Banknote, Loader2, Lock } from "lucide-react";
 export type MyRevenueStatementSectionProps = {
   scope: MyListingsApiScope;
   isDarkMode?: boolean;
+  /** Increment from parent after listing actions to refetch revenue preview. */
+  refreshKey?: number;
 };
 
 export function MyRevenueStatementSection({
   scope,
   isDarkMode = true,
+  refreshKey = 0,
 }: MyRevenueStatementSectionProps) {
   const [payload, setPayload] = useState<SellerRevenuePreviewApiPayload | null>(
     null
@@ -43,11 +46,11 @@ export function MyRevenueStatementSection({
     } finally {
       setLoading(false);
     }
-  }, [scope]);
+  }, [scope, refreshKey]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const border = isDarkMode ? "border-emerald-500/25 bg-emerald-950/10" : "border-emerald-200 bg-emerald-50/50";
 
@@ -56,6 +59,7 @@ export function MyRevenueStatementSection({
       className={`rounded-2xl border p-5 space-y-4 text-left ${border}`}
       data-testid="my-revenue-statement-preview"
       data-readonly="true"
+      data-refresh-key={refreshKey}
     >
       <div className="flex flex-wrap items-start gap-3">
         <Banknote className="w-5 h-5 text-emerald-500 shrink-0" />

@@ -60,6 +60,7 @@ export default function MyListingsView() {
   const [editingCar, setEditingCar] = useState<Car | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
   const [cancelPendingSaleId, setCancelPendingSaleId] = useState<string | null>(null);
+  const [revenueRefreshKey, setRevenueRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     if (!ownerId) {
@@ -105,10 +106,9 @@ export default function MyListingsView() {
     setActionId(car.id);
     try {
       const result = await cancelPendingSaleRelist(listingApiScope, car.id);
-      setMyCars((list) =>
-        list.map((c) => (c.id === result.car.id ? result.car : c))
-      );
       setCancelPendingSaleId(null);
+      await load();
+      setRevenueRefreshKey((key) => key + 1);
       await fetchCars();
       if (result.published) {
         notifySuccess("กลับไปขายต่อแล้วค่ะ", result.message);
@@ -240,7 +240,11 @@ export default function MyListingsView() {
       </div>
 
       {ownerId ? (
-        <MyRevenueStatementSection scope={listingApiScope} isDarkMode={isDarkMode} />
+        <MyRevenueStatementSection
+          scope={listingApiScope}
+          isDarkMode={isDarkMode}
+          refreshKey={revenueRefreshKey}
+        />
       ) : null}
 
       {loadFailed && (
