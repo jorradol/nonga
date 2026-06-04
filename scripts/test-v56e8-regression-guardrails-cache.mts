@@ -19,11 +19,17 @@ const firebase = JSON.parse(firebaseJson) as {
   const headers = firebase.hosting?.headers ?? [];
   const assets = headers.find((h) => h.source === "/assets/**");
   const indexHtml = headers.find((h) => h.source === "/index.html");
-  ok("hosting headers block exists", headers.length >= 2);
+  const rootShell = headers.find((h) => h.source === "/");
+  ok("hosting headers block exists", headers.length >= 3);
   const assetsCc = assets?.headers?.find((h) => h.key === "Cache-Control")?.value ?? "";
   ok("assets immutable cache", assetsCc.includes("immutable") && assetsCc.includes("31536000"), assetsCc);
   const indexCc = indexHtml?.headers?.find((h) => h.key === "Cache-Control")?.value ?? "";
   ok("index.html no-cache", indexCc === "no-cache", indexCc);
+  const rootCc = rootShell?.headers?.find((h) => h.key === "Cache-Control")?.value ?? "";
+  ok("root shell no-cache", rootCc === "no-cache", rootCc);
+  const assetsIdx = headers.findIndex((h) => h.source === "/assets/**");
+  const rootIdx = headers.findIndex((h) => h.source === "/");
+  ok("assets header listed before root shell", assetsIdx >= 0 && rootIdx > assetsIdx, `${assetsIdx} vs ${rootIdx}`);
   ok("rewrites still include api", firebaseJson.includes('"/api/**"'));
   ok("rewrites still include storage listings", firebaseJson.includes('"/storage/listings/**"'));
 }
@@ -92,6 +98,7 @@ const firebase = JSON.parse(firebaseJson) as {
   const doc = readFileSync("docs/v5.6E.8-regression-guardrails-and-cache.md", "utf8");
   ok("doc has pre-deploy checklist", doc.includes("Pre-deploy regression checklist"));
   ok("doc documents cache headers", doc.includes("no-cache") && doc.includes("immutable"));
+  ok("doc documents root shell E.8a", doc.includes("v5.6E.8a") && doc.includes('`/`'));
   ok("doc lists known visual drift", doc.includes("Known visual drift"));
 }
 
