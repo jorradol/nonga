@@ -125,7 +125,7 @@ function ok(name: string, pass: boolean, detail = "") {
   ok("listing cover intact", cover.includes("ListingCoverImage"));
 }
 
-// --- preview component read-only, not wired ---
+// --- preview component read-only, wired v5.6J.1 ---
 {
   const preview = readFileSync(
     "src/components/admin/ai/SmartSalesAiControlPreview.tsx",
@@ -133,10 +133,33 @@ function ok(name: string, pass: boolean, detail = "") {
   );
   ok("preview read-only flag", preview.includes('data-readonly="true"'));
   ok("preview testid", preview.includes("smart-sales-ai-control-preview"));
+  ok(
+    "preview readonly badge testid",
+    preview.includes("smart-sales-ai-control-readonly-badge")
+  );
+  ok(
+    "preview section title",
+    preview.includes("Smart Sales AI Control Center")
+  );
+  ok("preview api cost warning", preview.includes("ค่า API"));
+  ok("preview full_ai blocked copy", preview.includes("full_ai"));
+  ok("preview mode select disabled", preview.includes("disabled"));
+  ok("preview no save button", !preview.includes('type="submit"'));
+  ok("preview no gemini fetch", !preview.includes("generateContent"));
   const dash = readFileSync("src/components/admin/AdminDashboardView.tsx", "utf8");
   ok(
-    "preview not imported in dashboard v56j",
-    !dash.includes("SmartSalesAiControlPreview")
+    "preview wired in dashboard",
+    dash.includes("SmartSalesAiControlPreview")
+  );
+  ok(
+    "preview superadmin guard only",
+    dash.includes('effectiveAdminRole === "superadmin"') &&
+      dash.includes("<SmartSalesAiControlPreview")
+  );
+  ok("AIControlCenter still present", dash.includes("<AIControlCenter"));
+  ok(
+    "ai-control tab unchanged id",
+    dash.includes('adminState.activeTab === "ai-control"')
   );
 }
 

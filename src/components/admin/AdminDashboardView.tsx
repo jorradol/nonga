@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AIControlCenter from "./ai/AIControlCenter";
+import { SmartSalesAiControlPreview } from "./ai/SmartSalesAiControlPreview";
 
 // Robust mock charts data set
 const growthTrendData = [
@@ -1279,7 +1280,12 @@ export default function AdminDashboardView() {
         )}
 
         {adminState.activeTab === "ai-control" && (
-          <AIControlCenter />
+          <div className="space-y-6" data-testid="admin-ai-control-tab-panel">
+            {effectiveAdminRole === "superadmin" && (
+              <SmartSalesAiControlPreview />
+            )}
+            <AIControlCenter />
+          </div>
         )}
 
       </div>
