@@ -13,8 +13,10 @@ import {
   MessageSquare, History, CreditCard, TrendingUp, Search, 
   Filter, CheckSquare, Square, Trash2, Mail, Phone, Calendar, 
   AlertTriangle, Check, X, RefreshCw, Send, Plus, Eye, Key,
-  FileText, Activity, MoreVertical, LayoutGrid, CheckCircle2, Upload
+  FileText, Activity, MoreVertical, LayoutGrid, CheckCircle2, Upload,
+  Banknote
 } from "lucide-react";
+import { AdminRevenueDashboardPreview } from "./revenue/AdminRevenueDashboardPreview";
 import { motion, AnimatePresence } from "motion/react";
 import AIControlCenter from "./ai/AIControlCenter";
 import { SmartSalesAiControlPreview } from "./ai/SmartSalesAiControlPreview";
@@ -98,6 +100,13 @@ export default function AdminDashboardView() {
     const matchesType = adminState.listingTypeFilter === "all" || car.type === adminState.listingTypeFilter;
     return matchesSearch && matchesType;
   });
+
+  const pendingSaleListingsCount = adminState.cars.filter(
+    (car) => car.saleStatus === "pending_sale"
+  ).length;
+
+  const showAdminRevenuePreview =
+    effectiveAdminRole === "superadmin" || effectiveAdminRole === "admin";
 
   const filteredTickets = adminState.tickets.filter((t) => {
     const matchesPriority = adminState.ticketPriorityFilter === "all" || t.priority === adminState.ticketPriorityFilter;
@@ -293,6 +302,20 @@ export default function AdminDashboardView() {
               <Sparkles className="w-4 h-4 text-orange-400" />
               <span>แผงควบคุม AI Nong A 🤖</span>
             </button>
+
+            {showAdminRevenuePreview && (
+              <button
+                onClick={() => adminState.setActiveTab("revenue-preview")}
+                className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition ${
+                  adminState.activeTab === "revenue-preview"
+                    ? "bg-orange-600 text-white shadow"
+                    : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
+                }`}
+              >
+                <Banknote className="w-4 h-4 text-emerald-400" />
+                <span>รายได้ / ค่าบริการเมื่อขายสำเร็จ</span>
+              </button>
+            )}
 
             <button
               onClick={() => adminState.setActiveTab("logs")}
@@ -1285,6 +1308,14 @@ export default function AdminDashboardView() {
               <SmartSalesAiControlPreview />
             )}
             <AIControlCenter />
+          </div>
+        )}
+
+        {adminState.activeTab === "revenue-preview" && showAdminRevenuePreview && (
+          <div data-testid="admin-revenue-preview-tab-panel">
+            <AdminRevenueDashboardPreview
+              pendingSaleListingsCount={pendingSaleListingsCount}
+            />
           </div>
         )}
 

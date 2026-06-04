@@ -18,7 +18,16 @@ interface AdminState {
   };
   
   // Tab control
-  activeTab: "dashboard" | "users" | "listings" | "dealers" | "tickets" | "moderation" | "logs" | "ai-control";
+  activeTab:
+    | "dashboard"
+    | "users"
+    | "listings"
+    | "dealers"
+    | "tickets"
+    | "moderation"
+    | "logs"
+    | "ai-control"
+    | "revenue-preview";
   setActiveTab: (tab: AdminState["activeTab"]) => void;
   
   // Set simulated Role
