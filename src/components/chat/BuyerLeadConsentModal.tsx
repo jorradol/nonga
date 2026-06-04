@@ -5,6 +5,7 @@ import {
   BUYER_LEAD_MODAL_CONSENT_CONTACT,
   BUYER_LEAD_MODAL_CONSENT_PRIMARY,
   BUYER_LEAD_MODAL_PHONE_INVALID_HINT,
+  BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL,
 } from "../../services/leads/buyerLeadConsentModalCopy";
 import { normalizeThaiPhone } from "../../services/leads/buyerLeadValidation";
 import type { BuyerLeadModalPreview } from "../../services/leads/buyerLeadPreview";
@@ -13,6 +14,7 @@ export type BuyerLeadConsentModalProps = {
   open: boolean;
   preview: BuyerLeadModalPreview | null;
   isSubmitting: boolean;
+  submitError?: string | null;
   onClose: () => void;
   onBackToEdit: () => void;
   onConfirm: (contactPhone: string) => void;
@@ -22,6 +24,7 @@ export function BuyerLeadConsentModal({
   open,
   preview,
   isSubmitting,
+  submitError = null,
   onClose,
   onBackToEdit,
   onConfirm,
@@ -171,6 +174,15 @@ export function BuyerLeadConsentModal({
           </div>
 
           <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+            {submitError ? (
+              <p
+                className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+                role="alert"
+                data-testid="buyer-lead-modal-submit-error"
+              >
+                {submitError}
+              </p>
+            ) : null}
             <button
               type="button"
               disabled={!preview || !canConfirm || isSubmitting}
@@ -183,7 +195,7 @@ export function BuyerLeadConsentModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  กำลังส่ง…
+                  {BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL}
                 </>
               ) : (
                 "ยืนยันส่งข้อมูลให้ผู้ขาย"

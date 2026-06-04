@@ -1993,7 +1993,8 @@ export function useChat() {
 
   const submitBuyerLeadConsent = useCallback(
     async (contactPhone: string): Promise<{ ok: boolean; message?: string }> => {
-      const sessionId = activeSessionId;
+      const sessionId =
+        useBuyerLeadCaptureStore.getState().consentModalSessionId ?? activeSessionId;
       if (!sessionId) {
         return { ok: false, message: "ไม่พบบทสนทนาที่ใช้งาน" };
       }
@@ -2004,9 +2005,17 @@ export function useChat() {
         buyerUserId: user?.uid,
       });
       if (result.ok === true) {
-        useBuyerLeadCaptureStore.getState().closeConsentModal();
-        await addMessage(sessionId, "ai", result.reply);
-        return { ok: true };
+        try {
+          await addMessage(sessionId, "ai", result.reply);
+          useBuyerLeadCaptureStore.getState().closeConsentModal();
+          return { ok: true };
+        } catch {
+          return {
+            ok: false,
+            message:
+              "บันทึกข้อมูลแล้ว แต่แสดงผลในแชทไม่สำเร็จ กรุณารีเฟรชหน้าแล้วตรวจสอบคิวอีกครั้ง",
+          };
+        }
       }
       const failed = result;
       if (failed.requireLogin) {

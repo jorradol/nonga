@@ -5,7 +5,33 @@
 import { requireFirebaseAuthHeaders } from "../auth/firebaseAuthHeaders";
 import type { PublicBuyerLead } from "./buyerLeadView";
 import type { PurchaseMethod } from "./leadTypes";
+import {
+  BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR,
+  BUYER_LEAD_MODAL_SUBMIT_NETWORK_ERROR,
+  BUYER_LEAD_MODAL_SUBMIT_SESSION_ERROR,
+} from "./buyerLeadConsentModalCopy";
 import { BUYER_LEAD_CONSENT_VERSION } from "./buyerLeadValidation";
+
+/** Maps POST /api/buyer-leads HTTP status to user-facing Thai copy (no PII). */
+export function mapBuyerLeadHttpError(
+  status: number,
+  serverMessage?: string
+): string {
+  const trimmed = serverMessage?.trim();
+  if (status === 401) {
+    return BUYER_LEAD_MODAL_SUBMIT_SESSION_ERROR;
+  }
+  if (status === 403) {
+    return trimmed || "ไม่มีสิทธิ์ส่งข้อมูลในตอนนี้ กรุณาลองใหม่อีกครั้ง";
+  }
+  if (status === 400 || status === 404) {
+    return trimmed || "ข้อมูลไม่ครบหรือไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง";
+  }
+  if (status >= 500) {
+    return BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR;
+  }
+  return trimmed || BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR;
+}
 
 export interface CreateBuyerLeadApiParams {
   listingId: string;
@@ -31,18 +57,23 @@ export async function createBuyerLeadFromChat(
   } catch {
     return {
       ok: false,
-      message: "กรุณาเข้าสู่ระบบก่อนส่งข้อมูลให้ผู้ขายครับ",
+      message: BUYER_LEAD_MODAL_SUBMIT_SESSION_ERROR,
     };
   }
 
-  const res = await fetch("/api/buyer-leads", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      ...params,
-      consentVersion: BUYER_LEAD_CONSENT_VERSION,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/buyer-leads", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        ...params,
+        consentVersion: BUYER_LEAD_CONSENT_VERSION,
+      }),
+    });
+  } catch {
+    return { ok: false, message: BUYER_LEAD_MODAL_SUBMIT_NETWORK_ERROR };
+  }
 
   const json = (await res.json().catch(() => null)) as {
     success?: boolean;
@@ -52,7 +83,10 @@ export async function createBuyerLeadFromChat(
   } | null;
 
   if (!res.ok || !json?.success || !json.data) {
-    return { ok: false, message: json?.message || "บันทึกลีดไม่สำเร็จ" };
+    return {
+      ok: false,
+      message: mapBuyerLeadHttpError(res.status, json?.message),
+    };
   }
   return {
     ok: true,

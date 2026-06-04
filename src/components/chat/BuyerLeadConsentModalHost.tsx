@@ -6,6 +6,7 @@ import {
   resolveBuyerLeadTargetForFields,
 } from "../../services/leads/buyerLeadCaptureFlow";
 import { buildBuyerLeadModalPreview } from "../../services/leads/buyerLeadPreview";
+import { BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR } from "../../services/leads/buyerLeadConsentModalCopy";
 import { BuyerLeadConsentModal } from "./BuyerLeadConsentModal";
 
 /**
@@ -16,6 +17,7 @@ export function BuyerLeadConsentModalHost() {
     useBuyerLeadCaptureStore();
   const { activeSessionId, submitBuyerLeadConsent } = useChatContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const sessionId = consentModalSessionId ?? activeSessionId;
 
@@ -28,12 +30,24 @@ export function BuyerLeadConsentModalHost() {
   }, [consentModalOpen, sessionId]);
 
   const handleConfirm = async (phone: string) => {
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
-      await submitBuyerLeadConsent(phone);
+      const result = await submitBuyerLeadConsent(phone);
+      if (!result.ok) {
+        setSubmitError(result.message?.trim() || BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR);
+      }
+    } catch {
+      setSubmitError(BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleClose = () => {
+    if (isSubmitting) return;
+    setSubmitError(null);
+    closeConsentModal();
   };
 
   return (
@@ -41,8 +55,9 @@ export function BuyerLeadConsentModalHost() {
       open={consentModalOpen}
       preview={preview}
       isSubmitting={isSubmitting}
-      onClose={closeConsentModal}
-      onBackToEdit={closeConsentModal}
+      submitError={submitError}
+      onClose={handleClose}
+      onBackToEdit={handleClose}
       onConfirm={handleConfirm}
     />
   );
