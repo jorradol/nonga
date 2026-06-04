@@ -30,6 +30,7 @@ import {
   revokeDraftImageEditState,
   type DraftImageEditState,
 } from "./DealerDraftImageSection";
+import { ListingCoverImage } from "../listings/ListingCoverImage";
 
 interface Props {
   apiHeaders: DealerApiHeaders;
@@ -266,7 +267,18 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
               }`}
             >
               <div className="flex flex-wrap justify-between gap-2">
-                <div className="min-w-0 flex-1">
+                <div className="flex gap-3 min-w-0 flex-1">
+                  <div className="relative w-24 h-16 sm:w-28 sm:h-20 shrink-0 rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
+                    <ListingCoverImage
+                      listingId={c.id}
+                      images={c.images}
+                      alt={c.title}
+                      className="w-full h-full object-cover"
+                      testId="dealer-inventory-card-cover-image"
+                      showPlaceholderIcon
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-sm">{c.title}</h3>
                     <DuplicateBadge
@@ -290,6 +302,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                     }
                     className="mt-1"
                   />
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 shrink-0">
                   <button

@@ -15,7 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { devClientMarketplaceLog } from "../utils/marketplaceCarMapper";
-import { getListingPrimaryImage } from "../utils/listingImages";
+import { ListingCoverImage } from "./listings/ListingCoverImage";
 import { useNotifyStore } from "../stores/notifyStore";
 import EditListingModal from "./listings/EditListingModal";
 import {
@@ -270,13 +270,15 @@ export default function MyListingsView() {
                   data-testid="my-listings-card-main"
                   data-layout="my-listings-card-main-row"
                 >
-                <img
-                  key={`${car.id}-cover`}
-                  src={getListingPrimaryImage(car)}
-                  alt={car.title}
-                  className="w-full lg:w-44 h-28 object-cover rounded-xl bg-slate-800 shrink-0"
-                  data-testid="my-listings-card-image"
-                />
+                <div className="relative w-full lg:w-44 h-28 shrink-0 rounded-xl overflow-hidden bg-slate-800">
+                  <ListingCoverImage
+                    listingId={car.id}
+                    images={car.images}
+                    alt={car.title}
+                    className="w-full h-full object-cover"
+                    testId="my-listings-card-image"
+                  />
+                </div>
                 <div className="flex-1 space-y-2 text-left min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold text-sm truncate">{car.title}</h3>

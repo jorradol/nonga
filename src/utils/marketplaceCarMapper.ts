@@ -1,5 +1,5 @@
 import type { Car } from "../types";
-import { sanitizeListingImagesForId } from "./listingImages";
+import { mergeListingRecordImages } from "./listingImages";
 import { redactListingPrivateContactFields } from "./publicMarketplaceListingPrivacy";
 
 const VALID_TYPES = new Set<Car["type"]>([
@@ -67,7 +67,7 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
     price: Number(raw.price) || 0,
   });
 
-  const images = sanitizeListingImagesForId(raw.images, id);
+  const images = mergeListingRecordImages(id, raw);
 
   return {
     id,

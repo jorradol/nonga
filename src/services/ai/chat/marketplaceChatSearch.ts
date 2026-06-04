@@ -1,9 +1,11 @@
 /** Marketplace search for Nong A chat — real inventory only */
 
 import {
+  collectListingImageCandidates,
   extractStorageListingId,
   isLocalListingImageUrl,
   isValidListingImageUrl,
+  listingImageUrlReferencesListing,
 } from "../../../utils/listingImages";
 import {
   inferVehicleBodyClass,
@@ -138,7 +140,7 @@ function resolveListingImage(car: ChatInventoryCar): {
 /** รูป listing ที่ใช้ในแชท — local path หรือ https จาก API (ไม่ใส่ placeholder) */
 export function resolveChatListingImageUrls(car: ChatInventoryCar): string[] {
   const urls: string[] = [];
-  for (const raw of car.images ?? []) {
+  for (const raw of collectListingImageCandidates(car)) {
     const url = String(raw ?? "").trim();
     if (!isValidListingImageUrl(url, car.id)) continue;
     if (isLocalListingImageUrl(url) && extractStorageListingId(url) !== car.id) {
@@ -147,7 +149,7 @@ export function resolveChatListingImageUrls(car: ChatInventoryCar): string[] {
     if (
       /^https?:\/\//i.test(url) &&
       /listing-images|firebasestorage\.googleapis\.com/i.test(url) &&
-      !url.includes(car.id)
+      !listingImageUrlReferencesListing(url, car.id)
     ) {
       continue;
     }

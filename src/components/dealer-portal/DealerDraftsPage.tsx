@@ -20,6 +20,7 @@ import { validateDraftForPublish } from "../../utils/dealerPublishGuard";
 import { PublishBlockedModal } from "./PublishBlockedModal";
 import { DeleteDraftConfirmModal } from "./DeleteDraftConfirmModal";
 import { DEALER_DRAFTS_PATH } from "../../utils/dealer/dealerDraftNavigation";
+import { ListingCoverImage } from "../listings/ListingCoverImage";
 import {
   buildDraftImagesForSave,
   createDraftImageEditState,
@@ -368,7 +369,18 @@ export function DealerDraftsPage({
               }`}
             >
               <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
-                <div className="min-w-0 flex-1">
+                <div className="flex gap-3 min-w-0 flex-1">
+                  <div className="relative w-24 h-16 sm:w-28 sm:h-20 shrink-0 rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
+                    <ListingCoverImage
+                      listingId={d.id}
+                      images={d.images}
+                      alt={d.title}
+                      className="w-full h-full object-cover"
+                      testId="dealer-draft-card-cover-image"
+                      showPlaceholderIcon
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-sm">{d.title}</h3>
                     <ListingStatusBadge
@@ -434,6 +446,7 @@ export function DealerDraftsPage({
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
                 <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-2 w-full sm:w-auto shrink-0">
                   <button

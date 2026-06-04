@@ -218,7 +218,7 @@ for (const reason of [
   ok("reveal before skip in source order", panel.indexOf("seller-lead-reveal-btn") < panel.indexOf("seller-lead-skip-btn"));
   ok("my listings main row no flex-wrap hack", !listings.includes("lg:flex-wrap"));
   ok("queue section below card via ListingLeadQueueSection", listings.includes("ListingLeadQueueSection"));
-  ok("my listings card image testid", listings.includes('data-testid="my-listings-card-image"'));
+  ok("my listings card image testid", listings.includes('testId="my-listings-card-image"'));
 }
 
 // --- route auth guard strings (skip/reveal owner-only) ---

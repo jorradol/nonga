@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAppStore } from "../store";
 import { Car } from "../types";
-import { getListingPrimaryImage } from "../utils/listingImages";
+import { ListingCoverImage } from "./listings/ListingCoverImage";
 import { resolveMarketplaceUiState } from "../utils/marketplaceUiState";
 import { BoostFrame } from "./boost/BoostBadge";
 import { submitListingReport, type ListingReportReason } from "../services/listings/listingReportApi";
@@ -479,12 +479,12 @@ export default function MarketplaceView() {
                           className="absolute inset-0 z-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-inset"
                           aria-label={`ดูรายละเอียดรถคันนี้: ${car.title}`}
                         >
-                          <img
-                            key={`${car.id}-cover`}
-                            src={getListingPrimaryImage(car)}
-                            alt=""
+                          <ListingCoverImage
+                            listingId={car.id}
+                            images={car.images}
+                            alt={car.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                            referrerPolicy="no-referrer"
+                            testId="marketplace-card-cover-image"
                           />
                         </div>
 

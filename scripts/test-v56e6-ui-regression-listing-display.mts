@@ -16,10 +16,10 @@ const chatCard = readFileSync("src/components/chat/ChatCarCard.tsx", "utf8");
 const marketplace = readFileSync("src/components/MarketplaceView.tsx", "utf8");
 
 // --- My Listings: main card row restored (image + details + actions) ---
-ok("my listings uses getListingPrimaryImage", myListings.includes("getListingPrimaryImage(car)"));
+ok("my listings uses ListingCoverImage", myListings.includes("ListingCoverImage"));
 ok(
-  "my listings image element present",
-  myListings.includes('data-testid="my-listings-card-image"') && myListings.includes("<img")
+  "my listings image testid wired",
+  myListings.includes('testId="my-listings-card-image"')
 );
 ok(
   "my listings image not hidden by overflow-hidden on article",
@@ -50,7 +50,7 @@ ok("panel hidden view returns null", panel.includes('view === "hidden"') && pane
 ok("panel no overflow-hidden on root", !panel.match(/seller-lead-queue-panel[^`]*overflow-hidden/));
 
 // --- Marketplace: image card unchanged pattern ---
-ok("marketplace card image uses getListingPrimaryImage", marketplace.includes("getListingPrimaryImage(car)"));
+ok("marketplace card image uses ListingCoverImage", marketplace.includes("ListingCoverImage"));
 ok(
   "marketplace aspect-video image region",
   marketplace.includes("aspect-video") && marketplace.includes("object-cover")

@@ -33,6 +33,79 @@ function isLegacyStockImage(url: string): boolean {
   return false;
 }
 
+/** Decode path so listing id checks work on Firebase-encoded URLs. */
+export function listingImageUrlReferencesListing(
+  url: string,
+  listingId: string
+): boolean {
+  const id = String(listingId ?? "").trim();
+  if (!id) return true;
+  const raw = String(url ?? "").trim();
+  if (!raw) return false;
+  try {
+    return decodeURIComponent(raw).includes(id) || raw.includes(id);
+  } catch {
+    return raw.includes(id);
+  }
+}
+
+export type ListingImageFieldSource = {
+  images?: unknown;
+  imageUrls?: unknown;
+  imageUrl?: unknown;
+  coverImage?: unknown;
+  gallery?: unknown;
+  primaryImage?: unknown;
+};
+
+function pushListingImageCandidate(out: string[], raw: unknown): void {
+  if (typeof raw !== "string") return;
+  const url = raw.trim();
+  if (!url || out.includes(url)) return;
+  out.push(url);
+}
+
+function pushListingImageCandidates(out: string[], raw: unknown): void {
+  if (Array.isArray(raw)) {
+    for (const item of raw) pushListingImageCandidate(out, item);
+    return;
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    if (trimmed.includes(",") && !/^https?:\/\//i.test(trimmed)) {
+      for (const part of trimmed.split(",")) pushListingImageCandidate(out, part);
+      return;
+    }
+    pushListingImageCandidate(out, trimmed);
+  }
+}
+
+/** Collect image URLs from legacy + current listing record fields (order preserved). */
+export function collectListingImageCandidates(
+  source: ListingImageFieldSource
+): string[] {
+  const out: string[] = [];
+  pushListingImageCandidates(out, source.images);
+  pushListingImageCandidates(out, source.imageUrls);
+  pushListingImageCandidates(out, source.gallery);
+  pushListingImageCandidate(out, source.coverImage);
+  pushListingImageCandidate(out, source.imageUrl);
+  pushListingImageCandidate(out, source.primaryImage);
+  return out;
+}
+
+/** Merge heterogeneous listing image fields then sanitize for display/storage. */
+export function mergeListingRecordImages(
+  listingId: string,
+  source: ListingImageFieldSource
+): string[] {
+  return sanitizeListingImagesForId(
+    collectListingImageCandidates(source),
+    listingId
+  );
+}
+
 /**
  * รูปที่นับว่าเป็นของประกาศนี้ (ตามลำดับใน array — ไม่สลับ local/remote)
  */
@@ -48,14 +121,28 @@ export function isValidListingImageUrl(url: string, listingId: string): boolean 
     return !isLegacyStockImage(u);
   }
 
+  // Firebase / import paths without scheme (legacy rows)
+  if (
+    u.startsWith("listing-images/") &&
+    listingImageUrlReferencesListing(u, listingId)
+  ) {
+    return true;
+  }
+
   return false;
 }
 
 function resolveListingPrimaryImage(
   images: string[] | undefined,
-  listingId: string
+  listingId: string,
+  extra?: ListingImageFieldSource
 ): string {
-  const list = Array.isArray(images) ? images : [];
+  const list =
+    images && images.length > 0
+      ? images
+      : extra
+        ? collectListingImageCandidates(extra)
+        : [];
   for (const raw of list) {
     const url = String(raw ?? "").trim();
     if (isValidListingImageUrl(url, listingId)) return url;
@@ -71,12 +158,12 @@ export function getListingPrimaryImage(
 export function getListingPrimaryImage(car: {
   id: string;
   images?: string[];
-}): string;
+} & ListingImageFieldSource): string;
 export function getListingPrimaryImage(
   imagesOrCar:
     | string[]
     | undefined
-    | { id: string; images?: string[] },
+    | ({ id: string; images?: string[] } & ListingImageFieldSource),
   listingId?: string
 ): string {
   if (
@@ -85,7 +172,12 @@ export function getListingPrimaryImage(
     !Array.isArray(imagesOrCar) &&
     "id" in imagesOrCar
   ) {
-    return resolveListingPrimaryImage(imagesOrCar.images, imagesOrCar.id);
+    const { id, images, ...rest } = imagesOrCar;
+    const merged =
+      images && images.length > 0
+        ? images
+        : collectListingImageCandidates(rest);
+    return resolveListingPrimaryImage(merged, id, rest);
   }
   return resolveListingPrimaryImage(
     imagesOrCar as string[] | undefined,
