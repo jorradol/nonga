@@ -1,9 +1,12 @@
 /**
- * v5.6C — In-memory buyer lead repository (staging-safe MVP, no Firestore rules change).
+ * v5.6C / v5.6F — Buyer lead repository factory (memory default; optional Firestore).
  */
 
 import type { BuyerLead, LeadContactLog } from "../../services/leads/leadTypes";
 import { LEAD_ENGINE_COLLECTIONS } from "../../services/leads/leadTypes";
+import { createFirestoreBuyerLeadRepository } from "./buyerLeadRepositoryFirestore";
+
+export type BuyerLeadDataBackend = "memory" | "firestore";
 
 export interface BuyerLeadRepository {
   createBuyerLead(lead: BuyerLead): Promise<BuyerLead>;
@@ -11,6 +14,13 @@ export interface BuyerLeadRepository {
   listBuyerLeadsByListingId(listingId: string): Promise<BuyerLead[]>;
   updateBuyerLead(lead: BuyerLead): Promise<BuyerLead>;
   appendContactLog(log: LeadContactLog): Promise<LeadContactLog>;
+}
+
+export function resolveBuyerLeadDataBackend(
+  env: Partial<NodeJS.ProcessEnv> = process.env
+): BuyerLeadDataBackend {
+  const v = String(env.NONGA_LEAD_DATA_BACKEND ?? "memory").toLowerCase();
+  return v === "firestore" ? "firestore" : "memory";
 }
 
 class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
@@ -43,17 +53,25 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
 }
 
 let singleton: BuyerLeadRepository | null = null;
+let singletonBackend: BuyerLeadDataBackend | null = null;
 
-export function createBuyerLeadRepository(): BuyerLeadRepository {
-  if (!singleton) {
-    singleton = new InMemoryBuyerLeadRepository();
+export function createBuyerLeadRepository(
+  backend: BuyerLeadDataBackend = resolveBuyerLeadDataBackend()
+): BuyerLeadRepository {
+  if (!singleton || singletonBackend !== backend) {
+    singleton =
+      backend === "firestore"
+        ? createFirestoreBuyerLeadRepository()
+        : new InMemoryBuyerLeadRepository();
+    singletonBackend = backend;
   }
   return singleton;
 }
 
-/** For tests — reset store between runs. */
+/** For tests — reset in-memory store (forces memory backend). */
 export function resetBuyerLeadRepositoryForTests(): void {
   singleton = new InMemoryBuyerLeadRepository();
+  singletonBackend = "memory";
 }
 
 export function buyerLeadsCollectionName(): string {

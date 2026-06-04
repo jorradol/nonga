@@ -1,5 +1,6 @@
 /**
- * v5.6E.1 — Buyer purchase profile reuse (staging in-memory; no phone).
+ * v5.6E.1 / v5.6F — Buyer purchase profile reuse (client/session in-memory; no phone).
+ * Server-side Firestore persistence: see buyerPurchaseProfileRepository.ts (future wire from API).
  */
 
 import type { BuyerLeadDraftFields } from "./buyerLeadCaptureFlow";

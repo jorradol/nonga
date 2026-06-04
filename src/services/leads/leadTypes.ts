@@ -9,6 +9,7 @@
 export const LEAD_ENGINE_COLLECTIONS = {
   buyerLeads: "buyerLeads",
   leadContactLogs: "leadContactLogs",
+  buyerPurchaseProfiles: "buyerPurchaseProfiles",
   dealOutcomes: "dealOutcomes",
   successFeeRecords: "successFeeRecords",
   trustRewardEvents: "trustRewardEvents",
