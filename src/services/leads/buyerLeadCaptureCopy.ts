@@ -21,7 +21,21 @@ export const BUYER_LEAD_LOGIN_REQUIRED_REPLY =
 export const BUYER_LEAD_CANCEL_REPLY =
   "ยกเลิกการส่งข้อมูลให้ผู้ขายแล้วครับ ถ้าสนใจใหม่ พิมพ์ “ขอให้ผู้ขายติดต่อกลับ” ได้เลยครับ";
 
-export function buildBuyerLeadCollectingPrompt(missing: string[]): string {
+export function buildBuyerLeadCollectingPrompt(
+  missing: string[],
+  options?: { compact?: boolean }
+): string {
+  if (options?.compact && missing.length > 0) {
+    return [
+      "รับทราบครับ เกือบครบแล้ว",
+      "",
+      `ยังขาด: ${missing.join(", ")}`,
+      "",
+      "เบอร์โทรจะกรอกในหน้าต่างสรุปก่อนส่งให้ผู้ขายครับ",
+      "",
+      "พิมพ์ “ยกเลิก” ถ้าไม่ต้องการส่งข้อมูลครับ",
+    ].join("\n");
+  }
   const lines = [
     "รับทราบครับ น้องเอช่วยส่งข้อมูลให้ผู้ขายติดต่อกลับเรื่องรถคันที่สนใจได้",
     "",

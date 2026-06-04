@@ -80,7 +80,7 @@ export function extractPhoneFromText(text: string): string | null {
 export function parsePurchaseMethod(text: string): PurchaseMethod | null {
   const t = text.trim();
   if (/เงินสด|ซื้อสด|จ่ายสด/i.test(t)) return "cash";
-  if (/ไฟแนนซ์|ผ่อน|สินเชื่อ/i.test(t)) return "finance";
+  if (/ไฟแนนซ์|ผ่อน(?:ไฟ)?แนนซ์|จัด(?:ไฟ)?แนนซ์|สินเชื่อ/i.test(t)) return "finance";
   if (/ยังไม่แน่ใจ|ยังไม่ตัดสินใจ/i.test(t)) return "undecided";
   return null;
 }

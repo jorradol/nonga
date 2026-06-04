@@ -10,9 +10,9 @@ import {
 import { saveLastSelectedCarId } from "../../utils/chatCarContext";
 import type { ChatCarCardData } from "../../types";
 import {
-  getBuyerPurchaseProfile,
-  profileToDraftFields,
-} from "./buyerPurchaseProfile";
+  mergeNaturalBuyerLeadText,
+  parseBahtFromThaiText,
+} from "./buyerLeadTextParser";
 import {
   containsForbiddenSensitiveDocument,
   isBuyerLeadConsentConfirmation,
@@ -24,6 +24,10 @@ import {
   type BuyerLeadCreateInput,
   BUYER_LEAD_CONSENT_VERSION,
 } from "./buyerLeadValidation";
+import {
+  getBuyerPurchaseProfile,
+  profileToDraftFields,
+} from "./buyerPurchaseProfile";
 
 export type BuyerLeadCaptureStage =
   | "idle"
@@ -62,21 +66,6 @@ const START_INTENT_PATTERNS: RegExp[] = [
 ];
 
 const CANCEL_PATTERNS = [/^ยกเลิก$/i, /ไม่ส่งข้อมูลแล้ว/i];
-
-const NAME_PATTERNS = [
-  /(?:ชื่อ|เรียก)(?:ว่า)?[:\s]*([^\n,]{2,40})/i,
-  /^ชื่อ\s+(.+)$/i,
-];
-
-const CONTACT_WINDOW_PATTERNS = [
-  /สะดวก(?:ติดต่อ)?[:\s]*([^\n]{3,80})/i,
-  /ติดต่อ(?:ได้)?(?:ช่วง|เวลา)[:\s]*([^\n]{3,80})/i,
-];
-
-const BUDGET_PATTERN =
-  /(?:งบประมาณ|ไม่เกิน|งบ)\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
-const OFFER_PATTERN =
-  /(?:ราคาที่เสนอ|เสนอราคา|เสนอ)\s*[:：]?\s*([\d,.]+)\s*(?:แสน|ล้าน|บาท)?/i;
 
 const LINE_DISPLAY_NAME =
   /(?:ชื่อหรือชื่อเล่น|ชื่อเล่น|ชื่อ)\s*[:：]?\s*(.+)$/iu;
@@ -128,16 +117,7 @@ export function isBuyerLeadCancelIntent(message: string): boolean {
 }
 
 export function parseBahtFromText(fragment: string): number | null {
-  const digitMatch = fragment.replace(/,/g, "").match(/([\d.]+)/);
-  if (!digitMatch) return null;
-  const num = Number.parseFloat(digitMatch[1]);
-  if (!Number.isFinite(num) || num <= 0) return null;
-  if (/ล้าน/.test(fragment)) return Math.round(num * 1_000_000);
-  if (/แสน/.test(fragment)) return Math.round(num * 100_000);
-  if (num < 1000 && !/บาท/.test(fragment)) {
-    if (num <= 50) return Math.round(num * 100_000);
-  }
-  return Math.round(num);
+  return parseBahtFromThaiText(fragment);
 }
 
 function mergeBuyerLeadFieldsFromLine(
@@ -176,77 +156,23 @@ function mergeBuyerLeadFieldsFromLine(
   }
 }
 
-function mergeBuyerLeadFieldsFromBlob(
-  next: BuyerLeadDraftFields,
-  blob: string
-): void {
-  const t = blob.trim();
-  if (!t) return;
-
-  for (const pattern of NAME_PATTERNS) {
-    const m = t.match(pattern);
-    if (m?.[1]) {
-      const rawName = m[1].trim();
-      const trimmedName = rawName.split(/\s+(?:เงินสด|ไฟแนนซ์|งบ|เสนอ|สะดวก)/i)[0]?.trim();
-      next.displayName = (trimmedName || rawName).slice(0, 60);
-      break;
-    }
-  }
-  const structuredName = t.match(LINE_DISPLAY_NAME);
-  if (structuredName?.[1]) {
-    next.displayName = structuredName[1].trim().slice(0, 60);
-  }
-
-  if (!next.displayName && t.length >= 2 && t.length <= 40 && !/\d{5,}/.test(t)) {
-    if (/^(?:ผม|ดิฉัน|ฉัน|หนู)?\s*[\u0E00-\u0E7F]{2,30}$/u.test(t)) {
-      next.displayName = t.replace(/^(?:ผม|ดิฉัน|ฉัน|หนู)\s*/u, "").trim();
-    }
-  }
-
-  const method = parsePurchaseMethod(t);
-  if (method) next.purchaseMethod = method;
-
-  const budgetMatch = t.match(BUDGET_PATTERN);
-  if (budgetMatch?.[1]) {
-    const v = parseBahtFromText(budgetMatch[0]);
-    if (v != null) next.budgetMax = v;
-  }
-  const offerMatch = t.match(OFFER_PATTERN);
-  if (offerMatch?.[1]) {
-    const v = parseBahtFromText(offerMatch[0]);
-    if (v != null) next.offeredPrice = v;
-  }
-
-  for (const pattern of CONTACT_WINDOW_PATTERNS) {
-    const m = t.match(pattern);
-    if (m?.[1]) {
-      next.preferredContactWindow = m[1].trim().slice(0, 120);
-      break;
-    }
-  }
-  const structuredContact = t.match(LINE_CONTACT_WINDOW);
-  if (structuredContact?.[1]) {
-    next.preferredContactWindow = structuredContact[1].trim().slice(0, 120);
-  }
-  if (
-    !next.preferredContactWindow &&
-    /(?:เช้า|บ่าย|เย็น|วันหยุด|โทร|ทัก|line|ไลน์|after|ก่อน|หลัง|ห้าโมง)/i.test(t)
-  ) {
-    const contactHint = t.match(LINE_CONTACT_WINDOW);
-    if (contactHint?.[1]) {
-      next.preferredContactWindow = contactHint[1].trim().slice(0, 120);
-    }
-  }
+export function hasPartialBuyerLeadDraftFields(fields: BuyerLeadDraftFields): boolean {
+  return Boolean(
+    fields.displayName?.trim() ||
+      fields.purchaseMethod ||
+      hasBuyerLeadBudgetOrOffer(fields) ||
+      fields.preferredContactWindow?.trim()
+  );
 }
 
 export function mergeBuyerLeadFieldsFromMessage(
   fields: BuyerLeadDraftFields,
   message: string
 ): BuyerLeadDraftFields {
-  const next = { ...fields };
   const trimmed = message.trim();
-  if (!trimmed) return next;
+  if (!trimmed) return { ...fields };
 
+  let next = { ...fields };
   const lines = trimmed
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -258,9 +184,11 @@ export function mergeBuyerLeadFieldsFromMessage(
     }
   }
 
-  mergeBuyerLeadFieldsFromBlob(next, trimmed);
+  const { fields: naturalMerged } = mergeNaturalBuyerLeadText(next, trimmed);
+  next = { ...naturalMerged };
+
   for (const line of lines) {
-    mergeBuyerLeadFieldsFromBlob(next, line);
+    mergeBuyerLeadFieldsFromLine(next, line);
   }
 
   return next;

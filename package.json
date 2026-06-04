@@ -90,6 +90,7 @@
     "test:v56d-buyer-lead-queue": "tsx scripts/test-v56d-buyer-lead-queue.mts",
     "test:v56e-seller-masked-lead-queue": "tsx scripts/test-v56e-seller-masked-lead-queue.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
+    "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
     "test:chat-image-attachment-v1": "tsx scripts/test-chat-image-attachment-v1.mts",
     "test:duplicate-detection": "tsx scripts/test-duplicate-detection.mts",

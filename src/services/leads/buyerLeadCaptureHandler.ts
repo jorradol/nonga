@@ -22,6 +22,7 @@ import {
   clearBuyerLeadCaptureContext,
   draftToCreateInput,
   getBuyerLeadCaptureContext,
+  hasPartialBuyerLeadDraftFields,
   isBuyerLeadCancelIntent,
   listMissingBuyerLeadFields,
   processBuyerLeadCaptureTurn,
@@ -120,7 +121,9 @@ export async function handleBuyerLeadCaptureTurn(
 
   return {
     handled: true,
-    reply: buildBuyerLeadCollectingPrompt(miss),
+    reply: buildBuyerLeadCollectingPrompt(miss, {
+      compact: hasPartialBuyerLeadDraftFields(sessionCtx.fields),
+    }),
   };
 }
 
