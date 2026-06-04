@@ -78,17 +78,47 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
   if (error && entries.length === 0) {
     return (
       <div
-        className={`mt-3 p-3 rounded-xl border flex gap-2 text-xs ${panelBorder}`}
+        className={`mt-3 p-3 rounded-xl border space-y-2 text-xs ${panelBorder}`}
         data-testid="seller-lead-queue-error"
       >
-        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-        <span className={muted}>{error}</span>
+        <div className="flex gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className={muted}>{error}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800"
+          data-testid="seller-lead-queue-retry"
+        >
+          ลองโหลดใหม่
+        </button>
       </div>
     );
   }
 
   if (interestCount <= 0 && entries.length === 0) {
     return null;
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div
+        className={`mt-3 p-3 rounded-xl border text-xs ${panelBorder}`}
+        data-testid="seller-lead-queue-empty"
+      >
+        <p className={`${muted} mb-1`}>
+          มีผู้สนใจ {interestCount} คน — กำลังเตรียมข้อมูลคิวให้ดู
+        </p>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800"
+        >
+          รีเฟรชคิว
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -164,7 +194,7 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
                 data-testid={`seller-lead-reveal-btn-${entry.queuePosition}`}
               >
                 <PhoneOff className="w-3.5 h-3.5" />
-                เปิดข้อมูลติดต่อ
+                เปิดข้อมูลติดต่อ — ยังไม่เปิดในรอบนี้
               </button>
             </div>
           </li>
@@ -207,7 +237,10 @@ export function SellerMaskedLeadQueuePanel({ listingId, isDarkMode = true }: Pro
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={skipSubmitting}
+              disabled={
+                skipSubmitting ||
+                (skipReason === "other" && skipNote.trim().length < 2)
+              }
               onClick={() => void handleSkipConfirm()}
               className="px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-bold disabled:opacity-50"
               data-testid="seller-lead-skip-confirm"
