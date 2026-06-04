@@ -280,6 +280,20 @@ service cloud.firestore {
       allow delete: if isActiveAdmin() || isSuperAdmin();
     }
 
+    // v5.6F.2 — AI Sales Lead Engine (phase 1): server-only via Cloud Run Admin SDK.
+    // Client direct read/write denied; masked queue and PII via API only.
+    match /buyerLeads/{leadId} {
+      allow read, write: if false;
+    }
+
+    match /leadContactLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    match /buyerPurchaseProfiles/{buyerUserId} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -96,6 +96,7 @@
     "test:v56e8-regression-guardrails-cache": "tsx scripts/test-v56e8-regression-guardrails-cache.mts",
     "test:v56f-lead-revenue-foundation": "tsx scripts/test-v56f-lead-revenue-foundation.mts",
     "test:v56f1-firestore-lead-persistence-readiness": "tsx scripts/test-v56f1-firestore-lead-persistence-readiness.mts",
+    "test:v56f2-firestore-lead-rules": "firebase emulators:exec --only firestore --project demo-nonga-v544f \"tsx scripts/test-v56f2-firestore-lead-rules.mts\"",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",

@@ -203,12 +203,14 @@ function makeLead(partial: Partial<BuyerLead> & { id: string; queuePosition: num
   ok("collection leadContactLogs", LEAD_ENGINE_COLLECTIONS.leadContactLogs === "leadContactLogs");
   ok("collection buyerPurchaseProfiles", LEAD_ENGINE_COLLECTIONS.buyerPurchaseProfiles === "buyerPurchaseProfiles");
   const rules = readFileSync("firestore.rules", "utf8");
-  ok("live rules deny buyerLeads match", !rules.includes("match /buyerLeads/"));
-  ok("live rules default deny", rules.includes("allow read, write: if false"));
+  const draftRules = readFileSync("firestore.rules.draft", "utf8");
+  ok("live rules have buyerLeads deny block", rules.includes("match /buyerLeads/{leadId}"));
+  ok("draft rules have buyerLeads deny block", draftRules.includes("match /buyerLeads/{leadId}"));
+  ok("live rules default deny catch-all", rules.includes("allow read, write: if false"));
   const doc = readFileSync("docs/v5.6F.1-firestore-lead-persistence-readiness.md", "utf8");
   ok("doc has staging enable plan", doc.includes("Staging enable plan"));
   ok("doc denies client buyerLeads read", doc.includes("allow read, write: if false"));
-  ok("doc says do not enable firestore yet", doc.includes("ยังไม่เปิด"));
+  ok("doc references v56f2 rules", doc.includes("v5.6F.2") || doc.includes("v56f2"));
 }
 
 // --- firestore repo maps collections ---
