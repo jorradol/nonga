@@ -6,6 +6,7 @@ import type { MarketplaceCarRecord } from "../../server/marketplaceInventory";
 import { resolveCarDealerId } from "../../server/marketplaceInventory";
 import { normalizeDealerId } from "../../utils/dealerIdentity";
 import type { SettlementStatus, SuccessFeePolicyType } from "./leadTypes";
+import type { SettlementAdjustmentAuditEntry, SettlementAdjustmentState } from "./leadTypes";
 import {
   ADMIN_REVENUE_ESTIMATED_PRICE_LABEL,
   ADMIN_REVENUE_PENDING_SALE_PREVIEW_NOTE,
@@ -16,6 +17,10 @@ import {
   type AdminRevenuePreviewRow,
 } from "./adminRevenuePreview";
 import { DEFAULT_SUCCESS_FEE_POLICY, SUCCESS_FEE_USER_FACING_TERM } from "./successFeePolicy";
+import {
+  mergeAdjustmentStateWithPreviewRow,
+  SETTLEMENT_ADJUSTMENT_MANUAL_WARNING,
+} from "./settlementAdjustmentService";
 
 export const REVENUE_PREVIEW_READ_ONLY_BADGE = "Preview / Read-only";
 export const REVENUE_PREVIEW_NO_PAYMENT_WARNING =
@@ -51,6 +56,8 @@ export type RevenuePreviewApiRow = {
   pendingSaleAt?: string;
   adminNote?: string;
   previewAt: string;
+  hasManualAdjustment?: boolean;
+  auditLogPreview?: SettlementAdjustmentAuditEntry[];
 };
 
 export type RevenuePreviewApiSummary = {
@@ -70,6 +77,8 @@ export type RevenuePreviewApiPayload = {
   rows: RevenuePreviewApiRow[];
   readOnly: true;
   previewWarning: string;
+  manualAdjustmentsEnabled: true;
+  manualAdjustmentWarning: string;
   serviceFeeTerm: string;
 };
 
@@ -134,7 +143,11 @@ export function filterListingsForSellerRevenueScope(
 
 export function adminRevenueRowToApiRow(
   row: AdminRevenuePreviewRow,
-  car?: MarketplaceCarRecord
+  car?: MarketplaceCarRecord,
+  options?: {
+    hasManualAdjustment?: boolean;
+    auditLogPreview?: SettlementAdjustmentAuditEntry[];
+  }
 ): RevenuePreviewApiRow {
   const priceSource: RevenuePreviewPriceSource = row.isEstimatedFromListingPrice
     ? "listing_price_estimate"
@@ -167,6 +180,8 @@ export function adminRevenueRowToApiRow(
     pendingSaleAt: car?.pendingSaleAt,
     adminNote: row.adminNotePreview ?? ADMIN_REVENUE_PENDING_SALE_PREVIEW_NOTE,
     previewAt: row.date,
+    hasManualAdjustment: options?.hasManualAdjustment,
+    auditLogPreview: options?.auditLogPreview,
   };
 }
 
@@ -191,37 +206,64 @@ export function buildRevenuePreviewApiSummary(
   };
 }
 
+export type RevenuePreviewAdjustmentOverlay = {
+  statesByListingId?: Map<string, SettlementAdjustmentState>;
+  auditsByListingId?: Map<string, SettlementAdjustmentAuditEntry[]>;
+};
+
 export function buildAdminRevenuePreviewApiPayload(
-  listings: MarketplaceCarRecord[]
+  listings: MarketplaceCarRecord[],
+  overlay?: RevenuePreviewAdjustmentOverlay
 ): RevenuePreviewApiPayload {
   const pending = filterPendingSaleListings(listings);
   const sources = pending.map(marketplaceCarToRevenueListingSource);
   const previewRows = deriveAdminRevenuePreviewRowsFromListings(sources);
   const carById = new Map(pending.map((c) => [c.id, c]));
 
-  const rows = previewRows.map((row) =>
-    adminRevenueRowToApiRow(row, carById.get(row.listingId))
-  );
+  const mergedRows = previewRows.map((row) => {
+    const state = overlay?.statesByListingId?.get(row.listingId) ?? null;
+    return mergeAdjustmentStateWithPreviewRow(row, state);
+  });
+
+  const rows = mergedRows.map((row) => {
+    const audits = overlay?.auditsByListingId?.get(row.listingId);
+    const hasManualAdjustment = Boolean(
+      overlay?.statesByListingId?.has(row.listingId)
+    );
+    return adminRevenueRowToApiRow(row, carById.get(row.listingId), {
+      hasManualAdjustment,
+      auditLogPreview: audits?.length ? audits.slice(-5) : undefined,
+    });
+  });
 
   return {
-    summary: buildRevenuePreviewApiSummary(previewRows, pending.length),
+    summary: buildRevenuePreviewApiSummary(mergedRows, pending.length),
     rows,
     readOnly: true,
     previewWarning: REVENUE_PREVIEW_NO_PAYMENT_WARNING,
+    manualAdjustmentsEnabled: true,
+    manualAdjustmentWarning: SETTLEMENT_ADJUSTMENT_MANUAL_WARNING,
     serviceFeeTerm: SUCCESS_FEE_USER_FACING_TERM,
   };
 }
 
 export function buildSellerRevenuePreviewApiPayload(
   listings: MarketplaceCarRecord[],
-  scope: { ownerId?: string | null; dealerId?: string | null }
+  scope: { ownerId?: string | null; dealerId?: string | null },
+  overlay?: RevenuePreviewAdjustmentOverlay
 ): SellerRevenuePreviewApiPayload {
   const scoped = filterListingsForSellerRevenueScope(listings, scope);
-  const payload = buildAdminRevenuePreviewApiPayload(scoped);
-  const outstandingTotal = payload.rows.reduce(
-    (sum, row) => sum + row.remainingAmount,
-    0
-  );
+  const payload = buildAdminRevenuePreviewApiPayload(scoped, overlay);
+  const outstandingTotal = payload.rows.reduce((sum, row) => {
+    if (
+      row.settlementStatus === "waived" ||
+      row.settlementStatus === "cancelled" ||
+      row.settlementStatus === "paid"
+    ) {
+      return sum;
+    }
+    return sum + row.remainingAmount;
+  }, 0);
 
   return {
     summary: {
@@ -247,7 +289,33 @@ function stripSellerRevenueRowForResponse(
     sellerScopeIdMasked: "—",
     dealerScopeIdMasked: undefined,
     adminNote: undefined,
+    hasManualAdjustment: undefined,
+    auditLogPreview: undefined,
   };
+}
+
+export async function loadRevenuePreviewAdjustmentOverlay(
+  listListingIds: string[],
+  repo: {
+    getStateByListingId(id: string): Promise<SettlementAdjustmentState | null>;
+    listAuditByListingId(id: string): Promise<SettlementAdjustmentAuditEntry[]>;
+  }
+): Promise<RevenuePreviewAdjustmentOverlay> {
+  const statesByListingId = new Map<string, SettlementAdjustmentState>();
+  const auditsByListingId = new Map<string, SettlementAdjustmentAuditEntry[]>();
+
+  for (const listingId of listListingIds) {
+    const state = await repo.getStateByListingId(listingId);
+    if (state) {
+      statesByListingId.set(listingId, state);
+    }
+    const audits = await repo.listAuditByListingId(listingId);
+    if (audits.length) {
+      auditsByListingId.set(listingId, audits);
+    }
+  }
+
+  return { statesByListingId, auditsByListingId };
 }
 
 export function assertRevenuePreviewResponseHasNoBuyerPii(

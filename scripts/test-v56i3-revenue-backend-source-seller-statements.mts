@@ -234,7 +234,12 @@ await runHttpRouteTests();
   const routes = readFileSync("src/server/revenuePreviewRoutes.ts", "utf8");
   ok("route admin preview", routes.includes("/api/admin/revenue/preview"));
   ok("route seller preview", routes.includes("/api/my/revenue/preview"));
-  ok("route no write", !routes.includes(".post(") && !routes.includes(".patch("));
+  ok(
+    "route manual adjustment post only",
+    routes.includes('app.post("/api/admin/revenue/adjustments"')
+  );
+  ok("route no payment write", !routes.includes("paymentIntent"));
+  ok("route no invoice write", !routes.includes("createInvoice"));
 }
 
 // --- docs ---

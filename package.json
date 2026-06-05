@@ -106,6 +106,7 @@
     "test:v56i3-revenue-backend-source-seller-statements": "tsx scripts/test-v56i3-revenue-backend-source-seller-statements.mts",
     "test:v56i3a-my-listings-cancel-pending-sale-refresh": "tsx scripts/test-v56i3a-my-listings-cancel-pending-sale-refresh.mts",
     "test:v56i3b-revenue-statement-refresh-reliability": "tsx scripts/test-v56i3b-revenue-statement-refresh-reliability.mts",
+    "test:v56i4-admin-manual-settlement-adjustments": "tsx scripts/test-v56i4-admin-manual-settlement-adjustments.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",

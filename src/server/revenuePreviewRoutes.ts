@@ -1,20 +1,36 @@
 /**
- * v5.6I.3 — Read-only revenue preview API (admin + seller scope).
+ * v5.6I.3 / v5.6I.4 — Revenue preview API (admin + seller scope) + manual adjustments.
  */
 
 import { type Express, type Request, type Response } from "express";
+import { resolveCarDealerId } from "./marketplaceInventory";
+import { deriveAdminRevenuePreviewRowsFromListings } from "../services/leads/adminRevenuePreview";
+import type { SettlementAdjustmentAction } from "../services/leads/leadTypes";
 import {
   buildAdminRevenuePreviewApiPayload,
   buildSellerRevenuePreviewApiPayload,
+  filterPendingSaleListings,
+  loadRevenuePreviewAdjustmentOverlay,
+  marketplaceCarToRevenueListingSource,
 } from "../services/leads/revenuePreviewBackend";
+import {
+  applySettlementAdjustment,
+  previewRowToAdjustmentBase,
+  validateSettlementAdjustmentInput,
+} from "../services/leads/settlementAdjustmentService";
 import {
   resolveOwnerRequestScope,
   type OwnerRequestScope,
 } from "./ownerListingAccess";
 import type { InventoryRepository } from "./repositories/inventoryRepository";
+import {
+  createSettlementAdjustmentRepository,
+  type SettlementAdjustmentRepository,
+} from "./repositories/settlementAdjustmentRepository";
 
 export type RevenuePreviewRoutesDeps = {
   inventoryRepository: InventoryRepository;
+  settlementAdjustmentRepository?: SettlementAdjustmentRepository;
 };
 
 function deny(res: Response, status: number, message: string): void {
@@ -33,15 +49,50 @@ async function ownerScopeOrDeny(
   return access.scope;
 }
 
+function parseAdjustmentAction(value: unknown): SettlementAdjustmentAction | null {
+  const actions: SettlementAdjustmentAction[] = [
+    "record_payment",
+    "partial_payment",
+    "mark_paid",
+    "waive_fee",
+    "dispute_fee",
+    "cancel_fee",
+    "manual_adjustment",
+    "admin_note",
+  ];
+  const action = String(value ?? "").trim() as SettlementAdjustmentAction;
+  return actions.includes(action) ? action : null;
+}
+
+function adminActorFromRequest(req: Request): {
+  updatedBy: string;
+  updatedByRole: "admin" | "superadmin";
+} | null {
+  const role = req.apiAuth?.role;
+  if (role !== "admin" && role !== "superadmin") return null;
+  return {
+    updatedBy: String(req.apiAuth?.uid ?? req.apiAuth?.email ?? "admin").trim(),
+    updatedByRole: role,
+  };
+}
+
 export function registerRevenuePreviewRoutes(
   app: Express,
   deps: RevenuePreviewRoutesDeps
 ): void {
+  const adjustmentRepo =
+    deps.settlementAdjustmentRepository ?? createSettlementAdjustmentRepository();
+
   /** Admin/superadmin — full inventory pending_sale preview from backend source. */
   app.get("/api/admin/revenue/preview", async (_req, res) => {
     try {
       const listings = await deps.inventoryRepository.listings.listAll();
-      const data = buildAdminRevenuePreviewApiPayload(listings);
+      const pending = filterPendingSaleListings(listings);
+      const overlay = await loadRevenuePreviewAdjustmentOverlay(
+        pending.map((c) => c.id),
+        adjustmentRepo
+      );
+      const data = buildAdminRevenuePreviewApiPayload(listings, overlay);
       return res.json({ success: true, data });
     } catch (err) {
       console.error("[GET /api/admin/revenue/preview] failed:", err);
@@ -49,6 +100,104 @@ export function registerRevenuePreviewRoutes(
         success: false,
         message: "โหลดรายได้ preview ไม่สำเร็จครับ",
       });
+    }
+  });
+
+  /** Admin/superadmin — record manual settlement adjustment + audit log. */
+  app.post("/api/admin/revenue/adjustments", async (req, res) => {
+    const actor = adminActorFromRequest(req);
+    if (!actor) {
+      return deny(res, 403, "บัญชีนี้ไม่มีสิทธิ์ปรับยอดค่าบริการครับ");
+    }
+
+    const listingId = String(req.body?.listingId ?? "").trim();
+    const action = parseAdjustmentAction(req.body?.action);
+    if (!listingId) {
+      return deny(res, 400, "กรุณาระบุ listingId ครับ");
+    }
+    if (!action) {
+      return deny(res, 400, "action ไม่ถูกต้องครับ");
+    }
+
+    try {
+      const listings = await deps.inventoryRepository.listings.listAll();
+      const car = listings.find((c) => c.id === listingId);
+      if (!car || car.saleStatus !== "pending_sale") {
+        return deny(
+          res,
+          404,
+          "ไม่พบรายการรถ pending_sale สำหรับปรับยอดครับ"
+        );
+      }
+
+      const source = marketplaceCarToRevenueListingSource(car);
+      const previewRows = deriveAdminRevenuePreviewRowsFromListings([source]);
+      const baseRow = previewRows[0];
+      if (!baseRow) {
+        return deny(res, 422, "ไม่สามารถคำนวณยอดค่าบริการจากรายการนี้ได้ครับ");
+      }
+
+      const existing = await adjustmentRepo.getStateByListingId(listingId);
+      const current =
+        existing ??
+        previewRowToAdjustmentBase(baseRow, {
+          dealerId: car.dealerId ?? resolveCarDealerId(car),
+        });
+
+      const input = {
+        listingId,
+        leadId: req.body?.leadId ? String(req.body.leadId).trim() : undefined,
+        action,
+        amount:
+          req.body?.amount !== undefined ? Number(req.body.amount) : undefined,
+        newFeeAmount:
+          req.body?.newFeeAmount !== undefined
+            ? Number(req.body.newFeeAmount)
+            : undefined,
+        reason: String(req.body?.reason ?? "").trim(),
+        adminNote: req.body?.adminNote
+          ? String(req.body.adminNote).trim()
+          : undefined,
+        updatedBy: actor.updatedBy,
+        updatedByRole: actor.updatedByRole,
+      };
+
+      const preflight = validateSettlementAdjustmentInput(input, current);
+      if (preflight.ok === false) {
+        return deny(res, 400, preflight.message);
+      }
+
+      const { next, audit: auditDraft } = applySettlementAdjustment(
+        current,
+        input
+      );
+      const savedState = await adjustmentRepo.upsertState(next);
+      const auditEntry = await adjustmentRepo.appendAudit({
+        ...auditDraft,
+        id: `adj-audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: new Date().toISOString(),
+      });
+
+      const overlay = await loadRevenuePreviewAdjustmentOverlay(
+        [listingId],
+        adjustmentRepo
+      );
+      const preview = buildAdminRevenuePreviewApiPayload(listings, overlay);
+      const previewRow = preview.rows.find((r) => r.listingId === listingId);
+
+      return res.json({
+        success: true,
+        data: {
+          adjustment: savedState,
+          audit: auditEntry,
+          previewRow,
+        },
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "บันทึกการปรับยอดไม่สำเร็จครับ";
+      console.error("[POST /api/admin/revenue/adjustments] failed:", err);
+      return res.status(400).json({ success: false, message });
     }
   });
 
@@ -68,16 +217,32 @@ export function registerRevenuePreviewRoutes(
     try {
       let listings;
       if (scope.dealerId) {
-        listings = await deps.inventoryRepository.listings.listByDealer(scope.dealerId);
+        listings = await deps.inventoryRepository.listings.listByDealer(
+          scope.dealerId
+        );
       } else if (scope.ownerId) {
         const all = await deps.inventoryRepository.listings.listAll();
         listings = all.filter(
-          (car) => String(car.ownerId ?? "").trim() === String(scope.ownerId).trim()
+          (car) =>
+            String(car.ownerId ?? "").trim() === String(scope.ownerId).trim()
         );
       } else {
         listings = [];
       }
-      const data = buildSellerRevenuePreviewApiPayload(listings, scope);
+
+      const scopedPending = filterPendingSaleListings(listings).filter((car) => {
+        if (scope.dealerId) {
+          return resolveCarDealerId(car) === scope.dealerId;
+        }
+        return (
+          String(car.ownerId ?? "").trim() === String(scope.ownerId).trim()
+        );
+      });
+      const overlay = await loadRevenuePreviewAdjustmentOverlay(
+        scopedPending.map((c) => c.id),
+        adjustmentRepo
+      );
+      const data = buildSellerRevenuePreviewApiPayload(listings, scope, overlay);
       return res.json({ success: true, data });
     } catch (err) {
       console.error("[GET /api/my/revenue/preview] failed:", err);

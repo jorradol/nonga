@@ -13,17 +13,24 @@ import {
   type AdminRevenuePreviewRow,
 } from "../../../services/leads/adminRevenuePreview";
 import { fetchAdminRevenuePreview } from "../../../services/leads/adminRevenuePreviewApi";
+import {
+  postAdminRevenueAdjustment,
+  type AdminRevenueAdjustmentRequest,
+} from "../../../services/leads/adminRevenueAdjustmentApi";
 import type {
   RevenuePreviewApiPayload,
   RevenuePreviewApiRow,
 } from "../../../services/leads/revenuePreviewBackend";
+import { SETTLEMENT_ADJUSTMENT_MANUAL_WARNING } from "../../../services/leads/settlementAdjustmentService";
 import { getSuccessFeePolicyLabel } from "../../../services/leads/successFeePolicy";
 import type { SettlementStatus } from "../../../services/leads/leadTypes";
+import { AdminRevenueAdjustmentModal } from "./AdminRevenueAdjustmentModal";
 import {
   AlertTriangle,
   Banknote,
   Loader2,
   Lock,
+  Pencil,
   Receipt,
 } from "lucide-react";
 
@@ -93,10 +100,20 @@ export function AdminRevenueDashboardPreview({
   );
   const [loading, setLoading] = useState(!previewPayload);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [adjustRow, setAdjustRow] = useState<AdminRevenuePreviewRow | null>(
+    null
+  );
+  const [apiRowsById, setApiRowsById] = useState<
+    Record<string, RevenuePreviewApiRow>
+  >({});
 
   const load = useCallback(async () => {
     if (previewPayload) {
       setPayload(previewPayload);
+      setApiRowsById(
+        Object.fromEntries(previewPayload.rows.map((r) => [r.id, r]))
+      );
       setLoading(false);
       setError(null);
       return;
@@ -106,6 +123,7 @@ export function AdminRevenueDashboardPreview({
     try {
       const data = await fetchAdminRevenuePreview();
       setPayload(data);
+      setApiRowsById(Object.fromEntries(data.rows.map((r) => [r.id, r])));
     } catch (err) {
       setPayload(null);
       setError(
@@ -122,6 +140,17 @@ export function AdminRevenueDashboardPreview({
     void load();
   }, [load]);
 
+  const handleAdjustmentSubmit = useCallback(
+    async (body: AdminRevenueAdjustmentRequest) => {
+      await postAdminRevenueAdjustment(body);
+      setAdjustRow(null);
+      setSuccessMessage("บันทึกการปรับยอดสำเร็จ — กำลังอัปเดตรายงาน…");
+      await load();
+      setSuccessMessage("บันทึกการปรับยอดสำเร็จ");
+    },
+    [load]
+  );
+
   const summary = payload?.summary;
   const rows = payload?.rows.map(apiRowToDisplayRow) ?? [];
   const isEmpty = !loading && !error && rows.length === 0;
@@ -132,6 +161,7 @@ export function AdminRevenueDashboardPreview({
       data-testid="admin-revenue-dashboard-preview"
       data-readonly="true"
       data-source="backend-api"
+      data-manual-adjustments-enabled="true"
       aria-label="Admin revenue dashboard preview"
     >
       <div className="flex flex-wrap items-start gap-3">
@@ -160,6 +190,22 @@ export function AdminRevenueDashboardPreview({
         <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
         <span>{payload?.previewWarning ?? ADMIN_REVENUE_PREVIEW_WARNING}</span>
       </p>
+
+      <p
+        className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+        data-testid="admin-revenue-manual-adjustment-warning"
+      >
+        {payload?.manualAdjustmentWarning ?? SETTLEMENT_ADJUSTMENT_MANUAL_WARNING}
+      </p>
+
+      {successMessage ? (
+        <p
+          className="text-[12px] text-emerald-200 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2"
+          data-testid="admin-revenue-adjustment-success"
+        >
+          {successMessage}
+        </p>
+      ) : null}
 
       <p
         className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
@@ -268,14 +314,20 @@ export function AdminRevenueDashboardPreview({
                   <th className="px-2 py-2 font-bold">คงเหลือ</th>
                   <th className="px-2 py-2 font-bold">สถานะ</th>
                   <th className="px-2 py-2 font-bold">admin note</th>
+                  <th className="px-2 py-2 font-bold">audit</th>
+                  <th className="px-2 py-2 font-bold">ปรับยอด</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {rows.map((row) => {
+                  const apiRow = apiRowsById[row.id] ?? payload?.rows.find((r) => r.id === row.id);
+                  const auditPreview = apiRow?.auditLogPreview ?? [];
+                  return (
                   <tr
                     key={row.id}
                     className="border-b border-white/[0.04] text-slate-300"
                     data-testid={`admin-revenue-row-${row.id}`}
+                    data-has-manual-adjustment={apiRow?.hasManualAdjustment ? "true" : "false"}
                   >
                     <td className="px-2 py-2 whitespace-nowrap">
                       {new Date(row.date).toLocaleDateString("th-TH")}
@@ -317,8 +369,39 @@ export function AdminRevenueDashboardPreview({
                     <td className="px-2 py-2 text-slate-500 max-w-[140px] truncate">
                       {row.adminNotePreview ?? "—"}
                     </td>
+                    <td className="px-2 py-2 text-slate-500 max-w-[160px]">
+                      {auditPreview.length ? (
+                        <span
+                          className="block truncate"
+                          data-testid={`admin-revenue-audit-preview-${row.id}`}
+                          title={auditPreview
+                            .map(
+                              (a) =>
+                                `${a.action}: ${a.previousRemainingAmount}→${a.newRemainingAmount} (${a.reason})`
+                            )
+                            .join(" | ")}
+                        >
+                          {auditPreview[auditPreview.length - 1]?.action} —{" "}
+                          {auditPreview[auditPreview.length - 1]?.reason}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setAdjustRow(row)}
+                        className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 px-2 py-1 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/10"
+                        data-testid={`admin-revenue-adjust-btn-${row.id}`}
+                      >
+                        <Pencil className="w-3 h-3" />
+                        ปรับยอด
+                      </button>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -329,6 +412,14 @@ export function AdminRevenueDashboardPreview({
         Policy: {getSuccessFeePolicyLabel("hundred_thousand_floor_tier")} (
         <span className="font-mono">hundred_thousand_floor_tier</span>)
       </p>
+
+      {adjustRow ? (
+        <AdminRevenueAdjustmentModal
+          row={adjustRow}
+          onClose={() => setAdjustRow(null)}
+          onSubmit={handleAdjustmentSubmit}
+        />
+      ) : null}
     </section>
   );
 }

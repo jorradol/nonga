@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { formatBaht } from "../../services/leads/adminRevenuePreview";
 import { fetchMyRevenuePreview } from "../../services/leads/myRevenuePreviewApi";
 import type { SellerRevenuePreviewApiPayload } from "../../services/leads/revenuePreviewBackend";
+import { sellerSettlementStatusLabel } from "../../services/leads/settlementAdjustmentService";
 import type { MyListingsApiScope } from "../../services/listings/myListingsApi";
 import { AlertTriangle, Banknote, Loader2, Lock } from "lucide-react";
 
@@ -192,6 +193,7 @@ export function MyRevenueStatementSection({
                     <th className="px-3 py-2 font-bold">รถ</th>
                     <th className="px-3 py-2 font-bold">ราคา</th>
                     <th className="px-3 py-2 font-bold">ค่าบริการ</th>
+                    <th className="px-3 py-2 font-bold">ชำระแล้ว</th>
                     <th className="px-3 py-2 font-bold">ค้างชำระ</th>
                     <th className="px-3 py-2 font-bold">สถานะ</th>
                   </tr>
@@ -216,8 +218,11 @@ export function MyRevenueStatementSection({
                       </td>
                       <td className="px-3 py-2">{formatBaht(row.closedDealPrice)}</td>
                       <td className="px-3 py-2">{formatBaht(row.feeAmount)}</td>
+                      <td className="px-3 py-2">{formatBaht(row.paidAmount)}</td>
                       <td className="px-3 py-2">{formatBaht(row.remainingAmount)}</td>
-                      <td className="px-3 py-2">ยังไม่เรียกเก็บเงินจริง</td>
+                      <td className="px-3 py-2">
+                        {sellerSettlementStatusLabel(row.settlementStatus)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -215,6 +215,63 @@ export interface SuccessFeePaymentLogEntry {
 /** Alias for admin manual payment log (v5.6I). */
 export type SettlementPaymentRecord = SuccessFeePaymentLogEntry;
 
+/** v5.6I.4 — Admin manual settlement adjustment actions (no payment gateway). */
+export type SettlementAdjustmentAction =
+  | "record_payment"
+  | "partial_payment"
+  | "mark_paid"
+  | "waive_fee"
+  | "dispute_fee"
+  | "cancel_fee"
+  | "manual_adjustment"
+  | "admin_note";
+
+export type SettlementAdjustmentSource = "admin_manual";
+
+/** Runtime overlay state keyed by listing (memory store in v5.6I.4). */
+export interface SettlementAdjustmentState {
+  settlementId: string;
+  listingId: string;
+  leadId?: string;
+  sellerId: string;
+  ownerId?: string;
+  dealerId?: string;
+  feeAmount: number;
+  paidAmount: number;
+  waivedAmount: number;
+  remainingAmount: number;
+  settlementStatus: SettlementStatus;
+  adminNote?: string;
+  updatedAt: string;
+}
+
+/** Immutable audit entry for every admin adjustment. */
+export interface SettlementAdjustmentAuditEntry {
+  id: string;
+  settlementId: string;
+  listingId: string;
+  leadId?: string;
+  sellerId: string;
+  ownerId?: string;
+  dealerId?: string;
+  action: SettlementAdjustmentAction;
+  previousFeeAmount: number;
+  newFeeAmount: number;
+  previousPaidAmount: number;
+  newPaidAmount: number;
+  previousRemainingAmount: number;
+  newRemainingAmount: number;
+  previousStatus: SettlementStatus;
+  newStatus: SettlementStatus;
+  amountDelta: number;
+  reason: string;
+  adminNote?: string;
+  updatedBy: string;
+  updatedByRole: "admin" | "superadmin";
+  createdAt: string;
+  source: SettlementAdjustmentSource;
+}
+
 export interface SuccessFeeRecord {
   id: string;
   listingId: string;
