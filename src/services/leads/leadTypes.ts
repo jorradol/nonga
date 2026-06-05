@@ -12,6 +12,8 @@ export const LEAD_ENGINE_COLLECTIONS = {
   buyerPurchaseProfiles: "buyerPurchaseProfiles",
   dealOutcomes: "dealOutcomes",
   successFeeRecords: "successFeeRecords",
+  settlementAdjustments: "settlementAdjustments",
+  settlementAuditLogs: "settlementAuditLogs",
   trustRewardEvents: "trustRewardEvents",
 } as const;
 
@@ -226,7 +228,12 @@ export type SettlementAdjustmentAction =
   | "manual_adjustment"
   | "admin_note";
 
-export type SettlementAdjustmentSource = "admin_manual";
+/** v5.6I.4 legacy + v5.6I.5 durable source taxonomy. */
+export type SettlementAdjustmentSource =
+  | "admin_manual"
+  | "lead_outcome"
+  | "manual_admin_adjustment"
+  | "system_recompute";
 
 /** Runtime overlay state keyed by listing (memory store in v5.6I.4). */
 export interface SettlementAdjustmentState {

@@ -1,11 +1,16 @@
 /**
- * v5.6I.4 — Settlement adjustment repository (memory default; no Firestore in this slice).
+ * v5.6I.4 / v5.6I.5 — Settlement adjustment repository (memory default; Firestore readiness).
  */
 
 import type {
   SettlementAdjustmentAuditEntry,
   SettlementAdjustmentState,
 } from "../../services/leads/leadTypes";
+import {
+  resolveSettlementDataBackend,
+  type SettlementDataBackend,
+} from "../../services/leads/settlementPersistenceFlags";
+import { createFirestoreSettlementAdjustmentRepository } from "./settlementAdjustmentRepositoryFirestore";
 
 export interface SettlementAdjustmentRepository {
   getStateByListingId(listingId: string): Promise<SettlementAdjustmentState | null>;
@@ -52,15 +57,25 @@ class InMemorySettlementAdjustmentRepository implements SettlementAdjustmentRepo
 }
 
 let singleton: SettlementAdjustmentRepository | null = null;
+let singletonBackend: SettlementDataBackend | null = null;
 
-export function createSettlementAdjustmentRepository(): SettlementAdjustmentRepository {
-  if (!singleton) {
-    singleton = new InMemorySettlementAdjustmentRepository();
+export function createSettlementAdjustmentRepository(
+  backend: SettlementDataBackend = resolveSettlementDataBackend()
+): SettlementAdjustmentRepository {
+  if (!singleton || singletonBackend !== backend) {
+    singleton =
+      backend === "firestore"
+        ? createFirestoreSettlementAdjustmentRepository()
+        : new InMemorySettlementAdjustmentRepository();
+    singletonBackend = backend;
   }
   return singleton;
 }
 
-/** For tests — reset in-memory store. */
+/** For tests — reset in-memory store (forces memory backend). */
 export function resetSettlementAdjustmentRepositoryForTests(): void {
   singleton = new InMemorySettlementAdjustmentRepository();
+  singletonBackend = "memory";
 }
+
+export { resolveSettlementDataBackend };

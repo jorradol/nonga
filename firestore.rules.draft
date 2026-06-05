@@ -249,6 +249,20 @@ service cloud.firestore {
         );
     }
 
+    // v5.6I.5 — Settlement / success fee (readiness): server-only via Cloud Run Admin SDK.
+    // Client direct read/write denied; admin/seller financial data via API only (redacted).
+    match /successFeeRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    match /settlementAdjustments/{adjustmentId} {
+      allow read, write: if false;
+    }
+
+    match /settlementAuditLogs/{auditId} {
+      allow read, write: if false;
+    }
+
     // v5.6F.2 — AI Sales Lead Engine (phase 1): server-only via Cloud Run Admin SDK.
     // Client direct read/write denied; masked queue and PII via API only.
     match /buyerLeads/{leadId} {
