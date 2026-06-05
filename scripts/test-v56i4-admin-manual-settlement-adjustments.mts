@@ -399,6 +399,8 @@ async function runHttpTests() {
   ok("admin refetch after adjust", adminUi.includes("postAdminRevenueAdjustment"));
   ok("admin success message", adminUi.includes("admin-revenue-adjustment-success"));
   ok("modal reason field", modal.includes("admin-revenue-adjustment-reason"));
+  ok("modal submit confirm label", modal.includes("ยืนยันปรับยอด"));
+  ok("modal footer area", modal.includes("admin-revenue-adjustment-modal-footer"));
   ok("modal error stays open", modal.includes("admin-revenue-adjustment-error"));
   ok(
     "failure no optimistic local patch",
