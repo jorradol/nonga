@@ -109,6 +109,7 @@
     "test:v56i4-admin-manual-settlement-adjustments": "tsx scripts/test-v56i4-admin-manual-settlement-adjustments.mts",
     "test:v56i4a-revenue-ux-refresh-admin-action-visibility": "tsx scripts/test-v56i4a-revenue-ux-refresh-admin-action-visibility.mts",
     "test:v56i4b-admin-revenue-adjustment-modal-ux": "tsx scripts/test-v56i4b-admin-revenue-adjustment-modal-ux.mts",
+    "test:v56i4c-admin-revenue-container-fit-no-horizontal-overflow": "tsx scripts/test-v56i4c-admin-revenue-container-fit-no-horizontal-overflow.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",

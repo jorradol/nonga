@@ -115,7 +115,7 @@ export default function AdminDashboardView() {
   });
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 text-left selection:bg-orange-500/30">
+    <div className="flex flex-col lg:flex-row gap-6 text-left selection:bg-orange-500/30 w-full max-w-full min-w-0">
       
       {/* SIDEBAR BLOCK: Shopfiy style sidebar */}
       <div className="w-full lg:w-64 shrink-0 rounded-3xl p-5 border border-white/[0.06] bg-[#0c0c0e]/95 flex flex-col justify-between space-y-6">
@@ -353,7 +353,7 @@ export default function AdminDashboardView() {
       </div>
 
       {/* RENDER ACTIVE TAB AREA */}
-      <div className="flex-1 space-y-6">
+      <div className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden space-y-6">
         
         {/* TAB 1: SUMMARY DASHBOARD INSIGHTS */}
         {adminState.activeTab === "dashboard" && (
@@ -1312,7 +1312,10 @@ export default function AdminDashboardView() {
         )}
 
         {adminState.activeTab === "revenue-preview" && showAdminRevenuePreview && (
-          <div data-testid="admin-revenue-preview-tab-panel">
+          <div
+            className="min-w-0 w-full max-w-full"
+            data-testid="admin-revenue-preview-tab-panel"
+          >
             <AdminRevenueDashboardPreview />
           </div>
         )}

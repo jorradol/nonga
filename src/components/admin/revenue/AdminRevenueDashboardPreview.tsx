@@ -1,5 +1,5 @@
 /**
- * v5.6I.3 — Admin revenue dashboard preview (backend API source).
+ * v5.6I.3 / v5.6I.4c — Admin revenue dashboard preview (backend API source).
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -55,13 +55,15 @@ function SummaryCard({
 }) {
   return (
     <div
-      className="rounded-xl border border-white/[0.06] bg-black/30 p-3"
+      className="rounded-xl border border-white/[0.06] bg-black/30 p-3 min-w-0"
       data-testid={testId}
     >
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 break-words">
         {label}
       </p>
-      <p className="text-sm font-black text-white mt-1">{value}</p>
+      <p className="text-sm font-black text-white mt-1 break-words tabular-nums">
+        {value}
+      </p>
     </div>
   );
 }
@@ -157,7 +159,7 @@ export function AdminRevenueDashboardPreview({
 
   return (
     <section
-      className="rounded-2xl border border-emerald-500/25 bg-emerald-950/15 p-5 space-y-5 text-left"
+      className="w-full max-w-full min-w-0 overflow-x-hidden rounded-2xl border border-emerald-500/25 bg-emerald-950/15 p-3 sm:p-4 lg:p-5 space-y-5 text-left"
       data-testid="admin-revenue-dashboard-preview"
       data-readonly="true"
       data-source="backend-api"
@@ -184,7 +186,7 @@ export function AdminRevenueDashboardPreview({
       </div>
 
       <p
-        className="text-[11px] text-amber-100/90 flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2"
+        className="text-[11px] text-amber-100/90 flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 break-words min-w-0"
         data-testid="admin-revenue-preview-warning"
       >
         <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
@@ -192,7 +194,7 @@ export function AdminRevenueDashboardPreview({
       </p>
 
       <p
-        className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+        className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 break-words min-w-0"
         data-testid="admin-revenue-manual-adjustment-warning"
       >
         {payload?.manualAdjustmentWarning ?? SETTLEMENT_ADJUSTMENT_MANUAL_WARNING}
@@ -208,7 +210,7 @@ export function AdminRevenueDashboardPreview({
       ) : null}
 
       <p
-        className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+        className="text-[11px] text-emerald-100/85 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 break-words min-w-0"
         data-testid="admin-revenue-estimated-note"
       >
         {ADMIN_REVENUE_ESTIMATED_FROM_LISTING_NOTE}
@@ -234,7 +236,10 @@ export function AdminRevenueDashboardPreview({
       ) : null}
 
       {!loading && !error && summary ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 min-w-0"
+          data-testid="admin-revenue-summary-grid"
+        >
           <SummaryCard
             label="รถ pending_sale"
             value={String(summary.pendingSaleCount)}
@@ -278,7 +283,10 @@ export function AdminRevenueDashboardPreview({
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <div
+        className="w-full max-w-full min-w-0 rounded-xl border border-white/[0.06] overflow-hidden"
+        data-testid="admin-revenue-table-container"
+      >
         <div className="px-3 py-2 border-b border-white/[0.06] flex items-center gap-2 bg-black/20">
           <Receipt className="w-4 h-4 text-emerald-400" />
           <span className="text-[11px] font-bold text-slate-300">
@@ -298,14 +306,14 @@ export function AdminRevenueDashboardPreview({
         {!loading && !error && rows.length > 0 ? (
           <>
             <p
-              className="px-3 pt-2 text-[10px] text-slate-500"
+              className="px-3 pt-2 text-[10px] text-slate-500 break-words"
               data-testid="admin-revenue-table-scroll-hint"
             >
               เลื่อนตารางไปทางขวาเพื่อดูรายละเอียดเพิ่มเติม — ปุ่ม «ปรับยอด» อยู่คอลัมน์ซ้ายและในการ์ดบนมือถือ
             </p>
 
             <div
-              className="md:hidden p-3 space-y-3"
+              className="md:hidden p-3 space-y-3 min-w-0 max-w-full"
               data-testid="admin-revenue-preview-cards"
             >
               {rows.map((row) => {
@@ -315,7 +323,7 @@ export function AdminRevenueDashboardPreview({
                 return (
                   <article
                     key={row.id}
-                    className="rounded-xl border border-white/[0.08] bg-black/25 p-3 space-y-2"
+                    className="rounded-xl border border-white/[0.08] bg-black/25 p-3 space-y-2 min-w-0 max-w-full"
                     data-testid={`admin-revenue-card-${row.id}`}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -323,7 +331,7 @@ export function AdminRevenueDashboardPreview({
                         <p className="text-[11px] font-bold text-white truncate">
                           {row.listingTitle ?? formatAdminScopeId(row.listingId)}
                         </p>
-                        <p className="text-[10px] text-slate-500 font-mono">
+                        <p className="text-[10px] text-slate-500 font-mono break-all">
                           {formatAdminScopeId(row.listingId)}
                         </p>
                       </div>
@@ -359,7 +367,7 @@ export function AdminRevenueDashboardPreview({
             </div>
 
             <div
-              className="hidden md:block overflow-x-auto"
+              className="hidden md:block w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain"
               data-testid="admin-revenue-preview-table-wrap"
             >
               <table
@@ -410,7 +418,9 @@ export function AdminRevenueDashboardPreview({
                               {row.listingTitle}
                             </span>
                           ) : null}
-                          <span className="block">{formatAdminScopeId(row.listingId)}</span>
+                          <span className="block break-all max-w-[160px]">
+                            {formatAdminScopeId(row.listingId)}
+                          </span>
                           <button
                             type="button"
                             onClick={() => setAdjustRow(row)}
@@ -421,10 +431,10 @@ export function AdminRevenueDashboardPreview({
                             ปรับยอด
                           </button>
                         </td>
-                        <td className="px-2 py-2 font-mono">
+                        <td className="px-2 py-2 font-mono max-w-[100px] truncate">
                           {formatAdminScopeId(row.sellerScopeId)}
                         </td>
-                        <td className="px-2 py-2 font-mono">
+                        <td className="px-2 py-2 font-mono max-w-[100px] truncate">
                           {row.buyerLeadId === "preview"
                             ? "—"
                             : formatAdminScopeId(row.buyerLeadId)}
@@ -441,7 +451,9 @@ export function AdminRevenueDashboardPreview({
                           ) : null}
                         </td>
                         <td className="px-2 py-2">{formatBaht(row.feeAmount)}</td>
-                        <td className="px-2 py-2 font-mono">{row.feePolicyType}</td>
+                        <td className="px-2 py-2 font-mono max-w-[120px] truncate">
+                          {row.feePolicyType}
+                        </td>
                         <td className="px-2 py-2">{formatBaht(row.paidAmount)}</td>
                         <td className="px-2 py-2">{formatBaht(row.remainingAmount)}</td>
                         <td className="px-2 py-2">
@@ -479,9 +491,9 @@ export function AdminRevenueDashboardPreview({
         ) : null}
       </div>
 
-      <p className="text-[10px] text-slate-500">
+      <p className="text-[10px] text-slate-500 break-words min-w-0">
         Policy: {getSuccessFeePolicyLabel("hundred_thousand_floor_tier")} (
-        <span className="font-mono">hundred_thousand_floor_tier</span>)
+        <span className="font-mono break-all">hundred_thousand_floor_tier</span>)
       </p>
 
       {adjustRow ? (
