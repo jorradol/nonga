@@ -18,15 +18,21 @@ async function ownerHeadersAsync(ownerId: string): Promise<HeadersInit> {
 }
 
 export async function fetchMyRevenuePreview(
-  scope: MyListingsApiScope
+  scope: MyListingsApiScope,
+  refreshSignal = 0
 ): Promise<SellerRevenuePreviewApiPayload> {
   const headers = scope.dealerHeaders
     ? await dealerAuthHeadersAsync(scope.dealerHeaders.dealerId, scope.dealerHeaders.role)
     : await ownerHeadersAsync(scope.ownerId);
 
+  const path =
+    refreshSignal > 0
+      ? `/api/my/revenue/preview?_rs=${encodeURIComponent(String(refreshSignal))}`
+      : "/api/my/revenue/preview";
+
   const json = await safeApiFetch<
     ApiJsonEnvelope & { data?: SellerRevenuePreviewApiPayload }
-  >("/api/my/revenue/preview", {
+  >(path, {
     headers,
     cache: "no-store",
   });

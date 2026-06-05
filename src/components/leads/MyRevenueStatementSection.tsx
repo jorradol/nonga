@@ -2,64 +2,85 @@
  * v5.6I.3 — Seller/member read-only revenue statement preview.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatBaht } from "../../services/leads/adminRevenuePreview";
 import { fetchMyRevenuePreview } from "../../services/leads/myRevenuePreviewApi";
 import type { SellerRevenuePreviewApiPayload } from "../../services/leads/revenuePreviewBackend";
 import type { MyListingsApiScope } from "../../services/listings/myListingsApi";
 import { AlertTriangle, Banknote, Loader2, Lock } from "lucide-react";
 
+export const MY_REVENUE_UPDATING_MESSAGE = "กำลังอัปเดตยอดค่าบริการ…";
+
 export type MyRevenueStatementSectionProps = {
   scope: MyListingsApiScope;
   isDarkMode?: boolean;
-  /** Increment from parent after listing actions to refetch revenue preview. */
-  refreshKey?: number;
+  /** Timestamp/nonce from parent — changes trigger a guarded refetch. */
+  refreshSignal?: number;
 };
 
 export function MyRevenueStatementSection({
   scope,
   isDarkMode = true,
-  refreshKey = 0,
+  refreshSignal = 0,
 }: MyRevenueStatementSectionProps) {
   const [payload, setPayload] = useState<SellerRevenuePreviewApiPayload | null>(
     null
   );
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
     if (!scope.ownerId) {
       setPayload(null);
       setLoading(false);
+      setRefreshing(false);
       return;
     }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchMyRevenuePreview(scope);
-      setPayload(data);
-    } catch (err) {
-      setPayload(null);
-      setError(
-        err instanceof Error ? err.message : "โหลดยอดค่าบริการ preview ไม่สำเร็จครับ"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [scope, refreshKey]);
 
-  useEffect(() => {
-    void load();
-  }, [load, refreshKey]);
+    let active = true;
+    const isRefresh = refreshSignal > 0;
+    setError(null);
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    void (async () => {
+      try {
+        const data = await fetchMyRevenuePreview(scope, refreshSignal);
+        if (!active) return;
+        setPayload(data);
+      } catch (err) {
+        if (!active) return;
+        setPayload(null);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "โหลดยอดค่าบริการ preview ไม่สำเร็จครับ"
+        );
+      } finally {
+        if (!active) return;
+        setLoading(false);
+        setRefreshing(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [scope, refreshSignal]);
 
   const border = isDarkMode ? "border-emerald-500/25 bg-emerald-950/10" : "border-emerald-200 bg-emerald-50/50";
+  const showBody = !loading && !refreshing && !error && payload;
 
   return (
     <section
       className={`rounded-2xl border p-5 space-y-4 text-left ${border}`}
       data-testid="my-revenue-statement-preview"
       data-readonly="true"
-      data-refresh-key={refreshKey}
+      data-refresh-signal={refreshSignal}
     >
       <div className="flex flex-wrap items-start gap-3">
         <Banknote className="w-5 h-5 text-emerald-500 shrink-0" />
@@ -96,6 +117,16 @@ export function MyRevenueStatementSection({
         </div>
       ) : null}
 
+      {refreshing ? (
+        <div
+          className="flex items-center gap-2 text-sm text-emerald-200/90 py-4"
+          data-testid="my-revenue-updating"
+        >
+          <Loader2 className="w-4 h-4 animate-spin" />
+          {MY_REVENUE_UPDATING_MESSAGE}
+        </div>
+      ) : null}
+
       {error ? (
         <p
           className="text-[12px] text-red-300 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2"
@@ -105,7 +136,7 @@ export function MyRevenueStatementSection({
         </p>
       ) : null}
 
-      {!loading && !error && payload ? (
+      {showBody ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div

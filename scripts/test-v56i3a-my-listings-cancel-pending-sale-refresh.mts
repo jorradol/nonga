@@ -19,7 +19,7 @@ const revenue = readFileSync(
 {
   ok(
     "cancel success refetches listings",
-    /handleCancelPendingSale[\s\S]*await load\(\);[\s\S]*setRevenueRefreshKey/.test(
+    /handleCancelPendingSale[\s\S]*await load\(\);[\s\S]*setRevenueRefreshSignal/.test(
       my
     )
   );
@@ -31,21 +31,24 @@ const revenue = readFileSync(
 
 // --- revenue statement refresh ---
 {
-  ok("revenue refreshKey state", my.includes("revenueRefreshKey"));
+  ok("revenue refresh signal state", my.includes("revenueRefreshSignal"));
   ok(
-    "increment refreshKey after cancel success",
-    my.includes("setRevenueRefreshKey((key) => key + 1)")
+    "bump refresh signal after cancel success",
+    my.includes("setRevenueRefreshSignal(Date.now())")
   );
   ok(
-    "pass refreshKey to revenue section",
-    my.includes("refreshKey={revenueRefreshKey}")
+    "pass refreshSignal to revenue section",
+    my.includes("refreshSignal={revenueRefreshSignal}")
   );
-  ok("revenue section accepts refreshKey", revenue.includes("refreshKey"));
+  ok("revenue section accepts refreshSignal", revenue.includes("refreshSignal"));
   ok(
-    "revenue load depends on refreshKey",
-    revenue.includes("[scope, refreshKey]")
+    "revenue refetch depends on refreshSignal",
+    revenue.includes("[scope, refreshSignal]")
   );
-  ok("revenue data-refresh-key attr", revenue.includes("data-refresh-key={refreshKey}"));
+  ok(
+    "revenue data-refresh-signal attr",
+    revenue.includes("data-refresh-signal={refreshSignal}")
+  );
 }
 
 // --- UX guards ---
@@ -57,12 +60,12 @@ const revenue = readFileSync(
   ok("no full page reload", !my.includes("location.reload"));
   ok("no window reload", !my.includes("window.location.reload"));
   ok(
-    "failure path does not bump refreshKey in catch",
-    !/catch \(e\)[\s\S]*setRevenueRefreshKey/.test(cancelHandler)
+    "failure path does not bump refresh signal in catch",
+    !/catch \(e\)[\s\S]*setRevenueRefreshSignal/.test(cancelHandler)
   );
   ok(
-    "refreshKey bump inside try after load",
-    /try \{[\s\S]*await load\(\);[\s\S]*setRevenueRefreshKey/.test(cancelHandler)
+    "refresh signal bump inside try after load",
+    /try \{[\s\S]*await load\(\);[\s\S]*setRevenueRefreshSignal/.test(cancelHandler)
   );
 }
 
@@ -72,7 +75,7 @@ const revenue = readFileSync(
     "docs/v5.6I.3a-my-listings-cancel-pending-sale-refresh.md",
     "utf8"
   );
-  ok("doc mentions refreshKey", doc.includes("refreshKey"));
+  ok("doc mentions refresh", doc.includes("refresh"));
   ok("doc frontend only", doc.includes("frontend"));
   ok("doc no backend policy change", doc.includes("backend"));
 }
