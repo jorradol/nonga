@@ -280,6 +280,32 @@ service cloud.firestore {
       allow delete: if isActiveAdmin() || isSuperAdmin();
     }
 
+    // v5.6I.5 / v5.6I.6 — Settlement / success fee: server-only via Cloud Run Admin SDK.
+    // All roles denied direct client read/write; financial data via API only (redacted).
+    match /successFeeRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    match /successFeeRecords/{recordId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /settlementAdjustments/{adjustmentId} {
+      allow read, write: if false;
+    }
+
+    match /settlementAdjustments/{adjustmentId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /settlementAuditLogs/{auditLogId} {
+      allow read, write: if false;
+    }
+
+    match /settlementAuditLogs/{auditLogId}/{document=**} {
+      allow read, write: if false;
+    }
+
     // v5.6F.2 — AI Sales Lead Engine (phase 1): server-only via Cloud Run Admin SDK.
     // Client direct read/write denied; masked queue and PII via API only.
     match /buyerLeads/{leadId} {

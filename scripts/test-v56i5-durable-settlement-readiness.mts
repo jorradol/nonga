@@ -264,7 +264,17 @@ function ok(name: string, pass: boolean, detail = "") {
     /match \/successFeeRecords\/\{recordId\}[\s\S]*?allow read, write: if false/.test(draft)
   );
   ok("rules draft has settlementAdjustments deny", draft.includes("match /settlementAdjustments/{adjustmentId}"));
-  ok("rules draft has settlementAuditLogs deny", draft.includes("match /settlementAuditLogs/{auditId}"));
+  ok(
+    "rules draft has settlementAuditLogs deny",
+    draft.includes("match /settlementAuditLogs/{auditLogId}")
+  );
+  const live = readFileSync("firestore.rules", "utf8");
+  ok(
+    "live rules has settlement deny blocks (v5.6I.6)",
+    live.includes("match /successFeeRecords/{recordId}") &&
+      live.includes("match /settlementAdjustments/{adjustmentId}") &&
+      live.includes("match /settlementAuditLogs/{auditLogId}")
+  );
 }
 
 // --- docs: migration/rollback plan ---

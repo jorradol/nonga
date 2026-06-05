@@ -249,9 +249,13 @@ service cloud.firestore {
         );
     }
 
-    // v5.6I.5 — Settlement / success fee (readiness): server-only via Cloud Run Admin SDK.
-    // Client direct read/write denied; admin/seller financial data via API only (redacted).
+    // v5.6I.5 / v5.6I.6 — Settlement / success fee: server-only via Cloud Run Admin SDK.
+    // All roles denied direct client read/write; financial data via API only (redacted).
     match /successFeeRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    match /successFeeRecords/{recordId}/{document=**} {
       allow read, write: if false;
     }
 
@@ -259,7 +263,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    match /settlementAuditLogs/{auditId} {
+    match /settlementAdjustments/{adjustmentId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /settlementAuditLogs/{auditLogId} {
+      allow read, write: if false;
+    }
+
+    match /settlementAuditLogs/{auditLogId}/{document=**} {
       allow read, write: if false;
     }
 
