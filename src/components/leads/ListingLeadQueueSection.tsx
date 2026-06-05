@@ -4,6 +4,7 @@ type Props = {
   listingId: string;
   isListingOwnerContext?: boolean;
   isDarkMode?: boolean;
+  onRevenueRelevantChange?: () => void | Promise<void>;
 };
 
 /**
@@ -13,6 +14,7 @@ export function ListingLeadQueueSection({
   listingId,
   isListingOwnerContext = false,
   isDarkMode = true,
+  onRevenueRelevantChange,
 }: Props) {
   return (
     <section
@@ -24,6 +26,7 @@ export function ListingLeadQueueSection({
         listingId={listingId}
         isListingOwnerContext={isListingOwnerContext}
         isDarkMode={isDarkMode}
+        onRevenueRelevantChange={onRevenueRelevantChange}
       />
     </section>
   );

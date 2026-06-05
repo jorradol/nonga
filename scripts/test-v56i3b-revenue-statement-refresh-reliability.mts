@@ -31,9 +31,10 @@ const cancelHandler =
   );
   ok(
     "cancel bumps signal after load and fetchCars",
-    /await load\(\);[\s\S]*await fetchCars\(\);[\s\S]*setRevenueRefreshSignal\(Date\.now\(\)\)/.test(
-      cancelHandler
-    )
+    /await refreshListingsAndRevenue\(\)/.test(cancelHandler) ||
+      /await load\(\);[\s\S]*await fetchCars\(\);[\s\S]*setRevenueRefreshSignal\(Date\.now\(\)\)/.test(
+        cancelHandler
+      )
   );
   ok(
     "refresh signal uses timestamp nonce",

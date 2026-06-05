@@ -296,115 +296,186 @@ export function AdminRevenueDashboardPreview({
         ) : null}
 
         {!loading && !error && rows.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table
-              className="w-full text-[10px] text-left"
-              data-testid="admin-revenue-preview-table"
+          <>
+            <p
+              className="px-3 pt-2 text-[10px] text-slate-500"
+              data-testid="admin-revenue-table-scroll-hint"
             >
-              <thead>
-                <tr className="text-slate-500 border-b border-white/[0.06]">
-                  <th className="px-2 py-2 font-bold">วันที่</th>
-                  <th className="px-2 py-2 font-bold">รถ / listing</th>
-                  <th className="px-2 py-2 font-bold">seller scope</th>
-                  <th className="px-2 py-2 font-bold">leadId</th>
-                  <th className="px-2 py-2 font-bold">ราคาปิด</th>
-                  <th className="px-2 py-2 font-bold">{ADMIN_REVENUE_TERM}</th>
-                  <th className="px-2 py-2 font-bold">policy</th>
-                  <th className="px-2 py-2 font-bold">paid</th>
-                  <th className="px-2 py-2 font-bold">คงเหลือ</th>
-                  <th className="px-2 py-2 font-bold">สถานะ</th>
-                  <th className="px-2 py-2 font-bold">admin note</th>
-                  <th className="px-2 py-2 font-bold">audit</th>
-                  <th className="px-2 py-2 font-bold">ปรับยอด</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const apiRow = apiRowsById[row.id] ?? payload?.rows.find((r) => r.id === row.id);
-                  const auditPreview = apiRow?.auditLogPreview ?? [];
-                  return (
-                  <tr
+              เลื่อนตารางไปทางขวาเพื่อดูรายละเอียดเพิ่มเติม — ปุ่ม «ปรับยอด» อยู่คอลัมน์ซ้ายและในการ์ดบนมือถือ
+            </p>
+
+            <div
+              className="md:hidden p-3 space-y-3"
+              data-testid="admin-revenue-preview-cards"
+            >
+              {rows.map((row) => {
+                const apiRow =
+                  apiRowsById[row.id] ?? payload?.rows.find((r) => r.id === row.id);
+                const auditPreview = apiRow?.auditLogPreview ?? [];
+                return (
+                  <article
                     key={row.id}
-                    className="border-b border-white/[0.04] text-slate-300"
-                    data-testid={`admin-revenue-row-${row.id}`}
-                    data-has-manual-adjustment={apiRow?.hasManualAdjustment ? "true" : "false"}
+                    className="rounded-xl border border-white/[0.08] bg-black/25 p-3 space-y-2"
+                    data-testid={`admin-revenue-card-${row.id}`}
                   >
-                    <td className="px-2 py-2 whitespace-nowrap">
-                      {new Date(row.date).toLocaleDateString("th-TH")}
-                    </td>
-                    <td className="px-2 py-2 font-mono">
-                      {row.listingTitle ? (
-                        <span className="block text-white truncate max-w-[120px]">
-                          {row.listingTitle}
-                        </span>
-                      ) : null}
-                      <span>{formatAdminScopeId(row.listingId)}</span>
-                    </td>
-                    <td className="px-2 py-2 font-mono">
-                      {formatAdminScopeId(row.sellerScopeId)}
-                    </td>
-                    <td className="px-2 py-2 font-mono">
-                      {row.buyerLeadId === "preview"
-                        ? "—"
-                        : formatAdminScopeId(row.buyerLeadId)}
-                    </td>
-                    <td className="px-2 py-2">
-                      <span>{formatBaht(row.closedDealPrice)}</span>
-                      {row.priceSourceLabel ? (
-                        <span
-                          className="block text-[9px] text-amber-300/90 mt-0.5"
-                          data-testid={`admin-revenue-price-source-${row.id}`}
-                        >
-                          {row.priceSourceLabel}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-2 py-2">{formatBaht(row.feeAmount)}</td>
-                    <td className="px-2 py-2 font-mono">{row.feePolicyType}</td>
-                    <td className="px-2 py-2">{formatBaht(row.paidAmount)}</td>
-                    <td className="px-2 py-2">{formatBaht(row.remainingAmount)}</td>
-                    <td className="px-2 py-2">
-                      {STATUS_LABELS[row.settlementStatus]}
-                    </td>
-                    <td className="px-2 py-2 text-slate-500 max-w-[140px] truncate">
-                      {row.adminNotePreview ?? "—"}
-                    </td>
-                    <td className="px-2 py-2 text-slate-500 max-w-[160px]">
-                      {auditPreview.length ? (
-                        <span
-                          className="block truncate"
-                          data-testid={`admin-revenue-audit-preview-${row.id}`}
-                          title={auditPreview
-                            .map(
-                              (a) =>
-                                `${a.action}: ${a.previousRemainingAmount}→${a.newRemainingAmount} (${a.reason})`
-                            )
-                            .join(" | ")}
-                        >
-                          {auditPreview[auditPreview.length - 1]?.action} —{" "}
-                          {auditPreview[auditPreview.length - 1]?.reason}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-2 py-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-white truncate">
+                          {row.listingTitle ?? formatAdminScopeId(row.listingId)}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-mono">
+                          {formatAdminScopeId(row.listingId)}
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setAdjustRow(row)}
-                        className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 px-2 py-1 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/10"
-                        data-testid={`admin-revenue-adjust-btn-${row.id}`}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-bold text-emerald-200"
+                        data-testid={`admin-revenue-adjust-btn-card-${row.id}`}
                       >
-                        <Pencil className="w-3 h-3" />
+                        <Pencil className="w-3.5 h-3.5" />
                         ปรับยอด
                       </button>
-                    </td>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                      <dt className="text-slate-500">ค่าบริการ</dt>
+                      <dd>{formatBaht(row.feeAmount)}</dd>
+                      <dt className="text-slate-500">คงเหลือ</dt>
+                      <dd>{formatBaht(row.remainingAmount)}</dd>
+                      <dt className="text-slate-500">สถานะ</dt>
+                      <dd>{STATUS_LABELS[row.settlementStatus]}</dd>
+                    </dl>
+                    {auditPreview.length ? (
+                      <p
+                        className="text-[10px] text-slate-500 truncate"
+                        data-testid={`admin-revenue-audit-preview-card-${row.id}`}
+                      >
+                        audit: {auditPreview[auditPreview.length - 1]?.action}
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+
+            <div
+              className="hidden md:block overflow-x-auto"
+              data-testid="admin-revenue-preview-table-wrap"
+            >
+              <table
+                className="w-full min-w-[720px] text-[10px] text-left"
+                data-testid="admin-revenue-preview-table"
+              >
+                <thead>
+                  <tr className="text-slate-500 border-b border-white/[0.06]">
+                    <th className="px-2 py-2 font-bold whitespace-nowrap">วันที่</th>
+                    <th
+                      className="px-2 py-2 font-bold min-w-[160px]"
+                      data-testid="admin-revenue-listing-column-header"
+                    >
+                      รถ / listing
+                    </th>
+                    <th className="px-2 py-2 font-bold">seller scope</th>
+                    <th className="px-2 py-2 font-bold">leadId</th>
+                    <th className="px-2 py-2 font-bold">ราคาปิด</th>
+                    <th className="px-2 py-2 font-bold">{ADMIN_REVENUE_TERM}</th>
+                    <th className="px-2 py-2 font-bold">policy</th>
+                    <th className="px-2 py-2 font-bold">paid</th>
+                    <th className="px-2 py-2 font-bold">คงเหลือ</th>
+                    <th className="px-2 py-2 font-bold">สถานะ</th>
+                    <th className="px-2 py-2 font-bold">admin note</th>
+                    <th className="px-2 py-2 font-bold">audit</th>
                   </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const apiRow =
+                      apiRowsById[row.id] ?? payload?.rows.find((r) => r.id === row.id);
+                    const auditPreview = apiRow?.auditLogPreview ?? [];
+                    return (
+                      <tr
+                        key={row.id}
+                        className="border-b border-white/[0.04] text-slate-300"
+                        data-testid={`admin-revenue-row-${row.id}`}
+                        data-has-manual-adjustment={
+                          apiRow?.hasManualAdjustment ? "true" : "false"
+                        }
+                      >
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          {new Date(row.date).toLocaleDateString("th-TH")}
+                        </td>
+                        <td className="px-2 py-2 font-mono align-top">
+                          {row.listingTitle ? (
+                            <span className="block text-white truncate max-w-[160px]">
+                              {row.listingTitle}
+                            </span>
+                          ) : null}
+                          <span className="block">{formatAdminScopeId(row.listingId)}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdjustRow(row)}
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-emerald-500/40 px-2 py-1 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/10"
+                            data-testid={`admin-revenue-adjust-btn-${row.id}`}
+                          >
+                            <Pencil className="w-3 h-3 shrink-0" />
+                            ปรับยอด
+                          </button>
+                        </td>
+                        <td className="px-2 py-2 font-mono">
+                          {formatAdminScopeId(row.sellerScopeId)}
+                        </td>
+                        <td className="px-2 py-2 font-mono">
+                          {row.buyerLeadId === "preview"
+                            ? "—"
+                            : formatAdminScopeId(row.buyerLeadId)}
+                        </td>
+                        <td className="px-2 py-2">
+                          <span>{formatBaht(row.closedDealPrice)}</span>
+                          {row.priceSourceLabel ? (
+                            <span
+                              className="block text-[9px] text-amber-300/90 mt-0.5"
+                              data-testid={`admin-revenue-price-source-${row.id}`}
+                            >
+                              {row.priceSourceLabel}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-2">{formatBaht(row.feeAmount)}</td>
+                        <td className="px-2 py-2 font-mono">{row.feePolicyType}</td>
+                        <td className="px-2 py-2">{formatBaht(row.paidAmount)}</td>
+                        <td className="px-2 py-2">{formatBaht(row.remainingAmount)}</td>
+                        <td className="px-2 py-2">
+                          {STATUS_LABELS[row.settlementStatus]}
+                        </td>
+                        <td className="px-2 py-2 text-slate-500 max-w-[140px] truncate">
+                          {row.adminNotePreview ?? "—"}
+                        </td>
+                        <td className="px-2 py-2 text-slate-500 max-w-[160px]">
+                          {auditPreview.length ? (
+                            <span
+                              className="block truncate"
+                              data-testid={`admin-revenue-audit-preview-${row.id}`}
+                              title={auditPreview
+                                .map(
+                                  (a) =>
+                                    `${a.action}: ${a.previousRemainingAmount}→${a.newRemainingAmount} (${a.reason})`
+                                )
+                                .join(" | ")}
+                            >
+                              {auditPreview[auditPreview.length - 1]?.action} —{" "}
+                              {auditPreview[auditPreview.length - 1]?.reason}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </div>
 

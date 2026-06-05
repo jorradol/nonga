@@ -102,14 +102,19 @@ export default function MyListingsView() {
     await load();
   };
 
+  /** v5.6I.3b/4a — refetch listings + revenue statement without browser reload. */
+  const refreshListingsAndRevenue = useCallback(async () => {
+    await load();
+    await fetchCars();
+    setRevenueRefreshSignal(Date.now());
+  }, [fetchCars, load]);
+
   const handleCancelPendingSale = async (car: Car) => {
     setActionId(car.id);
     try {
       const result = await cancelPendingSaleRelist(listingApiScope, car.id);
       setCancelPendingSaleId(null);
-      await load();
-      await fetchCars();
-      setRevenueRefreshSignal(Date.now());
+      await refreshListingsAndRevenue();
       if (result.published) {
         notifySuccess("กลับไปขายต่อแล้วค่ะ", result.message);
       } else {
@@ -466,6 +471,7 @@ export default function MyListingsView() {
                     listingId={car.id}
                     isListingOwnerContext
                     isDarkMode={isDarkMode}
+                    onRevenueRelevantChange={refreshListingsAndRevenue}
                   />
                 ) : null}
               </article>

@@ -33,6 +33,8 @@ type Props = {
   /** My Listings page — owner/dealer context; map 403 to sync/empty not forbidden. */
   isListingOwnerContext?: boolean;
   isDarkMode?: boolean;
+  /** v5.6I.4a — refresh parent listings + revenue after closed_won outcome. */
+  onRevenueRelevantChange?: () => void | Promise<void>;
 };
 
 type PanelView = "hidden" | "checking" | "loading" | "queue" | "notice";
@@ -44,6 +46,7 @@ export function SellerMaskedLeadQueuePanel({
   listingId,
   isListingOwnerContext = false,
   isDarkMode = true,
+  onRevenueRelevantChange,
 }: Props) {
   const [view, setView] = useState<PanelView>("checking");
   const [notice, setNotice] = useState<string | null>(null);
@@ -164,8 +167,12 @@ export function SellerMaskedLeadQueuePanel({
       setError(result.message);
       return;
     }
+    const recordedOutcome = outcomeValue;
     setOutcomeLeadId(null);
     await load();
+    if (recordedOutcome === "closed_won" && onRevenueRelevantChange) {
+      await onRevenueRelevantChange();
+    }
   };
 
   if (view === "hidden" || view === "checking") {

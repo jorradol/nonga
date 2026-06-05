@@ -19,9 +19,10 @@ const revenue = readFileSync(
 {
   ok(
     "cancel success refetches listings",
-    /handleCancelPendingSale[\s\S]*await load\(\);[\s\S]*setRevenueRefreshSignal/.test(
-      my
-    )
+    /handleCancelPendingSale[\s\S]*await refreshListingsAndRevenue\(\)/.test(my) ||
+      /handleCancelPendingSale[\s\S]*await load\(\);[\s\S]*setRevenueRefreshSignal/.test(
+        my
+      )
   );
   ok(
     "cancel success no stale local-only patch",
@@ -65,7 +66,8 @@ const revenue = readFileSync(
   );
   ok(
     "refresh signal bump inside try after load",
-    /try \{[\s\S]*await load\(\);[\s\S]*setRevenueRefreshSignal/.test(cancelHandler)
+    /try \{[\s\S]*await refreshListingsAndRevenue\(\)/.test(cancelHandler) ||
+      /try \{[\s\S]*await load\(\);[\s\S]*setRevenueRefreshSignal/.test(cancelHandler)
   );
 }
 
