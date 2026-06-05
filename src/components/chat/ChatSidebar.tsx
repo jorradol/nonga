@@ -239,7 +239,7 @@ export function ChatSidebar({
         />
 
         <div
-          className={`flex-1 overflow-y-auto pb-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800 ${
+          className={`flex-1 overflow-y-auto pb-4 space-y-1.5 scrollbar-thin ${
             collapsed ? "md:px-1 px-3" : "px-2.5"
           }`}
           id="sidebar-list"

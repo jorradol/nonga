@@ -352,7 +352,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex flex-col chat-scroll-padding-composer max-md:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]"
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4 space-y-4 scrollbar-thin scrollbar-track-transparent flex flex-col chat-scroll-padding-composer max-md:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]"
             id="chat-feed-area"
           >
             {currentMessages.length === 0 ? (

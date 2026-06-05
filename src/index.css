@@ -29,7 +29,11 @@
   animation: pulseGlow 6s infinite ease-in-out;
 }
 
-/* Premium scrollbar styling */
+/* Premium scrollbar styling (v5.6I.4d — global orange thumb; sizes unchanged) */
+* {
+  scrollbar-color: #f97316 transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -40,12 +44,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 90, 31, 0.2);
+  background: #f97316;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 90, 31, 0.4);
+  background: #ea580c;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #c2410c;
 }
 
 /* Glassmorphism custom components */
@@ -78,11 +86,11 @@
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Header main nav — horizontal scroll, thin scrollbar */
+/* Header main nav — horizontal scroll (height unchanged; v5.6I.4d orange thumb) */
 .header-nav-scroll {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(249, 115, 22, 0.45) transparent;
+  scrollbar-color: #f97316 transparent;
 }
 
 .header-nav-scroll::-webkit-scrollbar {
@@ -90,12 +98,16 @@
 }
 
 .header-nav-scroll::-webkit-scrollbar-thumb {
-  background: rgba(249, 115, 22, 0.35);
+  background: #f97316;
   border-radius: 999px;
 }
 
 .header-nav-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(249, 115, 22, 0.55);
+  background: #ea580c;
+}
+
+.header-nav-scroll::-webkit-scrollbar-thumb:active {
+  background: #c2410c;
 }
 
 /* Chat First — mobile composer & scroll (v5.4.6-mobile) */

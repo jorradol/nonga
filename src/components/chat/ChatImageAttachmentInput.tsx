@@ -43,7 +43,7 @@ export function ChatImageAttachmentPreview({
       <span className="shrink-0 text-[10px] font-semibold text-orange-300 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
         {pending.length} รูป
       </span>
-      <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-slate-600 py-0.5">
+      <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto overflow-y-hidden scrollbar-thin py-0.5">
         {pending.map((item, index) => (
           <div
             key={item.id}
