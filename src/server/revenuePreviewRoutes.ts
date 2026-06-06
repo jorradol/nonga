@@ -13,11 +13,15 @@ import {
   loadRevenuePreviewAdjustmentOverlay,
   marketplaceCarToRevenueListingSource,
 } from "../services/leads/revenuePreviewBackend";
+import { SettlementAdjustmentAuditInvariantError } from "../services/leads/settlementAdjustmentApply";
 import {
-  applySettlementAdjustment,
   previewRowToAdjustmentBase,
   validateSettlementAdjustmentInput,
 } from "../services/leads/settlementAdjustmentService";
+import {
+  resolveSettlementRequestId,
+  SettlementAdjustmentIdempotencyConflictError,
+} from "../services/leads/settlementIdempotency";
 import {
   resolveOwnerRequestScope,
   type OwnerRequestScope,
@@ -167,15 +171,11 @@ export function registerRevenuePreviewRoutes(
         return deny(res, 400, preflight.message);
       }
 
-      const { next, audit: auditDraft } = applySettlementAdjustment(
+      const requestId = resolveSettlementRequestId(req.body?.requestId);
+      const result = await adjustmentRepo.applyAdjustmentWithAudit({
         current,
-        input
-      );
-      const savedState = await adjustmentRepo.upsertState(next);
-      const auditEntry = await adjustmentRepo.appendAudit({
-        ...auditDraft,
-        id: `adj-audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        createdAt: new Date().toISOString(),
+        input,
+        requestId,
       });
 
       const overlay = await loadRevenuePreviewAdjustmentOverlay(
@@ -188,12 +188,22 @@ export function registerRevenuePreviewRoutes(
       return res.json({
         success: true,
         data: {
-          adjustment: savedState,
-          audit: auditEntry,
+          adjustment: result.state,
+          audit: result.audit,
           previewRow,
+          idempotency: {
+            requestId: result.requestId,
+            outcome: result.outcome,
+          },
         },
       });
     } catch (err) {
+      if (err instanceof SettlementAdjustmentIdempotencyConflictError) {
+        return deny(res, 409, err.message);
+      }
+      if (err instanceof SettlementAdjustmentAuditInvariantError) {
+        return deny(res, 400, err.message);
+      }
       const message =
         err instanceof Error ? err.message : "บันทึกการปรับยอดไม่สำเร็จครับ";
       console.error("[POST /api/admin/revenue/adjustments] failed:", err);

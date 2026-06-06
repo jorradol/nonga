@@ -199,9 +199,8 @@ function ok(name: string, pass: boolean, detail = "") {
 {
   const routes = readFileSync("src/server/revenuePreviewRoutes.ts", "utf8");
   ok(
-    "POST adjustments upserts state then audit",
-    routes.includes("adjustmentRepo.upsertState(next)") &&
-      routes.includes("adjustmentRepo.appendAudit")
+    "POST adjustments uses atomic applyAdjustmentWithAudit",
+    routes.includes("adjustmentRepo.applyAdjustmentWithAudit")
   );
   ok(
     "success fee repo not wired in revenue routes",

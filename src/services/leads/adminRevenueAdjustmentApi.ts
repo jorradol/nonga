@@ -18,6 +18,8 @@ export type AdminRevenueAdjustmentRequest = {
   newFeeAmount?: number;
   reason: string;
   adminNote?: string;
+  /** v5.6I.9 — client idempotency key for safe retries (no PII). */
+  requestId?: string;
 };
 
 export type AdminRevenueAdjustmentResponse = {
@@ -37,6 +39,10 @@ export type AdminRevenueAdjustmentResponse = {
     newRemainingAmount: number;
   };
   previewRow?: RevenuePreviewApiRow;
+  idempotency?: {
+    requestId: string;
+    outcome: "processed" | "duplicate";
+  };
 };
 
 export async function postAdminRevenueAdjustment(

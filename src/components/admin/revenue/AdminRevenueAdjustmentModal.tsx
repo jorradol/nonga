@@ -2,7 +2,8 @@
  * v5.6I.4 / v5.6I.4b — Admin manual settlement adjustment modal (UX polish).
  */
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { generateServerSettlementRequestId } from "../../../services/leads/settlementIdempotency";
 import type {
   SettlementAdjustmentAction,
   SettlementStatus,
@@ -107,6 +108,7 @@ export function AdminRevenueAdjustmentModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  const requestIdRef = useRef(generateServerSettlementRequestId());
 
   const selected = ADMIN_REVENUE_ADJUSTMENT_ACTIONS.find(
     (opt) => opt.action === action
@@ -178,6 +180,7 @@ export function AdminRevenueAdjustmentModal({
           : undefined,
         reason: reason.trim(),
         adminNote: adminNote.trim() || undefined,
+        requestId: requestIdRef.current,
       });
     } catch (err) {
       setError(
