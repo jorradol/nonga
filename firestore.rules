@@ -306,6 +306,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // v5.6I.10 — Durable settlement idempotency records: Admin SDK only (cross-instance dedupe).
+    match /settlementIdempotencyRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    match /settlementIdempotencyRecords/{recordId}/{document=**} {
+      allow read, write: if false;
+    }
+
     // v5.6F.2 — AI Sales Lead Engine (phase 1): server-only via Cloud Run Admin SDK.
     // Client direct read/write denied; masked queue and PII via API only.
     match /buyerLeads/{leadId} {

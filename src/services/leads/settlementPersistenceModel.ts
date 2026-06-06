@@ -18,6 +18,8 @@ export const SETTLEMENT_COLLECTIONS = {
   successFeeRecords: LEAD_ENGINE_COLLECTIONS.successFeeRecords,
   settlementAdjustments: LEAD_ENGINE_COLLECTIONS.settlementAdjustments,
   settlementAuditLogs: LEAD_ENGINE_COLLECTIONS.settlementAuditLogs,
+  /** v5.6I.10 — durable cross-instance idempotency (Admin SDK only). */
+  settlementIdempotencyRecords: "settlementIdempotencyRecords",
 } as const;
 
 export type SettlementAdjustmentType =

@@ -14,6 +14,7 @@ export const LEAD_ENGINE_COLLECTIONS = {
   successFeeRecords: "successFeeRecords",
   settlementAdjustments: "settlementAdjustments",
   settlementAuditLogs: "settlementAuditLogs",
+  settlementIdempotencyRecords: "settlementIdempotencyRecords",
   trustRewardEvents: "trustRewardEvents",
 } as const;
 

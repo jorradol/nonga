@@ -22,6 +22,7 @@ const FIN = {
   recordId: "sfr-rules-test-1",
   adjustmentId: "adj-rules-test-1",
   auditLogId: "audit-rules-test-1",
+  idempotencyRecordId: "idem-rules-test-1",
   subEventId: "sub-event-rules-1",
 } as const;
 
@@ -79,6 +80,23 @@ const sampleSubEvent = {
   createdAt: "2026-06-05T00:00:00.000Z",
 };
 
+const sampleIdempotencyRecord = {
+  id: FIN.idempotencyRecordId,
+  idempotencyKey: "list-key|admin-key|req-key",
+  requestId: "req-key",
+  listingId: DOCS.listingPublishedA,
+  updatedBy: "admin-synthetic",
+  updatedByRole: "admin",
+  operationType: "settlement_adjustment",
+  payloadFingerprint: '{"listingId":"x"}',
+  action: "partial_payment",
+  status: "processed",
+  settlementAdjustmentId: FIN.adjustmentId,
+  auditLogId: FIN.auditLogId,
+  createdAt: "2026-06-05T00:00:00.000Z",
+  expiresAt: "2026-09-03T00:00:00.000Z",
+};
+
 function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
   if (!pass) process.exitCode = 1;
@@ -95,6 +113,10 @@ function assertSettlementRulesInFile(path: string, label: string): void {
     {
       name: "settlementAuditLogs",
       pattern: /match \/settlementAuditLogs\/\{auditLogId\}/,
+    },
+    {
+      name: "settlementIdempotencyRecords",
+      pattern: /match \/settlementIdempotencyRecords\/\{recordId\}/,
     },
   ] as const;
 
@@ -153,7 +175,8 @@ ok(
   "collection constants align",
   SETTLEMENT_COLLECTIONS.successFeeRecords === "successFeeRecords" &&
     SETTLEMENT_COLLECTIONS.settlementAdjustments === "settlementAdjustments" &&
-    SETTLEMENT_COLLECTIONS.settlementAuditLogs === "settlementAuditLogs"
+    SETTLEMENT_COLLECTIONS.settlementAuditLogs === "settlementAuditLogs" &&
+    SETTLEMENT_COLLECTIONS.settlementIdempotencyRecords === "settlementIdempotencyRecords"
 );
 
 const live = readFileSync(resolve(repoRoot, "firestore.rules"), "utf8");
@@ -192,6 +215,10 @@ async function seedSettlementFixtures(
     batch.set(
       db.collection("settlementAuditLogs").doc(FIN.auditLogId),
       sampleAuditLog
+    );
+    batch.set(
+      db.collection("settlementIdempotencyRecords").doc(FIN.idempotencyRecordId),
+      sampleIdempotencyRecord
     );
     batch.set(
       db
@@ -296,6 +323,26 @@ async function main() {
         .collection("settlementAdjustments")
         .doc(FIN.adjustmentId)
         .update({ paidAmount: 5000 }),
+      "deny"
+    );
+
+    // settlementIdempotencyRecords — v5.6I.10
+    await runRuleCase(
+      "admin read settlementIdempotencyRecords",
+      adminDb.collection("settlementIdempotencyRecords").doc(FIN.idempotencyRecordId).get(),
+      "deny"
+    );
+    await runRuleCase(
+      "superadmin write settlementIdempotencyRecords",
+      superadminDb
+        .collection("settlementIdempotencyRecords")
+        .doc("idem-sa-write")
+        .set(sampleIdempotencyRecord),
+      "deny"
+    );
+    await runRuleCase(
+      "guest list settlementIdempotencyRecords",
+      guestDb.collection("settlementIdempotencyRecords").get(),
       "deny"
     );
 
