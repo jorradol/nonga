@@ -111,6 +111,7 @@
     "test:v56i4b-admin-revenue-adjustment-modal-ux": "tsx scripts/test-v56i4b-admin-revenue-adjustment-modal-ux.mts",
     "test:v56i4c-admin-revenue-container-fit-no-horizontal-overflow": "tsx scripts/test-v56i4c-admin-revenue-container-fit-no-horizontal-overflow.mts",
     "test:v56i4d-admin-revenue-scrollbar-thumb-color-polish": "tsx scripts/test-v56i4d-admin-revenue-scrollbar-thumb-color-polish.mts",
+    "test:v56i12-scrollbar-track-background-polish": "tsx scripts/test-v56i12-scrollbar-track-background-polish.mts",
     "test:v56i5-durable-settlement-readiness": "tsx scripts/test-v56i5-durable-settlement-readiness.mts",
     "test:v56i6-settlement-firestore-rules": "firebase emulators:exec --only firestore --project demo-nonga-v544f \"tsx scripts/test-v56i6-settlement-firestore-rules.mts\"",
     "test:v56i8-settlement-persistence-enable-readiness": "tsx scripts/test-v56i8-settlement-persistence-enable-readiness.mts",

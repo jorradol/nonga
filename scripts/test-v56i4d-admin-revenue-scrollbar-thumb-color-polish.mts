@@ -26,7 +26,10 @@ const globalBlock =
 
 // --- global orange thumb ---
 {
-  ok("global firefox scrollbar-color", css.includes("scrollbar-color: #f97316 transparent"));
+  ok(
+    "global firefox scrollbar-color",
+    css.includes("scrollbar-color: #f97316 var(--nonga-scrollbar-track)")
+  );
   ok("global webkit thumb orange-500", globalBlock.includes("background: #f97316"));
   ok("global webkit hover orange-600", globalBlock.includes("background: #ea580c"));
   ok("global webkit active orange-700", globalBlock.includes("background: #c2410c"));

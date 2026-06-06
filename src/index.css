@@ -11,6 +11,12 @@
   --color-brand-secondary: #ff7c47;
   --color-brand-dark: #0f0f12;
   --color-brand-card: #18181f;
+  /* v5.6I.12 — scrollbar track (subtle surface; thumb unchanged in v5.6I.4d) */
+  --color-scrollbar-track: rgba(148, 163, 184, 0.18);
+}
+
+:root {
+  --nonga-scrollbar-track: var(--color-scrollbar-track);
 }
 
 /* Custom animated gradient glow */
@@ -29,9 +35,9 @@
   animation: pulseGlow 6s infinite ease-in-out;
 }
 
-/* Premium scrollbar styling (v5.6I.4d — global orange thumb; sizes unchanged) */
+/* Premium scrollbar styling (v5.6I.4d thumb + v5.6I.12 track polish) */
 * {
-  scrollbar-color: #f97316 transparent;
+  scrollbar-color: #f97316 var(--nonga-scrollbar-track);
 }
 
 ::-webkit-scrollbar {
@@ -40,7 +46,7 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--nonga-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -90,11 +96,15 @@
 .header-nav-scroll {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #f97316 transparent;
+  scrollbar-color: #f97316 var(--nonga-scrollbar-track);
 }
 
 .header-nav-scroll::-webkit-scrollbar {
   height: 5px;
+}
+
+.header-nav-scroll::-webkit-scrollbar-track {
+  background: var(--nonga-scrollbar-track);
 }
 
 .header-nav-scroll::-webkit-scrollbar-thumb {
