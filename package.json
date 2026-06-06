@@ -117,6 +117,7 @@
     "test:v56i8-settlement-persistence-enable-readiness": "tsx scripts/test-v56i8-settlement-persistence-enable-readiness.mts",
     "test:v56i9-settlement-transaction-idempotency": "tsx scripts/test-v56i9-settlement-transaction-idempotency.mts",
     "test:v56i10-durable-idempotency-readiness": "tsx scripts/test-v56i10-durable-idempotency-readiness.mts",
+    "test:v56i13-durable-idempotency-transaction-wiring": "tsx scripts/test-v56i13-durable-idempotency-transaction-wiring.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",

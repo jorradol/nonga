@@ -207,15 +207,16 @@ console.log("=== v5.6I.10 Durable idempotency readiness ===\n");
   ok("memory conflict", conflict);
 }
 
-// --- firestore repo still in-process cache (risk documented) ---
+// --- firestore repo durable wiring (v5.6I.13) ---
 {
   const fsRepoSrc = readFileSync(
     "src/server/repositories/settlementAdjustmentRepositoryFirestore.ts",
     "utf8"
   );
-  ok("firestore has in-process idempotency cache", fsRepoSrc.includes("idempotencyCache"));
+  ok("firestore no in-process idempotency cache", !fsRepoSrc.includes("idempotencyCache"));
   ok("firestore writes gated", fsRepoSrc.includes("assertWritesAllowed"));
-  ok("firestore no durable idempotency collection yet", !fsRepoSrc.includes("settlementIdempotencyRecords"));
+  ok("firestore uses settlementIdempotencyRecords", fsRepoSrc.includes("settlementIdempotencyRecords"));
+  ok("firestore reads idempotency in transaction", /tx\.get\(idempotencyRef\)/.test(fsRepoSrc));
 }
 
 // --- rules deny-all documented ---

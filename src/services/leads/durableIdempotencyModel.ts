@@ -181,6 +181,37 @@ export function classifyIdempotencyReplay(
   return { kind: "conflict" };
 }
 
+export type DurableIdempotencyTransactionOutcome =
+  | { kind: "new" }
+  | {
+      kind: "duplicate";
+      auditLogId: string;
+      settlementAdjustmentId: string;
+    }
+  | { kind: "conflict" };
+
+/** Pure decision helper for Firestore transaction idempotency read (no I/O). */
+export function resolveDurableIdempotencyTransactionOutcome(
+  existing:
+    | Pick<
+        DurableSettlementIdempotencyRecordDoc,
+        "payloadFingerprint" | "auditLogId" | "settlementAdjustmentId"
+      >
+    | null
+    | undefined,
+  payloadFingerprint: string
+): DurableIdempotencyTransactionOutcome {
+  if (!existing) return { kind: "new" };
+  if (existing.payloadFingerprint === payloadFingerprint) {
+    return {
+      kind: "duplicate",
+      auditLogId: existing.auditLogId,
+      settlementAdjustmentId: existing.settlementAdjustmentId,
+    };
+  }
+  return { kind: "conflict" };
+}
+
 export function buildDurableIdempotencyRecordDraft(params: {
   input: Pick<
     ApplySettlementAdjustmentInput,

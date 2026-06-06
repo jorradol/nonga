@@ -1,5 +1,6 @@
 /**
- * v5.6I.5 / v5.6I.9 — Firestore settlement adjustment repo (writes gated; transaction-ready).
+ * v5.6I.5 / v5.6I.9 / v5.6I.13 — Firestore settlement adjustment repo
+ * (writes gated; durable idempotency in transaction when enabled).
  */
 
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
@@ -9,13 +10,19 @@ import type {
   SettlementAdjustmentState,
 } from "../../services/leads/leadTypes";
 import {
+  assertNoBuyerPiiInIdempotencyRecord,
+  buildDurableIdempotencyDocId,
+  buildDurableIdempotencyRecordDraft,
+  type DurableSettlementIdempotencyRecordDoc,
+  redactIdempotencyResponseSnapshot,
+  resolveDurableIdempotencyTransactionOutcome,
+} from "../../services/leads/durableIdempotencyModel";
+import {
   computeAdjustmentWithAuditDraft,
 } from "../../services/leads/settlementAdjustmentApply";
 import {
   buildAdjustmentPayloadFingerprint,
-  buildSettlementIdempotencyCompositeKey,
   SettlementAdjustmentIdempotencyConflictError,
-  type SettlementAdjustmentIdempotencyRecord,
 } from "../../services/leads/settlementIdempotency";
 import { SETTLEMENT_COLLECTIONS } from "../../services/leads/settlementPersistenceModel";
 import { isSettlementFirestoreWritesEnabled } from "../../services/leads/settlementPersistenceFlags";
@@ -71,7 +78,7 @@ export function createFirestoreSettlementAdjustmentRepository(): SettlementAdjus
   const db = getFirestore(app);
   const statesCollection = SETTLEMENT_COLLECTIONS.settlementAdjustments;
   const auditsCollection = SETTLEMENT_COLLECTIONS.settlementAuditLogs;
-  const idempotencyCache = new Map<string, SettlementAdjustmentIdempotencyRecord>();
+  const idempotencyCollection = SETTLEMENT_COLLECTIONS.settlementIdempotencyRecords;
 
   return {
     async getStateByListingId(
@@ -121,73 +128,108 @@ export function createFirestoreSettlementAdjustmentRepository(): SettlementAdjus
     },
 
     async applyAdjustmentWithAudit(params: ApplyAdjustmentWithAuditRepositoryParams) {
-      const compositeKey = buildSettlementIdempotencyCompositeKey(
+      assertWritesAllowed();
+
+      const payloadFingerprint = buildAdjustmentPayloadFingerprint(params.input);
+      const idempotencyDocId = buildDurableIdempotencyDocId(
         params.input.listingId,
         params.input.updatedBy,
         params.requestId
       );
-      const payloadFingerprint = buildAdjustmentPayloadFingerprint(params.input);
-      const cached = idempotencyCache.get(compositeKey);
+      const idempotencyRef = db.collection(idempotencyCollection).doc(idempotencyDocId);
 
-      if (cached) {
-        if (cached.payloadFingerprint !== payloadFingerprint) {
+      return db.runTransaction(async (tx) => {
+        const idempotencySnap = await tx.get(idempotencyRef);
+        const existing = idempotencySnap.exists
+          ? (idempotencySnap.data() as DurableSettlementIdempotencyRecordDoc)
+          : null;
+
+        const outcome = resolveDurableIdempotencyTransactionOutcome(
+          existing,
+          payloadFingerprint
+        );
+
+        if (outcome.kind === "conflict") {
           throw new SettlementAdjustmentIdempotencyConflictError();
         }
-        const state = await this.getStateByListingId(params.input.listingId);
-        const audits = await this.listAuditByListingId(params.input.listingId);
-        const audit = audits.find((a) => a.id === cached.auditId);
-        if (!state || !audit) {
-          throw new Error("idempotency record corrupt — state or audit missing");
+
+        if (outcome.kind === "duplicate") {
+          const stateRef = db
+            .collection(statesCollection)
+            .doc(outcome.settlementAdjustmentId);
+          const auditRef = db.collection(auditsCollection).doc(outcome.auditLogId);
+          const [stateSnap, auditSnap] = await Promise.all([
+            tx.get(stateRef),
+            tx.get(auditRef),
+          ]);
+          if (!stateSnap.exists || !auditSnap.exists) {
+            throw new Error("idempotency record corrupt — state or audit missing");
+          }
+          return {
+            state: stateSnap.data() as SettlementAdjustmentState,
+            audit: auditSnap.data() as SettlementAdjustmentAuditEntry,
+            outcome: "duplicate" as const,
+            requestId: params.requestId,
+            payloadFingerprint,
+          };
         }
+
+        const { next, audit } = computeAdjustmentWithAuditDraft({
+          current: params.current,
+          input: params.input,
+          requestId: params.requestId,
+        });
+
+        const stateDocId = next.settlementId || next.listingId;
+        const responseSnapshot = redactIdempotencyResponseSnapshot(
+          next,
+          audit.id,
+          "processed"
+        );
+        const idempotencyDoc = buildDurableIdempotencyRecordDraft({
+          input: params.input,
+          requestId: params.requestId,
+          settlementAdjustmentId: stateDocId,
+          auditLogId: audit.id,
+          status: "processed",
+          createdAt: audit.createdAt,
+          processedAt: audit.createdAt,
+          responseSnapshot,
+        });
+
+        if (
+          !assertNoBuyerPiiInIdempotencyRecord(
+            idempotencyDoc as unknown as Record<string, unknown>
+          )
+        ) {
+          throw new Error("idempotency record draft contains disallowed PII");
+        }
+
+        const idempotencyData = sanitizeFirestoreDocument(
+          idempotencyDoc as unknown as Record<string, unknown>
+        );
+        const stateData = sanitizeFirestoreDocument(
+          next as unknown as Record<string, unknown>
+        );
+        const auditData = sanitizeFirestoreDocument(
+          audit as unknown as Record<string, unknown>
+        );
+
+        const stateRef = db.collection(statesCollection).doc(stateDocId);
+        const auditRef = db.collection(auditsCollection).doc(audit.id);
+
+        tx.set(idempotencyRef, idempotencyData);
+        tx.set(stateRef, stateData, { merge: true });
+        tx.set(auditRef, auditData);
+
         return {
-          state,
+          state: next,
           audit,
-          outcome: "duplicate" as const,
+          outcome: "processed" as const,
           requestId: params.requestId,
           payloadFingerprint,
         };
-      }
-
-      const { next, audit } = computeAdjustmentWithAuditDraft({
-        current: params.current,
-        input: params.input,
-        requestId: params.requestId,
       });
-
-      assertWritesAllowed();
-
-      const stateDocId = next.settlementId || next.listingId;
-      const stateData = sanitizeFirestoreDocument(
-        next as unknown as Record<string, unknown>
-      );
-      const auditData = sanitizeFirestoreDocument(
-        audit as unknown as Record<string, unknown>
-      );
-
-      await db.runTransaction(async (tx) => {
-        const stateRef = db.collection(statesCollection).doc(stateDocId);
-        const auditRef = db.collection(auditsCollection).doc(audit.id);
-        tx.set(stateRef, stateData, { merge: true });
-        tx.set(auditRef, auditData);
-      });
-
-      idempotencyCache.set(compositeKey, {
-        compositeKey,
-        listingId: params.input.listingId.trim(),
-        updatedBy: params.input.updatedBy.trim(),
-        requestId: params.requestId,
-        payloadFingerprint,
-        auditId: audit.id,
-        processedAt: audit.createdAt,
-      });
-
-      return {
-        state: next,
-        audit,
-        outcome: "processed" as const,
-        requestId: params.requestId,
-        payloadFingerprint,
-      };
     },
   };
 }
