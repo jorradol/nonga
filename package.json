@@ -127,6 +127,7 @@
     "test:v56i20-final-human-approval-packet": "tsx scripts/test-v56i20-final-human-approval-packet.mts",
     "test:v56i21-staging-persistence-enable-smoke-rollback-report": "tsx scripts/test-v56i21-staging-persistence-enable-smoke-rollback-report.mts",
     "test:v56i22-cloud-run-current-branch-runtime-deploy": "tsx scripts/test-v56i22-cloud-run-current-branch-runtime-deploy.mts",
+    "test:v56i23-staging-persistence-reenable-success": "tsx scripts/test-v56i23-staging-persistence-reenable-success.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
