@@ -41,6 +41,7 @@ import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
 import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
+import { wireShadowChatPath } from "../salesBrainShadowChatPath";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -53,7 +54,7 @@ export interface OrchestratedChatReply {
   savedDraftId?: string;
 }
 
-export function tryOrchestrateChatReply(
+function tryOrchestrateChatReplyCore(
   message: string,
   inventory: ChatInventoryCar[],
   options?: { attachedImageCount?: number; displayName?: string }
@@ -410,6 +411,27 @@ export function tryOrchestrateChatReply(
     skipGemini: true,
     hasMoreCars: hasMore,
   };
+}
+
+export function tryOrchestrateChatReply(
+  message: string,
+  inventory: ChatInventoryCar[],
+  options?: { attachedImageCount?: number; displayName?: string }
+): OrchestratedChatReply | null {
+  const reply = tryOrchestrateChatReplyCore(message, inventory, options);
+  if (!reply) {
+    return null;
+  }
+
+  wireShadowChatPath({
+    userMessage: message,
+    legacyUserVisibleResponse: reply.text,
+    userRole: "buyer",
+    flowContext: { attachedImageCount: options?.attachedImageCount },
+    source: "chatSearchOrchestrator",
+  });
+
+  return reply;
 }
 
 export { CHAT_FACTS_ONLY_PROMPT, buildChatCarFacts };

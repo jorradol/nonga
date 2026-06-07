@@ -1,6 +1,6 @@
 /**
  * v6.0R — Shadow runtime using env flags (mock evaluation only — user-visible legacy).
- * Not wired to useChat / chatSearchOrchestrator — no paid API, no network.
+ * v6.0V — wired via salesBrainShadowChatPath (legacy user-visible unchanged).
  */
 import { redactPiiForSalesBrainLog } from "./salesBrainMock";
 import {

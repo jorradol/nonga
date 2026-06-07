@@ -234,13 +234,12 @@ console.log("=== v6.0R Runtime Shadow Flag Reader / User-visible Off ===\n");
   ok("no-go payment visible legacy", out.userVisibleResponse === LEGACY_RESPONSE);
 }
 
-// --- not wired: useChat / orchestrator ---
+// --- v6.0V wiring: chat path module only (not direct runtime in useChat/orchestrator) ---
 {
-  ok("useChat no salesBrainShadowRuntime", !useChat.includes("salesBrainShadowRuntime"));
-  ok("useChat no evaluateSalesBrainShadowRuntime", !useChat.includes("evaluateSalesBrainShadowRuntime"));
-  ok("useChat no salesBrainRuntimeFlags", !useChat.includes("salesBrainRuntimeFlags"));
-  ok("orchestrator no salesBrainShadowRuntime", !orch.includes("salesBrainShadowRuntime"));
-  ok("orchestrator no salesBrainRuntimeFlags", !orch.includes("salesBrainRuntimeFlags"));
+  ok("useChat uses shadow chat path wiring", useChat.includes("salesBrainShadowChatPath"));
+  ok("orchestrator uses shadow chat path wiring", orch.includes("salesBrainShadowChatPath"));
+  ok("useChat no direct evaluateSalesBrainShadowRuntime", !useChat.includes("evaluateSalesBrainShadowRuntime"));
+  ok("orchestrator no direct evaluateSalesBrainShadowRuntime", !orch.includes("evaluateSalesBrainShadowRuntime"));
   ok("useChat no salesBrainAdapter", !useChat.includes("salesBrainAdapter"));
   ok("orchestrator no salesBrainAdapter", !orch.includes("salesBrainAdapter"));
 }

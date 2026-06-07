@@ -9,6 +9,10 @@ import {
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
 import {
+  mapChatRoleToSalesBrainUserRole,
+  wireShadowChatPath,
+} from "../../services/ai/salesBrainShadowChatPath";
+import {
   handleBuyerLeadCaptureFromCarCard,
   handleBuyerLeadCaptureTurn,
   submitBuyerLeadFromModal,
@@ -1594,6 +1598,35 @@ export function useChat() {
               undefined,
           })
         : null;
+
+      const salesBrainUserRole = mapChatRoleToSalesBrainUserRole({
+        role,
+        isAdmin,
+        isDealer,
+      });
+      const shadowFlowContext = {
+        attachedImageCount: hasImages ? imageAttachments.length : undefined,
+      };
+
+      if (!orchestrated) {
+        wireShadowChatPath({
+          userMessage: trimmed,
+          legacyUserVisibleResponse: "",
+          userRole: salesBrainUserRole,
+          flowContext: shadowFlowContext,
+          source: "useChat.gemini_fallback",
+        });
+      } else if (orchestrated.skipGemini) {
+        wireShadowChatPath({
+          userMessage: trimmed,
+          legacyUserVisibleResponse: orchestrated.text,
+          userRole: salesBrainUserRole,
+          flowContext: shadowFlowContext,
+          source: "useChat.orchestrated",
+          shadowAlreadyEvaluated: true,
+        });
+      }
+
       if (orchestrated?.skipGemini) {
         if (isSaveListingChatAction(trimmed)) {
           const lastDraftMsg = historyAfterUser

@@ -161,10 +161,10 @@ const orch = readFileSync("src/services/ai/chat/chatSearchOrchestrator.ts", "utf
   ok("references v60t v60r v60q", doc.includes("v6.0T") && doc.includes("v6.0R") && doc.includes("v6.0Q"));
 }
 
-// --- runtime not wired to chat ---
+// --- v6.0U record: shadow not wired at enable time (doc only) ---
 {
-  ok("useChat no shadow runtime", !useChat.includes("salesBrainShadowRuntime"));
-  ok("orchestrator no shadow runtime", !orch.includes("salesBrainShadowRuntime"));
+  ok("doc shadow not wired at v60u", /not wired.*useChat|ยังไม่ wired/i.test(docLower));
+  ok("doc no user visible ai at v60u", /user-visible AI response.*none|no AI response shown/i.test(docLower));
 }
 
 // --- no secret values ---
