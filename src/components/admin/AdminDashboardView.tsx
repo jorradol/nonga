@@ -14,7 +14,7 @@ import {
   Filter, CheckSquare, Square, Trash2, Mail, Phone, Calendar, 
   AlertTriangle, Check, X, RefreshCw, Send, Plus, Eye, Key,
   FileText, Activity, MoreVertical, LayoutGrid, CheckCircle2, Upload,
-  Banknote
+  Banknote, FlaskConical
 } from "lucide-react";
 import { AdminRevenueDashboardPreview } from "./revenue/AdminRevenueDashboardPreview";
 import { motion, AnimatePresence } from "motion/react";
@@ -236,6 +236,15 @@ export default function AdminDashboardView() {
             >
               <ShieldAlert className="w-4 h-4" />
               <span>รายงานประกาศ (Admin Review)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setView("admin-shadow-smoke")}
+              className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/15"
+            >
+              <FlaskConical className="w-4 h-4" />
+              <span>AI Shadow Smoke (Read-only)</span>
             </button>
 
             <button

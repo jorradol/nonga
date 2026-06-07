@@ -31,7 +31,8 @@ export type RoutableAppView =
   | "boost"
   | "pilot-policy"
   | "admin-reports"
-  | "admin-pilot-users";
+  | "admin-pilot-users"
+  | "admin-shadow-smoke";
 
 /** Legacy keys that pinned home on "/" before chat-default routing. */
 export const LEGACY_APP_VIEW_KEYS = [
@@ -114,6 +115,7 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/admin/draft-inventory") return "dealer-draft-inventory";
   if (path === "/admin/reports") return "admin-reports";
   if (path === "/admin/pilot-users") return "admin-pilot-users";
+  if (path === "/admin/shadow-smoke") return "admin-shadow-smoke";
   if (path === "/admin/dashboard" || path === "/admin") return "admin-dashboard";
   if (path.startsWith("/dealer")) return "dealer-portal";
   if (resolvePilotPolicySlug(path)) return "pilot-policy";
@@ -160,6 +162,8 @@ export function resolvePathnameForView(
       return "/admin/reports";
     case "admin-pilot-users":
       return "/admin/pilot-users";
+    case "admin-shadow-smoke":
+      return "/admin/shadow-smoke";
     case "admin-dashboard":
       return "/admin/dashboard";
     case "car-details":

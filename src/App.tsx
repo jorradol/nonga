@@ -36,6 +36,7 @@ import InventoryImportView from "./components/admin/inventory-import/InventoryIm
 import DealerDraftInventoryView from "./components/admin/DealerDraftInventoryView";
 import AdminListingReportsView from "./components/admin/AdminListingReportsView";
 import AdminPilotUsersView from "./components/admin/AdminPilotUsersView";
+import AdminShadowSmokeDebugView from "./components/admin/AdminShadowSmokeDebugView";
 import DealerPortalView from "./components/dealer-portal/DealerPortalView";
 import { dealerTabFromPath } from "./components/dealer-portal/DealerPortalLayout";
 import SearchPageView from "./components/search/SearchPageView";
@@ -317,6 +318,12 @@ export default function App() {
         return (
           <RequireAdmin>
             <AdminPilotUsersView />
+          </RequireAdmin>
+        );
+      case "admin-shadow-smoke":
+        return (
+          <RequireAdmin>
+            <AdminShadowSmokeDebugView />
           </RequireAdmin>
         );
       case "dealer-portal":
