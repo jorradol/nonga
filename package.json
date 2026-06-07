@@ -131,6 +131,7 @@
     "test:v56i24-final-revenue-monitoring-guardrail-checkpoint": "tsx scripts/test-v56i24-final-revenue-monitoring-guardrail-checkpoint.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v60a-smart-ai-conversation-sales-brain-blueprint": "tsx scripts/test-v60a-smart-ai-conversation-sales-brain-blueprint.mts",
+    "test:v60b-ai-first-control-flags-mock-runtime-plan": "tsx scripts/test-v60b-ai-first-control-flags-mock-runtime-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
