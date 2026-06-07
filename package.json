@@ -149,6 +149,7 @@
     "test:v60q-gemini-shadow-live-preflight-read-only": "tsx scripts/test-v60q-gemini-shadow-live-preflight-read-only.mts",
     "test:v60r-runtime-shadow-flag-reader-user-visible-off": "tsx scripts/test-v60r-runtime-shadow-flag-reader-user-visible-off.mts",
     "test:v60s-shadow-runtime-wiring-smoke-readiness-not-deployed": "tsx scripts/test-v60s-shadow-runtime-wiring-smoke-readiness-not-deployed.mts",
+    "test:v60t-shadow-runtime-reader-staging-deploy-record": "tsx scripts/test-v60t-shadow-runtime-reader-staging-deploy-record.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
