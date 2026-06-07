@@ -1,9 +1,12 @@
 /**
- * v6.0F — Sales Brain adapter contract (not wired to chat/orchestrator runtime).
- * Default provider = mock (delegates to routeSalesBrainMock). Real provider stub only — no network.
+ * v6.0F / v6.0N — Sales Brain adapter contract (not wired to chat/orchestrator runtime).
+ * Default provider = mock. Gemini real path wired behind disabled flag — no network.
  */
 import { routeSalesBrainMock } from "./salesBrainMock";
-import { routeRealProviderStub } from "./salesBrainRealProvider";
+import {
+  routeGeminiRealProviderDisabled,
+  shouldFallbackOnRealProviderError,
+} from "./salesBrainRealProvider";
 import type {
   SalesBrainAdapter,
   SalesBrainAdapterConfig,
@@ -13,9 +16,7 @@ import type {
   SalesBrainMockInput,
   SalesBrainPaidProviderKind,
 } from "./salesBrainTypes";
-import {
-  SALES_BRAIN_NO_GO_TOOL_ID_PATTERNS,
-} from "./salesBrainTypes";
+import { SALES_BRAIN_NO_GO_TOOL_ID_PATTERNS } from "./salesBrainTypes";
 
 export type {
   SalesBrainAdapter,
@@ -24,10 +25,25 @@ export type {
   SalesBrainAdapterOutput,
   SalesBrainAdapterProviderKind,
   SalesBrainAdapterRouteVia,
+  SalesBrainEnvReader,
   SalesBrainPaidProviderKind,
 } from "./salesBrainTypes";
 
-export { SalesBrainRealProviderNotAvailableError, SalesBrainRealProviderNetworkDisabledError } from "./salesBrainTypes";
+export {
+  SalesBrainOpenAiFutureOnlyError,
+  SalesBrainRealProviderMissingApiKeyError,
+  SalesBrainRealProviderNotAvailableError,
+  SalesBrainRealProviderNetworkDisabledError,
+} from "./salesBrainTypes";
+
+export {
+  SALES_BRAIN_GEMINI_ENV_VAR,
+  SALES_BRAIN_GEMINI_SM_RESOURCE,
+  SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED,
+  SALES_BRAIN_ROUND1_PAID_PROVIDER,
+  geminiSecretMapping,
+  shouldFallbackOnRealProviderError,
+} from "./salesBrainRealProvider";
 
 function mergeAdapterInput(
   config: SalesBrainAdapterConfig,
@@ -43,7 +59,9 @@ function mergeAdapterInput(
 }
 
 function assertNoForbiddenToolIds(output: SalesBrainAdapterOutput): void {
-  const bad = output.mockToolCalls.some((t) => SALES_BRAIN_NO_GO_TOOL_ID_PATTERNS.test(t.toolId));
+  const bad = output.mockToolCalls.some((t) =>
+    SALES_BRAIN_NO_GO_TOOL_ID_PATTERNS.test(t.toolId)
+  );
   if (bad) {
     throw new Error("Sales Brain adapter produced forbidden tool ID — no-go zone violation");
   }
@@ -72,16 +90,17 @@ function routeMockProvider(
   return toAdapterOutput("mock", result);
 }
 
-function routeRealProviderPath(
+/** v6.0N — Gemini real path behind disabled flag; throws controlled errors (not user-visible). */
+function routeGeminiRealProviderPath(
   config: SalesBrainAdapterConfig,
   input: SalesBrainAdapterInput
 ): never {
-  routeRealProviderStub(input, config.realPaidProvider ?? "gemini");
+  routeGeminiRealProviderDisabled(input, { readEnv: config.readEnv });
 }
 
 /**
  * Factory for Sales Brain adapter — default provider mock.
- * Real provider uses v6.0J stub — throws SalesBrainRealProviderNetworkDisabledError (no network).
+ * Real provider uses v6.0N Gemini wiring — throws before network (disabled flag).
  */
 export function createSalesBrainAdapter(
   config: SalesBrainAdapterConfig = {}
@@ -93,7 +112,7 @@ export function createSalesBrainAdapter(
     route(input: SalesBrainAdapterInput): SalesBrainAdapterOutput {
       const effectiveProvider = input.provider ?? provider;
       if (effectiveProvider === "real") {
-        routeRealProviderPath(config, input);
+        routeGeminiRealProviderPath(config, input);
       }
       return routeMockProvider(config, input);
     },
@@ -102,18 +121,16 @@ export function createSalesBrainAdapter(
 
 let defaultAdapter: SalesBrainAdapter | undefined;
 
-/**
- * Convenience route using default mock adapter (v6.0F contract entry point).
- */
 export function routeWithSalesBrainAdapter(
-  input: SalesBrainAdapterInput
+  input: SalesBrainAdapterInput,
+  config: SalesBrainAdapterConfig = {}
 ): SalesBrainAdapterOutput {
   if (!defaultAdapter) {
     defaultAdapter = createSalesBrainAdapter({ provider: "mock" });
   }
   const effectiveProvider = input.provider ?? defaultAdapter.provider;
   if (effectiveProvider === "real") {
-    routeRealProviderStub(input, input.paidProvider ?? "gemini");
+    routeGeminiRealProviderDisabled(input, { readEnv: config.readEnv });
   }
   return defaultAdapter.route(input);
 }

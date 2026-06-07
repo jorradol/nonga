@@ -14,8 +14,11 @@ export type SalesBrainAiProvider = "mock" | "none";
 /** v6.0F adapter provider — mock default; real delegates to paid stub (v6.0J) */
 export type SalesBrainAdapterProviderKind = "mock" | "real";
 
-/** v6.0J — paid AI provider candidates (stub only — no network in v6.0J) */
+/** v6.0J — paid AI provider candidates; v6.0N round 1 = gemini only, openai future-only */
 export type SalesBrainPaidProviderKind = "gemini" | "openai";
+
+/** v6.0N — Round 1 active paid provider (Gemini only) */
+export type SalesBrainRound1PaidProvider = "gemini";
 
 export interface SalesBrainFlowContext {
   sessionIdHash?: string;
@@ -90,16 +93,23 @@ export interface SalesBrainAdapterConfig {
   aiMode?: SalesBrainAiMode;
   aiFirstEnabled?: boolean;
   emergencyKillSwitch?: boolean;
-  /** v6.0J — default paid provider when provider=real */
+  /** v6.0N — default paid provider when provider=real (gemini only in round 1) */
   realPaidProvider?: SalesBrainPaidProviderKind;
+  /** v6.0N — inject env reader for tests; default reads process.env */
+  readEnv?: SalesBrainEnvReader;
 }
 
-/** v6.0J — real provider config (secret name only — never value) */
+/** v6.0N — read env without logging values */
+export type SalesBrainEnvReader = (key: string) => string | undefined;
+
+/** v6.0J / v6.0N — real provider config (secret names only — never values) */
 export interface SalesBrainRealProviderConfig {
   paidProvider: SalesBrainPaidProviderKind;
-  /** Secret Manager reference name e.g. GEMINI_API_KEY — not the key value */
+  /** Cloud Run env var e.g. GEMINI_API_KEY — not the key value */
   apiKeySecretName: string;
-  /** Must remain false in v6.0J — no live network */
+  /** v6.0N — Secret Manager resource e.g. gemini-api-key — not the key value */
+  smResourceName: string;
+  /** Must remain false in v6.0N — no live network */
   networkEnabled?: boolean;
 }
 
@@ -131,15 +141,39 @@ export class SalesBrainRealProviderNotAvailableError extends Error {
   }
 }
 
-/** v6.0J — network calls disabled until staging enablement */
+/** v6.0J / v6.0N — network calls disabled until staging enablement */
 export class SalesBrainRealProviderNetworkDisabledError extends Error {
   readonly code = "SALES_BRAIN_REAL_PROVIDER_NETWORK_DISABLED" as const;
 
   constructor(
-    message = "Real Sales Brain provider network is disabled — stub only in v6.0J"
+    message = "Real Sales Brain provider network is disabled — Gemini wiring behind flag in v6.0N"
   ) {
     super(message);
     this.name = "SalesBrainRealProviderNetworkDisabledError";
+  }
+}
+
+/** v6.0N — GEMINI_API_KEY not present in runtime env — fail closed */
+export class SalesBrainRealProviderMissingApiKeyError extends Error {
+  readonly code = "SALES_BRAIN_REAL_PROVIDER_MISSING_API_KEY" as const;
+
+  constructor(
+    message = "GEMINI_API_KEY is not configured — real Gemini provider fail closed"
+  ) {
+    super(message);
+    this.name = "SalesBrainRealProviderMissingApiKeyError";
+  }
+}
+
+/** v6.0N — OpenAI is optional future-only; not used in round 1 */
+export class SalesBrainOpenAiFutureOnlyError extends Error {
+  readonly code = "SALES_BRAIN_OPENAI_FUTURE_ONLY_NOOP" as const;
+
+  constructor(
+    message = "OpenAI provider is future-only in round 1 — use Gemini only"
+  ) {
+    super(message);
+    this.name = "SalesBrainOpenAiFutureOnlyError";
   }
 }
 

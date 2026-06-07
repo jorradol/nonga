@@ -13,8 +13,18 @@ import {
   routeRealProviderStub,
   SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED,
   validateProviderConfig,
+  SalesBrainOpenAiFutureOnlyError,
   SalesBrainRealProviderNetworkDisabledError,
 } from "../src/services/ai/salesBrainRealProvider.ts";
+
+const mockReadEnv = () => "sm-configured-via-secret-ref";
+
+const geminiConfig = {
+  paidProvider: "gemini" as const,
+  apiKeySecretName: "GEMINI_API_KEY",
+  smResourceName: "gemini-api-key",
+  networkEnabled: false,
+};
 
 const realProviderSrc = readFileSync("src/services/ai/salesBrainRealProvider.ts", "utf8");
 const adapterSrc = readFileSync("src/services/ai/salesBrainAdapter.ts", "utf8");
@@ -39,34 +49,32 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
 
 // --- gemini config validate (no secret value) ---
 {
-  validateProviderConfig({
-    paidProvider: "gemini",
-    apiKeySecretName: "GEMINI_API_KEY",
-    networkEnabled: false,
-  });
+  validateProviderConfig(geminiConfig);
   ok("gemini config validates", true);
 
   let badSecret = false;
   try {
-    validateProviderConfig({
-      paidProvider: "gemini",
-      apiKeySecretName: "WRONG_KEY",
-      networkEnabled: false,
-    });
+    validateProviderConfig({ ...geminiConfig, apiKeySecretName: "WRONG_KEY" });
   } catch {
     badSecret = true;
   }
   ok("gemini rejects wrong secret name", badSecret);
 }
 
-// --- openai config validate ---
+// --- openai future-only (v6.0N) ---
 {
-  validateProviderConfig({
-    paidProvider: "openai",
-    apiKeySecretName: "OPENAI_API_KEY",
-    networkEnabled: false,
-  });
-  ok("openai config validates", true);
+  let openaiNoop = false;
+  try {
+    validateProviderConfig({
+      paidProvider: "openai",
+      apiKeySecretName: "OPENAI_API_KEY",
+      smResourceName: "openai-api-key",
+      networkEnabled: false,
+    });
+  } catch (e) {
+    openaiNoop = (e as SalesBrainOpenAiFutureOnlyError).code === "SALES_BRAIN_OPENAI_FUTURE_ONLY_NOOP";
+  }
+  ok("openai config future-only noop", openaiNoop);
   ok("default secret gemini", defaultApiKeySecretName("gemini") === "GEMINI_API_KEY");
   ok("default secret openai", defaultApiKeySecretName("openai") === "OPENAI_API_KEY");
 }
@@ -79,7 +87,7 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
       userRole: "buyer",
       aiMode: "high",
     },
-    { paidProvider: "gemini", apiKeySecretName: "GEMINI_API_KEY", networkEnabled: false }
+    { paidProvider: "gemini", apiKeySecretName: "GEMINI_API_KEY", smResourceName: "gemini-api-key", networkEnabled: false }
   );
   ok("request gemini provider", req.paidProvider === "gemini");
   ok("request no raw phone", !req.redactedUserMessage.includes("0812345678"));
@@ -92,7 +100,7 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
   try {
     buildProviderRequest(
       { userMessage: "คันนี้ผ่อนได้ไหม", userRole: "buyer" },
-      { paidProvider: "openai", apiKeySecretName: "OPENAI_API_KEY", networkEnabled: false }
+      geminiConfig
     );
   } catch (e) {
     missingListing = (e as Error).message.includes("Missing listing facts");
@@ -106,7 +114,7 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
   try {
     buildProviderRequest(
       { userMessage: "process payment for this lead", userRole: "admin" },
-      { paidProvider: "gemini", apiKeySecretName: "GEMINI_API_KEY", networkEnabled: false }
+      { paidProvider: "gemini", apiKeySecretName: "GEMINI_API_KEY", smResourceName: "gemini-api-key", networkEnabled: false }
     );
   } catch {
     nogo = true;
@@ -140,16 +148,16 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
       "openai"
     );
   } catch (e) {
-    stubCode = (e as SalesBrainRealProviderNetworkDisabledError).code;
+    stubCode = (e as SalesBrainOpenAiFutureOnlyError).code;
   }
-  ok("routeRealProviderStub throws", stubCode === "SALES_BRAIN_REAL_PROVIDER_NETWORK_DISABLED");
+  ok("routeRealProviderStub openai noop", stubCode === "SALES_BRAIN_OPENAI_FUTURE_ONLY_NOOP");
 }
 
 // --- adapter real provider path ---
 {
   let adapterCode = "";
   try {
-    createSalesBrainAdapter({ provider: "real", realPaidProvider: "gemini" }).route({
+    createSalesBrainAdapter({ provider: "real", realPaidProvider: "gemini", readEnv: mockReadEnv }).route({
       userMessage: "งบ 4 แสน มีรถอะไรน่าเล่น",
       userRole: "buyer",
     });
@@ -160,12 +168,15 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
 
   let routeCode = "";
   try {
-    routeWithSalesBrainAdapter({
-      userMessage: "งบ 4 แสน",
-      userRole: "buyer",
-      provider: "real",
-      paidProvider: "gemini",
-    });
+    routeWithSalesBrainAdapter(
+      {
+        userMessage: "งบ 4 แสน",
+        userRole: "buyer",
+        provider: "real",
+        paidProvider: "gemini",
+      },
+      { readEnv: mockReadEnv }
+    );
   } catch (e) {
     routeCode = (e as SalesBrainRealProviderNetworkDisabledError).code;
   }
@@ -194,8 +205,17 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
 
 // --- resolveRealProviderConfig no secret value ---
 {
-  const cfg = resolveRealProviderConfig({ userMessage: "x", userRole: "buyer", paidProvider: "openai" });
-  ok("resolve openai secret name only", cfg.apiKeySecretName === "OPENAI_API_KEY");
+  let openaiResolve = false;
+  try {
+    resolveRealProviderConfig({ userMessage: "x", userRole: "buyer", paidProvider: "openai" });
+  } catch (e) {
+    openaiResolve = (e as SalesBrainOpenAiFutureOnlyError).code === "SALES_BRAIN_OPENAI_FUTURE_ONLY_NOOP";
+  }
+  ok("resolve openai future-only noop", openaiResolve);
+
+  const cfg = resolveRealProviderConfig({ userMessage: "x", userRole: "buyer" });
+  ok("resolve gemini secret name only", cfg.apiKeySecretName === "GEMINI_API_KEY");
+  ok("resolve gemini sm resource", cfg.smResourceName === "gemini-api-key");
   ok("resolve network false", cfg.networkEnabled === false);
 }
 
@@ -213,7 +233,7 @@ console.log("=== v6.0J Real Provider Adapter Stub / No Network ===\n");
   ok("realProvider no generateContent", !/generateContent\s*\(/.test(realProviderSrc));
   ok("realProvider no http url", !/https?:\/\//.test(realProviderSrc));
   ok("realProvider no firebase", !/from\s+["']firebase/.test(realProviderSrc));
-  ok("adapter delegates real stub", adapterSrc.includes("routeRealProviderStub"));
+  ok("adapter delegates gemini disabled", adapterSrc.includes("routeGeminiRealProviderDisabled"));
 }
 
 // --- test script static only ---
