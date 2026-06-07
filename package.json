@@ -158,6 +158,7 @@
     "test:v60z-local-server-shadow-smoke-harness-no-provider-network": "tsx scripts/test-v60z-local-server-shadow-smoke-harness-no-provider-network.mts",
     "test:v61a-staging-shadow-integration-smoke-user-visible-still-off": "tsx scripts/test-v61a-staging-shadow-integration-smoke-user-visible-still-off.mts",
     "test:v61b-server-side-shadow-evaluation-admin-debug-user-visible-off": "tsx scripts/test-v61b-server-side-shadow-evaluation-admin-debug-user-visible-off.mts",
+    "test:v61c-admin-shadow-smoke-debug-staging-deploy-record": "tsx scripts/test-v61c-admin-shadow-smoke-debug-staging-deploy-record.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
