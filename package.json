@@ -124,6 +124,7 @@
     "test:v56i17-staging-persistence-enable-command-review": "tsx scripts/test-v56i17-staging-persistence-enable-command-review.mts",
     "test:v56i18-read-only-staging-preflight-execution": "tsx scripts/test-v56i18-read-only-staging-preflight-execution.mts",
     "test:v56i19-staging-persistence-smoke-harness": "tsx scripts/test-v56i19-staging-persistence-smoke-harness.mts",
+    "test:v56i20-final-human-approval-packet": "tsx scripts/test-v56i20-final-human-approval-packet.mts",
     "test:v56j-superadmin-ai-control-center": "tsx scripts/test-v56j-superadmin-ai-control-center.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
