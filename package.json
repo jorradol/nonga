@@ -145,6 +145,7 @@
     "test:v60m-gemini-only-real-ai-enablement-plan": "tsx scripts/test-v60m-gemini-only-real-ai-enablement-plan.mts",
     "test:v60n-gemini-provider-wiring-disabled-flag": "tsx scripts/test-v60n-gemini-provider-wiring-disabled-flag.mts",
     "test:v60o-staging-gemini-shadow-enablement-dry-run": "tsx scripts/test-v60o-staging-gemini-shadow-enablement-dry-run.mts",
+    "test:v60p-staging-gemini-shadow-pre-enable-final-checklist": "tsx scripts/test-v60p-staging-gemini-shadow-pre-enable-final-checklist.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
