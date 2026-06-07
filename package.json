@@ -154,6 +154,7 @@
     "test:v60v-shadow-chat-path-wiring-user-visible-legacy": "tsx scripts/test-v60v-shadow-chat-path-wiring-user-visible-legacy.mts",
     "test:v60w-shadow-chat-path-staging-deploy-record": "tsx scripts/test-v60w-shadow-chat-path-staging-deploy-record.mts",
     "test:v60x-hosting-shadow-chat-client-bundle-deploy-record": "tsx scripts/test-v60x-hosting-shadow-chat-client-bundle-deploy-record.mts",
+    "test:v60y-server-side-shadow-evaluation-smoke-readiness": "tsx scripts/test-v60y-server-side-shadow-evaluation-smoke-readiness.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
