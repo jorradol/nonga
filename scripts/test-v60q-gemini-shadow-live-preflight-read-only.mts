@@ -2,8 +2,7 @@
  * v6.0Q — Gemini Shadow Live Preflight Read-only (static validation only)
  * npm run test:v60q-gemini-shadow-live-preflight-read-only
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
 const DOC_PATH = "docs/v6.0Q-gemini-shadow-live-preflight-read-only.md";
 
@@ -25,19 +24,6 @@ function ok(name: string, pass: boolean, detail = "") {
   if (!pass) process.exitCode = 1;
 }
 
-function fileHasShadowEnv(dir: string): boolean {
-  for (const ent of readdirSync(dir, { withFileTypes: true })) {
-    const p = join(dir, ent.name);
-    if (ent.isDirectory() && ent.name !== "node_modules" && !ent.name.startsWith(".")) {
-      if (fileHasShadowEnv(p)) return true;
-    } else if (ent.isFile() && /\.(ts|tsx|mts)$/.test(ent.name)) {
-      const t = readFileSync(p, "utf8");
-      if (/NONGA_AI_SHADOW|NONGA_AI_USER_VISIBLE/.test(t)) return true;
-    }
-  }
-  return false;
-}
-
 console.log("=== v6.0Q Gemini Shadow Live Preflight Read-only ===\n");
 
 const doc = readFileSync(DOC_PATH, "utf8");
@@ -49,7 +35,6 @@ const selfSrc = readFileSync(
 const pkg = readFileSync("package.json", "utf8");
 const useChatSrc = readFileSync("src/hooks/chat/useChat.ts", "utf8");
 const realProviderSrc = readFileSync("src/services/ai/salesBrainRealProvider.ts", "utf8");
-const srcHasShadowEnv = fileHasShadowEnv("src");
 
 // --- doc exists + v6.0Q ---
 {
@@ -180,7 +165,18 @@ const srcHasShadowEnv = fileHasShadowEnv("src");
 {
   ok("realProvider network disabled", /SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED\s*=\s*false/.test(realProviderSrc));
   ok("useChat no salesBrain", !/salesBrain/i.test(useChatSrc));
-  ok("src no NONGA_AI_SHADOW reader yet", !srcHasShadowEnv);
+  ok(
+    "src runtime flag reader v60r",
+    readFileSync("src/services/ai/salesBrainRuntimeFlags.ts", "utf8").includes(
+      "NONGA_AI_SHADOW_MODE_ENABLED"
+    )
+  );
+  ok(
+    "src shadow runtime v60r",
+    readFileSync("src/services/ai/salesBrainShadowRuntime.ts", "utf8").includes(
+      "evaluateSalesBrainShadowRuntime"
+    )
+  );
 }
 
 // --- no secret values ---
