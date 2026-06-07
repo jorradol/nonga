@@ -142,6 +142,7 @@
     "test:v60j-real-provider-adapter-stub-no-network": "tsx scripts/test-v60j-real-provider-adapter-stub-no-network.mts",
     "test:v60k-staging-real-ai-provider-dry-run-approval-gate": "tsx scripts/test-v60k-staging-real-ai-provider-dry-run-approval-gate.mts",
     "test:v60l-real-ai-provider-read-only-preflight-execution": "tsx scripts/test-v60l-real-ai-provider-read-only-preflight-execution.mts",
+    "test:v60m-gemini-only-real-ai-enablement-plan": "tsx scripts/test-v60m-gemini-only-real-ai-enablement-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
