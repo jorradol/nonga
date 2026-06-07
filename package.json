@@ -135,6 +135,7 @@
     "test:v60c-existing-ai-capability-inventory-sales-brain-map": "tsx scripts/test-v60c-existing-ai-capability-inventory-sales-brain-map.mts",
     "test:v60d-mock-tool-calls-sales-brain-harness": "tsx scripts/test-v60d-mock-tool-calls-sales-brain-harness.mts",
     "test:v60e-local-mock-sales-brain-runtime-module": "tsx scripts/test-v60e-local-mock-sales-brain-runtime-module.mts",
+    "test:v60f-sales-brain-adapter-contract-not-wired": "tsx scripts/test-v60f-sales-brain-adapter-contract-not-wired.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
