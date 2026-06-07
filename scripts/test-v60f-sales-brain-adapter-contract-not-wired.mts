@@ -7,7 +7,7 @@ import {
   createSalesBrainAdapter,
   resetDefaultSalesBrainAdapterForTests,
   routeWithSalesBrainAdapter,
-  SalesBrainRealProviderNotAvailableError,
+  SalesBrainRealProviderNetworkDisabledError,
 } from "../src/services/ai/salesBrainAdapter.ts";
 import { routeSalesBrainMock } from "../src/services/ai/salesBrainMock.ts";
 import { SALES_BRAIN_NO_GO_TOOL_ID_PATTERNS } from "../src/services/ai/salesBrainTypes.ts";
@@ -78,11 +78,13 @@ const selfSrc = readFileSync(
       userRole: "buyer",
     });
   } catch (e) {
-    threw = e instanceof SalesBrainRealProviderNotAvailableError;
-    code = (e as SalesBrainRealProviderNotAvailableError).code;
+    threw =
+      e instanceof SalesBrainRealProviderNetworkDisabledError ||
+      (e as { code?: string }).code === "SALES_BRAIN_REAL_PROVIDER_NETWORK_DISABLED";
+    code = (e as { code?: string }).code ?? "";
   }
   ok("real provider throws controlled error", threw);
-  ok("real provider error code", code === "SALES_BRAIN_REAL_PROVIDER_NOT_WIRED");
+  ok("real provider error code network disabled", code === "SALES_BRAIN_REAL_PROVIDER_NETWORK_DISABLED");
 
   resetDefaultSalesBrainAdapterForTests();
   let routeThrew = false;
@@ -93,7 +95,9 @@ const selfSrc = readFileSync(
       provider: "real",
     });
   } catch (e) {
-    routeThrew = e instanceof SalesBrainRealProviderNotAvailableError;
+    routeThrew =
+      e instanceof SalesBrainRealProviderNetworkDisabledError ||
+      (e as { code?: string }).code === "SALES_BRAIN_REAL_PROVIDER_NETWORK_DISABLED";
   }
   ok("routeWithSalesBrainAdapter real throws", routeThrew);
 }

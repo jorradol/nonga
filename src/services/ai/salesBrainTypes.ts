@@ -11,8 +11,11 @@ export type SalesBrainSafetyDecision = "allow" | "no_go" | "askFollowUp";
 
 export type SalesBrainAiProvider = "mock" | "none";
 
-/** v6.0F adapter provider — real is stub-only until wired behind feature flags */
+/** v6.0F adapter provider — mock default; real delegates to paid stub (v6.0J) */
 export type SalesBrainAdapterProviderKind = "mock" | "real";
+
+/** v6.0J — paid AI provider candidates (stub only — no network in v6.0J) */
+export type SalesBrainPaidProviderKind = "gemini" | "openai";
 
 export interface SalesBrainFlowContext {
   sessionIdHash?: string;
@@ -44,6 +47,8 @@ export interface SalesBrainMockInput {
 /** v6.0F — input to adapter route (extends mock input with optional provider override) */
 export interface SalesBrainAdapterInput extends SalesBrainMockInput {
   provider?: SalesBrainAdapterProviderKind;
+  /** v6.0J — when provider=real, select gemini or openai stub */
+  paidProvider?: SalesBrainPaidProviderKind;
 }
 
 export interface SalesBrainMockToolCall {
@@ -85,6 +90,30 @@ export interface SalesBrainAdapterConfig {
   aiMode?: SalesBrainAiMode;
   aiFirstEnabled?: boolean;
   emergencyKillSwitch?: boolean;
+  /** v6.0J — default paid provider when provider=real */
+  realPaidProvider?: SalesBrainPaidProviderKind;
+}
+
+/** v6.0J — real provider config (secret name only — never value) */
+export interface SalesBrainRealProviderConfig {
+  paidProvider: SalesBrainPaidProviderKind;
+  /** Secret Manager reference name e.g. GEMINI_API_KEY — not the key value */
+  apiKeySecretName: string;
+  /** Must remain false in v6.0J — no live network */
+  networkEnabled?: boolean;
+}
+
+/** v6.0J — prepared request payload (PII redacted — no network sent in stub) */
+export interface SalesBrainRealProviderRequest {
+  paidProvider: SalesBrainPaidProviderKind;
+  redactedUserMessage: string;
+  userRole: SalesBrainUserRole;
+  aiMode: SalesBrainAiMode;
+  listingContextSummary?: {
+    listingId?: string;
+    fieldsPresent?: string[];
+  };
+  requestIdHash: string;
 }
 
 export interface SalesBrainAdapter {
@@ -92,13 +121,25 @@ export interface SalesBrainAdapter {
   route(input: SalesBrainAdapterInput): SalesBrainAdapterOutput;
 }
 
-/** Controlled error when real provider is requested but not wired (v6.0F) */
+/** Controlled error when real provider is requested but not wired (v6.0F legacy path) */
 export class SalesBrainRealProviderNotAvailableError extends Error {
   readonly code = "SALES_BRAIN_REAL_PROVIDER_NOT_WIRED" as const;
 
   constructor(message = "Real Sales Brain provider is not wired — use mock provider only") {
     super(message);
     this.name = "SalesBrainRealProviderNotAvailableError";
+  }
+}
+
+/** v6.0J — network calls disabled until staging enablement */
+export class SalesBrainRealProviderNetworkDisabledError extends Error {
+  readonly code = "SALES_BRAIN_REAL_PROVIDER_NETWORK_DISABLED" as const;
+
+  constructor(
+    message = "Real Sales Brain provider network is disabled — stub only in v6.0J"
+  ) {
+    super(message);
+    this.name = "SalesBrainRealProviderNetworkDisabledError";
   }
 }
 

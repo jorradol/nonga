@@ -3,6 +3,7 @@
  * Default provider = mock (delegates to routeSalesBrainMock). Real provider stub only — no network.
  */
 import { routeSalesBrainMock } from "./salesBrainMock";
+import { routeRealProviderStub } from "./salesBrainRealProvider";
 import type {
   SalesBrainAdapter,
   SalesBrainAdapterConfig,
@@ -10,10 +11,10 @@ import type {
   SalesBrainAdapterOutput,
   SalesBrainAdapterProviderKind,
   SalesBrainMockInput,
+  SalesBrainPaidProviderKind,
 } from "./salesBrainTypes";
 import {
   SALES_BRAIN_NO_GO_TOOL_ID_PATTERNS,
-  SalesBrainRealProviderNotAvailableError,
 } from "./salesBrainTypes";
 
 export type {
@@ -23,9 +24,10 @@ export type {
   SalesBrainAdapterOutput,
   SalesBrainAdapterProviderKind,
   SalesBrainAdapterRouteVia,
+  SalesBrainPaidProviderKind,
 } from "./salesBrainTypes";
 
-export { SalesBrainRealProviderNotAvailableError } from "./salesBrainTypes";
+export { SalesBrainRealProviderNotAvailableError, SalesBrainRealProviderNetworkDisabledError } from "./salesBrainTypes";
 
 function mergeAdapterInput(
   config: SalesBrainAdapterConfig,
@@ -70,13 +72,16 @@ function routeMockProvider(
   return toAdapterOutput("mock", result);
 }
 
-function routeRealProviderStub(): never {
-  throw new SalesBrainRealProviderNotAvailableError();
+function routeRealProviderPath(
+  config: SalesBrainAdapterConfig,
+  input: SalesBrainAdapterInput
+): never {
+  routeRealProviderStub(input, config.realPaidProvider ?? "gemini");
 }
 
 /**
  * Factory for Sales Brain adapter — default provider mock.
- * Real provider throws SalesBrainRealProviderNotAvailableError (no network, no paid API).
+ * Real provider uses v6.0J stub — throws SalesBrainRealProviderNetworkDisabledError (no network).
  */
 export function createSalesBrainAdapter(
   config: SalesBrainAdapterConfig = {}
@@ -88,7 +93,7 @@ export function createSalesBrainAdapter(
     route(input: SalesBrainAdapterInput): SalesBrainAdapterOutput {
       const effectiveProvider = input.provider ?? provider;
       if (effectiveProvider === "real") {
-        routeRealProviderStub();
+        routeRealProviderPath(config, input);
       }
       return routeMockProvider(config, input);
     },
@@ -108,7 +113,7 @@ export function routeWithSalesBrainAdapter(
   }
   const effectiveProvider = input.provider ?? defaultAdapter.provider;
   if (effectiveProvider === "real") {
-    routeRealProviderStub();
+    routeRealProviderStub(input, input.paidProvider ?? "gemini");
   }
   return defaultAdapter.route(input);
 }

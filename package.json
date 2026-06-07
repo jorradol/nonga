@@ -139,6 +139,7 @@
     "test:v60g-chat-integration-shadow-mode-not-user-visible": "tsx scripts/test-v60g-chat-integration-shadow-mode-not-user-visible.mts",
     "test:v60h-real-ai-provider-readiness-staging-enablement-plan": "tsx scripts/test-v60h-real-ai-provider-readiness-staging-enablement-plan.mts",
     "test:v60i-ai-secret-env-preflight-readiness": "tsx scripts/test-v60i-ai-secret-env-preflight-readiness.mts",
+    "test:v60j-real-provider-adapter-stub-no-network": "tsx scripts/test-v60j-real-provider-adapter-stub-no-network.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",

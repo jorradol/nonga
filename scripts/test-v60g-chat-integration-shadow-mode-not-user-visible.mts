@@ -10,7 +10,7 @@ import {
   resolveSalesBrainShadowModeEnabled,
   SALES_BRAIN_SHADOW_MODE_DEFAULT_ENABLED,
 } from "../src/services/ai/salesBrainShadowMode.ts";
-import { SalesBrainRealProviderNotAvailableError, createSalesBrainAdapter } from "../src/services/ai/salesBrainAdapter.ts";
+import { SalesBrainRealProviderNetworkDisabledError, createSalesBrainAdapter } from "../src/services/ai/salesBrainAdapter.ts";
 
 const DOC_PATH = "docs/v6.0G-chat-integration-shadow-mode-not-user-visible.md";
 const LEGACY_RESPONSE = "legacy orchestrator reply — user sees this only";
@@ -161,7 +161,7 @@ const selfSrc = readFileSync(
       userRole: "buyer",
     });
   } catch (e) {
-    realThrew = e instanceof SalesBrainRealProviderNotAvailableError;
+    realThrew = e instanceof SalesBrainRealProviderNetworkDisabledError;
   }
   ok("real provider throws if invoked directly", realThrew);
   const shadow = evaluateSalesBrainShadowMode({
