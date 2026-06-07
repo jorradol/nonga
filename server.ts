@@ -36,6 +36,7 @@ import { publishDealerDraftToMarketplace } from "./src/server/publishDraftListin
 import { registerDealerPortalRoutes } from "./src/server/dealerPortalRoutes";
 import { registerDuplicateRoutes } from "./src/server/duplicateRoutes";
 import { dealerApiAuth, adminApiAuth } from "./src/server/apiAuth";
+import { registerSalesBrainAdminShadowSmokeRoutes } from "./src/services/ai/salesBrainServerShadowSmoke";
 import { getListingImagesRoot } from "./src/server/listingImageStorage";
 import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
 import { toPublicMarketplaceCarDtoList } from "./src/utils/publicMarketplaceListingPrivacy";
@@ -332,6 +333,7 @@ app.post("/api/cars", async (req, res) => {
 // API auth guards (stub — เตรียมต่อ Firebase ID token)
 app.use("/api/dealer", dealerApiAuth);
 app.use("/api/admin", adminApiAuth);
+registerSalesBrainAdminShadowSmokeRoutes(app);
 registerAdminPilotUserRoutes(app);
 
 app.get("/api/admin/listing-reports", async (req, res) => {
