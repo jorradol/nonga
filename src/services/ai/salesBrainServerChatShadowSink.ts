@@ -15,6 +15,7 @@ import {
   canAttemptChatShadowRealProvider,
   invokeChatShadowRealProvider,
   isChatShadowRealProviderScenarioAllowed,
+  isGlobalChatShadowEmergencyKillSwitchActive,
 } from "./salesBrainChatShadowRealProvider";
 import { defaultEnvReader } from "./salesBrainRealProvider";
 import { redactPiiForSalesBrainLog } from "./salesBrainMock";
@@ -303,6 +304,14 @@ export async function resolveChatShadowSinkHandlerContext(input: {
     };
   }
 
+  if (isGlobalChatShadowEmergencyKillSwitchActive(readEnv)) {
+    return {
+      providerNetwork: false,
+      realProviderGateReason: "emergency_kill_switch",
+      realProviderFallbackReason: "emergency_kill_switch",
+    };
+  }
+
   if (!input.evaluation.runtimeFlags.shadowEvaluationAllowed) {
     return {
       providerNetwork: false,
@@ -370,6 +379,7 @@ export async function handleAdminChatShadowSinkPost(
     scenarioId,
     environment,
     shadowEvaluationAllowed: evaluation.runtimeFlags.shadowEvaluationAllowed,
+    readEnv: defaultEnvReader,
     geminiModel: ADMIN_SHADOW_GEMINI_MODEL,
     geminiRequestShape: ADMIN_SHADOW_GEMINI_REQUEST_SHAPE,
     geminiHttpStatus: handlerContext.geminiHttpStatus,

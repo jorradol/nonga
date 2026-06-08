@@ -9,7 +9,10 @@ import {
   type AdminShadowGeminiCallResult,
 } from "./salesBrainAdminShadowRealProvider";
 import { defaultEnvReader, type SalesBrainEnvReader } from "./salesBrainRealProvider";
-import { NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV } from "./salesBrainRuntimeFlags";
+import {
+  NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV,
+  NONGA_AI_EMERGENCY_KILL_SWITCH_ENV,
+} from "./salesBrainRuntimeFlags";
 import type { SalesBrainUserRole } from "./salesBrainTypes";
 
 export {
@@ -33,6 +36,13 @@ export function isChatShadowRealProviderEnabled(
   readEnv: SalesBrainEnvReader = defaultEnvReader
 ): boolean {
   return parseTruthy(readEnv(NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV));
+}
+
+/** Global Cloud Run / process env kill switch — not scenario-local stagingStyleShadowEnv override. */
+export function isGlobalChatShadowEmergencyKillSwitchActive(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): boolean {
+  return parseTruthy(readEnv(NONGA_AI_EMERGENCY_KILL_SWITCH_ENV));
 }
 
 export function isChatShadowRealProviderScenarioAllowed(

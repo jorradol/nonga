@@ -1,7 +1,11 @@
 /**
  * v6.1K — Chat-path shadow sink redacted diagnostics (no secret/env values).
  */
-import { isChatShadowRealProviderEnabled, isChatShadowRealProviderScenarioAllowed } from "./salesBrainChatShadowRealProvider";
+import {
+  isChatShadowRealProviderEnabled,
+  isChatShadowRealProviderScenarioAllowed,
+  isGlobalChatShadowEmergencyKillSwitchActive,
+} from "./salesBrainChatShadowRealProvider";
 import { isGeminiApiKeyPresent } from "./salesBrainRealProvider";
 import type { SalesBrainRuntimeEnvironment } from "./salesBrainRuntimeFlags";
 
@@ -10,6 +14,7 @@ export const CHAT_SHADOW_SINK_SLICE_ID = "v6.1K";
 export interface ChatShadowSinkDiag {
   sliceId: typeof CHAT_SHADOW_SINK_SLICE_ID;
   chatRealProviderFlagEnabled: boolean;
+  globalEmergencyKillSwitchActive: boolean;
   geminiKeyPresent: boolean;
   shadowEvaluationAllowed: boolean;
   scenarioAllowedForRealProvider: boolean;
@@ -34,6 +39,7 @@ export function buildChatShadowSinkDiag(input: {
   return {
     sliceId: CHAT_SHADOW_SINK_SLICE_ID,
     chatRealProviderFlagEnabled: isChatShadowRealProviderEnabled(readEnv),
+    globalEmergencyKillSwitchActive: isGlobalChatShadowEmergencyKillSwitchActive(readEnv),
     geminiKeyPresent: isGeminiApiKeyPresent(readEnv),
     shadowEvaluationAllowed: input.shadowEvaluationAllowed,
     scenarioAllowedForRealProvider: isChatShadowRealProviderScenarioAllowed(input.scenarioId),
@@ -62,6 +68,7 @@ export function logChatShadowSinkGate(payload: {
     chatShadowRealProviderFallbackReason: payload.chatShadowRealProviderFallbackReason,
     sliceId: payload.diag.sliceId,
     chatRealProviderFlagEnabled: payload.diag.chatRealProviderFlagEnabled,
+    globalEmergencyKillSwitchActive: payload.diag.globalEmergencyKillSwitchActive,
     geminiKeyPresent: payload.diag.geminiKeyPresent,
     shadowEvaluationAllowed: payload.diag.shadowEvaluationAllowed,
     scenarioAllowedForRealProvider: payload.diag.scenarioAllowedForRealProvider,
