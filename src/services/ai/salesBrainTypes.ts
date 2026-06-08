@@ -109,8 +109,10 @@ export interface SalesBrainRealProviderConfig {
   apiKeySecretName: string;
   /** v6.0N — Secret Manager resource e.g. gemini-api-key — not the key value */
   smResourceName: string;
-  /** Must remain false in v6.0N — no live network */
+  /** Must remain false in v6.0N — no live network except admin-shadow route */
   networkEnabled?: boolean;
+  /** v6.1H — admin-only shadow smoke route may enable network when flag set */
+  adminShadowRouteOnly?: boolean;
 }
 
 /** v6.0J — prepared request payload (PII redacted — no network sent in stub) */

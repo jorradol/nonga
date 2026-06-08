@@ -46,13 +46,17 @@ export interface AdminShadowSmokeRedactedData {
     salesBrainIntent: string;
     legacyRouteLabel: string;
     routesAlign: boolean;
-    provider: "mock";
+    provider: "mock" | "gemini";
     routedVia: string;
     selectedCapabilities: string[];
     safetyDecision: string;
     paramsHash: string;
     comparisonNotes: string;
+    providerModelId?: string;
+    providerRequestIdHash?: string;
   };
+  adminShadowRealProviderAttempted?: boolean;
+  adminShadowRealProviderFallbackReason?: string;
 }
 
 export interface AdminShadowSmokeApiResponse {

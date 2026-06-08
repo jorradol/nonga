@@ -131,11 +131,27 @@ export function validateProviderConfig(config: SalesBrainRealProviderConfig): vo
   if (SECRET_VALUE_LIKE.test(config.smResourceName)) {
     throw new Error("smResourceName must not contain secret value");
   }
-  if (config.networkEnabled === true || SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED) {
+  const networkRequested =
+    config.networkEnabled === true || SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED;
+  if (networkRequested && !config.adminShadowRouteOnly) {
     throw new SalesBrainRealProviderNetworkDisabledError(
       "Real provider network is not enabled in v6.0N"
     );
   }
+}
+
+/** v6.1H — admin-only shadow route provider request (synthetic cases, redacted payload). */
+export function buildAdminShadowProviderRequest(
+  input: SalesBrainAdapterInput,
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): SalesBrainRealProviderRequest {
+  assertGeminiApiKeyConfigured(readEnv);
+  const config: SalesBrainRealProviderConfig = {
+    ...resolveRealProviderConfig(input, SALES_BRAIN_ROUND1_PAID_PROVIDER),
+    networkEnabled: true,
+    adminShadowRouteOnly: true,
+  };
+  return buildProviderRequest(input, config);
 }
 
 function computeRequestIdHash(

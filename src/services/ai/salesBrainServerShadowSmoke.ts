@@ -1,8 +1,14 @@
 /**
- * v6.1B — Admin-gated server-side shadow smoke (mock evaluation only — user-visible legacy).
- * No paid provider network, no secret values in responses, synthetic cases only.
+ * v6.1B — Admin-gated server-side shadow smoke (user-visible legacy).
+ * v6.1H — optional admin-only real Gemini when NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED=true (SS-01 only).
  */
 import type { Express, Request, Response } from "express";
+import {
+  canAttemptAdminShadowRealProvider,
+  invokeAdminShadowRealProvider,
+  type AdminShadowGeminiCallResult,
+} from "./salesBrainAdminShadowRealProvider";
+import { defaultEnvReader } from "./salesBrainRealProvider";
 import { redactPiiForSalesBrainLog } from "./salesBrainMock";
 import {
   evaluateSalesBrainShadowRuntime,
@@ -204,18 +210,29 @@ export interface RedactedAdminShadowSmokePayload {
     salesBrainIntent: string;
     legacyRouteLabel: string;
     routesAlign: boolean;
-    provider: "mock";
+    provider: "mock" | "gemini";
     routedVia: string;
     selectedCapabilities: string[];
     safetyDecision: string;
     paramsHash: string;
     comparisonNotes: string;
+    providerModelId?: string;
+    providerRequestIdHash?: string;
   };
+  adminShadowRealProviderAttempted?: boolean;
+  adminShadowRealProviderFallbackReason?: string;
 }
 
-/** Admin/debug payload — redacted, no env/secret values, mock provider metadata only */
+export interface AdminShadowSmokeHandlerContext {
+  providerNetwork: boolean;
+  realProviderResult?: AdminShadowGeminiCallResult;
+  realProviderFallbackReason?: string;
+}
+
+/** Admin/debug payload — redacted, no env/secret values */
 export function buildRedactedAdminShadowSmokePayload(
-  result: SalesBrainShadowRuntimeResult & { caseId: SalesBrainAdminShadowSmokeCaseId }
+  result: SalesBrainShadowRuntimeResult & { caseId: SalesBrainAdminShadowSmokeCaseId },
+  context: AdminShadowSmokeHandlerContext = { providerNetwork: false }
 ): RedactedAdminShadowSmokePayload {
   const payload: RedactedAdminShadowSmokePayload = {
     caseId: result.caseId,
@@ -228,24 +245,94 @@ export function buildRedactedAdminShadowSmokePayload(
     enablementBlockedReason: result.runtimeFlags.enablementBlockedReason,
   };
 
-  if (result.shadowDebugResult) {
+  const realProvider = context.realProviderResult;
+  const usedGemini = context.providerNetwork && realProvider !== undefined;
+
+  if (result.shadowDebugResult || usedGemini) {
+    const comparisonNotes = usedGemini
+      ? redactPiiForSalesBrainLog(
+          `admin-shadow real provider output (redacted): ${realProvider.redactedProviderOutput}`
+        )
+      : redactPiiForSalesBrainLog(result.shadowDebugResult?.comparisonNotes ?? "");
+
     payload.shadowDebugResult = {
-      salesBrainIntent: result.shadowDebugResult.salesBrainIntent,
-      legacyRouteLabel: result.shadowDebugResult.legacyRouteLabel,
-      routesAlign: result.shadowDebugResult.routesAlign,
-      provider: "mock",
-      routedVia: result.shadowDebugResult.routedVia,
-      selectedCapabilities: result.shadowDebugResult.selectedCapabilities,
-      safetyDecision: result.shadowDebugResult.safetyDecision,
-      paramsHash: result.shadowDebugResult.paramsHash,
-      comparisonNotes: redactPiiForSalesBrainLog(result.shadowDebugResult.comparisonNotes),
+      salesBrainIntent: result.shadowDebugResult?.salesBrainIntent ?? "admin.shadow.real_provider",
+      legacyRouteLabel:
+        result.shadowDebugResult?.legacyRouteLabel ?? "legacy orchestrator — unchanged",
+      routesAlign: result.shadowDebugResult?.routesAlign ?? false,
+      provider: usedGemini ? "gemini" : "mock",
+      routedVia: usedGemini
+        ? "admin.shadow.real_provider"
+        : (result.shadowDebugResult?.routedVia ?? "mock"),
+      selectedCapabilities:
+        result.shadowDebugResult?.selectedCapabilities ?? ["admin.shadow.smoke"],
+      safetyDecision: usedGemini
+        ? "admin_only_real_provider_redacted"
+        : (result.shadowDebugResult?.safetyDecision ?? "mock_only"),
+      paramsHash: usedGemini
+        ? realProvider.requestIdHash
+        : (result.shadowDebugResult?.paramsHash ?? ""),
+      comparisonNotes,
+      providerModelId: usedGemini ? realProvider.modelId : undefined,
+      providerRequestIdHash: usedGemini ? realProvider.requestIdHash : undefined,
     };
+  }
+
+  if (context.realProviderFallbackReason) {
+    payload.adminShadowRealProviderAttempted = true;
+    payload.adminShadowRealProviderFallbackReason = context.realProviderFallbackReason;
   }
 
   return payload;
 }
 
-export function handleAdminSalesBrainShadowSmokePost(req: Request, res: Response): void {
+export async function resolveAdminShadowSmokeHandlerContext(input: {
+  caseId: SalesBrainAdminShadowSmokeCaseId;
+  evaluation: SalesBrainShadowRuntimeResult & { caseId: SalesBrainAdminShadowSmokeCaseId };
+  readEnv?: (key: string) => string | undefined;
+}): Promise<AdminShadowSmokeHandlerContext> {
+  const readEnv = input.readEnv ?? defaultEnvReader;
+  const definition = SALES_BRAIN_ADMIN_SHADOW_SMOKE_CASES[input.caseId];
+  const environment = definition.environment ?? "staging";
+
+  if (
+    !canAttemptAdminShadowRealProvider({
+      caseId: input.caseId,
+      environment,
+      readEnv,
+    })
+  ) {
+    return { providerNetwork: false };
+  }
+
+  if (!input.evaluation.runtimeFlags.shadowEvaluationAllowed) {
+    return {
+      providerNetwork: false,
+      realProviderFallbackReason: "shadow_evaluation_not_allowed",
+    };
+  }
+
+  try {
+    const realProviderResult = await invokeAdminShadowRealProvider({
+      userMessage: definition.userMessage,
+      userRole: definition.userRole,
+      readEnv,
+    });
+    return { providerNetwork: true, realProviderResult };
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.name || error.message : "admin_shadow_provider_fallback";
+    return {
+      providerNetwork: false,
+      realProviderFallbackReason: redactPiiForSalesBrainLog(String(reason)).slice(0, 120),
+    };
+  }
+}
+
+export async function handleAdminSalesBrainShadowSmokePost(
+  req: Request,
+  res: Response
+): Promise<void> {
   const caseId = String(req.body?.caseId ?? "").trim();
   if (!caseId) {
     res.status(400).json({
@@ -264,13 +351,18 @@ export function handleAdminSalesBrainShadowSmokePost(req: Request, res: Response
   }
 
   const evaluation = runSalesBrainAdminShadowSmoke({ caseId });
-  const data = buildRedactedAdminShadowSmokePayload(evaluation);
+  const handlerContext = await resolveAdminShadowSmokeHandlerContext({
+    caseId,
+    evaluation,
+  });
+  const data = buildRedactedAdminShadowSmokePayload(evaluation, handlerContext);
 
   res.json({
     success: true,
     readOnly: true,
     userVisibleOff: true,
-    providerNetwork: false,
+    /** Default when flag off: providerNetwork: false */
+    providerNetwork: handlerContext.providerNetwork,
     data,
   });
 }

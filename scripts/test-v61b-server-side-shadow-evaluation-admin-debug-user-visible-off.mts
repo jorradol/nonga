@@ -278,15 +278,15 @@ const orch = readFileSync("src/services/ai/chat/chatSearchOrchestrator.ts", "utf
 // --- admin route handler (no HTTP) ---
 {
   const missing = mockRes();
-  handleAdminSalesBrainShadowSmokePost(reqWith({}, {}), missing.res);
+  await handleAdminSalesBrainShadowSmokePost(reqWith({}, {}), missing.res);
   ok("handler missing caseId 400", missing.out.statusCode === 400);
 
   const unknown = mockRes();
-  handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "CUSTOM-PII" }), unknown.res);
+  await handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "CUSTOM-PII" }), unknown.res);
   ok("handler unknown caseId 400", unknown.out.statusCode === 400);
 
   const okCase = mockRes();
-  handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "SS-01" }), okCase.res);
+  await handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "SS-01" }), okCase.res);
   ok("handler SS-01 200", okCase.out.statusCode === 200);
   const body = okCase.out.body as { success?: boolean; data?: { userVisibleResponse?: string } };
   ok("handler success true", body.success === true);
