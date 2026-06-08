@@ -4,6 +4,11 @@
  */
 import type { Express, Request, Response } from "express";
 import {
+  buildAdminShadowSmokeDiag,
+  classifyAdminShadowProviderError,
+  logAdminShadowSmokeGate,
+} from "./salesBrainAdminShadowDiagnostics";
+import {
   canAttemptAdminShadowRealProvider,
   invokeAdminShadowRealProvider,
   isAdminShadowRealProviderCaseAllowed,
@@ -282,13 +287,18 @@ export function buildRedactedAdminShadowSmokePayload(
     };
   }
 
-  if (context.realProviderFallbackReason) {
+  if (
+    context.realProviderFallbackReason ||
+    context.realProviderGateReason === "real_provider_call_failed"
+  ) {
     payload.adminShadowRealProviderAttempted = true;
     payload.adminShadowRealProviderFallbackReason = context.realProviderFallbackReason;
   }
 
   if (context.realProviderGateReason) {
     payload.realProviderGateReason = context.realProviderGateReason;
+  } else if (!context.providerNetwork) {
+    payload.realProviderGateReason = "unknown_mock_fallback";
   }
 
   return payload;
@@ -348,12 +358,11 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       realProviderGateReason: "real_provider_call_ok",
     };
   } catch (error) {
-    const reason =
-      error instanceof Error ? error.name || error.message : "admin_shadow_provider_fallback";
+    const fallbackCode = classifyAdminShadowProviderError(error);
     return {
       providerNetwork: false,
       realProviderGateReason: "real_provider_call_failed",
-      realProviderFallbackReason: redactPiiForSalesBrainLog(String(reason)).slice(0, 120),
+      realProviderFallbackReason: fallbackCode,
     };
   }
 }
@@ -380,11 +389,29 @@ export async function handleAdminSalesBrainShadowSmokePost(
   }
 
   const evaluation = runSalesBrainAdminShadowSmoke({ caseId });
+  const definition = SALES_BRAIN_ADMIN_SHADOW_SMOKE_CASES[caseId];
+  const environment = definition.environment ?? "staging";
   const handlerContext = await resolveAdminShadowSmokeHandlerContext({
     caseId,
     evaluation,
   });
   const data = buildRedactedAdminShadowSmokePayload(evaluation, handlerContext);
+  const realProviderGateReason =
+    handlerContext.realProviderGateReason ??
+    (handlerContext.providerNetwork ? "real_provider_call_ok" : "unknown_mock_fallback");
+  const adminShadowDiag = buildAdminShadowSmokeDiag({
+    caseId,
+    environment,
+    shadowEvaluationAllowed: evaluation.runtimeFlags.shadowEvaluationAllowed,
+  });
+
+  logAdminShadowSmokeGate({
+    caseId,
+    providerNetwork: handlerContext.providerNetwork,
+    realProviderGateReason,
+    adminShadowRealProviderFallbackReason: handlerContext.realProviderFallbackReason,
+    diag: adminShadowDiag,
+  });
 
   res.json({
     success: true,
@@ -392,6 +419,9 @@ export async function handleAdminSalesBrainShadowSmokePost(
     userVisibleOff: true,
     /** Default when flag off: providerNetwork: false */
     providerNetwork: handlerContext.providerNetwork,
+    realProviderGateReason,
+    adminShadowRealProviderFallbackReason: handlerContext.realProviderFallbackReason,
+    adminShadowDiag,
     data,
   });
 }

@@ -27,6 +27,13 @@ import {
   SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED,
 } from "../src/services/ai/salesBrainRuntimeFlags.ts";
 import {
+  ADMIN_SHADOW_SMOKE_SLICE_ID,
+  classifyAdminShadowProviderError,
+} from "../src/services/ai/salesBrainAdminShadowDiagnostics.ts";
+import {
+  SalesBrainRealProviderMissingApiKeyError,
+} from "../src/services/ai/salesBrainTypes.ts";
+import {
   isGeminiApiKeyConfigured,
   isGeminiApiKeyPresent,
   SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED,
@@ -261,6 +268,32 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   resetAdminShadowGeminiCallerForTests();
 }
 
+// --- v6.1H.2 diagnostics: gate reason always present when mock ---
+{
+  const evaluation = runSalesBrainAdminShadowSmoke({ caseId: "SS-01" });
+  const blocked = await resolveAdminShadowSmokeHandlerContext({
+    caseId: "SS-01",
+    evaluation,
+    readEnv: readEnvOff,
+  });
+  const payload = buildRedactedAdminShadowSmokePayload(evaluation, blocked);
+  ok("flag off gate reason present", payload.realProviderGateReason === "admin_shadow_real_provider_flag_off");
+  ok("classify missing api key", classifyAdminShadowProviderError(new SalesBrainRealProviderMissingApiKeyError()) === "missing_api_key");
+  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1H.2");
+
+  const okCase = mockRes();
+  await handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "SS-01" }), okCase.res);
+  const body = okCase.out.body as {
+    providerNetwork?: boolean;
+    realProviderGateReason?: string;
+    adminShadowDiag?: { sliceId?: string; geminiKeyPresent?: boolean };
+    data?: { realProviderGateReason?: string };
+  };
+  ok("handler top-level gate reason", typeof body.realProviderGateReason === "string");
+  ok("handler nested gate reason", typeof body.data?.realProviderGateReason === "string");
+  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1H.2");
+}
+
 // --- auth matrix ---
 {
   const unauth = await runGuard(adminApiAuth, reqWith({}));
@@ -315,6 +348,8 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const realProvider = readFileSync("src/services/ai/salesBrainRealProvider.ts", "utf8");
   ok("admin shadow uses runtime key presence", realProvider.includes("assertGeminiApiKeyPresentForAdminShadow"));
   ok("realProviderGateReason exported", serverModule.includes("realProviderGateReason"));
+  ok("adminShadowDiag exported", serverModule.includes("adminShadowDiag"));
+  ok("classifyAdminShadowProviderError exported", serverModule.includes("classifyAdminShadowProviderError"));
   ok("no buyer lead in server module", !serverModule.includes("buyerLeadCapture"));
   ok("no settlement write", !/settlement.*write|invoice.*write/i.test(serverModule));
   ok("providerNetwork false default comment", /providerNetwork: false/.test(serverModule));

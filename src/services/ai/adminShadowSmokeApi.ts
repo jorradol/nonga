@@ -60,11 +60,23 @@ export interface AdminShadowSmokeRedactedData {
   realProviderGateReason?: string;
 }
 
+export interface AdminShadowSmokeDiag {
+  sliceId: string;
+  adminRealProviderFlagEnabled: boolean;
+  geminiKeyPresent: boolean;
+  shadowEvaluationAllowed: boolean;
+  caseAllowedForRealProvider: boolean;
+  environment: string;
+}
+
 export interface AdminShadowSmokeApiResponse {
   success: boolean;
   readOnly: boolean;
   userVisibleOff: boolean;
   providerNetwork: boolean;
+  realProviderGateReason?: string;
+  adminShadowRealProviderFallbackReason?: string;
+  adminShadowDiag?: AdminShadowSmokeDiag;
   data: AdminShadowSmokeRedactedData;
 }
 

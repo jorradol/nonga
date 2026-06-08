@@ -176,7 +176,58 @@ export default function AdminShadowSmokeDebugView() {
             <FlagBadge label="readOnly" value={result.readOnly} tone="ok" />
             <FlagBadge label="userVisibleOff" value={result.userVisibleOff} tone="ok" />
             <FlagBadge label="providerNetwork" value={result.providerNetwork} tone="warn" />
+            <FlagBadge
+              label="realProviderGateReason"
+              value={
+                result.realProviderGateReason ??
+                result.data.realProviderGateReason ??
+                "—"
+              }
+              tone={result.providerNetwork ? "ok" : "warn"}
+            />
+            {(result.adminShadowRealProviderFallbackReason ||
+              result.data.adminShadowRealProviderFallbackReason) && (
+              <FlagBadge
+                label="fallbackReason"
+                value={
+                  result.adminShadowRealProviderFallbackReason ??
+                  result.data.adminShadowRealProviderFallbackReason ??
+                  "—"
+                }
+                tone="warn"
+              />
+            )}
+            {result.adminShadowDiag && (
+              <FlagBadge
+                label="sliceId"
+                value={result.adminShadowDiag.sliceId}
+                tone="neutral"
+              />
+            )}
           </div>
+
+          {result.adminShadowDiag && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <FlagBadge
+                label="flagEnabled"
+                value={result.adminShadowDiag.adminRealProviderFlagEnabled}
+                tone={result.adminShadowDiag.adminRealProviderFlagEnabled ? "ok" : "warn"}
+              />
+              <FlagBadge
+                label="geminiKeyPresent"
+                value={result.adminShadowDiag.geminiKeyPresent}
+                tone={result.adminShadowDiag.geminiKeyPresent ? "ok" : "warn"}
+              />
+              <FlagBadge
+                label="shadowEvalAllowed"
+                value={result.adminShadowDiag.shadowEvaluationAllowed}
+              />
+              <FlagBadge
+                label="caseAllowed"
+                value={result.adminShadowDiag.caseAllowedForRealProvider}
+              />
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <FlagBadge label="shadowModeActive" value={result.data.shadowModeActive} />

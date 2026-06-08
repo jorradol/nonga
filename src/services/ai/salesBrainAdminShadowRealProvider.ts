@@ -113,21 +113,13 @@ async function defaultAdminShadowGeminiCaller(
   }
 
   const client = new GoogleGenAI({ apiKey });
+  const prompt = buildSyntheticAdminShadowPrompt(
+    request.userRole,
+    request.redactedUserMessage
+  );
   const response = await client.models.generateContent({
     model: ADMIN_SHADOW_GEMINI_MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: buildSyntheticAdminShadowPrompt(
-              request.userRole,
-              request.redactedUserMessage
-            ),
-          },
-        ],
-      },
-    ],
+    contents: prompt,
     config: { maxOutputTokens: 256 },
   });
 
