@@ -172,6 +172,7 @@
     "test:v61k2-chat-shadow-real-provider-flag-pilot": "tsx scripts/test-v61k2-chat-shadow-real-provider-flag-pilot.mts",
     "test:v61k3-budget-kill-switch-rollback-exercise": "tsx scripts/test-v61k3-budget-kill-switch-rollback-exercise.mts",
     "test:v61k4-chat-shadow-global-kill-switch-fix": "tsx scripts/test-v61k4-chat-shadow-global-kill-switch-fix.mts",
+    "test:v61k5-chat-shadow-kill-switch-fix-staging-deploy-record": "tsx scripts/test-v61k5-chat-shadow-kill-switch-fix-staging-deploy-record.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
