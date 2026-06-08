@@ -26,7 +26,11 @@ import {
   NONGA_AI_USER_VISIBLE_ENABLED_ENV,
   SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED,
 } from "../src/services/ai/salesBrainRuntimeFlags.ts";
-import { SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED } from "../src/services/ai/salesBrainRealProvider.ts";
+import {
+  isGeminiApiKeyConfigured,
+  isGeminiApiKeyPresent,
+  SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED,
+} from "../src/services/ai/salesBrainRealProvider.ts";
 import { wireShadowChatPath } from "../src/services/ai/salesBrainShadowChatPath.ts";
 
 const DOC_PATH =
@@ -213,6 +217,50 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   resetAdminShadowGeminiCallerForTests();
 }
 
+// --- Cloud Run runtime key mount (AIza prefix must not block admin shadow) ---
+{
+  const runtimeKey = "AIzaSyFakeRuntimeKeyForHarnessOnly";
+  const readEnvRuntimeKey = (key: string): string | undefined => {
+    if (key === NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV) {
+      return "true";
+    }
+    if (key === "GEMINI_API_KEY") {
+      return runtimeKey;
+    }
+    return stagingStyleShadowEnv()[key];
+  };
+
+  ok("general key check rejects AIza prefix", !isGeminiApiKeyConfigured(readEnvRuntimeKey));
+  ok("runtime presence accepts mounted secret", isGeminiApiKeyPresent(readEnvRuntimeKey));
+
+  setAdminShadowGeminiCallerForTests(async () => ({
+    providerNetworkUsed: true,
+    redactedProviderOutput: "runtime secret mount path ok",
+    requestIdHash: "runtime1234567890",
+    modelId: "gemini-2.0-flash",
+    budgetDailyLimit: 5,
+    budgetMonthlyLimit: 50,
+  }));
+
+  const evaluation = runSalesBrainAdminShadowSmoke({ caseId: "SS-01" });
+  const ctx = await resolveAdminShadowSmokeHandlerContext({
+    caseId: "SS-01",
+    evaluation,
+    readEnv: readEnvRuntimeKey,
+  });
+  ok("runtime AIza key providerNetwork true", ctx.providerNetwork === true);
+  ok("runtime AIza gate reason ok", ctx.realProviderGateReason === "real_provider_call_ok");
+
+  const blocked = await resolveAdminShadowSmokeHandlerContext({
+    caseId: "SS-02",
+    evaluation: runSalesBrainAdminShadowSmoke({ caseId: "SS-02" }),
+    readEnv: readEnvRuntimeKey,
+  });
+  ok("SS-02 gate case_not_allowed", blocked.realProviderGateReason === "case_not_allowed_for_real_provider");
+
+  resetAdminShadowGeminiCallerForTests();
+}
+
 // --- auth matrix ---
 {
   const unauth = await runGuard(adminApiAuth, reqWith({}));
@@ -264,6 +312,9 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
 {
   ok("server module admin route only", serverModule.includes(SALES_BRAIN_ADMIN_SHADOW_SMOKE_ROUTE));
   ok("admin provider module exists", adminProvider.includes("invokeAdminShadowRealProvider"));
+  const realProvider = readFileSync("src/services/ai/salesBrainRealProvider.ts", "utf8");
+  ok("admin shadow uses runtime key presence", realProvider.includes("assertGeminiApiKeyPresentForAdminShadow"));
+  ok("realProviderGateReason exported", serverModule.includes("realProviderGateReason"));
   ok("no buyer lead in server module", !serverModule.includes("buyerLeadCapture"));
   ok("no settlement write", !/settlement.*write|invoice.*write/i.test(serverModule));
   ok("providerNetwork false default comment", /providerNetwork: false/.test(serverModule));

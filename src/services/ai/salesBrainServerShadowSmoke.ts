@@ -6,6 +6,7 @@ import type { Express, Request, Response } from "express";
 import {
   canAttemptAdminShadowRealProvider,
   invokeAdminShadowRealProvider,
+  isAdminShadowRealProviderCaseAllowed,
   type AdminShadowGeminiCallResult,
 } from "./salesBrainAdminShadowRealProvider";
 import { defaultEnvReader } from "./salesBrainRealProvider";
@@ -221,12 +222,15 @@ export interface RedactedAdminShadowSmokePayload {
   };
   adminShadowRealProviderAttempted?: boolean;
   adminShadowRealProviderFallbackReason?: string;
+  /** v6.1H — redacted gate reason only; no env/secret values */
+  realProviderGateReason?: string;
 }
 
 export interface AdminShadowSmokeHandlerContext {
   providerNetwork: boolean;
   realProviderResult?: AdminShadowGeminiCallResult;
   realProviderFallbackReason?: string;
+  realProviderGateReason?: string;
 }
 
 /** Admin/debug payload — redacted, no env/secret values */
@@ -283,6 +287,10 @@ export function buildRedactedAdminShadowSmokePayload(
     payload.adminShadowRealProviderFallbackReason = context.realProviderFallbackReason;
   }
 
+  if (context.realProviderGateReason) {
+    payload.realProviderGateReason = context.realProviderGateReason;
+  }
+
   return payload;
 }
 
@@ -295,19 +303,35 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
   const definition = SALES_BRAIN_ADMIN_SHADOW_SMOKE_CASES[input.caseId];
   const environment = definition.environment ?? "staging";
 
-  if (
-    !canAttemptAdminShadowRealProvider({
-      caseId: input.caseId,
-      environment,
-      readEnv,
-    })
-  ) {
-    return { providerNetwork: false };
+  if (environment === "production") {
+    return {
+      providerNetwork: false,
+      realProviderGateReason: "production_environment",
+    };
+  }
+
+  if (!isAdminShadowRealProviderCaseAllowed(input.caseId)) {
+    return {
+      providerNetwork: false,
+      realProviderGateReason: "case_not_allowed_for_real_provider",
+    };
+  }
+
+  if (!canAttemptAdminShadowRealProvider({
+    caseId: input.caseId,
+    environment,
+    readEnv,
+  })) {
+    return {
+      providerNetwork: false,
+      realProviderGateReason: "admin_shadow_real_provider_flag_off",
+    };
   }
 
   if (!input.evaluation.runtimeFlags.shadowEvaluationAllowed) {
     return {
       providerNetwork: false,
+      realProviderGateReason: "shadow_evaluation_not_allowed",
       realProviderFallbackReason: "shadow_evaluation_not_allowed",
     };
   }
@@ -318,12 +342,17 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       userRole: definition.userRole,
       readEnv,
     });
-    return { providerNetwork: true, realProviderResult };
+    return {
+      providerNetwork: true,
+      realProviderResult,
+      realProviderGateReason: "real_provider_call_ok",
+    };
   } catch (error) {
     const reason =
       error instanceof Error ? error.name || error.message : "admin_shadow_provider_fallback";
     return {
       providerNetwork: false,
+      realProviderGateReason: "real_provider_call_failed",
       realProviderFallbackReason: redactPiiForSalesBrainLog(String(reason)).slice(0, 120),
     };
   }

@@ -57,6 +57,7 @@ export interface AdminShadowSmokeRedactedData {
   };
   adminShadowRealProviderAttempted?: boolean;
   adminShadowRealProviderFallbackReason?: string;
+  realProviderGateReason?: string;
 }
 
 export interface AdminShadowSmokeApiResponse {

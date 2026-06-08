@@ -99,7 +99,7 @@ export default function AdminShadowSmokeDebugView() {
         >
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Admin-only · readOnly · userVisibleOff · providerNetwork false · mock provider only
+            Admin-only · readOnly · userVisibleOff · SS-01 may use real Gemini when flag on
           </span>
         </div>
       </div>
@@ -203,8 +203,23 @@ export default function AdminShadowSmokeDebugView() {
             </div>
           )}
 
-          {(result.data.skippedReason || result.data.enablementBlockedReason) && (
+          {(result.data.skippedReason ||
+            result.data.enablementBlockedReason ||
+            result.data.realProviderGateReason ||
+            result.data.adminShadowRealProviderFallbackReason) && (
             <div className="space-y-2 text-xs text-amber-200">
+              {result.data.realProviderGateReason && (
+                <p>
+                  <span className="font-semibold">realProviderGateReason:</span>{" "}
+                  {result.data.realProviderGateReason}
+                </p>
+              )}
+              {result.data.adminShadowRealProviderFallbackReason && (
+                <p>
+                  <span className="font-semibold">adminShadowRealProviderFallbackReason:</span>{" "}
+                  {result.data.adminShadowRealProviderFallbackReason}
+                </p>
+              )}
               {result.data.skippedReason && (
                 <p>
                   <span className="font-semibold">skippedReason:</span> {result.data.skippedReason}

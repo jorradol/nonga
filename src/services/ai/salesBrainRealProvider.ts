@@ -103,11 +103,28 @@ export function isGeminiApiKeyConfigured(
   return raw.length > 0;
 }
 
+/** v6.1H — runtime presence check for admin shadow route (Cloud Run mounts secret value). */
+export function isGeminiApiKeyPresent(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): boolean {
+  const raw = readEnv(SALES_BRAIN_GEMINI_ENV_VAR);
+  return Boolean(raw && raw.trim().length > 0);
+}
+
 /** Fail closed when GEMINI_API_KEY absent — no provider fallback */
 export function assertGeminiApiKeyConfigured(
   readEnv: SalesBrainEnvReader = defaultEnvReader
 ): void {
   if (!isGeminiApiKeyConfigured(readEnv)) {
+    throw new SalesBrainRealProviderMissingApiKeyError();
+  }
+}
+
+/** v6.1H — admin shadow route only; accepts mounted secret values without logging them. */
+export function assertGeminiApiKeyPresentForAdminShadow(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): void {
+  if (!isGeminiApiKeyPresent(readEnv)) {
     throw new SalesBrainRealProviderMissingApiKeyError();
   }
 }
@@ -145,7 +162,7 @@ export function buildAdminShadowProviderRequest(
   input: SalesBrainAdapterInput,
   readEnv: SalesBrainEnvReader = defaultEnvReader
 ): SalesBrainRealProviderRequest {
-  assertGeminiApiKeyConfigured(readEnv);
+  assertGeminiApiKeyPresentForAdminShadow(readEnv);
   const config: SalesBrainRealProviderConfig = {
     ...resolveRealProviderConfig(input, SALES_BRAIN_ROUND1_PAID_PROVIDER),
     networkEnabled: true,
