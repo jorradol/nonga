@@ -282,7 +282,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const payload = buildRedactedAdminShadowSmokePayload(evaluation, blocked);
   ok("flag off gate reason present", payload.realProviderGateReason === "admin_shadow_real_provider_flag_off");
   ok("classify missing api key", classifyAdminShadowProviderError(new SalesBrainRealProviderMissingApiKeyError()) === "missing_api_key");
-  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1H.4");
+  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1J");
 
   ok("map 403 permission", mapGeminiHttpStatusToFallbackReason({ httpStatus: 403, grpcStatus: "PERMISSION_DENIED" }) === "gemini_http_403");
   ok("map 401 auth", mapGeminiHttpStatusToFallbackReason({ httpStatus: 401, grpcStatus: "UNAUTHENTICATED" }) === "gemini_auth_error");
@@ -321,7 +321,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   };
   ok("handler top-level gate reason", typeof body.realProviderGateReason === "string");
   ok("handler nested gate reason", typeof body.data?.realProviderGateReason === "string");
-  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1H.4");
+  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1J");
   ok("handler diag gemini model", body.adminShadowDiag?.geminiModel === "gemini-3.5-flash");
   ok("handler diag request shape", body.adminShadowDiag?.geminiRequestShape === "sdk_contents_text_part");
 }

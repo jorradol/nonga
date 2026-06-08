@@ -166,6 +166,7 @@
     "test:v61h-real-gemini-shadow-call-admin-only-staging-smoke": "tsx scripts/test-v61h-real-gemini-shadow-call-admin-only-staging-smoke.mts",
     "test:v61h4-admin-shadow-gemini-model-fix-staging-deploy-record": "tsx scripts/test-v61h4-admin-shadow-gemini-model-fix-staging-deploy-record.mts",
     "test:v61i-staging-ai-conversation-smoke-readiness": "tsx scripts/test-v61i-staging-ai-conversation-smoke-readiness.mts",
+    "test:v61j-admin-shadow-conversation-smoke-full-matrix": "tsx scripts/test-v61j-admin-shadow-conversation-smoke-full-matrix.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
