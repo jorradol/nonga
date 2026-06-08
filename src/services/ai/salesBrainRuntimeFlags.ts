@@ -14,6 +14,9 @@ export const NONGA_AI_BUDGET_MONTHLY_LIMIT_ENV = "NONGA_AI_BUDGET_MONTHLY_LIMIT"
 /** v6.1H — admin-only shadow smoke real Gemini (default off) */
 export const NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV =
   "NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED";
+/** v6.1K — chat-path shadow sink real Gemini (default off; CP-02 only) */
+export const NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV =
+  "NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED";
 
 export const SALES_BRAIN_RUNTIME_FLAG_ENV_KEYS = [
   NONGA_AI_PROVIDER_ENV,

@@ -3,8 +3,12 @@
  * npm run test:v61h4-admin-shadow-gemini-model-fix-staging-deploy-record
  */
 import { readFileSync } from "node:fs";
+import { ADMIN_SHADOW_SMOKE_SLICE_ID } from "../src/services/ai/salesBrainAdminShadowDiagnostics.ts";
+import { CHAT_SHADOW_SINK_SLICE_ID } from "../src/services/ai/salesBrainChatShadowSinkDiagnostics.ts";
 
 const DOC_PATH = "docs/v6.1H.4-admin-shadow-gemini-model-fix-staging-deploy-record.md";
+/** Deploy-time slice stamped in v6.1H.4 execution record — frozen in doc, not in current code */
+const V61H4_DEPLOY_SLICE_ID = "v6.1H.4";
 
 const SECRET_VALUE_PATTERNS = [
   /AIza[Sy][a-zA-Z0-9_-]{20,}/,
@@ -89,7 +93,19 @@ const diagnostics = readFileSync("src/services/ai/salesBrainAdminShadowDiagnosti
 // --- runtime changes ---
 {
   ok("code model constant 3.5 flash", realProvider.includes(`ADMIN_SHADOW_GEMINI_MODEL = "${NEW_MODEL}"`));
-  ok("code slice id v6.1H.4", diagnostics.includes('ADMIN_SHADOW_SMOKE_SLICE_ID = "v6.1H.4"'));
+  ok(
+    "doc deploy-time sliceId v6.1H.4 preserved",
+    /sliceId.*v6\.1H\.4|adminShadowDiag.*v6\.1H\.4/i.test(doc)
+  );
+  ok(
+    "code admin slice id current not v6.1H.4",
+    !diagnostics.includes(`ADMIN_SHADOW_SMOKE_SLICE_ID = "${V61H4_DEPLOY_SLICE_ID}"`)
+  );
+  ok("code admin slice id evolved v6.1J", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1J");
+  ok(
+    "code chat shadow slice separate v6.1K",
+    CHAT_SHADOW_SINK_SLICE_ID === "v6.1K"
+  );
   ok("doc runtime model change", doc.includes(NEW_MODEL));
   ok("doc SS-02..SS-08 mock only", /SS-02\.\.SS-08.*mock|mock only/i.test(doc));
   ok("doc public chat unchanged", /public chat.*unchanged|unchanged.*public chat/i.test(docLower));

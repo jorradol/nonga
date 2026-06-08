@@ -37,6 +37,7 @@ import { registerDealerPortalRoutes } from "./src/server/dealerPortalRoutes";
 import { registerDuplicateRoutes } from "./src/server/duplicateRoutes";
 import { dealerApiAuth, adminApiAuth } from "./src/server/apiAuth";
 import { registerSalesBrainAdminShadowSmokeRoutes } from "./src/services/ai/salesBrainServerShadowSmoke";
+import { registerSalesBrainChatShadowSinkRoutes } from "./src/services/ai/salesBrainServerChatShadowSink";
 import { getListingImagesRoot } from "./src/server/listingImageStorage";
 import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
 import { toPublicMarketplaceCarDtoList } from "./src/utils/publicMarketplaceListingPrivacy";
@@ -334,6 +335,7 @@ app.post("/api/cars", async (req, res) => {
 app.use("/api/dealer", dealerApiAuth);
 app.use("/api/admin", adminApiAuth);
 registerSalesBrainAdminShadowSmokeRoutes(app);
+registerSalesBrainChatShadowSinkRoutes(app);
 registerAdminPilotUserRoutes(app);
 
 app.get("/api/admin/listing-reports", async (req, res) => {
