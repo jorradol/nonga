@@ -6,6 +6,7 @@ import type { NextFunction, Request, Response } from "express";
 import { readFileSync } from "node:fs";
 import { adminApiAuth } from "../src/server/apiAuth.ts";
 import {
+  ADMIN_SHADOW_GEMINI_MODEL,
   ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS,
   canAttemptAdminShadowRealProvider,
   isAdminShadowRealProviderEnabled,
@@ -191,7 +192,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
     providerNetworkUsed: true,
     redactedProviderOutput: "synthetic admin shadow reply [redacted]",
     requestIdHash: "abc123def4567890",
-    modelId: "gemini-2.0-flash",
+    modelId: "gemini-3.5-flash",
     budgetDailyLimit: 5,
     budgetMonthlyLimit: 50,
   }));
@@ -246,7 +247,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
     providerNetworkUsed: true,
     redactedProviderOutput: "runtime secret mount path ok",
     requestIdHash: "runtime1234567890",
-    modelId: "gemini-2.0-flash",
+    modelId: "gemini-3.5-flash",
     budgetDailyLimit: 5,
     budgetMonthlyLimit: 50,
   }));
@@ -281,7 +282,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const payload = buildRedactedAdminShadowSmokePayload(evaluation, blocked);
   ok("flag off gate reason present", payload.realProviderGateReason === "admin_shadow_real_provider_flag_off");
   ok("classify missing api key", classifyAdminShadowProviderError(new SalesBrainRealProviderMissingApiKeyError()) === "missing_api_key");
-  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1H.3");
+  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1H.4");
 
   ok("map 403 permission", mapGeminiHttpStatusToFallbackReason({ httpStatus: 403, grpcStatus: "PERMISSION_DENIED" }) === "gemini_http_403");
   ok("map 401 auth", mapGeminiHttpStatusToFallbackReason({ httpStatus: 401, grpcStatus: "UNAUTHENTICATED" }) === "gemini_auth_error");
@@ -298,6 +299,13 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   ok("extract 403 grpc code", redacted403.geminiErrorCode === "PERMISSION_DENIED");
   ok("extract no raw api key", !JSON.stringify(redacted403).includes("AIza"));
 
+  const modelErr = new Error('{"error":{"message":"redacted","code":404,"status":"NOT_FOUND"}}');
+  modelErr.name = "ApiError";
+  (modelErr as Error & { status: number }).status = 404;
+  const redacted404 = extractRedactedGeminiApiError(modelErr);
+  ok("extract 404 model not found", redacted404.fallbackReason === "gemini_model_not_found");
+  ok("admin shadow model constant", ADMIN_SHADOW_GEMINI_MODEL === "gemini-3.5-flash");
+
   const okCase = mockRes();
   await handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "SS-01" }), okCase.res);
   const body = okCase.out.body as {
@@ -313,8 +321,8 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   };
   ok("handler top-level gate reason", typeof body.realProviderGateReason === "string");
   ok("handler nested gate reason", typeof body.data?.realProviderGateReason === "string");
-  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1H.3");
-  ok("handler diag gemini model", body.adminShadowDiag?.geminiModel === "gemini-2.0-flash");
+  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1H.4");
+  ok("handler diag gemini model", body.adminShadowDiag?.geminiModel === "gemini-3.5-flash");
   ok("handler diag request shape", body.adminShadowDiag?.geminiRequestShape === "sdk_contents_text_part");
 }
 

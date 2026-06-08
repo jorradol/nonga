@@ -12,7 +12,7 @@ import {
 } from "./salesBrainTypes";
 import type { SalesBrainRuntimeEnvironment } from "./salesBrainRuntimeFlags";
 
-export const ADMIN_SHADOW_SMOKE_SLICE_ID = "v6.1H.3";
+export const ADMIN_SHADOW_SMOKE_SLICE_ID = "v6.1H.4";
 
 export interface AdminShadowSmokeDiag {
   sliceId: typeof ADMIN_SHADOW_SMOKE_SLICE_ID;
