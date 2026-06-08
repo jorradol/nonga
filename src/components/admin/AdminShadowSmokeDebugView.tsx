@@ -226,6 +226,29 @@ export default function AdminShadowSmokeDebugView() {
                 label="caseAllowed"
                 value={result.adminShadowDiag.caseAllowedForRealProvider}
               />
+              {result.adminShadowDiag.geminiModel && (
+                <FlagBadge label="geminiModel" value={result.adminShadowDiag.geminiModel} />
+              )}
+              {result.adminShadowDiag.geminiRequestShape && (
+                <FlagBadge
+                  label="geminiRequestShape"
+                  value={result.adminShadowDiag.geminiRequestShape}
+                />
+              )}
+              {result.adminShadowDiag.geminiHttpStatus != null && (
+                <FlagBadge
+                  label="geminiHttpStatus"
+                  value={result.adminShadowDiag.geminiHttpStatus}
+                  tone="warn"
+                />
+              )}
+              {result.adminShadowDiag.geminiErrorCode && (
+                <FlagBadge
+                  label="geminiErrorCode"
+                  value={result.adminShadowDiag.geminiErrorCode}
+                  tone="warn"
+                />
+              )}
             </div>
           )}
 

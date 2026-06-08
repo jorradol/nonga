@@ -20,7 +20,9 @@ export const ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS = ["SS-01"] as const;
 export type AdminShadowRealProviderAllowedCaseId =
   (typeof ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS)[number];
 
-const ADMIN_SHADOW_GEMINI_MODEL = "gemini-2.0-flash";
+/** Same model as vehicleVisionAnalyzer — metadata only in responses/logs */
+export const ADMIN_SHADOW_GEMINI_MODEL = "gemini-2.0-flash";
+export const ADMIN_SHADOW_GEMINI_REQUEST_SHAPE = "sdk_contents_text_part";
 const MAX_PROVIDER_OUTPUT_CHARS = 500;
 
 export interface AdminShadowGeminiCallResult {
@@ -119,7 +121,7 @@ async function defaultAdminShadowGeminiCaller(
   );
   const response = await client.models.generateContent({
     model: ADMIN_SHADOW_GEMINI_MODEL,
-    contents: prompt,
+    contents: [{ text: prompt }],
     config: { maxOutputTokens: 256 },
   });
 

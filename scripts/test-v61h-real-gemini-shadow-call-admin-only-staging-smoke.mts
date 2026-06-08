@@ -29,6 +29,8 @@ import {
 import {
   ADMIN_SHADOW_SMOKE_SLICE_ID,
   classifyAdminShadowProviderError,
+  extractRedactedGeminiApiError,
+  mapGeminiHttpStatusToFallbackReason,
 } from "../src/services/ai/salesBrainAdminShadowDiagnostics.ts";
 import {
   SalesBrainRealProviderMissingApiKeyError,
@@ -268,7 +270,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   resetAdminShadowGeminiCallerForTests();
 }
 
-// --- v6.1H.2 diagnostics: gate reason always present when mock ---
+// --- v6.1H.3 diagnostics: gate reason + redacted Gemini error codes ---
 {
   const evaluation = runSalesBrainAdminShadowSmoke({ caseId: "SS-01" });
   const blocked = await resolveAdminShadowSmokeHandlerContext({
@@ -279,19 +281,41 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const payload = buildRedactedAdminShadowSmokePayload(evaluation, blocked);
   ok("flag off gate reason present", payload.realProviderGateReason === "admin_shadow_real_provider_flag_off");
   ok("classify missing api key", classifyAdminShadowProviderError(new SalesBrainRealProviderMissingApiKeyError()) === "missing_api_key");
-  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1H.2");
+  ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1H.3");
+
+  ok("map 403 permission", mapGeminiHttpStatusToFallbackReason({ httpStatus: 403, grpcStatus: "PERMISSION_DENIED" }) === "gemini_http_403");
+  ok("map 401 auth", mapGeminiHttpStatusToFallbackReason({ httpStatus: 401, grpcStatus: "UNAUTHENTICATED" }) === "gemini_auth_error");
+  ok("map 404 model", mapGeminiHttpStatusToFallbackReason({ httpStatus: 404, grpcStatus: "NOT_FOUND" }) === "gemini_model_not_found");
+  ok("map 429 quota", mapGeminiHttpStatusToFallbackReason({ httpStatus: 429, grpcStatus: "RESOURCE_EXHAUSTED" }) === "gemini_quota_error");
+  ok("map 400 format", mapGeminiHttpStatusToFallbackReason({ httpStatus: 400, grpcStatus: "INVALID_ARGUMENT" }) === "request_format_error");
+
+  const apiErr = new Error('{"error":{"message":"redacted","code":403,"status":"PERMISSION_DENIED"}}');
+  apiErr.name = "ApiError";
+  (apiErr as Error & { status: number }).status = 403;
+  const redacted403 = extractRedactedGeminiApiError(apiErr);
+  ok("extract 403 fallback", redacted403.fallbackReason === "gemini_http_403");
+  ok("extract 403 http status", redacted403.geminiHttpStatus === 403);
+  ok("extract 403 grpc code", redacted403.geminiErrorCode === "PERMISSION_DENIED");
+  ok("extract no raw api key", !JSON.stringify(redacted403).includes("AIza"));
 
   const okCase = mockRes();
   await handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "SS-01" }), okCase.res);
   const body = okCase.out.body as {
     providerNetwork?: boolean;
     realProviderGateReason?: string;
-    adminShadowDiag?: { sliceId?: string; geminiKeyPresent?: boolean };
+    adminShadowDiag?: {
+      sliceId?: string;
+      geminiKeyPresent?: boolean;
+      geminiModel?: string;
+      geminiRequestShape?: string;
+    };
     data?: { realProviderGateReason?: string };
   };
   ok("handler top-level gate reason", typeof body.realProviderGateReason === "string");
   ok("handler nested gate reason", typeof body.data?.realProviderGateReason === "string");
-  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1H.2");
+  ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1H.3");
+  ok("handler diag gemini model", body.adminShadowDiag?.geminiModel === "gemini-2.0-flash");
+  ok("handler diag request shape", body.adminShadowDiag?.geminiRequestShape === "sdk_contents_text_part");
 }
 
 // --- auth matrix ---
@@ -349,7 +373,8 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   ok("admin shadow uses runtime key presence", realProvider.includes("assertGeminiApiKeyPresentForAdminShadow"));
   ok("realProviderGateReason exported", serverModule.includes("realProviderGateReason"));
   ok("adminShadowDiag exported", serverModule.includes("adminShadowDiag"));
-  ok("classifyAdminShadowProviderError exported", serverModule.includes("classifyAdminShadowProviderError"));
+  ok("extractRedactedGeminiApiError exported", serverModule.includes("extractRedactedGeminiApiError"));
+  ok("admin request shape constant", adminProvider.includes("sdk_contents_text_part"));
   ok("no buyer lead in server module", !serverModule.includes("buyerLeadCapture"));
   ok("no settlement write", !/settlement.*write|invoice.*write/i.test(serverModule));
   ok("providerNetwork false default comment", /providerNetwork: false/.test(serverModule));

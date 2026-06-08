@@ -5,10 +5,12 @@
 import type { Express, Request, Response } from "express";
 import {
   buildAdminShadowSmokeDiag,
-  classifyAdminShadowProviderError,
+  extractRedactedGeminiApiError,
   logAdminShadowSmokeGate,
 } from "./salesBrainAdminShadowDiagnostics";
 import {
+  ADMIN_SHADOW_GEMINI_MODEL,
+  ADMIN_SHADOW_GEMINI_REQUEST_SHAPE,
   canAttemptAdminShadowRealProvider,
   invokeAdminShadowRealProvider,
   isAdminShadowRealProviderCaseAllowed,
@@ -236,6 +238,8 @@ export interface AdminShadowSmokeHandlerContext {
   realProviderResult?: AdminShadowGeminiCallResult;
   realProviderFallbackReason?: string;
   realProviderGateReason?: string;
+  geminiHttpStatus?: number;
+  geminiErrorCode?: string;
 }
 
 /** Admin/debug payload — redacted, no env/secret values */
@@ -358,11 +362,13 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       realProviderGateReason: "real_provider_call_ok",
     };
   } catch (error) {
-    const fallbackCode = classifyAdminShadowProviderError(error);
+    const redacted = extractRedactedGeminiApiError(error);
     return {
       providerNetwork: false,
       realProviderGateReason: "real_provider_call_failed",
-      realProviderFallbackReason: fallbackCode,
+      realProviderFallbackReason: redacted.fallbackReason,
+      geminiHttpStatus: redacted.geminiHttpStatus,
+      geminiErrorCode: redacted.geminiErrorCode,
     };
   }
 }
@@ -403,6 +409,10 @@ export async function handleAdminSalesBrainShadowSmokePost(
     caseId,
     environment,
     shadowEvaluationAllowed: evaluation.runtimeFlags.shadowEvaluationAllowed,
+    geminiModel: ADMIN_SHADOW_GEMINI_MODEL,
+    geminiRequestShape: ADMIN_SHADOW_GEMINI_REQUEST_SHAPE,
+    geminiHttpStatus: handlerContext.geminiHttpStatus,
+    geminiErrorCode: handlerContext.geminiErrorCode,
   });
 
   logAdminShadowSmokeGate({

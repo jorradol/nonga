@@ -67,6 +67,10 @@ export interface AdminShadowSmokeDiag {
   shadowEvaluationAllowed: boolean;
   caseAllowedForRealProvider: boolean;
   environment: string;
+  geminiModel?: string;
+  geminiRequestShape?: string;
+  geminiHttpStatus?: number;
+  geminiErrorCode?: string;
 }
 
 export interface AdminShadowSmokeApiResponse {
