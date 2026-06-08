@@ -162,6 +162,7 @@
     "test:v61d-admin-shadow-debug-ui-read-only-panel": "tsx scripts/test-v61d-admin-shadow-debug-ui-read-only-panel.mts",
     "test:v61e-admin-shadow-debug-ui-staging-hosting-deploy-record": "tsx scripts/test-v61e-admin-shadow-debug-ui-staging-hosting-deploy-record.mts",
     "test:v61f-human-manual-smoke-checklist-admin-shadow-debug-ui": "tsx scripts/test-v61f-human-manual-smoke-checklist-admin-shadow-debug-ui.mts",
+    "test:v61g-real-gemini-shadow-call-dry-run-readiness": "tsx scripts/test-v61g-real-gemini-shadow-call-dry-run-readiness.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
