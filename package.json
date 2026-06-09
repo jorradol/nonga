@@ -193,6 +193,7 @@
     "test:v62b3-real-stock-data-package-intake-dry-run-plan": "tsx scripts/test-v62b3-real-stock-data-package-intake-dry-run-plan.mts",
     "test:v62b4-real-stock-data-package-dry-run-execution-record": "tsx scripts/test-v62b4-real-stock-data-package-dry-run-execution-record.mts",
     "test:v62b5-real-stock-data-package-ops-dry-run-result-review": "tsx scripts/test-v62b5-real-stock-data-package-ops-dry-run-result-review.mts",
+    "test:v62b6-real-data-package-redacted-go-record": "tsx scripts/test-v62b6-real-data-package-redacted-go-record.mts",
     "test:v62c-privacy-safe-auto-redaction-readiness-plan": "tsx scripts/test-v62c-privacy-safe-auto-redaction-readiness-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
