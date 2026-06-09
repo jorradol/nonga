@@ -91,8 +91,8 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
 
 // --- constants ---
 {
-  ok("v60r still blocked", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
-  ok("v60v legacy only", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === true);
+  ok("v60r lifted v61l2b", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
+  ok("v60v allowlist gated", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === false);
   ok("gate slice id", USER_VISIBLE_GATE_SLICE_ID === "v6.1L.1");
 }
 
@@ -153,17 +153,17 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
   ok("non-allowlisted fallback", gate.fallbackToLegacy === true);
 }
 
-// --- allowlisted but v60r block ---
+// --- allowlisted effective allow (v60r lifted) ---
 {
   const gate = evaluateUserVisibleGate({
     environment: "staging",
     env: STAGING_USER_VISIBLE_ENV,
     firebaseUid: TEST_UID,
   });
-  ok("allowlisted would allow without v60r", gate.wouldAllowWithoutV60rBlock === true);
-  ok("allowlisted v60r blocks effective", gate.effectiveUserVisibleAllowed === false);
-  ok("allowlisted v60r reason", gate.blockedReason === "user_visible_blocked_v60r");
-  ok("allowlisted still fallback legacy", gate.fallbackToLegacy === true);
+  ok("allowlisted would allow", gate.wouldAllowWithoutV60rBlock === true);
+  ok("allowlisted effective allowed", gate.effectiveUserVisibleAllowed === true);
+  ok("allowlisted allowed reason", gate.blockedReason === "user_visible_allowed");
+  ok("allowlisted no fallback", gate.fallbackToLegacy === false);
 }
 
 // --- kill switch ---
@@ -207,9 +207,9 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
     env: STAGING_USER_VISIBLE_ENV,
     firebaseUid: TEST_UID,
   });
-  ok("shadow runtime legacy text", wired.userVisibleResponse === legacy);
+  ok("shadow runtime pilot text", wired.userVisibleResponse.includes("nonga-pilot:"));
   ok("shadow runtime gate diagnostics", Boolean(wired.userVisibleGateDiagnostics));
-  ok("shadow runtime gate v60r block", wired.userVisibleGateDiagnostics?.blockedReason === "user_visible_blocked_v60r");
+  ok("shadow runtime gate allowed", wired.userVisibleGateDiagnostics?.blockedReason === "user_visible_allowed");
 
   const guestWired = evaluateSalesBrainShadowRuntime({
     userMessage: "งบ 4 แสน",
@@ -235,7 +235,8 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
     env: STAGING_USER_VISIBLE_ENV,
     firebaseUid: TEST_UID,
   });
-  ok("chat path legacy text", wired.legacyUserVisibleText === legacy);
+  ok("chat path legacy preserved", wired.legacyUserVisibleText === legacy);
+  ok("chat path user visible exact start over", wired.userVisibleText === legacy);
   ok("chat path flags debug present", Boolean(wired.flagsOnlyDebug));
   ok("chat path debug no raw uid", !wired.flagsOnlyDebug!.includes(TEST_UID));
   ok("chat path debug has gate slice", wired.flagsOnlyDebug!.includes("v6.1L.1"));
@@ -269,7 +270,11 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
 {
   ok("useChat passes firebaseUid", useChat.includes("firebaseUid: user?.uid"));
   ok("chat path imports gate", chatPathSrc.includes("salesBrainUserVisibleGate"));
-  ok("chat path legacy constant unchanged", chatPathSrc.includes("SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY"));
+  ok(
+    "chat path browser safe no pilot import",
+    !/from\s+["'].*salesBrainUserVisibleChatPath/.test(chatPathSrc)
+  );
+  ok("chat path v60v constant present", chatPathSrc.includes("SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY"));
 }
 
 // --- doc record ---

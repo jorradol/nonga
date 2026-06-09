@@ -359,7 +359,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
 
 // --- user visible blocked ---
 {
-  ok("v60r user visible blocked", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("v60r lifted v61l2b", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("module never sets user visible true", !serverModule.includes('NONGA_AI_USER_VISIBLE_ENABLED=true'));
   ok("useChat wires shadow only", useChat.includes("wireShadowChatPath"));
   ok("chat path legacy", /legacyUserVisibleText|legacyUserVisibleResponse/i.test(chatPath));

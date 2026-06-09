@@ -196,8 +196,8 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
 
 // --- code gates still blocked (current state) ---
 {
-  ok("v60r user visible still blocked in code", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
-  ok("v60v legacy user visible only", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === true);
+  ok("v60r lifted v61l2b in code", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
+  ok("v60v allowlist gated in code", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === false);
   ok("runtime flags env key exported", runtimeFlags.includes(NONGA_AI_USER_VISIBLE_ENABLED_ENV));
   ok("chat path legacy constant", chatPath.includes("SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY"));
 }

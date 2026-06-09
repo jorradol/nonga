@@ -32,8 +32,8 @@ export const SALES_BRAIN_RUNTIME_FLAG_ENV_KEYS = [
   NONGA_AI_BUDGET_MONTHLY_LIMIT_ENV,
 ] as const;
 
-/** v6.0R — user-visible AI responses remain blocked until a future explicit slice */
-export const SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED = true;
+/** v6.1L.2b — lifted; allowlist gate + env flags control user-visible path */
+export const SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED = false;
 
 export type SalesBrainRuntimeEnvironment = "production" | "staging" | "local";
 
@@ -44,7 +44,7 @@ export interface SalesBrainRuntimeFlags {
   mode: SalesBrainAiMode;
   aiFirstEnabled: boolean;
   shadowModeEnabled: boolean;
-  /** Effective user-visible — v6.0R always false */
+  /** Effective user-visible — v6.1L.2b when env + prerequisites pass (allowlist gate still required) */
   userVisibleEnabled: boolean;
   /** Raw env request — for audit only */
   userVisibleRequested: boolean;
@@ -166,22 +166,36 @@ export function resolveSalesBrainRuntimeFlags(input: {
   }
 
   const budgetsPresent = budgetDailyLimit !== null && budgetMonthlyLimit !== null;
+  const prerequisitesOk =
+    provider === "gemini" && aiFirstEnabled && mode !== "off" && budgetsPresent;
+
   let shadowModeEnabled = false;
   let shadowEvaluationAllowed = false;
 
-  if (shadowModeRequested && !(userVisibleRequested && SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED)) {
-    if (provider !== "gemini") {
-      enablementBlockedReason = enablementBlockedReason ?? "provider_not_gemini";
-    } else if (!aiFirstEnabled) {
-      enablementBlockedReason = enablementBlockedReason ?? "ai_first_disabled";
-    } else if (mode === "off") {
-      enablementBlockedReason = enablementBlockedReason ?? "ai_mode_off";
-    } else if (!budgetsPresent) {
-      enablementBlockedReason = enablementBlockedReason ?? "budget_caps_missing";
+  if (shadowModeRequested) {
+    if (!prerequisitesOk) {
+      if (provider !== "gemini") {
+        enablementBlockedReason = enablementBlockedReason ?? "provider_not_gemini";
+      } else if (!aiFirstEnabled) {
+        enablementBlockedReason = enablementBlockedReason ?? "ai_first_disabled";
+      } else if (mode === "off") {
+        enablementBlockedReason = enablementBlockedReason ?? "ai_mode_off";
+      } else if (!budgetsPresent) {
+        enablementBlockedReason = enablementBlockedReason ?? "budget_caps_missing";
+      }
     } else {
       shadowModeEnabled = true;
       shadowEvaluationAllowed = true;
     }
+  }
+
+  let userVisibleEnabled = false;
+  if (
+    userVisibleRequested &&
+    !SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED &&
+    prerequisitesOk
+  ) {
+    userVisibleEnabled = true;
   }
 
   return {
@@ -189,7 +203,7 @@ export function resolveSalesBrainRuntimeFlags(input: {
     mode,
     aiFirstEnabled: shadowEvaluationAllowed ? aiFirstEnabled : false,
     shadowModeEnabled,
-    userVisibleEnabled: false,
+    userVisibleEnabled,
     userVisibleRequested,
     emergencyKillSwitch: false,
     budgetDailyLimit,

@@ -68,7 +68,8 @@ const pkg = readFileSync("package.json", "utf8");
 {
   ok("prerequisites section", /Prerequisites Before Env Enable/i.test(doc));
   ok("v60r blocked documented", doc.includes("SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED"));
-  ok("v60r still true in code", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("v60r lifted in v61l2b code", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
+  ok("doc references v61l2b lift", doc.includes("v6.1L.2b"));
   ok("env alone not enough", /env-only ยังไม่เพียงพอ|env-only.*not enough/i.test(doc));
 }
 

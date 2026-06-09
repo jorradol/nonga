@@ -71,10 +71,10 @@ function ok(name: string, pass: boolean, detail = "") {
 
 console.log("=== v6.0V Shadow Chat Path Wiring / User-visible Legacy ===\n");
 
-// --- v60v constants ---
+// --- v60v / v61l2b constants ---
 {
-  ok("v60v legacy user visible only constant", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === true);
-  ok("v60r user visible still blocked", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("v60v allowlist gated constant", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === false);
+  ok("v60r lifted for allowlist gate", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("real provider network disabled", SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED === false);
 }
 
@@ -101,6 +101,8 @@ console.log("=== v6.0V Shadow Chat Path Wiring / User-visible Legacy ===\n");
     env: STAGING_SHADOW_ENV,
   });
   ok("chat path returns legacy text", chatPath.legacyUserVisibleText === LEGACY_TEXT);
+  ok("chat path user visible legacy when flag off", chatPath.userVisibleText === LEGACY_TEXT);
+  ok("chat path no pilot when flag off", chatPath.pilotPathActive === false);
   ok("chat path flags debug present", Boolean(chatPath.flagsOnlyDebug));
 }
 
@@ -130,13 +132,14 @@ console.log("=== v6.0V Shadow Chat Path Wiring / User-visible Legacy ===\n");
   ok("budget missing legacy unchanged", wired.userVisibleResponse === LEGACY_TEXT);
 }
 
-// --- user-visible true blocked ---
+// --- user-visible true without allowlist → legacy ---
 {
   const flags = resolveSalesBrainRuntimeFlags({
     env: { ...STAGING_SHADOW_ENV, [NONGA_AI_USER_VISIBLE_ENABLED_ENV]: "true" },
     environment: "staging",
   });
-  ok("user visible true blocked", flags.shadowEvaluationAllowed === false);
+  ok("user visible true flags enabled", flags.userVisibleEnabled === true);
+  ok("user visible true shadow still allowed", flags.shadowEvaluationAllowed === true);
   const wired = evaluateSalesBrainShadowRuntime({
     userMessage: "งบ 4 แสน",
     legacyUserVisibleResponse: LEGACY_TEXT,
@@ -144,8 +147,8 @@ console.log("=== v6.0V Shadow Chat Path Wiring / User-visible Legacy ===\n");
     environment: "staging",
     env: { ...STAGING_SHADOW_ENV, [NONGA_AI_USER_VISIBLE_ENABLED_ENV]: "true" },
   });
-  ok("user visible true shadow skipped", wired.shadowModeActive === false);
-  ok("user visible true legacy unchanged", wired.userVisibleResponse === LEGACY_TEXT);
+  ok("user visible true no allowlist shadow active", wired.shadowModeActive === true);
+  ok("user visible true no allowlist legacy unchanged", wired.userVisibleResponse === LEGACY_TEXT);
 }
 
 // --- production default off ---
@@ -174,6 +177,7 @@ console.log("=== v6.0V Shadow Chat Path Wiring / User-visible Legacy ===\n");
   });
   ok("useChat orchestrated flags only", Boolean(wired.flagsOnlyDebug));
   ok("useChat orchestrated legacy unchanged", wired.legacyUserVisibleText === LEGACY_TEXT);
+  ok("useChat orchestrated user visible legacy", wired.userVisibleText === LEGACY_TEXT);
 }
 
 // --- gemini fallback flags-only ---
@@ -261,7 +265,11 @@ console.log("=== v6.0V Shadow Chat Path Wiring / User-visible Legacy ===\n");
     "chat path no shadow runtime import",
     !/from\s+["']\.\/salesBrainShadowRuntime["']/.test(chatPathSrc)
   );
-  ok("chat path legacy only constant", chatPathSrc.includes("SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY"));
+  ok("chat path v60v constant present", chatPathSrc.includes("SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY"));
+  ok(
+    "chat path browser safe no pilot import",
+    !/from\s+["'].*salesBrainUserVisibleChatPath/.test(chatPathSrc)
+  );
 }
 
 // --- no secret values ---

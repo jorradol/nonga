@@ -72,7 +72,7 @@ console.log("=== v6.0R Runtime Shadow Flag Reader / User-visible Off ===\n");
   ok("NONGA_AI_PROVIDER env key", NONGA_AI_PROVIDER_ENV === "NONGA_AI_PROVIDER");
   ok("NONGA_AI_SHADOW_MODE_ENABLED env key", NONGA_AI_SHADOW_MODE_ENABLED_ENV === "NONGA_AI_SHADOW_MODE_ENABLED");
   ok("NONGA_AI_USER_VISIBLE_ENABLED env key", NONGA_AI_USER_VISIBLE_ENABLED_ENV === "NONGA_AI_USER_VISIBLE_ENABLED");
-  ok("v60r user visible blocked constant", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("v60r lifted v61l2b", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
 }
 
 // --- missing env → all AI off ---

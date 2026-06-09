@@ -240,7 +240,7 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
 
   const ss07 = matrix.find((r) => r.caseId === "SS-07");
   ok("SS-07 shadow inactive", ss07?.shadowModeActive === false);
-  ok("SS-07 user visible blocked", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("SS-07 v60r lifted v61l2b", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("SS-07 guardrail meta", ADMIN_SHADOW_MATRIX_EXPECTATIONS["SS-07"].guardrail === "user_visible_blocked");
 
   const ss08 = matrix.find((r) => r.caseId === "SS-08");

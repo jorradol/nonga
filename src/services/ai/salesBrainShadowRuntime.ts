@@ -17,6 +17,7 @@ import {
   evaluateUserVisibleGate,
   type UserVisibleGateRedactedDiagnostics,
 } from "./salesBrainUserVisibleGate";
+import { resolveUserVisibleChatResponse } from "./salesBrainUserVisibleChatPath";
 
 export type {
   SalesBrainRuntimeEnvironment,
@@ -71,7 +72,7 @@ export function summarizeShadowRuntimeFlags(flags: SalesBrainRuntimeFlags): stri
 }
 
 /**
- * Evaluate shadow mode from runtime env flags — legacy user-visible response never replaced.
+ * Evaluate shadow mode from runtime env flags — user-visible text from allowlist-gated pilot or legacy.
  */
 export function evaluateSalesBrainShadowRuntime(
   input: SalesBrainShadowRuntimeInput
@@ -90,6 +91,19 @@ export function evaluateSalesBrainShadowRuntime(
     readEnv: input.readEnv,
     runtimeFlags: flags,
   });
+  const userVisibleResolved = resolveUserVisibleChatResponse({
+    userMessage: input.userMessage,
+    legacyUserVisibleResponse,
+    userRole: input.userRole,
+    flowContext: input.flowContext,
+    listingContext: input.listingContext,
+    firebaseUid: input.firebaseUid,
+    environment: input.environment,
+    env: input.env,
+    readEnv: input.readEnv,
+    runtimeFlags: flags,
+    userVisibleGate,
+  });
   const userVisibleBlockedReason = userVisibleGate.fallbackToLegacy
     ? userVisibleGate.blockedReason
     : undefined;
@@ -98,7 +112,7 @@ export function evaluateSalesBrainShadowRuntime(
     return {
       shadowModeActive: false,
       skippedReason: flags.enablementBlockedReason ?? "runtime_flags_off",
-      userVisibleResponse: legacyUserVisibleResponse,
+      userVisibleResponse: userVisibleResolved.userVisibleText,
       runtimeFlags: flags,
       userVisibleBlockedReason,
       userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,
@@ -120,7 +134,7 @@ export function evaluateSalesBrainShadowRuntime(
 
   return {
     ...shadowEval,
-    userVisibleResponse: legacyUserVisibleResponse,
+    userVisibleResponse: userVisibleResolved.userVisibleText,
     runtimeFlags: flags,
     userVisibleBlockedReason,
     userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,

@@ -1,7 +1,7 @@
 /**
- * v6.0V — Shadow chat path wiring (mock/debug only — user-visible legacy unchanged).
- * Browser-safe: flags-only debug hook in client chat UI; no paid API, no network.
- * Full mock shadow eval remains in salesBrainShadowRuntime (Node/tests/server).
+ * v6.0V — Shadow chat path wiring (browser-safe flags-only debug).
+ * v6.1L.2b — user-visible pilot resolution lives in salesBrainUserVisibleChatPath (Node/server/tests).
+ * Browser bundle: NONGA_AI_* env is on Cloud Run only — userVisibleText stays legacy here.
  */
 import {
   resolveSalesBrainRuntimeFlags,
@@ -11,8 +11,8 @@ import {
 import type { SalesBrainFlowContext, SalesBrainUserRole } from "./salesBrainTypes";
 import { evaluateUserVisibleGate } from "./salesBrainUserVisibleGate";
 
-/** v6.0V — user-visible chat text always legacy; shadow never replaces it */
-export const SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY = true;
+/** v6.1L.2b — allowlist-gated pilot may replace user-visible text on server/Node path */
+export const SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY = false;
 
 export type SalesBrainShadowChatPathSource =
   | "chatSearchOrchestrator"
@@ -35,6 +35,10 @@ export interface SalesBrainShadowChatPathInput {
 
 export interface SalesBrainShadowChatPathResult {
   legacyUserVisibleText: string;
+  /** Browser: always legacy. Server pilot: use resolveUserVisibleChatResponse */
+  userVisibleText: string;
+  pilotPathActive: boolean;
+  fallbackToLegacy: boolean;
   flagsOnlyDebug?: string;
 }
 
@@ -110,8 +114,8 @@ function logShadowChatPathDebug(payload: Record<string, unknown>): void {
 }
 
 /**
- * Wire shadow runtime into chat path — returns legacy user-visible text unchanged.
- * Client chat UI: flags-only debug (NONGA_AI_* env lives on Cloud Run, not in browser bundle).
+ * Wire shadow runtime into chat path — browser-safe flags-only debug.
+ * User-visible pilot text: resolveUserVisibleChatResponse (Node/server) or evaluateSalesBrainShadowRuntime.
  */
 export function wireShadowChatPath(
   input: SalesBrainShadowChatPathInput
@@ -129,6 +133,8 @@ export function wireShadowChatPath(
     JSON.stringify({
       runtimeFlags: JSON.parse(summarizeShadowRuntimeFlags(flags)),
       userVisibleGate: userVisibleGate.redactedDiagnostics,
+      pilotPathActive: false,
+      browserSafe: typeof window !== "undefined",
     })
   );
 
@@ -142,8 +148,15 @@ export function wireShadowChatPath(
     enablementBlockedReason: flags.enablementBlockedReason,
     userVisibleGateBlockedReason: userVisibleGate.blockedReason,
     userVisibleGateFallback: userVisibleGate.fallbackToLegacy,
+    pilotPathActive: false,
     clientSafe: typeof window !== "undefined",
   });
 
-  return { legacyUserVisibleText, flagsOnlyDebug };
+  return {
+    legacyUserVisibleText,
+    userVisibleText: legacyUserVisibleText,
+    pilotPathActive: false,
+    fallbackToLegacy: true,
+    flagsOnlyDebug,
+  };
 }

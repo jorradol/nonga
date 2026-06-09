@@ -123,7 +123,7 @@ function checkUserVisiblePrerequisites(
 
 /**
  * Evaluate controlled user-visible gate — default-deny; legacy fallback when not effective.
- * v6.1L.1: SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED keeps effectiveUserVisibleAllowed false.
+ * v6.1L.2b: when SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED is false, allowlist gate controls access.
  */
 export function evaluateUserVisibleGate(
   input: EvaluateUserVisibleGateInput = {}

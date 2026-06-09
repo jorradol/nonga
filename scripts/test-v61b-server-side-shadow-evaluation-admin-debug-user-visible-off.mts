@@ -253,7 +253,7 @@ const orch = readFileSync("src/services/ai/chat/chatSearchOrchestrator.ts", "utf
   ok("SS-06 budget missing blocked", ss06.runtimeFlags.shadowEvaluationAllowed === false);
 
   const ss07 = runSalesBrainAdminShadowSmoke({ caseId: "SS-07" });
-  ok("SS-07 user visible blocked v60r", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("SS-07 v60r lifted v61l2b", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("SS-07 shadow inactive", ss07.shadowModeActive === false);
   ok("SS-07 blocked reason present", ss07.runtimeFlags.enablementBlockedReason === "user_visible_blocked_v60r");
 

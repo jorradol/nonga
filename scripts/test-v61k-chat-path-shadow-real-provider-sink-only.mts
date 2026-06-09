@@ -239,7 +239,7 @@ const orch = readFileSync("src/services/ai/chat/chatSearchOrchestrator.ts", "utf
 
   const cp04 = matrix.find((r) => r.scenarioId === "CP-04");
   ok("CP-04 shadow inactive", cp04?.shadowModeActive === false);
-  ok("CP-04 user visible blocked", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === true);
+  ok("CP-04 v60r lifted v61l2b", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("CP-04 guardrail meta", CHAT_SHADOW_SINK_EXPECTATIONS["CP-04"].guardrail === "user_visible_blocked");
 
   const cp05 = matrix.find((r) => r.scenarioId === "CP-05");
