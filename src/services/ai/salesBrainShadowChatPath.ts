@@ -9,6 +9,7 @@ import {
   type SalesBrainRuntimeFlags,
 } from "./salesBrainRuntimeFlags";
 import type { SalesBrainFlowContext, SalesBrainUserRole } from "./salesBrainTypes";
+import { evaluateUserVisibleGate } from "./salesBrainUserVisibleGate";
 
 /** v6.0V — user-visible chat text always legacy; shadow never replaces it */
 export const SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY = true;
@@ -26,6 +27,8 @@ export interface SalesBrainShadowChatPathInput {
   source: SalesBrainShadowChatPathSource;
   environment?: SalesBrainRuntimeEnvironment;
   env?: Record<string, string | undefined>;
+  /** v6.1L.1 — Firebase Auth UID for allowlist gate (redacted diagnostics only) */
+  firebaseUid?: string | null;
   /** Orchestrator already logged flags — useChat second pass */
   shadowAlreadyEvaluated?: boolean;
 }
@@ -116,7 +119,18 @@ export function wireShadowChatPath(
   const environment = input.environment ?? resolveSalesBrainRuntimeEnvironmentFromProcess();
   const legacyUserVisibleText = input.legacyUserVisibleResponse;
   const flags = resolveSalesBrainRuntimeFlags({ environment, env: input.env });
-  const flagsOnlyDebug = summarizeShadowRuntimeFlags(flags);
+  const userVisibleGate = evaluateUserVisibleGate({
+    firebaseUid: input.firebaseUid,
+    environment,
+    env: input.env,
+    runtimeFlags: flags,
+  });
+  const flagsOnlyDebug = redactPiiForLog(
+    JSON.stringify({
+      runtimeFlags: JSON.parse(summarizeShadowRuntimeFlags(flags)),
+      userVisibleGate: userVisibleGate.redactedDiagnostics,
+    })
+  );
 
   logShadowChatPathDebug({
     source: input.source,
@@ -126,6 +140,8 @@ export function wireShadowChatPath(
     legacyLen: legacyUserVisibleText.length,
     shadowEvaluationAllowed: flags.shadowEvaluationAllowed,
     enablementBlockedReason: flags.enablementBlockedReason,
+    userVisibleGateBlockedReason: userVisibleGate.blockedReason,
+    userVisibleGateFallback: userVisibleGate.fallbackToLegacy,
     clientSafe: typeof window !== "undefined",
   });
 

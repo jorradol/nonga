@@ -57,7 +57,7 @@ export interface OrchestratedChatReply {
 function tryOrchestrateChatReplyCore(
   message: string,
   inventory: ChatInventoryCar[],
-  options?: { attachedImageCount?: number; displayName?: string }
+  options?: { attachedImageCount?: number; displayName?: string; firebaseUid?: string }
 ): OrchestratedChatReply | null {
   if (isSellIntent(message)) {
     const fields = extractCarFieldsFromMessage(message);
@@ -416,7 +416,7 @@ function tryOrchestrateChatReplyCore(
 export function tryOrchestrateChatReply(
   message: string,
   inventory: ChatInventoryCar[],
-  options?: { attachedImageCount?: number; displayName?: string }
+  options?: { attachedImageCount?: number; displayName?: string; firebaseUid?: string }
 ): OrchestratedChatReply | null {
   const reply = tryOrchestrateChatReplyCore(message, inventory, options);
   if (!reply) {
@@ -429,6 +429,7 @@ export function tryOrchestrateChatReply(
     userRole: "buyer",
     flowContext: { attachedImageCount: options?.attachedImageCount },
     source: "chatSearchOrchestrator",
+    firebaseUid: options?.firebaseUid,
   });
 
   return reply;

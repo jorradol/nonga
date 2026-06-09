@@ -17,6 +17,9 @@ export const NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV =
 /** v6.1K — chat-path shadow sink real Gemini (default off; CP-02 only) */
 export const NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV =
   "NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED";
+/** v6.1L.1 — comma-separated Firebase UIDs for controlled user-visible pilot (server env only) */
+export const NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV =
+  "NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS";
 
 export const SALES_BRAIN_RUNTIME_FLAG_ENV_KEYS = [
   NONGA_AI_PROVIDER_ENV,

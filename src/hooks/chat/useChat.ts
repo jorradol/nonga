@@ -1592,6 +1592,7 @@ export function useChat() {
       const orchestrated = trimmed
         ? tryOrchestrateChatReply(trimmed, inventory, {
             attachedImageCount: hasImages ? imageAttachments.length : undefined,
+            firebaseUid: user?.uid,
             displayName:
               (user as { displayName?: string; name?: string } | null)?.displayName ??
               (user as { name?: string } | null)?.name ??
@@ -1615,6 +1616,7 @@ export function useChat() {
           userRole: salesBrainUserRole,
           flowContext: shadowFlowContext,
           source: "useChat.gemini_fallback",
+          firebaseUid: user?.uid,
         });
       } else if (orchestrated.skipGemini) {
         wireShadowChatPath({
@@ -1624,6 +1626,7 @@ export function useChat() {
           flowContext: shadowFlowContext,
           source: "useChat.orchestrated",
           shadowAlreadyEvaluated: true,
+          firebaseUid: user?.uid,
         });
       }
 

@@ -13,6 +13,10 @@ import {
   type SalesBrainShadowEvaluation,
   type SalesBrainShadowInput,
 } from "./salesBrainShadowMode";
+import {
+  evaluateUserVisibleGate,
+  type UserVisibleGateRedactedDiagnostics,
+} from "./salesBrainUserVisibleGate";
 
 export type {
   SalesBrainRuntimeEnvironment,
@@ -41,11 +45,14 @@ export interface SalesBrainShadowRuntimeInput
   environment?: SalesBrainRuntimeEnvironment;
   env?: Partial<NodeJS.ProcessEnv> | Record<string, string | undefined>;
   readEnv?: (key: string) => string | undefined;
+  /** v6.1L.1 — Firebase Auth UID for allowlist gate (redacted diagnostics only) */
+  firebaseUid?: string | null;
 }
 
 export interface SalesBrainShadowRuntimeResult extends SalesBrainShadowEvaluation {
   runtimeFlags: SalesBrainRuntimeFlags;
   userVisibleBlockedReason?: string;
+  userVisibleGateDiagnostics?: UserVisibleGateRedactedDiagnostics;
 }
 
 /** Redacted flag summary for debug logs — no secret values, no raw PII */
@@ -76,10 +83,16 @@ export function evaluateSalesBrainShadowRuntime(
   });
 
   const legacyUserVisibleResponse = input.legacyUserVisibleResponse;
-  const userVisibleBlockedReason =
-    flags.userVisibleRequested && !flags.userVisibleEnabled
-      ? "user_visible_blocked_v60r"
-      : undefined;
+  const userVisibleGate = evaluateUserVisibleGate({
+    firebaseUid: input.firebaseUid,
+    environment: input.environment,
+    env: input.env,
+    readEnv: input.readEnv,
+    runtimeFlags: flags,
+  });
+  const userVisibleBlockedReason = userVisibleGate.fallbackToLegacy
+    ? userVisibleGate.blockedReason
+    : undefined;
 
   if (!flags.shadowEvaluationAllowed) {
     return {
@@ -88,6 +101,7 @@ export function evaluateSalesBrainShadowRuntime(
       userVisibleResponse: legacyUserVisibleResponse,
       runtimeFlags: flags,
       userVisibleBlockedReason,
+      userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,
     };
   }
 
@@ -109,5 +123,19 @@ export function evaluateSalesBrainShadowRuntime(
     userVisibleResponse: legacyUserVisibleResponse,
     runtimeFlags: flags,
     userVisibleBlockedReason,
+    userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,
   };
 }
+
+export {
+  evaluateUserVisibleGate,
+  isUidAllowlistedForUserVisible,
+  parseUserVisibleAllowlistUids,
+  NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV,
+  USER_VISIBLE_GATE_SLICE_ID,
+} from "./salesBrainUserVisibleGate";
+export type {
+  EvaluateUserVisibleGateInput,
+  UserVisibleGateRedactedDiagnostics,
+  UserVisibleGateResult,
+} from "./salesBrainUserVisibleGate";
