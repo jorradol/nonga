@@ -1,9 +1,10 @@
 /**
- * v6.1L.2g — Pilot user-visible buyer copy grounded on last shown car cards.
+ * v6.1L.2h — Pilot user-visible buyer copy grounded on last shown car cards.
  */
 import { parseBuyerSearchIntent } from "./chat/buyerSearchIntentParser";
 import {
   assertNoZeroInventoryClaim,
+  assertPilotFollowUpCopySafe,
   detectBuyerRefinement,
   extractNumberedComparePair,
   isPilotBuyerFollowUpMessage,
@@ -14,7 +15,7 @@ import { resolveCarCardsFromSessionContext } from "./chat/chatPilotSessionContex
 import { buildListingComparisonInsight } from "./chat/chatSearchReplyCopy";
 import { isCompareIntent } from "../../utils/chatCarContext";
 
-export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2g";
+export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2h";
 
 export type { BuyerRefinementKind };
 
@@ -23,6 +24,15 @@ const LISTING_DISCLAIMER =
 
 const PARTIAL_DATA_NOTE =
   "น้องเอยังมีข้อมูลจากประกาศเท่าที่ระบบแสดงนะครับ ยังฟันธงละเอียดไม่ได้ แต่ช่วยเทียบแนวใช้งานเบื้องต้นให้ก่อนได้ครับ";
+
+/** Safe reply when follow-up compare/refine has no recent cards in context */
+export function buildPilotFollowUpNoContextCopy(): string {
+  return [
+    "น้องเอยังไม่เห็นชุดรถล่าสุดให้เทียบในแชทนี้ครับ",
+    "ลองพิมพ์งบหรือเงื่อนไขรถที่อยากได้ก่อน เช่น “งบ 4 แสน มีรถอะไรน่าเล่น” แล้วน้องเอจะคัดรถมาให้",
+    "จากนั้นค่อยพิมพ์ “เทียบคันที่ 1 กับ 2” ได้ครับ",
+  ].join(" ");
+}
 
 export interface PilotBuyerCopyInput {
   userMessage: string;
@@ -229,6 +239,13 @@ export function buildPilotBuyerUserVisibleCopy(
   const refinement = detectBuyerRefinement(input.userMessage);
   const followUp = isPilotBuyerFollowUpMessage(input.userMessage);
 
+  if (followUp && sessionCount === 0) {
+    return {
+      text: buildPilotFollowUpNoContextCopy(),
+      pilotPathActive: true,
+    };
+  }
+
   if (comparePair && sessionCount >= 2) {
     return {
       text: buildBuyerComparePilotCopy(comparePair, sessionCards),
@@ -294,8 +311,21 @@ export function assertNoPilotDebugMarker(text: string): boolean {
   return !text.includes("nonga-pilot:");
 }
 
-export function assertPilotCopySafe(text: string, carCardCount: number): boolean {
+export function assertPilotCopySafe(
+  text: string,
+  carCardCount: number,
+  userMessage?: string
+): boolean {
+  if (userMessage && isPilotBuyerFollowUpMessage(userMessage)) {
+    return assertPilotFollowUpCopySafe(text, carCardCount);
+  }
   return assertNoPilotDebugMarker(text) && assertNoZeroInventoryClaim(text, carCardCount);
 }
 
-export { detectBuyerRefinement, extractNumberedComparePair, assertNoZeroInventoryClaim };
+export {
+  detectBuyerRefinement,
+  extractNumberedComparePair,
+  assertNoZeroInventoryClaim,
+  assertPilotFollowUpCopySafe,
+  assertNoFollowUpZeroInventoryClaim,
+} from "./chat/chatPilotBuyerFollowUp";

@@ -9,7 +9,12 @@ import {
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
 import { applyChatUserVisibleServerBridge } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
-import { buildPilotSessionContextFromStorage } from "../../services/ai/chat/chatPilotSessionContext";
+import {
+  resolvePilotSessionContextForFollowUp,
+  pilotSessionCardsToChatCarCards,
+} from "../../services/ai/chat/chatPilotSessionContext";
+import { isPilotBuyerFollowUpMessage } from "../../services/ai/chat/chatPilotBuyerFollowUp";
+import { buildPilotFollowUpNoContextCopy } from "../../services/ai/salesBrainUserVisiblePilotBuyerCopy";
 import {
   mapChatRoleToSalesBrainUserRole,
   wireShadowChatPath,
@@ -1591,7 +1596,7 @@ export function useChat() {
 
       let dealerSavedImageUrls: string[] | undefined;
 
-      const orchestrated = trimmed
+      let orchestrated = trimmed
         ? tryOrchestrateChatReply(trimmed, inventory, {
             attachedImageCount: hasImages ? imageAttachments.length : undefined,
             firebaseUid: user?.uid,
@@ -1602,16 +1607,39 @@ export function useChat() {
           })
         : null;
 
-      if (orchestrated?.skipGemini && isSignedIn) {
+      const pilotSessionContext = resolvePilotSessionContextForFollowUp(historyAfterUser);
+      const isFollowUpPilot = isPilotBuyerFollowUpMessage(trimmed);
+      const shouldCallUserVisibleBridge =
+        isSignedIn && (orchestrated?.skipGemini || (isFollowUpPilot && !orchestrated));
+
+      if (shouldCallUserVisibleBridge) {
         const bridged = await applyChatUserVisibleServerBridge({
           userMessage: trimmed,
           attachedImageCount: hasImages ? imageAttachments.length : undefined,
-          orchestratedText: orchestrated.text,
-          pilotSessionContext: buildPilotSessionContextFromStorage(),
+          orchestratedText: orchestrated?.text ?? "",
+          pilotSessionContext,
         });
         if (bridged) {
-          orchestrated.text = bridged.userVisibleText;
+          if (orchestrated) {
+            orchestrated.text = bridged.userVisibleText;
+          } else if (isFollowUpPilot) {
+            orchestrated = {
+              text: bridged.userVisibleText,
+              carCards: pilotSessionContext
+                ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
+                : [],
+              skipGemini: true,
+            };
+          }
         }
+      }
+
+      if (!orchestrated && isFollowUpPilot && isSignedIn) {
+        orchestrated = {
+          text: buildPilotFollowUpNoContextCopy(),
+          carCards: [],
+          skipGemini: true,
+        };
       }
 
       const salesBrainUserRole = mapChatRoleToSalesBrainUserRole({

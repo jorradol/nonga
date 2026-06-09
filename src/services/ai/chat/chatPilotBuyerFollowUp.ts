@@ -1,9 +1,20 @@
 /**
- * v6.1L.2g — Shared buyer follow-up intent detection (compare / refine from last cards).
+ * v6.1L.2h — Shared buyer follow-up intent detection (compare / refine from last cards).
  */
 import { isCompareIntent } from "../../../utils/chatCarContext";
 
 export type BuyerRefinementKind = "fuel" | "family" | "installment";
+
+const ZERO_INVENTORY_PATTERN =
+  /(?:ในระบบ(?:มี|เหลือ)?\s*0\s*คัน|ผลลัพธ์:\s*0\s*คัน|ไม่มีรถ(?:ใน(?:ระบบ|ตลาด))?|ตลาด(?:มี|เหลือ)?\s*0\s*คัน|0\s*คัน(?:\s|$))/i;
+
+export const FORBIDDEN_PILOT_FOLLOWUP_PHRASES: RegExp[] = [
+  /nonga-pilot:/,
+  /คุณพี่คร้าบ/,
+  /กราบขออภัยอย่างสูง/,
+  /ดีลสุดคุ้ม\s*คุ้มค่าเงินทุกบาทแน่นอน/,
+  /(?:^|\s)หนู(?:\s|$)/,
+];
 
 export function extractNumberedComparePair(message: string): { a: number; b: number } | null {
   const match =
@@ -47,7 +58,24 @@ export function isPilotBuyerFollowUpMessage(message: string): boolean {
 /** User-visible text must not claim zero inventory when cards exist in session */
 export function assertNoZeroInventoryClaim(text: string, carCardCount: number): boolean {
   if (carCardCount <= 0) return true;
-  return !/(?:ในระบบ(?:มี|เหลือ)?\s*0\s*คัน|ผลลัพธ์:\s*0\s*คัน|ไม่มีรถ(?:ใน(?:ระบบ|ตลาด))?|0\s*คัน(?:\s|$))/i.test(
-    text
-  );
+  return !ZERO_INVENTORY_PATTERN.test(text);
+}
+
+/** Follow-up replies must never claim zero inventory even without cards */
+export function assertNoFollowUpZeroInventoryClaim(text: string): boolean {
+  return !ZERO_INVENTORY_PATTERN.test(text);
+}
+
+export function assertNoPilotDebugMarker(text: string): boolean {
+  return !text.includes("nonga-pilot:");
+}
+
+export function assertPilotFollowUpCopySafe(text: string, carCardCount: number): boolean {
+  if (!assertNoPilotDebugMarker(text)) return false;
+  if (!assertNoFollowUpZeroInventoryClaim(text)) return false;
+  for (const pattern of FORBIDDEN_PILOT_FOLLOWUP_PHRASES) {
+    if (pattern.test(text)) return false;
+  }
+  if (carCardCount > 0 && !assertNoZeroInventoryClaim(text, carCardCount)) return false;
+  return true;
 }

@@ -1,7 +1,7 @@
 /**
- * v6.1L.2g — Client/server-safe pilot session context from last shown car cards.
+ * v6.1L.2h — Client/server-safe pilot session context from last shown car cards.
  */
-import type { ChatCarCardData } from "../../../types";
+import type { ChatCarCardData, ChatMessage } from "../../../types";
 import {
   loadChatCarContext,
   loadInChatBuyerContext,
@@ -73,6 +73,66 @@ export function buildPilotSessionContextFromStorage(): PilotBuyerSessionContext 
     cars,
     hint?.budgetMax ?? undefined
   );
+}
+
+/** Prefer last AI message carCards — survives when sessionStorage is empty */
+export function buildPilotSessionContextFromMessages(
+  messages: Pick<ChatMessage, "sender" | "carCards">[],
+  lastSearchBudgetMax?: number
+): PilotBuyerSessionContext | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i];
+    if (msg.sender !== "ai" && msg.sender !== "assistant") continue;
+    const cards = msg.carCards;
+    if (cards && cards.length > 0) {
+      return buildPilotSessionContextFromCarCards(cards, lastSearchBudgetMax);
+    }
+  }
+  return undefined;
+}
+
+/** Merge sessionStorage + chat history; prefer the richer card batch */
+export function resolvePilotSessionContextForFollowUp(
+  messages: Pick<ChatMessage, "sender" | "carCards">[]
+): PilotBuyerSessionContext | undefined {
+  const hint = loadInChatBuyerContext();
+  const budget = hint?.budgetMax ?? undefined;
+  const fromStorage = buildPilotSessionContextFromStorage();
+  const fromMessages = buildPilotSessionContextFromMessages(messages, budget);
+  const storageCount = fromStorage?.recentCarCards.length ?? 0;
+  const messageCount = fromMessages?.recentCarCards.length ?? 0;
+  if (messageCount >= storageCount && messageCount > 0) {
+    return fromMessages;
+  }
+  if (storageCount > 0) {
+    return fromStorage;
+  }
+  return fromMessages;
+}
+
+export function pilotSessionCardsToChatCarCards(
+  cards: PilotGroundedCarCard[]
+): ChatCarCardData[] {
+  return cards.map((c) => ({
+    id: `pilot-session-${c.index}`,
+    brand: c.brand,
+    model: c.model,
+    year: c.year,
+    price: c.price,
+    mileage: c.mileage ?? 0,
+    bodyClassLabel: c.bodyClassLabel ?? "",
+    color: "",
+    condition: "",
+    fuelType: c.fuelType ?? "petrol",
+    transmission: "",
+    bodyClass: "",
+    imageUrl: "",
+    imageUrls: [],
+    hasImage: false,
+    detailPath: "",
+    matchKind: "exact" as const,
+    ...(c.description ? { description: c.description } : {}),
+  }));
 }
 
 export function sanitizePilotSessionContext(

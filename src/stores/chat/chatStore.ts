@@ -5,6 +5,7 @@ import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from 
 import {
   chatPrefsLocalKey,
 } from "../../utils/chatStorageScope";
+import { saveChatCarContext } from "../../utils/chatCarContext";
 import {
   isEphemeralGuestChatScope,
   type ChatStorageScope,
@@ -386,6 +387,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       undefined,
       savedMemberListingId
     );
+
+    if (cards && cards.length > 0) {
+      saveChatCarContext(cards);
+    }
     
     // Core AI memory loop: Trigger preference extraction in background for memory
     const history = get().messages[sessionId] || [];

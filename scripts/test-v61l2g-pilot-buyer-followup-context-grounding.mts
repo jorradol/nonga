@@ -189,7 +189,7 @@ console.log("=== v6.1L.2g Pilot Buyer Follow-up Context Grounding ===\n");
 {
   ok("bridge accepts pilotSessionContext", bridgeSrc.includes("pilotSessionContext"));
   ok("client sends pilotSessionContext", clientSrc.includes("pilotSessionContext"));
-  ok("useChat builds session context", useChatSrc.includes("buildPilotSessionContextFromStorage"));
+  ok("useChat builds session context", useChatSrc.includes("resolvePilotSessionContextForFollowUp"));
 
   const bridged = runUserVisibleOrchestrationBridge({
     userMessage: COMPARE_SHORT,

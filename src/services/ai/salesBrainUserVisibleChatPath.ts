@@ -17,13 +17,16 @@ import {
 } from "./salesBrainUserVisibleGate";
 import {
   buildPilotBuyerUserVisibleCopy,
+  buildPilotFollowUpNoContextCopy,
   assertNoPilotDebugMarker,
   assertPilotCopySafe,
+  assertPilotFollowUpCopySafe,
 } from "./salesBrainUserVisiblePilotBuyerCopy";
+import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 export type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
-export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2g";
+export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2h";
 
 /** Internal/debug marker — must never appear in user-visible pilot text (v6.1L.2g+) */
 export const SALES_BRAIN_USER_VISIBLE_PILOT_MARKER = "nonga-pilot:";
@@ -76,20 +79,29 @@ function buildPilotUserVisibleText(
     recentCarCards: pilotOrchestration?.recentCarCards,
     lastSearchBudgetMax: pilotOrchestration?.lastSearchBudgetMax,
   });
+  const cardCount =
+    pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
+  const followUp = isPilotBuyerFollowUpMessage(userMessage);
+
   if (polished) {
-    const cardCount =
-      pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
-    if (!assertPilotCopySafe(polished.text, cardCount)) {
+    if (!assertPilotCopySafe(polished.text, cardCount, userMessage)) {
+      if (followUp) {
+        return { text: buildPilotFollowUpNoContextCopy(), pilotPathActive: true };
+      }
       return { text: legacy, pilotPathActive: false };
     }
     return polished;
+  }
+
+  if (followUp) {
+    return { text: buildPilotFollowUpNoContextCopy(), pilotPathActive: true };
   }
 
   if (fallback || safetyDecision === "no_go") {
     return { text: legacy, pilotPathActive: false };
   }
 
-  // v6.1L.2g — never expose debug marker; keep orchestrator legacy when no template
+  // v6.1L.2h — never expose debug marker; keep orchestrator legacy when no template
   return { text: legacy, pilotPathActive: true };
 }
 
@@ -173,6 +185,26 @@ export function resolveUserVisibleChatResponse(
         fallbackToLegacy: true,
         pilotSliceId: SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID,
         userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,
+      };
+    }
+
+    const cardCount =
+      input.pilotOrchestration?.recentCarCards?.length ??
+      input.pilotOrchestration?.carCardCount ??
+      0;
+    if (
+      isPilotBuyerFollowUpMessage(input.userMessage) &&
+      !assertPilotFollowUpCopySafe(built.text, cardCount)
+    ) {
+      const safeFollowUp = buildPilotFollowUpNoContextCopy();
+      return {
+        userVisibleText: safeFollowUp,
+        legacyUserVisibleText,
+        pilotPathActive: true,
+        fallbackToLegacy: false,
+        pilotSliceId: SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID,
+        userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,
+        pilotIntent: output.intent,
       };
     }
 

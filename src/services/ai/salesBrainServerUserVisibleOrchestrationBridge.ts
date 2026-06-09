@@ -21,10 +21,11 @@ import {
 import type { SalesBrainRuntimeEnvironment } from "./salesBrainRuntimeFlags";
 import type { SalesBrainUserRole } from "./salesBrainTypes";
 import type { PilotBuyerSessionContext } from "./chat/chatPilotSessionContext";
-import { sanitizePilotSessionContext } from "./chat/chatPilotSessionContext";
-import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
+import {
+  sanitizePilotSessionContext,
+  pilotSessionCardsToChatCarCards,
+} from "./chat/chatPilotSessionContext";
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
-import type { ChatCarCardData } from "../../types";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
@@ -98,30 +99,6 @@ function buildRedactedPayload(
   };
 }
 
-function pilotSessionCardsToChatCarCards(cards: PilotGroundedCarCard[]): ChatCarCardData[] {
-  return cards.map((c) => ({
-    id: `pilot-session-${c.index}`,
-    brand: c.brand,
-    model: c.model,
-    year: c.year,
-    price: c.price,
-    mileage: c.mileage ?? 0,
-    bodyClassLabel: c.bodyClassLabel ?? "",
-    color: "",
-    condition: "",
-    fuelType: c.fuelType ?? "petrol",
-    transmission: "",
-    bodyClass: "",
-    imageUrl: "",
-    imageUrls: [],
-    hasImage: false,
-    detailPath: "",
-    matchKind: "exact" as const,
-    ...(c.description ? { description: c.description } : {}),
-  }));
-}
-
-/** Server has no sessionStorage — synthesize follow-up orchestration from client pilot context */
 function tryOrchestratedReplyFromPilotSession(
   message: string,
   pilotSessionContext?: PilotBuyerSessionContext

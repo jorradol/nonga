@@ -113,7 +113,7 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
 // --- copy module ---
 {
   ok("copy module exists", copySrc.length > 1500);
-  ok("copy slice v61l2g", copySrc.includes("v6.1L.2g"));
+  ok("copy slice v61l2h", copySrc.includes("v6.1L.2h"));
   ok("copy uses nong a tone", copySrc.includes("น้องเอ") && !/user-visible.*หนู/i.test(copySrc));
   ok("copy has disclaimer", /ข้อมูลประกาศ|แนะนำเบื้องต้น/i.test(copySrc));
   ok("copy no overpromise best", !/(?:เป็น|คือ|ถือว่า|แนะนำ).*ดีที่สุด/i.test(copySrc));
