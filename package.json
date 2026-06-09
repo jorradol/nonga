@@ -177,6 +177,7 @@
     "test:v61l1-user-visible-allowlist-gate": "tsx scripts/test-v61l1-user-visible-allowlist-gate.mts",
     "test:v61l2-controlled-pilot-preflight-command-review": "tsx scripts/test-v61l2-controlled-pilot-preflight-command-review.mts",
     "test:v61l2b-user-visible-path-allowlisted-only": "tsx scripts/test-v61l2b-user-visible-path-allowlisted-only.mts",
+    "test:v61l2c-controlled-pilot-server-orchestration-bridge": "tsx scripts/test-v61l2c-controlled-pilot-server-orchestration-bridge.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",

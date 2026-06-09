@@ -8,6 +8,7 @@ import {
   chunkTextForStream,
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
+import { applyChatUserVisibleServerBridge } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
 import {
   mapChatRoleToSalesBrainUserRole,
   wireShadowChatPath,
@@ -1599,6 +1600,17 @@ export function useChat() {
               undefined,
           })
         : null;
+
+      if (orchestrated?.skipGemini && isSignedIn) {
+        const bridged = await applyChatUserVisibleServerBridge({
+          userMessage: trimmed,
+          attachedImageCount: hasImages ? imageAttachments.length : undefined,
+          orchestratedText: orchestrated.text,
+        });
+        if (bridged) {
+          orchestrated.text = bridged.userVisibleText;
+        }
+      }
 
       const salesBrainUserRole = mapChatRoleToSalesBrainUserRole({
         role,

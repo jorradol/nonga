@@ -435,4 +435,4 @@ export function tryOrchestrateChatReply(
   return reply;
 }
 
-export { CHAT_FACTS_ONLY_PROMPT, buildChatCarFacts };
+export { CHAT_FACTS_ONLY_PROMPT, buildChatCarFacts, tryOrchestrateChatReplyCore };
