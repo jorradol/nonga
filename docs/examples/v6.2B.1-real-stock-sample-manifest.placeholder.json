@@ -1,0 +1,85 @@
+{
+  "_meta": {
+    "schemaVersion": "v6.2B.1-placeholder",
+    "description": "PLACEHOLDER ONLY — not for import. Replace with sanitized real data only after explicit approval phrase + ops review.",
+    "placeholderOnly": true,
+    "realStockImportBlocked": true,
+    "batchLimitMin": 5,
+    "batchLimitMax": 10,
+    "gitBaseline": "8c2fc8a8567208ad28a350c0d7873b77d1a003ed",
+    "approvalPhraseRequired": "อนุมัติให้ import real stock แบบ controlled pilot บน staging เท่านั้น ตาม v6.2B ชุดเล็ก 5–10 คัน"
+  },
+  "batchManifest": {
+    "batchId": "pilot-batch-placeholder-001",
+    "environment": "staging-only",
+    "pilotType": "closed-pilot",
+    "users": "allowlisted-tester-only",
+    "notes": "Sample structure only — do not import this file as-is"
+  },
+  "vehicles": [
+    {
+      "listingId": "pilot-placeholder-listing-001",
+      "sourceId": "pilot-placeholder-source-001",
+      "make": "Toyota",
+      "model": "Corolla Altis",
+      "year": 2019,
+      "trim": "1.6 G",
+      "price": 429000,
+      "mileage": 85000,
+      "transmission": "automatic",
+      "fuel": "petrol",
+      "color": "ขาว",
+      "province": "กรุงเทพมหานคร",
+      "photoPlaceholders": [
+        "placeholder-photo-front-001.jpg",
+        "placeholder-photo-side-001.jpg",
+        "placeholder-photo-interior-001.jpg"
+      ],
+      "highlights": "ตัวอย่าง placeholder — รถครอบครัว ประหยัดน้ำมัน (ไม่ใช่ข้อมูลจริง)",
+      "checkNotes": "placeholder — ต้องตรวจสภาพจริงก่อนประกาศ",
+      "listingStatus": "available",
+      "sellerDisplayName": "ดีลเลอร์ตัวอย่าง A",
+      "sourceUpdatedAt": "1970-01-01T00:00:00.000Z",
+      "updatedAt": "1970-01-01T00:00:00.000Z",
+      "consent": {
+        "sellerConsent": false,
+        "imageRightsConfirmed": false,
+        "piiReviewed": false,
+        "staleChecked": false,
+        "rollbackReady": false
+      }
+    },
+    {
+      "listingId": "pilot-placeholder-listing-002",
+      "sourceId": "pilot-placeholder-source-002",
+      "make": "Honda",
+      "model": "City",
+      "year": 2020,
+      "trim": "1.0 Turbo HS",
+      "price": 499000,
+      "mileage": 62000,
+      "transmission": "automatic",
+      "fuel": "petrol",
+      "color": "เทา",
+      "province": "นนทบุรี",
+      "photoPlaceholders": [
+        "placeholder-photo-front-002.jpg",
+        "placeholder-photo-rear-002.jpg",
+        "placeholder-photo-dash-002.jpg"
+      ],
+      "highlights": "ตัวอย่าง placeholder — เกียร์ออโต้ ไมล์น้อย (ไม่ใช่ข้อมูลจริง)",
+      "checkNotes": "placeholder — ข้อมูลประกาศยังไม่พอสำหรับฟันธงสภาพ",
+      "listingStatus": "available",
+      "sellerDisplayName": "เจ้าของรถ (placeholder)",
+      "sourceUpdatedAt": "1970-01-01T00:00:00.000Z",
+      "updatedAt": "1970-01-01T00:00:00.000Z",
+      "consent": {
+        "sellerConsent": false,
+        "imageRightsConfirmed": false,
+        "piiReviewed": false,
+        "staleChecked": false,
+        "rollbackReady": false
+      }
+    }
+  ]
+}
