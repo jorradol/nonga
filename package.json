@@ -191,6 +191,7 @@
     "test:v62b1-pre-import-data-package-template": "tsx scripts/test-v62b1-pre-import-data-package-template.mts",
     "test:v62b2-data-package-review-checklist-ops-intake-guide": "tsx scripts/test-v62b2-data-package-review-checklist-ops-intake-guide.mts",
     "test:v62b3-real-stock-data-package-intake-dry-run-plan": "tsx scripts/test-v62b3-real-stock-data-package-intake-dry-run-plan.mts",
+    "test:v62b4-real-stock-data-package-dry-run-execution-record": "tsx scripts/test-v62b4-real-stock-data-package-dry-run-execution-record.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
