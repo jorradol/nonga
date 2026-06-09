@@ -137,7 +137,7 @@ console.log("=== v6.1L.2h Pilot Buyer Follow-up Hard Guard ===\n");
 // --- slice + wiring ---
 {
   ok("copy slice v61l2h", copySrc.includes("v6.1L.2h"));
-  ok("path slice v61l2i", pathSrc.includes("v6.1L.2i"));
+  ok("path slice v61l2j", pathSrc.includes("v6.1L.2j"));
   ok("useChat resolvePilotSessionContextForFollowUp", useChatSrc.includes("resolvePilotSessionContextForFollowUp"));
   ok("useChat blocks follow-up gemini fallback", useChatSrc.includes("buildPilotFollowUpNoContextCopy"));
   ok("useChat bridge on null orchestrated follow-up", /isFollowUpPilot && !orchestrated/.test(useChatSrc));

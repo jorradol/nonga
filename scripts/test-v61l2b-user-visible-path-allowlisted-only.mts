@@ -95,7 +95,7 @@ console.log("=== v6.1L.2b User-visible Path Allowlisted Only ===\n");
   ok("v60r lifted", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("v60v allowlist gated", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === false);
   ok("real provider network disabled", SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED === false);
-  ok("pilot slice id", SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID === "v6.1L.2i");
+  ok("pilot slice id", SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID === "v6.1L.2j");
 }
 
 // --- flag off → legacy ---

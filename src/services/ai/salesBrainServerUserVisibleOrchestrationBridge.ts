@@ -26,6 +26,7 @@ import {
   pilotSessionCardsToChatCarCards,
 } from "./chat/chatPilotSessionContext";
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
+import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
@@ -133,6 +134,63 @@ function resolvePilotOrchestrationHint(
   };
 }
 
+/** v6.1L.2j — pilot follow-up when orchestrator returns null (no-context safe copy). */
+function runPilotFollowUpBridgeWhenNoOrchestrator(
+  input: UserVisibleOrchestrationBridgeInput,
+  environment: SalesBrainRuntimeEnvironment
+): UserVisibleOrchestrationBridgeResult | null {
+  if (!isPilotBuyerFollowUpMessage(input.userMessage)) {
+    return null;
+  }
+
+  const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
+  const pilotOrchestration: UserVisiblePilotOrchestrationHint =
+    sessionCards.length > 0
+      ? {
+          carCardCount: sessionCards.length,
+          recentCarCards: sessionCards,
+          ...(input.pilotSessionContext?.lastSearchBudgetMax != null
+            ? { lastSearchBudgetMax: input.pilotSessionContext.lastSearchBudgetMax }
+            : {}),
+        }
+      : { carCardCount: 0 };
+
+  const wired = wireShadowChatPathWithPilot({
+    userMessage: input.userMessage,
+    legacyUserVisibleResponse: "",
+    userRole: input.userRole,
+    flowContext: { attachedImageCount: input.attachedImageCount },
+    source: "useChat.orchestrated",
+    environment,
+    env: input.env,
+    firebaseUid: input.trustedFirebaseUid,
+    pilotOrchestration,
+  });
+
+  const text = wired.userVisibleText?.trim()
+    ? wired.userVisibleText
+    : buildPilotFollowUpNoContextCopy();
+
+  const orchestrated: OrchestratedChatReply = {
+    text,
+    carCards:
+      sessionCards.length > 0
+        ? pilotSessionCardsToChatCarCards(sessionCards)
+        : [],
+    skipGemini: true,
+  };
+
+  return {
+    orchestrated,
+    payload: buildRedactedPayload(
+      orchestrated,
+      text,
+      wired.pilotPathActive,
+      !wired.pilotPathActive
+    ),
+  };
+}
+
 /**
  * Run orchestration + allowlist-gated pilot on server (trusted UID from auth only).
  */
@@ -153,6 +211,10 @@ export function runUserVisibleOrchestrationBridge(
   }
 
   if (!orchestrated) {
+    const followUp = runPilotFollowUpBridgeWhenNoOrchestrator(input, environment);
+    if (followUp) {
+      return followUp;
+    }
     return {
       orchestrated: null,
       payload: buildRedactedPayload(null, "", false, true),

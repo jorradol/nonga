@@ -65,6 +65,9 @@ export async function fetchChatUserVisibleOrchestrate(input: {
     if (!json.success || !json.data) {
       return null;
     }
+    if (!json.data.userVisibleText?.trim()) {
+      return null;
+    }
     return json.data;
   } catch {
     return null;
@@ -86,6 +89,9 @@ export async function applyChatUserVisibleServerBridge(input: {
     pilotSessionContext: input.pilotSessionContext,
   });
   if (!data) {
+    return null;
+  }
+  if (!data.userVisibleText?.trim()) {
     return null;
   }
   return {

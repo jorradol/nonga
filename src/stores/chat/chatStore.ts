@@ -329,7 +329,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeSession.title.startsWith("ปรึกษาซื้อขาย")
     ) {
       const newTitle = text.length > 20 ? `${text.substring(0, 18)}...` : text;
-      await updateChatSessionMetadata(scope, sessionId, { title: newTitle });
+      try {
+        await updateChatSessionMetadata(scope, sessionId, { title: newTitle });
+      } catch (e) {
+        console.warn("[chat-history] session title update failed; continuing chat", e);
+      }
       set((state) => ({
         sessions: state.sessions.map((s) =>
           s.id === sessionId ? { ...s, title: newTitle } : s
@@ -515,6 +519,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (e) {
       console.warn("Firestore load user pref error:", e);
+      try {
+        const stored = localStorage.getItem(chatPrefsLocalKey(storageScopeKey));
+        if (stored) {
+          const profile = JSON.parse(stored);
+          set({ userPreferences: profile });
+        }
+      } catch {
+        // ignore local fallback errors
+      }
     }
   },
 

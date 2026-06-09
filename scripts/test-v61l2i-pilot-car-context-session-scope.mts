@@ -186,7 +186,7 @@ const orchSrc = readFileSync("src/services/ai/chat/chatSearchOrchestrator.ts", "
 
 console.log("v6.1L.2i — pilot car context session scope\n");
 
-ok("slice id v6.1L.2i", SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID === "v6.1L.2i");
+ok("slice id v6.1L.2j", SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID === "v6.1L.2j");
 ok("storage binds chatSessionId", /chatSessionId/.test(chatCarCtxSrc));
 ok("clearPilotChatSessionContext exported", /export function clearPilotChatSessionContext/.test(chatCarCtxSrc));
 ok("setActivePilotChatSessionId exported", /export function setActivePilotChatSessionId/.test(chatCarCtxSrc));

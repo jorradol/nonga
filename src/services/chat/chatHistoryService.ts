@@ -703,6 +703,21 @@ export async function appendChatMessage(
   return message;
 }
 
+function patchLocalSessionMetadata(
+  scope: ChatHistoryScope,
+  sessionId: string,
+  patch: Partial<Pick<ChatSession, "title" | "savedDraftId" | "lastMessagePreview">>,
+  updatedAt: string
+): void {
+  const snapshot = readLocalSnapshot(scope);
+  writeLocalSnapshot(scope, {
+    ...snapshot,
+    sessions: snapshot.sessions.map((item) =>
+      item.id === sessionId ? { ...item, ...patch, updatedAt } : item
+    ),
+  });
+}
+
 export async function updateChatSessionMetadata(
   scopeInput: ChatStorageScope | ChatHistoryScope,
   sessionId: string,
@@ -713,19 +728,20 @@ export async function updateChatSessionMetadata(
   const updatedAt = nowIso();
 
   if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
-    const snapshot = readLocalSnapshot(scope);
-    writeLocalSnapshot(scope, {
-      ...snapshot,
-      sessions: snapshot.sessions.map((item) =>
-        item.id === sessionId ? { ...item, ...patch, updatedAt } : item
-      ),
-    });
-  } else {
+    patchLocalSessionMetadata(scope, sessionId, patch, updatedAt);
+    return;
+  }
+
+  try {
     await setDoc(
       doc(db, CHAT_SESSIONS_COLLECTION, sessionId),
       { ...patch, updatedAt },
       { merge: true }
     );
+    patchLocalSessionMetadata(scope, sessionId, patch, updatedAt);
+  } catch (err) {
+    console.warn("[chat-history] Firestore session metadata update failed; using local history", err);
+    patchLocalSessionMetadata(scope, sessionId, patch, updatedAt);
   }
 }
 
@@ -750,11 +766,25 @@ export async function updateChatMessageText(
       },
     });
   } else {
-    await setDoc(
-      doc(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages", messageId),
-      { text },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages", messageId),
+        { text },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn("[chat-history] Firestore message text update failed; using local history", err);
+      const snapshot = readLocalSnapshot(scope);
+      writeLocalSnapshot(scope, {
+        ...snapshot,
+        messages: {
+          ...snapshot.messages,
+          [sessionId]: (snapshot.messages[sessionId] ?? []).map((item) =>
+            item.id === messageId ? { ...item, text } : item
+          ),
+        },
+      });
+    }
   }
 }
 
@@ -773,7 +803,18 @@ export async function deleteChatSession(
       messages: nextMessages,
     });
   } else {
-    await deleteDoc(doc(db, CHAT_SESSIONS_COLLECTION, sessionId));
+    try {
+      await deleteDoc(doc(db, CHAT_SESSIONS_COLLECTION, sessionId));
+    } catch (err) {
+      console.warn("[chat-history] Firestore session delete failed; using local history", err);
+    }
+    const snapshot = readLocalSnapshot(scope);
+    const nextMessages = { ...snapshot.messages };
+    delete nextMessages[sessionId];
+    writeLocalSnapshot(scope, {
+      sessions: snapshot.sessions.filter((item) => item.id !== sessionId),
+      messages: nextMessages,
+    });
   }
 }
 

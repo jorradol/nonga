@@ -909,6 +909,7 @@ export function useChat() {
       setGenerating(true);
       updateStreamedReply("", []);
 
+      try {
       const historyAfterUser =
         useChatStore.getState().messages[sessionId] || [];
 
@@ -1623,7 +1624,7 @@ export function useChat() {
           orchestratedText: orchestrated?.text ?? "",
           pilotSessionContext,
         });
-        if (bridged) {
+        if (bridged?.userVisibleText?.trim()) {
           if (orchestrated) {
             orchestrated.text = bridged.userVisibleText;
           } else if (isFollowUpPilot) {
@@ -1638,7 +1639,11 @@ export function useChat() {
         }
       }
 
-      if (!orchestrated && isFollowUpPilot && isSignedIn) {
+      if (
+        isFollowUpPilot &&
+        isSignedIn &&
+        (!orchestrated || !orchestrated.text.trim())
+      ) {
         orchestrated = {
           text: buildPilotFollowUpNoContextCopy(),
           carCards: [],
@@ -1992,6 +1997,20 @@ export function useChat() {
           );
         }
       );
+      } catch (chatSendErr) {
+        console.error("[chat] sendMessage failed:", chatSendErr);
+        setGenerating(false);
+        updateStreamedReply("", []);
+        try {
+          await addMessage(
+            sessionId,
+            "ai",
+            "ขออภัยครับ ระบบตอบไม่สำเร็จชั่วคราว กรุณาลองใหม่อีกครั้งครับ"
+          );
+        } catch {
+          // ignore secondary persistence failure
+        }
+      }
     },
     [
       activeSessionId,
