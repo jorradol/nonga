@@ -207,7 +207,7 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
     env: STAGING_USER_VISIBLE_ENV,
     firebaseUid: TEST_UID,
   });
-  ok("shadow runtime pilot text", wired.userVisibleResponse.includes("nonga-pilot:"));
+  ok("shadow runtime pilot text", wired.userVisibleResponse.includes("น้องเอ"));
   ok("shadow runtime gate diagnostics", Boolean(wired.userVisibleGateDiagnostics));
   ok("shadow runtime gate allowed", wired.userVisibleGateDiagnostics?.blockedReason === "user_visible_allowed");
 

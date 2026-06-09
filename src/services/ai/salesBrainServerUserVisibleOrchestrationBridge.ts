@@ -119,6 +119,10 @@ export function runUserVisibleOrchestrationBridge(
     environment,
     env: input.env,
     firebaseUid: input.trustedFirebaseUid,
+    pilotOrchestration: {
+      carCardCount: orchestrated.carCards?.length ?? 0,
+      hasMoreCars: orchestrated.hasMoreCars,
+    },
   });
 
   orchestrated.text = wired.userVisibleText;

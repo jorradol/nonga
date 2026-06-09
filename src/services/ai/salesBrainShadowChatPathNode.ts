@@ -35,6 +35,7 @@ export function wireShadowChatPathWithPilot(
     env: input.env,
     runtimeFlags: flags,
     userVisibleGate,
+    pilotOrchestration: input.pilotOrchestration,
   });
 
   return {

@@ -10,6 +10,7 @@ import {
 } from "./salesBrainRuntimeFlags";
 import type { SalesBrainFlowContext, SalesBrainUserRole } from "./salesBrainTypes";
 import { evaluateUserVisibleGate } from "./salesBrainUserVisibleGate";
+import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
 /** v6.1L.2b — allowlist-gated pilot may replace user-visible text on server/Node path */
 export const SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY = false;
@@ -29,6 +30,8 @@ export interface SalesBrainShadowChatPathInput {
   env?: Record<string, string | undefined>;
   /** v6.1L.1 — Firebase Auth UID for allowlist gate (redacted diagnostics only) */
   firebaseUid?: string | null;
+  /** v6.1L.2f — car cards from orchestration for buyer pitch copy */
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint;
   /** Orchestrator already logged flags — useChat second pass */
   shadowAlreadyEvaluated?: boolean;
 }

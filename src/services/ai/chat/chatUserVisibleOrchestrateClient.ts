@@ -1,6 +1,6 @@
 /**
  * v6.1L.2c — Client bridge to server user-visible orchestration (auth Bearer only).
- * Does not send firebaseUid — server derives UID from verified token.
+ * Does not send UID in request body — server derives identity from verified token.
  */
 import { getFirebaseAuthHeaders } from "../../auth/firebaseAuthHeaders";
 import type { ChatCarCardData } from "../../../types";

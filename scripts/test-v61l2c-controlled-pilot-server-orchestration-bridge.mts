@@ -184,7 +184,8 @@ const authMember = {
     environment: "staging",
   });
   ok("allowlisted pilot active", result.payload.pilotPathActive === true);
-  ok("allowlisted pilot marker", result.payload.userVisibleText.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("allowlisted no debug marker", !result.payload.userVisibleText.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("allowlisted thai pitch", result.payload.userVisibleText.includes("น้องเอ"));
 }
 
 // --- production → legacy ---
@@ -269,7 +270,7 @@ const authMember = {
   ok("doc v6.1L.2c", doc.includes("v6.1L.2c"));
   ok("doc browser not pilot yet", /browser.*ยังไม่เห็น pilot|browser.*not.*pilot/i.test(doc));
   ok("doc server bridge", doc.includes("/api/ai/chat-user-visible-orchestrate"));
-  ok("doc no deploy", /no deploy|ยังไม่ deploy/i.test(doc));
+  ok("doc no deploy", /no deploy|ยังไม่ deploy|deploy \| ❌/i.test(doc));
   ok("doc base sha", doc.includes(BASE_SHA) || doc.includes("e16384d"));
 }
 

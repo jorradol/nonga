@@ -15,10 +15,16 @@ import {
   type UserVisibleGateRedactedDiagnostics,
   type UserVisibleGateResult,
 } from "./salesBrainUserVisibleGate";
+import {
+  buildPilotBuyerUserVisibleCopy,
+  assertNoPilotDebugMarker,
+} from "./salesBrainUserVisiblePilotBuyerCopy";
+import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
+export type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
-export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2b";
+export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2f";
 
-/** Deterministic marker for mock pilot responses (not user PII) */
+/** Internal/debug marker — must never appear in user-visible pilot text (v6.1L.2f+) */
 export const SALES_BRAIN_USER_VISIBLE_PILOT_MARKER = "nonga-pilot:";
 
 export interface ResolveUserVisibleChatResponseInput {
@@ -33,6 +39,8 @@ export interface ResolveUserVisibleChatResponseInput {
   readEnv?: (key: string) => string | undefined;
   runtimeFlags?: SalesBrainRuntimeFlags;
   userVisibleGate?: UserVisibleGateResult;
+  /** v6.1L.2f — orchestration context for buyer pitch copy (car cards shown separately) */
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint;
 }
 
 export interface ResolveUserVisibleChatResponseResult {
@@ -49,6 +57,8 @@ export interface ResolveUserVisibleChatResponseResult {
 function buildPilotUserVisibleText(
   legacy: string,
   intent: string,
+  userMessage: string,
+  pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
   askFollowUp?: string,
   fallback?: boolean,
   safetyDecision?: string
@@ -59,10 +69,19 @@ function buildPilotUserVisibleText(
   if (askFollowUp) {
     return { text: askFollowUp, pilotPathActive: true };
   }
-  return {
-    text: `${SALES_BRAIN_USER_VISIBLE_PILOT_MARKER}${intent}`,
-    pilotPathActive: true,
-  };
+
+  const polished = buildPilotBuyerUserVisibleCopy({
+    userMessage,
+    intent,
+    carCardCount: pilotOrchestration?.carCardCount ?? 0,
+    hasMoreCars: pilotOrchestration?.hasMoreCars,
+  });
+  if (polished) {
+    return polished;
+  }
+
+  // v6.1L.2f — never expose debug marker; keep orchestrator legacy when no template
+  return { text: legacy, pilotPathActive: true };
 }
 
 function logPilotPathDebug(payload: Record<string, unknown>): void {
@@ -130,10 +149,23 @@ export function resolveUserVisibleChatResponse(
     const built = buildPilotUserVisibleText(
       legacyUserVisibleText,
       output.intent,
+      input.userMessage,
+      input.pilotOrchestration,
       output.askFollowUp,
       output.fallback,
       output.safetyDecision
     );
+
+    if (!assertNoPilotDebugMarker(built.text)) {
+      return {
+        userVisibleText: legacyUserVisibleText,
+        legacyUserVisibleText,
+        pilotPathActive: false,
+        fallbackToLegacy: true,
+        pilotSliceId: SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID,
+        userVisibleGateDiagnostics: userVisibleGate.redactedDiagnostics,
+      };
+    }
 
     logPilotPathDebug({
       pilotPathActive: built.pilotPathActive,

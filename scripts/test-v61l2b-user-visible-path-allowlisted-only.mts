@@ -95,7 +95,7 @@ console.log("=== v6.1L.2b User-visible Path Allowlisted Only ===\n");
   ok("v60r lifted", SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED === false);
   ok("v60v allowlist gated", SALES_BRAIN_V60V_LEGACY_USER_VISIBLE_ONLY === false);
   ok("real provider network disabled", SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED === false);
-  ok("pilot slice id", SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID === "v6.1L.2b");
+  ok("pilot slice id", SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID === "v6.1L.2f");
 }
 
 // --- flag off → legacy ---
@@ -177,7 +177,8 @@ console.log("=== v6.1L.2b User-visible Path Allowlisted Only ===\n");
   });
   ok("allowlisted pilot active", resolved.pilotPathActive === true);
   ok("allowlisted not legacy", resolved.userVisibleText !== LEGACY_TEXT);
-  ok("allowlisted pilot marker", resolved.userVisibleText.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("allowlisted no debug marker", !resolved.userVisibleText.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("allowlisted thai pitch", resolved.userVisibleText.includes("น้องเอ"));
   ok("allowlisted buyer search intent", resolved.pilotIntent === "buyer.search");
 }
 
@@ -236,7 +237,8 @@ console.log("=== v6.1L.2b User-visible Path Allowlisted Only ===\n");
     env: STAGING_PILOT_ENV,
     firebaseUid: TEST_UID,
   });
-  ok("shadow runtime pilot text", wired.userVisibleResponse.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("shadow runtime pilot text", wired.userVisibleResponse.includes("น้องเอ"));
+  ok("shadow runtime no marker", !wired.userVisibleResponse.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
   ok("shadow still active", wired.shadowModeActive === true);
 }
 
@@ -301,9 +303,11 @@ console.log("=== v6.1L.2b User-visible Path Allowlisted Only ===\n");
     environment: "staging",
     env: STAGING_PILOT_ENV,
     firebaseUid: TEST_UID,
+    pilotOrchestration: { carCardCount: 3 },
   });
   ok("node wire pilot active", nodeWired.pilotPathActive === true);
-  ok("node wire pilot marker", nodeWired.userVisibleText.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("node wire no marker", !nodeWired.userVisibleText.includes(SALES_BRAIN_USER_VISIBLE_PILOT_MARKER));
+  ok("node wire thai pitch", nodeWired.userVisibleText.includes("น้องเอ"));
 }
 
 // --- wiring ---
