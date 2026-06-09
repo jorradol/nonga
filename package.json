@@ -174,6 +174,7 @@
     "test:v61k4-chat-shadow-global-kill-switch-fix": "tsx scripts/test-v61k4-chat-shadow-global-kill-switch-fix.mts",
     "test:v61k5-chat-shadow-kill-switch-fix-staging-deploy-record": "tsx scripts/test-v61k5-chat-shadow-kill-switch-fix-staging-deploy-record.mts",
     "test:v61l-controlled-user-visible-ai-pilot-plan": "tsx scripts/test-v61l-controlled-user-visible-ai-pilot-plan.mts",
+    "test:v61l-controlled-user-visible-ai-pilot-execution-closure-record": "tsx scripts/test-v61l-controlled-user-visible-ai-pilot-execution-closure-record.mts",
     "test:v61l1-user-visible-allowlist-gate": "tsx scripts/test-v61l1-user-visible-allowlist-gate.mts",
     "test:v61l2-controlled-pilot-preflight-command-review": "tsx scripts/test-v61l2-controlled-pilot-preflight-command-review.mts",
     "test:v61l2b-user-visible-path-allowlisted-only": "tsx scripts/test-v61l2b-user-visible-path-allowlisted-only.mts",
