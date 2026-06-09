@@ -9,6 +9,7 @@ import {
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
 import { applyChatUserVisibleServerBridge } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
+import { buildPilotSessionContextFromStorage } from "../../services/ai/chat/chatPilotSessionContext";
 import {
   mapChatRoleToSalesBrainUserRole,
   wireShadowChatPath,
@@ -1606,6 +1607,7 @@ export function useChat() {
           userMessage: trimmed,
           attachedImageCount: hasImages ? imageAttachments.length : undefined,
           orchestratedText: orchestrated.text,
+          pilotSessionContext: buildPilotSessionContextFromStorage(),
         });
         if (bridged) {
           orchestrated.text = bridged.userVisibleText;

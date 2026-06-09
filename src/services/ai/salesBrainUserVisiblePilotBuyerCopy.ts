@@ -1,25 +1,45 @@
 /**
- * v6.1L.2f — Pilot user-visible buyer recommendation copy (mock path, น้องเอ tone).
- * No debug markers, no overpromise, disclaimer on listing data only.
+ * v6.1L.2g — Pilot user-visible buyer copy grounded on last shown car cards.
  */
 import { parseBuyerSearchIntent } from "./chat/buyerSearchIntentParser";
+import {
+  assertNoZeroInventoryClaim,
+  detectBuyerRefinement,
+  extractNumberedComparePair,
+  isPilotBuyerFollowUpMessage,
+  type BuyerRefinementKind,
+} from "./chat/chatPilotBuyerFollowUp";
+import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
+import { resolveCarCardsFromSessionContext } from "./chat/chatPilotSessionContext";
+import { buildListingComparisonInsight } from "./chat/chatSearchReplyCopy";
 import { isCompareIntent } from "../../utils/chatCarContext";
 
-export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2f";
+export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2g";
+
+export type { BuyerRefinementKind };
 
 const LISTING_DISCLAIMER =
   "นี่เป็นการแนะนำเบื้องต้นจากข้อมูลประกาศในระบบนะครับ ยังไม่ได้ตรวจสภาพรถจริง และไม่ได้ฟันธงว่าคันไหนเหมาะที่สุดโดยไม่มีข้อมูลเพิ่ม";
+
+const PARTIAL_DATA_NOTE =
+  "น้องเอยังมีข้อมูลจากประกาศเท่าที่ระบบแสดงนะครับ ยังฟันธงละเอียดไม่ได้ แต่ช่วยเทียบแนวใช้งานเบื้องต้นให้ก่อนได้ครับ";
 
 export interface PilotBuyerCopyInput {
   userMessage: string;
   intent: string;
   carCardCount: number;
   hasMoreCars?: boolean;
+  recentCarCards?: PilotGroundedCarCard[];
+  lastSearchBudgetMax?: number;
 }
 
 export interface PilotBuyerCopyResult {
   text: string;
   pilotPathActive: true;
+}
+
+function formatPrice(n: number): string {
+  return n.toLocaleString("th-TH");
 }
 
 function formatBudgetPhrase(budgetMax?: number): string {
@@ -34,34 +54,30 @@ function formatBudgetPhrase(budgetMax?: number): string {
   return `งบประมาณ ${budgetMax.toLocaleString("th-TH")} บาท `;
 }
 
-function extractComparePair(message: string): { a: number; b: number } | null {
-  const match =
-    message.match(/เทียบคันที่\s*(\d+)\s*กับ\s*(\d+)/i) ??
-    message.match(/เปรียบเทียบคันที่\s*(\d+)\s*กับ\s*(\d+)/i);
-  if (!match) return null;
-  const a = Number(match[1]);
-  const b = Number(match[2]);
-  if (!Number.isFinite(a) || !Number.isFinite(b) || a < 1 || b < 1) return null;
-  return { a, b };
+function formatCarLine(card: PilotGroundedCarCard): string {
+  const mileage =
+    card.mileage != null && card.mileage > 0
+      ? ` ไมล์ ${formatPrice(card.mileage)} กม.`
+      : "";
+  const body = card.bodyClassLabel ? ` (${card.bodyClassLabel})` : "";
+  return `${card.brand} ${card.model} ปี ${card.year} — ราคา ${formatPrice(card.price)} บาท${mileage}${body}`;
 }
 
-export type BuyerRefinementKind = "fuel" | "family" | "installment";
-
-export function detectBuyerRefinement(message: string): BuyerRefinementKind | null {
-  if (
-    /ประหยัดน้ำมัน|ประหยัด\s*น้ำมัน|น้ำมัน(?:ไม่)?(?:กิน|สิ้นเปลือง)?(?:เยอะ|มาก)|กิน(?:น้ำมัน)?(?:น้อย|เบา)/i.test(
-      message
-    )
-  ) {
-    return "fuel";
+function inferUseAngle(card: PilotGroundedCarCard): string {
+  const parts: string[] = [];
+  if (card.price > 0 && card.price <= 450_000) parts.push("มุมคุ้มงบ");
+  if (card.mileage != null && card.mileage > 0 && card.mileage < 80_000) {
+    parts.push("เลขไมล์ไม่สูงตามประกาศ");
   }
-  if (/รถครอบครัว|ครอบครัว|ใช้กับครอบครัว/i.test(message)) {
-    return "family";
+  if (card.year >= new Date().getFullYear() - 5) parts.push("ปีค่อนข้างใหม่ตามที่ระบุ");
+  if (card.bodyClassLabel && /MPV|SUV/i.test(card.bodyClassLabel)) {
+    parts.push("เหมาะใช้งานครอบครัวจากประเภทรถในระบบ");
   }
-  if (/ผ่อนถูก|งวดเบา|ค่างวด(?:เบา|ถูก|น้อย)|ผ่อน\s*น้อย/i.test(message)) {
-    return "installment";
+  if (card.fuelType && /hybrid|electric/i.test(card.fuelType)) {
+    parts.push("มีข้อมูลเชื้อเพลิง/ระบบขับที่ควรดูต่อในการ์ด");
   }
-  return null;
+  if (parts.length === 0) return "ดูต่อจากราคา ปี และเลขไมล์ในการ์ด";
+  return parts.slice(0, 2).join(" และ ");
 }
 
 export function buildBuyerSearchPilotCopy(input: {
@@ -94,75 +110,178 @@ export function buildBuyerSearchPilotCopy(input: {
   return `${budgetLead}น้องเอคัดมาให้ ${shown} คันที่น่าเล่นก่อนนะครับ แต่ละคันเหมาะคนละสไตล์ ถ้าอยากได้ใช้งานคุ้ม ๆ ดูแลง่าย ให้เริ่มดูคันแรกก่อน แต่ถ้าเน้นความสด/ความสวย/ความคุ้มราคา น้องเอช่วยเทียบให้ทีละคันได้ครับ\n\nลองกดดูคันที่ถูกใจที่สุดก่อน หรือพิมพ์ว่า “เทียบคันที่ 1 กับ 2” เดี๋ยวน้องเอช่วยสรุปข้อดี-ข้อควรเช็ก และแนะนำคันที่น่าไปต่อให้ครับ${moreHint}\n\n${LISTING_DISCLAIMER}`;
 }
 
-export function buildBuyerComparePilotCopy(pair: { a: number; b: number }): string {
-  return `น้องเอช่วยเทียบคันที่ ${pair.a} กับ ${pair.b} จากข้อมูลประกาศในระบบให้ครับ ลองเปิดดูการ์ดทั้งสองคันก่อน แล้วน้องเอจะสรุปให้ว่าคันไหนน่าไปต่อในมุมราคา ปี เลขไมล์ และจุดที่ควรเช็กเพิ่ม\n\nถ้าอยากให้เน้นมุมใดเป็นพิเศษ เช่น ประหยัดน้ำมัน รถครอบครัว หรือผ่อนเบื้องต้น บอกน้องเอได้เลยครับ\n\n${LISTING_DISCLAIMER}`;
+export function buildBuyerComparePilotCopy(
+  pair: { a: number; b: number },
+  cards: PilotGroundedCarCard[]
+): string {
+  const selected = resolveCarCardsFromSessionContext(cards, [pair.a, pair.b]);
+  if (selected.length < 2) {
+    return `${PARTIAL_DATA_NOTE}\n\nลองเปิดดูการ์ดที่เพิ่งแสดงก่อน แล้วพิมพ์ “เทียบคันที่ 1 กับ 2” อีกครั้ง หรือบอกว่าอยากเน้นมุมไหน เช่น ประหยัดน้ำมัน ครอบครัว หรือผ่อนเบื้องต้นครับ\n\n${LISTING_DISCLAIMER}`;
+  }
+
+  const [carA, carB] = selected;
+  const insight = buildListingComparisonInsight(
+    selected.map((c) => ({
+      id: String(c.index),
+      brand: c.brand,
+      model: c.model,
+      year: c.year,
+      price: c.price,
+      mileage: c.mileage ?? 0,
+      bodyClassLabel: c.bodyClassLabel ?? "",
+    }))
+  );
+
+  const lead =
+    selected.length === 2
+      ? `ได้ครับ น้องเอเทียบจาก 2 คันที่เพิ่งคัดให้ก่อนนะครับ`
+      : `ได้ครับ น้องเอช่วยเทียบจากรถที่เพิ่งแสดงให้ก่อนครับ`;
+
+  const body = [
+    lead,
+    "",
+    `คันที่ ${pair.a} (${formatCarLine(carA)}) — ${inferUseAngle(carA)}`,
+    `คันที่ ${pair.b} (${formatCarLine(carB)}) — ${inferUseAngle(carB)}`,
+    insight ? `\n${insight}` : "",
+    "",
+    "ถ้าอยากเน้นมุมใดเป็นพิเศษ เช่น ประหยัดน้ำมัน ครอบครัว หรือผ่อนเบื้องต้น บอกน้องเอได้ครับ",
+    "แต่ยังเป็นการเทียบจากข้อมูลประกาศในระบบนะครับ ก่อนตัดสินใจควรดูสภาพจริง เลขไมล์ เอกสาร และประวัติการดูแลอีกครั้งครับ",
+    "",
+    LISTING_DISCLAIMER,
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+
+  return body;
 }
 
 export function buildBuyerRefinementPilotCopy(
   kind: BuyerRefinementKind,
-  carCardCount: number
+  cards: PilotGroundedCarCard[]
 ): string {
-  const countNote =
-    carCardCount > 0
-      ? `จาก ${Math.min(carCardCount, 3)} คันที่แสดงอยู่ `
-      : "จากรายการที่คัดไว้ ";
+  const shown = cards.slice(0, 3);
+  const listingLines = shown.map(
+    (c, i) => `${i + 1}. ${formatCarLine(c)}`
+  );
+
+  const lead = `จาก ${shown.length} คันที่เพิ่งแสดงอยู่ น้องเอช่วยคัดแนวให้จากข้อมูลประกาศในระบบก่อนนะครับ`;
 
   if (kind === "fuel") {
-    return `${countNote}น้องเอแนะนำให้ดูเลขไมล์ ปีรถ และคำอธิบายประกาศที่พูดถึงการใช้งานจริงก่อนครับ รถที่ประหยัดน้ำมันมักต้องเทียบกับสไตล์การขับและการดูแลต่อเนื่อง ไม่ใช่ดูแค่บรรทัดเดียว\n\nลองกดดูคันที่สนใจก่อน หรือพิมพ์ “เทียบคันที่ 1 กับ 2” ถ้าอยากให้น้องเอช่วยเทียบให้ชัดขึ้นครับ\n\n${LISTING_DISCLAIMER}`;
+    return [
+      lead,
+      "",
+      ...listingLines,
+      "",
+      "ถ้าเน้นประหยัดน้ำมัน แนะนำดูเลขไมล์ ปีรถ ประเภทรถ และคำอธิบายประกาศที่พูดถึงการใช้งานจริงก่อนครับ น้องเอไม่แนะนำรุ่นทั่วไปนอกจากรถที่แสดงในการ์ด",
+      "",
+      "ลองกดดูคันที่สนใจก่อน หรือพิมพ์ “เทียบคันที่ 1 กับ 2” ถ้าอยากให้น้องเอช่วยเทียบให้ชัดขึ้นครับ",
+      "",
+      LISTING_DISCLAIMER,
+    ].join("\n");
   }
 
   if (kind === "family") {
-    return `${countNote}น้องเอแนะนำให้ดูจำนวนที่นั่ง ความกว้าง/ท้ายรถ และเลขไมล์เทียบปีรถจากข้อมูลประกาศครับ รถครอบครัวควรเลือกจากการใช้งานจริง ไม่ใช่ดูแค่รูปอย่างเดียว\n\nลองกดดูคันที่ถูกใจก่อน หรือพิมพ์ “เทียบคันที่ 1 กับ 2” เดี๋ยวน้องเอช่วยสรุปข้อดี-ข้อควรเช็กให้ครับ\n\n${LISTING_DISCLAIMER}`;
+    return [
+      lead,
+      "",
+      ...listingLines,
+      "",
+      "ถ้าเน้นรถครอบครัว แนะนำดูประเภทรถ จำนวนที่นั่ง และเลขไมล์เทียบปีจากข้อมูลประกาศครับ",
+      "",
+      "ลองกดดูคันที่ถูกใจก่อน หรือพิมพ์ “เทียบคันที่ 1 กับ 2” เดี๋ยวน้องเอช่วยสรุปข้อดี-ข้อควรเช็กให้ครับ",
+      "",
+      LISTING_DISCLAIMER,
+    ].join("\n");
   }
 
-  return `${countNote}น้องเอช่วยดูเบื้องต้นได้จากราคาในการ์ดครับ แต่ค่างวดจริงขึ้นกับดาวน์ ระยะผ่อน และเงื่อนไขไฟแนนซ์ น้องเอไม่ฟันธงค่างวดให้โดยไม่มีข้อมูลครบ\n\nลองกดดูคันที่สนใจก่อน แล้วถามต่อว่า “ช่วยประเมินผ่อนเบื้องต้น” ได้ครับ\n\n${LISTING_DISCLAIMER}`;
+  return [
+    lead,
+    "",
+    ...listingLines,
+    "",
+    "ถ้าเน้นผ่อนเบื้องต้น น้องเอช่วยดูจากราคาในการ์ดได้ครับ แต่ค่างวดจริงขึ้นกับดาวน์ ระยะผ่อน และเงื่อนไขไฟแนนซ์ น้องเอไม่ฟันธงค่างวดโดยไม่มีข้อมูลครบ",
+    "",
+    "ลองกดดูคันที่สนใจก่อน แล้วถามต่อว่า “ช่วยประเมินผ่อนเบื้องต้น” ได้ครับ",
+    "",
+    LISTING_DISCLAIMER,
+  ].join("\n");
+}
+
+function effectiveCarCards(input: PilotBuyerCopyInput): PilotGroundedCarCard[] {
+  if (input.recentCarCards && input.recentCarCards.length > 0) {
+    return input.recentCarCards;
+  }
+  return [];
+}
+
+function effectiveCarCount(input: PilotBuyerCopyInput): number {
+  const cards = effectiveCarCards(input);
+  if (cards.length > 0) return cards.length;
+  return Math.max(0, input.carCardCount);
 }
 
 export function buildPilotBuyerUserVisibleCopy(
   input: PilotBuyerCopyInput
 ): PilotBuyerCopyResult | null {
-  const comparePair = extractComparePair(input.userMessage);
-  if (comparePair && (isCompareIntent(input.userMessage) || /เทียบคันที่/i.test(input.userMessage))) {
-    return { text: buildBuyerComparePilotCopy(comparePair), pilotPathActive: true };
+  const sessionCards = effectiveCarCards(input);
+  const sessionCount = effectiveCarCount(input);
+  const comparePair = extractNumberedComparePair(input.userMessage);
+  const refinement = detectBuyerRefinement(input.userMessage);
+  const followUp = isPilotBuyerFollowUpMessage(input.userMessage);
+
+  if (comparePair && sessionCount >= 2) {
+    return {
+      text: buildBuyerComparePilotCopy(comparePair, sessionCards),
+      pilotPathActive: true,
+    };
   }
 
-  const refinement = detectBuyerRefinement(input.userMessage);
-  if (refinement && input.carCardCount > 0 && input.intent !== "buyer.search") {
+  if (
+    (isCompareIntent(input.userMessage) || /ช่วยเทียบ|เทียบคันที่/i.test(input.userMessage)) &&
+    sessionCount >= 2
+  ) {
     return {
-      text: buildBuyerRefinementPilotCopy(refinement, input.carCardCount),
+      text: buildBuyerComparePilotCopy({ a: 1, b: 2 }, sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (refinement && sessionCount > 0) {
+    return {
+      text: buildBuyerRefinementPilotCopy(refinement, sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (followUp && sessionCount > 0 && comparePair) {
+    return {
+      text: buildBuyerComparePilotCopy(comparePair, sessionCards),
       pilotPathActive: true,
     };
   }
 
   if (input.intent === "buyer.search") {
     const intent = parseBuyerSearchIntent(input.userMessage);
-    if (refinement && input.carCardCount > 0) {
+    if (refinement && sessionCount > 0) {
       return {
-        text: buildBuyerRefinementPilotCopy(refinement, input.carCardCount),
+        text: buildBuyerRefinementPilotCopy(refinement, sessionCards),
         pilotPathActive: true,
       };
     }
     return {
       text: buildBuyerSearchPilotCopy({
         userMessage: input.userMessage,
-        carCardCount: input.carCardCount,
+        carCardCount: sessionCount,
         hasMoreCars: input.hasMoreCars,
-        budgetMax: intent.budgetMax,
+        budgetMax: intent.budgetMax ?? input.lastSearchBudgetMax,
       }),
       pilotPathActive: true,
     };
   }
 
-  if (refinement && input.carCardCount > 0) {
+  if (followUp && sessionCount > 0) {
     return {
-      text: buildBuyerRefinementPilotCopy(refinement, input.carCardCount),
-      pilotPathActive: true,
-    };
-  }
-
-  if (isCompareIntent(input.userMessage) && input.carCardCount >= 2) {
-    return {
-      text: buildBuyerComparePilotCopy({ a: 1, b: 2 }),
+      text: buildBuyerComparePilotCopy({ a: 1, b: Math.min(2, sessionCount) }, sessionCards),
       pilotPathActive: true,
     };
   }
@@ -174,3 +293,9 @@ export function buildPilotBuyerUserVisibleCopy(
 export function assertNoPilotDebugMarker(text: string): boolean {
   return !text.includes("nonga-pilot:");
 }
+
+export function assertPilotCopySafe(text: string, carCardCount: number): boolean {
+  return assertNoPilotDebugMarker(text) && assertNoZeroInventoryClaim(text, carCardCount);
+}
+
+export { detectBuyerRefinement, extractNumberedComparePair, assertNoZeroInventoryClaim };

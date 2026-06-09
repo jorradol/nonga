@@ -18,13 +18,14 @@ import {
 import {
   buildPilotBuyerUserVisibleCopy,
   assertNoPilotDebugMarker,
+  assertPilotCopySafe,
 } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 export type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
-export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2f";
+export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2g";
 
-/** Internal/debug marker — must never appear in user-visible pilot text (v6.1L.2f+) */
+/** Internal/debug marker — must never appear in user-visible pilot text (v6.1L.2g+) */
 export const SALES_BRAIN_USER_VISIBLE_PILOT_MARKER = "nonga-pilot:";
 
 export interface ResolveUserVisibleChatResponseInput {
@@ -39,7 +40,7 @@ export interface ResolveUserVisibleChatResponseInput {
   readEnv?: (key: string) => string | undefined;
   runtimeFlags?: SalesBrainRuntimeFlags;
   userVisibleGate?: UserVisibleGateResult;
-  /** v6.1L.2f — orchestration context for buyer pitch copy (car cards shown separately) */
+  /** v6.1L.2g — orchestration context for buyer pitch copy (car cards shown separately) */
   pilotOrchestration?: UserVisiblePilotOrchestrationHint;
 }
 
@@ -63,9 +64,6 @@ function buildPilotUserVisibleText(
   fallback?: boolean,
   safetyDecision?: string
 ): { text: string; pilotPathActive: boolean } {
-  if (fallback || safetyDecision === "no_go") {
-    return { text: legacy, pilotPathActive: false };
-  }
   if (askFollowUp) {
     return { text: askFollowUp, pilotPathActive: true };
   }
@@ -75,12 +73,23 @@ function buildPilotUserVisibleText(
     intent,
     carCardCount: pilotOrchestration?.carCardCount ?? 0,
     hasMoreCars: pilotOrchestration?.hasMoreCars,
+    recentCarCards: pilotOrchestration?.recentCarCards,
+    lastSearchBudgetMax: pilotOrchestration?.lastSearchBudgetMax,
   });
   if (polished) {
+    const cardCount =
+      pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
+    if (!assertPilotCopySafe(polished.text, cardCount)) {
+      return { text: legacy, pilotPathActive: false };
+    }
     return polished;
   }
 
-  // v6.1L.2f — never expose debug marker; keep orchestrator legacy when no template
+  if (fallback || safetyDecision === "no_go") {
+    return { text: legacy, pilotPathActive: false };
+  }
+
+  // v6.1L.2g — never expose debug marker; keep orchestrator legacy when no template
   return { text: legacy, pilotPathActive: true };
 }
 

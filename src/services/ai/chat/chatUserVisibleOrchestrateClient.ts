@@ -3,6 +3,7 @@
  * Does not send UID in request body — server derives identity from verified token.
  */
 import { getFirebaseAuthHeaders } from "../../auth/firebaseAuthHeaders";
+import type { PilotBuyerSessionContext } from "./chatPilotSessionContext";
 import type { ChatCarCardData } from "../../../types";
 import type { ExtractedCarFields } from "./sellIntentParser";
 
@@ -33,6 +34,7 @@ export interface ChatUserVisibleOrchestrateResponse {
 export async function fetchChatUserVisibleOrchestrate(input: {
   userMessage: string;
   attachedImageCount?: number;
+  pilotSessionContext?: PilotBuyerSessionContext;
 }): Promise<ChatUserVisibleOrchestrateData | null> {
   const headers = await getFirebaseAuthHeaders();
   if (!("Authorization" in headers)) {
@@ -42,6 +44,9 @@ export async function fetchChatUserVisibleOrchestrate(input: {
   const body: Record<string, unknown> = { userMessage: input.userMessage };
   if (input.attachedImageCount !== undefined) {
     body.attachedImageCount = input.attachedImageCount;
+  }
+  if (input.pilotSessionContext?.recentCarCards?.length) {
+    body.pilotSessionContext = input.pilotSessionContext;
   }
 
   try {
@@ -73,10 +78,12 @@ export async function applyChatUserVisibleServerBridge(input: {
   userMessage: string;
   attachedImageCount?: number;
   orchestratedText: string;
+  pilotSessionContext?: PilotBuyerSessionContext;
 }): Promise<{ userVisibleText: string; pilotPathActive: boolean } | null> {
   const data = await fetchChatUserVisibleOrchestrate({
     userMessage: input.userMessage,
     attachedImageCount: input.attachedImageCount,
+    pilotSessionContext: input.pilotSessionContext,
   });
   if (!data) {
     return null;

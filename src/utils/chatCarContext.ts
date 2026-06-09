@@ -160,6 +160,15 @@ export function resolveCarsFromContextHint(
   if (/2\s*คันแรก|สองคันแรก|เทียบคันแรกกับคันที่สอง/.test(text)) {
     return uniqueContextCars.slice(0, 2);
   }
+
+  const numberedPair = text.match(/(?:ช่วย)?(?:เปรียบเทียบ|เทียบ)(?:คันที่)?\s*(\d+)\s*(?:กับ|และ)\s*(\d+)/i);
+  if (numberedPair) {
+    const a = Number(numberedPair[1]);
+    const b = Number(numberedPair[2]);
+    const picked = [uniqueContextCars[a - 1], uniqueContextCars[b - 1]].filter(Boolean);
+    if (picked.length > 0) return picked;
+  }
+
   if (/คันแรก|คันที่\s*1/.test(text)) {
     return uniqueContextCars.slice(0, 1);
   }
@@ -178,7 +187,7 @@ export function resolveCarsFromContextHint(
 }
 
 export function isFollowUpCarQuestion(message: string): boolean {
-  return /คันนี้|คันนั้น|คันแรก|2\s*คันแรก|สองคันแรก|เปรียบเทียบ|ดีไหม|น่าสนใจไหม|สรุป|เหมาะกับใคร/i.test(
+  return /คันนี้|คันนั้น|คันแรก|2\s*คันแรก|สองคันแรก|เปรียบเทียบ|ช่วยเทียบ|เทียบคันที่|เทียบ(?:คันที่)?\s*\d+|ดีไหม|น่าสนใจไหม|สรุป|เหมาะกับใคร|เอา(?:แบบ|)?(?:ประหยัด|รถครอบครัว|ผ่อนถูก)/i.test(
     message
   );
 }

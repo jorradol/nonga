@@ -41,6 +41,10 @@ import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
 import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
 import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
+import {
+  detectBuyerRefinement,
+  extractNumberedComparePair,
+} from "./chatPilotBuyerFollowUp";
 import { wireShadowChatPath } from "../salesBrainShadowChatPath";
 
 export interface OrchestratedChatReply {
@@ -52,6 +56,57 @@ export interface OrchestratedChatReply {
   isDraftPreview?: boolean;
   draftFields?: ExtractedCarFields;
   savedDraftId?: string;
+}
+
+/** v6.1L.2g — keep last shown cards for compare/refine follow-ups (client sessionStorage) */
+function tryContextualBuyerFollowUp(
+  message: string,
+  contextCars: ChatCarCardData[]
+): OrchestratedChatReply | null {
+  if (contextCars.length === 0) return null;
+
+  const comparePair = extractNumberedComparePair(message);
+  const refinement = detectBuyerRefinement(message);
+  const isCompare = isCompareIntent(message) || comparePair != null;
+
+  if (!isCompare && !refinement) return null;
+
+  if (isCompare) {
+    let picked: ChatCarCardData[] = [];
+    if (comparePair) {
+      picked = [contextCars[comparePair.a - 1], contextCars[comparePair.b - 1]].filter(
+        Boolean
+      );
+    } else {
+      picked = resolveCarsFromContextHint(message, contextCars);
+    }
+    if (picked.length >= 2) {
+      return {
+        text: buildCompareReplyCopy(picked),
+        carCards: picked,
+        skipGemini: true,
+      };
+    }
+    if (contextCars.length >= 2 && /เทียบ|เปรียบเทียบ|ช่วยเทียบ/i.test(message)) {
+      const fallback = contextCars.slice(0, 2);
+      return {
+        text: buildCompareReplyCopy(fallback),
+        carCards: fallback,
+        skipGemini: true,
+      };
+    }
+  }
+
+  if (refinement) {
+    const cards = contextCars.slice(0, 3);
+    return {
+      text: buildFollowUpReplyCopy(cards, message),
+      carCards: cards,
+      skipGemini: true,
+    };
+  }
+
+  return null;
 }
 
 function tryOrchestrateChatReplyCore(
@@ -108,6 +163,11 @@ function tryOrchestrateChatReplyCore(
   }
 
   const contextCars = loadChatCarContext();
+
+  const contextualFollowUp = tryContextualBuyerFollowUp(message, contextCars);
+  if (contextualFollowUp) {
+    return contextualFollowUp;
+  }
 
   const financeCalc = tryBuyerFinanceCalculatorReply(message);
   if (financeCalc) {

@@ -29,6 +29,7 @@ import {
   buildPilotBuyerUserVisibleCopy,
   detectBuyerRefinement,
 } from "../src/services/ai/salesBrainUserVisiblePilotBuyerCopy.ts";
+import type { PilotGroundedCarCard } from "../src/services/ai/chat/chatPilotSessionContext.ts";
 import { runUserVisibleOrchestrationBridge } from "../src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts";
 
 const TEST_UID = "synthetic-tester-uid-v61l2f";
@@ -36,6 +37,36 @@ const OTHER_UID = "synthetic-other-uid-v61l2f";
 const LEGACY_TEXT = "legacy orchestrator reply";
 const BUYER_MSG = "งบ 4 แสน มีรถอะไรน่าเล่น";
 const PII_PHONE = "0812345678";
+
+const SAMPLE_CARDS: PilotGroundedCarCard[] = [
+  {
+    index: 1,
+    brand: "Toyota",
+    model: "Vios",
+    year: 2019,
+    price: 390000,
+    mileage: 45000,
+    bodyClassLabel: "Sedan B",
+  },
+  {
+    index: 2,
+    brand: "Honda",
+    model: "City",
+    year: 2018,
+    price: 410000,
+    mileage: 52000,
+    bodyClassLabel: "Sedan B",
+  },
+  {
+    index: 3,
+    brand: "Mazda",
+    model: "2",
+    year: 2020,
+    price: 420000,
+    mileage: 38000,
+    bodyClassLabel: "Hatchback B",
+  },
+];
 
 const STAGING_PILOT_ENV: Record<string, string> = {
   [NONGA_AI_PROVIDER_ENV]: "gemini",
@@ -82,7 +113,7 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
 // --- copy module ---
 {
   ok("copy module exists", copySrc.length > 1500);
-  ok("copy slice v61l2f", copySrc.includes("v6.1L.2f"));
+  ok("copy slice v61l2g", copySrc.includes("v6.1L.2g"));
   ok("copy uses nong a tone", copySrc.includes("น้องเอ") && !/user-visible.*หนู/i.test(copySrc));
   ok("copy has disclaimer", /ข้อมูลประกาศ|แนะนำเบื้องต้น/i.test(copySrc));
   ok("copy no overpromise best", !/(?:เป็น|คือ|ถือว่า|แนะนำ).*ดีที่สุด/i.test(copySrc));
@@ -108,9 +139,9 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
   const zero = buildBuyerSearchPilotCopy({ userMessage: BUYER_MSG, carCardCount: 0 });
   ok("zero cars guidance", /ยังไม่เจอรถ|ไม่เจอรถ/i.test(zero));
 
-  const compare = buildBuyerComparePilotCopy({ a: 1, b: 2 });
+  const compare = buildBuyerComparePilotCopy({ a: 1, b: 2 }, SAMPLE_CARDS);
   ok("compare copy thai", assertThaiPitch(compare));
-  ok("compare mentions pair", /คันที่\s*1\s*กับ\s*2/.test(compare));
+  ok("compare mentions pair", compare.includes("คันที่ 1") && compare.includes("คันที่ 2"));
 }
 
 // --- detect refinement / compare ---
@@ -124,6 +155,7 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
       userMessage: "เทียบคันที่ 1 กับ 2",
       intent: "unknown",
       carCardCount: 3,
+      recentCarCards: SAMPLE_CARDS,
     })?.text.includes("คันที่ 1")
   );
 }
@@ -187,6 +219,7 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
 // --- bridge passes orchestration hint ---
 {
   ok("bridge passes pilotOrchestration", bridgeSrc.includes("pilotOrchestration"));
+  ok("bridge accepts pilotSessionContext", bridgeSrc.includes("pilotSessionContext"));
   ok("bridge carCardCount", bridgeSrc.includes("carCards?.length"));
 }
 

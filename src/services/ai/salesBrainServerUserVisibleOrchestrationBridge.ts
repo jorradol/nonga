@@ -20,6 +20,12 @@ import {
 } from "./salesBrainShadowChatPath";
 import type { SalesBrainRuntimeEnvironment } from "./salesBrainRuntimeFlags";
 import type { SalesBrainUserRole } from "./salesBrainTypes";
+import type { PilotBuyerSessionContext } from "./chat/chatPilotSessionContext";
+import { sanitizePilotSessionContext } from "./chat/chatPilotSessionContext";
+import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
+import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
+import type { ChatCarCardData } from "../../types";
+import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -37,6 +43,8 @@ export interface UserVisibleOrchestrationBridgeInput {
   userRole: SalesBrainUserRole;
   environment?: SalesBrainRuntimeEnvironment;
   env?: Record<string, string | undefined>;
+  /** v6.1L.2g — client session last-shown cards (listing fields only) */
+  pilotSessionContext?: PilotBuyerSessionContext;
 }
 
 export interface RedactedUserVisibleOrchestrationPayload {
@@ -90,6 +98,64 @@ function buildRedactedPayload(
   };
 }
 
+function pilotSessionCardsToChatCarCards(cards: PilotGroundedCarCard[]): ChatCarCardData[] {
+  return cards.map((c) => ({
+    id: `pilot-session-${c.index}`,
+    brand: c.brand,
+    model: c.model,
+    year: c.year,
+    price: c.price,
+    mileage: c.mileage ?? 0,
+    bodyClassLabel: c.bodyClassLabel ?? "",
+    color: "",
+    condition: "",
+    fuelType: c.fuelType ?? "petrol",
+    transmission: "",
+    bodyClass: "",
+    imageUrl: "",
+    imageUrls: [],
+    hasImage: false,
+    detailPath: "",
+    matchKind: "exact" as const,
+    ...(c.description ? { description: c.description } : {}),
+  }));
+}
+
+/** Server has no sessionStorage — synthesize follow-up orchestration from client pilot context */
+function tryOrchestratedReplyFromPilotSession(
+  message: string,
+  pilotSessionContext?: PilotBuyerSessionContext
+): OrchestratedChatReply | null {
+  const sessionCards = pilotSessionContext?.recentCarCards ?? [];
+  if (sessionCards.length === 0 || !isPilotBuyerFollowUpMessage(message)) {
+    return null;
+  }
+  return {
+    text: "",
+    carCards: pilotSessionCardsToChatCarCards(sessionCards),
+    skipGemini: true,
+  };
+}
+
+function resolvePilotOrchestrationHint(
+  orchestrated: OrchestratedChatReply,
+  pilotSessionContext?: PilotBuyerSessionContext
+): UserVisiblePilotOrchestrationHint {
+  const sessionCards = pilotSessionContext?.recentCarCards ?? [];
+  const orchestratedCount = orchestrated.carCards?.length ?? 0;
+  const sessionCount = sessionCards.length;
+  const useSession = sessionCount > 0 && (sessionCount >= orchestratedCount || orchestratedCount === 0);
+
+  return {
+    carCardCount: useSession ? sessionCount : orchestratedCount,
+    hasMoreCars: orchestrated.hasMoreCars,
+    ...(useSession ? { recentCarCards: sessionCards } : {}),
+    ...(pilotSessionContext?.lastSearchBudgetMax != null
+      ? { lastSearchBudgetMax: pilotSessionContext.lastSearchBudgetMax }
+      : {}),
+  };
+}
+
 /**
  * Run orchestration + allowlist-gated pilot on server (trusted UID from auth only).
  */
@@ -97,10 +163,17 @@ export function runUserVisibleOrchestrationBridge(
   input: UserVisibleOrchestrationBridgeInput
 ): UserVisibleOrchestrationBridgeResult {
   const environment = resolveBridgeEnvironment(input.environment);
-  const orchestrated = tryOrchestrateChatReplyCore(input.userMessage, input.inventory, {
+  let orchestrated = tryOrchestrateChatReplyCore(input.userMessage, input.inventory, {
     attachedImageCount: input.attachedImageCount,
     displayName: input.displayName,
   });
+
+  if (!orchestrated && input.pilotSessionContext) {
+    orchestrated = tryOrchestratedReplyFromPilotSession(
+      input.userMessage,
+      input.pilotSessionContext
+    );
+  }
 
   if (!orchestrated) {
     return {
@@ -119,10 +192,7 @@ export function runUserVisibleOrchestrationBridge(
     environment,
     env: input.env,
     firebaseUid: input.trustedFirebaseUid,
-    pilotOrchestration: {
-      carCardCount: orchestrated.carCards?.length ?? 0,
-      hasMoreCars: orchestrated.hasMoreCars,
-    },
+    pilotOrchestration: resolvePilotOrchestrationHint(orchestrated, input.pilotSessionContext),
   });
 
   orchestrated.text = wired.userVisibleText;
@@ -145,6 +215,7 @@ export interface OrchestrateForTrustedAuthInput {
   inventory: ChatInventoryCar[];
   env?: Record<string, string | undefined>;
   environment?: SalesBrainRuntimeEnvironment;
+  pilotSessionContext?: PilotBuyerSessionContext;
 }
 
 export function orchestrateUserVisibleChatForTrustedAuth(
@@ -175,12 +246,14 @@ export function orchestrateUserVisibleChatForTrustedAuth(
     userRole: mapAuthToSalesBrainRole(input.auth as ServerAuthContext),
     environment,
     env: input.env,
+    pilotSessionContext: input.pilotSessionContext,
   });
 }
 
 function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
   userMessage: string;
   attachedImageCount?: number;
+  pilotSessionContext?: PilotBuyerSessionContext;
 } | { error: string } {
   const userMessage = String(body?.userMessage ?? "").trim();
   if (!userMessage) {
@@ -196,7 +269,12 @@ function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
       attachedImageCount = Math.min(Math.floor(n), 32);
     }
   }
-  return { userMessage, attachedImageCount };
+  const pilotSessionContext = sanitizePilotSessionContext(body?.pilotSessionContext);
+  return {
+    userMessage,
+    attachedImageCount,
+    ...(pilotSessionContext ? { pilotSessionContext } : {}),
+  };
 }
 
 function isParseError(
@@ -217,7 +295,7 @@ export async function handleChatUserVisibleOrchestratePost(
       res.status(400).json({ success: false, message: parsed.error });
       return;
     }
-    const { userMessage, attachedImageCount } = parsed;
+    const { userMessage, attachedImageCount, pilotSessionContext } = parsed;
     const inventory = await deps.loadChatInventory();
     const result = orchestrateUserVisibleChatForTrustedAuth({
       auth,
@@ -225,6 +303,7 @@ export async function handleChatUserVisibleOrchestratePost(
       attachedImageCount,
       inventory,
       env: process.env as Record<string, string | undefined>,
+      pilotSessionContext,
     });
 
     res.json({
