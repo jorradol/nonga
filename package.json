@@ -197,6 +197,7 @@
     "test:v62b7-controlled-old-listing-cleanup-archive-plan": "tsx scripts/test-v62b7-controlled-old-listing-cleanup-archive-plan.mts",
     "test:v62b8-read-only-old-listing-cleanup-preflight": "tsx scripts/test-v62b8-read-only-old-listing-cleanup-preflight.mts",
     "test:v62b9-read-only-old-listing-aggregate-query-execution-record": "tsx scripts/test-v62b9-read-only-old-listing-aggregate-query-execution-record.mts",
+    "test:v62b10-authenticated-reference-count-review-read-only": "tsx scripts/test-v62b10-authenticated-reference-count-review-read-only.mts",
     "test:v62c-privacy-safe-auto-redaction-readiness-plan": "tsx scripts/test-v62c-privacy-safe-auto-redaction-readiness-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
