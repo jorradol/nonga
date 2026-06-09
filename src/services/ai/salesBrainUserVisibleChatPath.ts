@@ -26,7 +26,7 @@ import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 export type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
-export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2h";
+export const SALES_BRAIN_USER_VISIBLE_PILOT_SLICE_ID = "v6.1L.2i";
 
 /** Internal/debug marker — must never appear in user-visible pilot text (v6.1L.2g+) */
 export const SALES_BRAIN_USER_VISIBLE_PILOT_MARKER = "nonga-pilot:";

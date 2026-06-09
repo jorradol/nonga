@@ -1604,10 +1604,14 @@ export function useChat() {
               (user as { displayName?: string; name?: string } | null)?.displayName ??
               (user as { name?: string } | null)?.name ??
               undefined,
+            chatSessionId: sessionId,
           })
         : null;
 
-      const pilotSessionContext = resolvePilotSessionContextForFollowUp(historyAfterUser);
+      const pilotSessionContext = resolvePilotSessionContextForFollowUp(
+        historyAfterUser,
+        sessionId
+      );
       const isFollowUpPilot = isPilotBuyerFollowUpMessage(trimmed);
       const shouldCallUserVisibleBridge =
         isSignedIn && (orchestrated?.skipGemini || (isFollowUpPilot && !orchestrated));

@@ -112,8 +112,15 @@ function tryContextualBuyerFollowUp(
 function tryOrchestrateChatReplyCore(
   message: string,
   inventory: ChatInventoryCar[],
-  options?: { attachedImageCount?: number; displayName?: string; firebaseUid?: string }
+  options?: {
+    attachedImageCount?: number;
+    displayName?: string;
+    firebaseUid?: string;
+    /** v6.1L.2i — scope sessionStorage car context to this chat session */
+    chatSessionId?: string | null;
+  }
 ): OrchestratedChatReply | null {
+  const chatSessionId = options?.chatSessionId ?? null;
   if (isSellIntent(message)) {
     const fields = extractCarFieldsFromMessage(message);
     return {
@@ -162,7 +169,7 @@ function tryOrchestrateChatReplyCore(
     };
   }
 
-  const contextCars = loadChatCarContext();
+  const contextCars = loadChatCarContext(chatSessionId);
 
   const contextualFollowUp = tryContextualBuyerFollowUp(message, contextCars);
   if (contextualFollowUp) {
@@ -346,7 +353,7 @@ function tryOrchestrateChatReplyCore(
     }
     
     if (!selectedId) {
-      const contextCars = loadChatCarContext();
+      const contextCars = loadChatCarContext(chatSessionId);
       if (contextCars.length > 0) {
         selectedId = contextCars[0].id;
       }
@@ -373,7 +380,7 @@ function tryOrchestrateChatReplyCore(
 
   const isShowMore = /ดูเพิ่ม|ขอดูเพิ่ม|ดูต่อ|ขออีก|มีอีกไหม/.test(message);
   if (isShowMore) {
-    const searchCtx = loadChatSearchContext();
+    const searchCtx = loadChatSearchContext(chatSessionId);
     if (searchCtx) {
       if (searchCtx.allCars.length > searchCtx.offset) {
         const nextOffset = searchCtx.offset + 3;
@@ -384,12 +391,15 @@ function tryOrchestrateChatReplyCore(
           nextOffset
         );
 
-        saveChatSearchContext({
-          allCars: searchCtx.allCars,
-          offset: nextOffset,
-          pitchLines: searchCtx.pitchLines,
-        });
-        if (nextCars.length > 0) saveChatCarContext(nextCars);
+        saveChatSearchContext(
+          {
+            allCars: searchCtx.allCars,
+            offset: nextOffset,
+            pitchLines: searchCtx.pitchLines,
+          },
+          chatSessionId
+        );
+        if (nextCars.length > 0) saveChatCarContext(nextCars, chatSessionId);
 
         const pitchBlock =
           nextPitches && nextPitches.length > 0
@@ -428,19 +438,25 @@ function tryOrchestrateChatReplyCore(
       buyerScored.hasMoreCars ?? buyerScored.allCarCards.length > 3;
 
     if (buyerScored.allCarCards.length > 0) {
-      saveChatSearchContext({
-        allCars: buyerScored.allCarCards,
-        offset: 3,
-        pitchLines: buyerScored.pitchLines,
-      });
-      saveChatCarContext(initialCards);
+      saveChatSearchContext(
+        {
+          allCars: buyerScored.allCarCards,
+          offset: 3,
+          pitchLines: buyerScored.pitchLines,
+        },
+        chatSessionId
+      );
+      saveChatCarContext(initialCards, chatSessionId);
       const intent = parseBuyerSearchIntent(message);
-      saveInChatBuyerContext({
-        message,
-        usageTags: intent.usageTags,
-        budgetMax: intent.budgetMax,
-        seatsMin: intent.seatsMin,
-      });
+      saveInChatBuyerContext(
+        {
+          message,
+          usageTags: intent.usageTags,
+          budgetMax: intent.budgetMax,
+          seatsMin: intent.seatsMin,
+        },
+        chatSessionId
+      );
     }
 
     return {
@@ -461,8 +477,8 @@ function tryOrchestrateChatReplyCore(
   const hasMore = allCarCards.length > 3;
 
   if (allCarCards.length > 0) {
-    saveChatSearchContext({ allCars: allCarCards, offset: 3 });
-    saveChatCarContext(initialCards);
+    saveChatSearchContext({ allCars: allCarCards, offset: 3 }, chatSessionId);
+    saveChatCarContext(initialCards, chatSessionId);
   }
 
   return {
@@ -476,7 +492,12 @@ function tryOrchestrateChatReplyCore(
 export function tryOrchestrateChatReply(
   message: string,
   inventory: ChatInventoryCar[],
-  options?: { attachedImageCount?: number; displayName?: string; firebaseUid?: string }
+  options?: {
+    attachedImageCount?: number;
+    displayName?: string;
+    firebaseUid?: string;
+    chatSessionId?: string | null;
+  }
 ): OrchestratedChatReply | null {
   const reply = tryOrchestrateChatReplyCore(message, inventory, options);
   if (!reply) {

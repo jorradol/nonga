@@ -5,7 +5,11 @@ import { loadPersonalities, savePersonalityPreset, DEFAULT_PERSONALITIES } from 
 import {
   chatPrefsLocalKey,
 } from "../../utils/chatStorageScope";
-import { saveChatCarContext } from "../../utils/chatCarContext";
+import {
+  clearPilotChatSessionContext,
+  saveChatCarContext,
+  setActivePilotChatSessionId,
+} from "../../utils/chatCarContext";
 import {
   isEphemeralGuestChatScope,
   type ChatStorageScope,
@@ -121,6 +125,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoadingPersonalities: false,
 
   resetChatState: () => {
+    clearPilotChatSessionContext();
+    setActivePilotChatSessionId(null);
     set({
       sessions: [],
       activeSessionId: null,
@@ -142,6 +148,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return;
         }
         set({ sessions: [], messages: {}, activeSessionId: null });
+        setActivePilotChatSessionId(null);
         return;
       }
 
@@ -174,13 +181,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: activeSessionId ? { [activeSessionId]: activeMessages } : {},
         activeSessionId,
       });
+      setActivePilotChatSessionId(activeSessionId);
     } catch (err) {
       console.warn("Chat history load failure:", err);
       set({ sessions: [], messages: {}, activeSessionId: null });
+      setActivePilotChatSessionId(null);
     }
   },
 
   createSession: async (scope, title) => {
+    clearPilotChatSessionContext();
+
     const session = await createChatSession(
       scope,
       title || `ปรึกษาซื้อขาย #${get().sessions.length + 1}`
@@ -197,6 +208,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamedCarCards: [],
       streamedHasMoreCars: false,
     }));
+
+    setActivePilotChatSessionId(session.id);
 
     return session.id;
   },
@@ -223,6 +236,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamedCarCards: [],
       streamedHasMoreCars: false,
     });
+    setActivePilotChatSessionId(nextActiveId);
   },
 
   selectSession: async (scope, sessionId) => {
@@ -241,6 +255,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamedCarCards: [],
       streamedHasMoreCars: false,
     }));
+    setActivePilotChatSessionId(sessionId);
   },
 
   addMessage: async (sessionId, sender, text, carCards, hasMoreCars, isDraftPreview, draftFields, savedDraftId, attachments, listingExtras, savedMemberListingId) => {
@@ -389,7 +404,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     );
 
     if (cards && cards.length > 0) {
-      saveChatCarContext(cards);
+      saveChatCarContext(cards, sessionId);
     }
     
     // Core AI memory loop: Trigger preference extraction in background for memory

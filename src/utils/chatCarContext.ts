@@ -15,56 +15,134 @@ export interface InChatBuyerContext {
   seatsMin?: number | null;
 }
 
+interface SessionScopedPayload<T> {
+  chatSessionId: string;
+  savedAt: number;
+  payload: T;
+}
+
 const IN_CHAT_BUYER_HINT_KEY = "nonga_chat_in_chat_buyer_hint";
-
-export function saveInChatBuyerContext(ctx: InChatBuyerContext): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.setItem(IN_CHAT_BUYER_HINT_KEY, JSON.stringify(ctx));
-  } catch {
-    /* quota */
-  }
-}
-
-export function loadInChatBuyerContext(): InChatBuyerContext | null {
-  if (typeof sessionStorage === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(IN_CHAT_BUYER_HINT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as InChatBuyerContext;
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveChatSearchContext(data: ChatSearchContextData): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.setItem("nonga_chat_search_context", JSON.stringify(data));
-  } catch {
-    /* quota */
-  }
-}
-
-export function loadChatSearchContext(): ChatSearchContextData | null {
-  if (typeof sessionStorage === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem("nonga_chat_search_context");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ChatSearchContextData;
-    if (Array.isArray(parsed.allCars) && typeof parsed.offset === "number") {
-      return parsed;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
+const SEARCH_CTX_KEY = "nonga_chat_search_context";
 const STORAGE_KEY = "nonga_chat_last_car_results";
 const LAST_SELECTED_CAR_KEY = "nonga_chat_last_selected_car";
 const RECENTLY_VIEWED_CARS_KEY = "nonga_chat_recently_viewed_cars";
+
+/** Active chat session for scoped pilot car context (v6.1L.2i) */
+let activePilotChatSessionId: string | null = null;
+
+export function setActivePilotChatSessionId(sessionId: string | null): void {
+  activePilotChatSessionId = sessionId;
+}
+
+export function getActivePilotChatSessionId(): string | null {
+  return activePilotChatSessionId;
+}
+
+function resolveChatSessionId(explicit?: string | null): string | null {
+  const sid = explicit ?? activePilotChatSessionId;
+  return sid && sid.trim().length > 0 ? sid : null;
+}
+
+function readSessionScopedPayload<T>(
+  key: string,
+  chatSessionId: string
+): T | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SessionScopedPayload<T> & {
+      cars?: ChatCarCardData[];
+      allCars?: ChatCarCardData[];
+    };
+    if (!parsed || typeof parsed !== "object") return null;
+    // v6.1L.2i — legacy unscoped payloads must not leak across chats
+    if (typeof parsed.chatSessionId !== "string" || parsed.chatSessionId !== chatSessionId) {
+      return null;
+    }
+    if ("payload" in parsed && parsed.payload != null) {
+      return parsed.payload as T;
+    }
+    // Legacy shape migration guard — treat as stale if missing payload wrapper
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionScopedPayload<T>(
+  key: string,
+  chatSessionId: string,
+  payload: T
+): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        chatSessionId,
+        savedAt: Date.now(),
+        payload,
+      } satisfies SessionScopedPayload<T>)
+    );
+  } catch {
+    /* quota */
+  }
+}
+
+/** Clear pilot buyer car context (new chat / scope reset) — v6.1L.2i */
+export function clearPilotChatSessionContext(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(IN_CHAT_BUYER_HINT_KEY);
+    sessionStorage.removeItem(SEARCH_CTX_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function saveInChatBuyerContext(
+  ctx: InChatBuyerContext,
+  chatSessionId?: string | null
+): void {
+  const sid = resolveChatSessionId(chatSessionId);
+  if (!sid) return;
+  writeSessionScopedPayload(IN_CHAT_BUYER_HINT_KEY, sid, ctx);
+}
+
+export function loadInChatBuyerContext(
+  chatSessionId?: string | null
+): InChatBuyerContext | null {
+  const sid = resolveChatSessionId(chatSessionId);
+  if (!sid) return null;
+  return readSessionScopedPayload<InChatBuyerContext>(IN_CHAT_BUYER_HINT_KEY, sid);
+}
+
+export function saveChatSearchContext(
+  data: ChatSearchContextData,
+  chatSessionId?: string | null
+): void {
+  const sid = resolveChatSessionId(chatSessionId);
+  if (!sid) return;
+  writeSessionScopedPayload(SEARCH_CTX_KEY, sid, data);
+}
+
+export function loadChatSearchContext(
+  chatSessionId?: string | null
+): ChatSearchContextData | null {
+  const sid = resolveChatSessionId(chatSessionId);
+  if (!sid) return null;
+  const parsed = readSessionScopedPayload<ChatSearchContextData>(SEARCH_CTX_KEY, sid);
+  if (
+    parsed &&
+    Array.isArray(parsed.allCars) &&
+    typeof parsed.offset === "number"
+  ) {
+    return parsed;
+  }
+  return null;
+}
 
 export function saveLastSelectedCarId(carId: string): void {
   if (typeof sessionStorage === "undefined") return;
@@ -92,10 +170,8 @@ export function addRecentlyViewedCarId(carId: string): void {
     if (raw) {
       viewed = JSON.parse(raw);
     }
-    // Remove if exists to move to top
-    viewed = viewed.filter(id => id !== carId);
+    viewed = viewed.filter((id) => id !== carId);
     viewed.unshift(carId);
-    // Keep only last 10
     if (viewed.length > 10) viewed = viewed.slice(0, 10);
     sessionStorage.setItem(RECENTLY_VIEWED_CARS_KEY, JSON.stringify(viewed));
   } catch {
@@ -114,28 +190,25 @@ export function loadRecentlyViewedCarIds(): string[] {
   }
 }
 
-export function saveChatCarContext(cars: ChatCarCardData[]): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ savedAt: Date.now(), cars })
-    );
-  } catch {
-    /* quota */
-  }
+export function saveChatCarContext(
+  cars: ChatCarCardData[],
+  chatSessionId?: string | null
+): void {
+  const sid = resolveChatSessionId(chatSessionId);
+  if (!sid) return;
+  writeSessionScopedPayload(STORAGE_KEY, sid, { cars });
 }
 
-export function loadChatCarContext(): ChatCarCardData[] {
-  if (typeof sessionStorage === "undefined") return [];
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { cars?: ChatCarCardData[] };
-    return Array.isArray(parsed.cars) ? parsed.cars : [];
-  } catch {
-    return [];
-  }
+export function loadChatCarContext(
+  chatSessionId?: string | null
+): ChatCarCardData[] {
+  const sid = resolveChatSessionId(chatSessionId);
+  if (!sid) return [];
+  const parsed = readSessionScopedPayload<{ cars?: ChatCarCardData[] }>(
+    STORAGE_KEY,
+    sid
+  );
+  return Array.isArray(parsed?.cars) ? parsed.cars : [];
 }
 
 export function resolveCarsFromContextHint(
@@ -145,7 +218,6 @@ export function resolveCarsFromContextHint(
   const text = hint.toLowerCase();
   if (contextCars.length === 0) return [];
 
-  // Dedupe logic
   const dedupe = (cars: ChatCarCardData[]) => {
     const seen = new Set<string>();
     return cars.filter((c) => {
@@ -161,11 +233,15 @@ export function resolveCarsFromContextHint(
     return uniqueContextCars.slice(0, 2);
   }
 
-  const numberedPair = text.match(/(?:ช่วย)?(?:เปรียบเทียบ|เทียบ)(?:คันที่)?\s*(\d+)\s*(?:กับ|และ)\s*(\d+)/i);
+  const numberedPair = text.match(
+    /(?:ช่วย)?(?:เปรียบเทียบ|เทียบ)(?:คันที่)?\s*(\d+)\s*(?:กับ|และ)\s*(\d+)/i
+  );
   if (numberedPair) {
     const a = Number(numberedPair[1]);
     const b = Number(numberedPair[2]);
-    const picked = [uniqueContextCars[a - 1], uniqueContextCars[b - 1]].filter(Boolean);
+    const picked = [uniqueContextCars[a - 1], uniqueContextCars[b - 1]].filter(
+      Boolean
+    );
     if (picked.length > 0) return picked;
   }
 
@@ -175,7 +251,9 @@ export function resolveCarsFromContextHint(
 
   const byBrandModel = uniqueContextCars.filter((c) => {
     const blob = `${c.brand} ${c.model}`.toLowerCase();
-    return text.includes(c.brand.toLowerCase()) && text.includes(c.model.toLowerCase());
+    return (
+      text.includes(c.brand.toLowerCase()) && text.includes(c.model.toLowerCase())
+    );
   });
   if (byBrandModel.length > 0) return byBrandModel;
 
@@ -193,11 +271,16 @@ export function isFollowUpCarQuestion(message: string): boolean {
 }
 
 export function isCompareIntent(message: string): boolean {
-  return /เปรียบเทียบ|เทียบ|คันไหนดีกว่า|คันไหนน่าสนใจกว่า|คันไหนไมล์น้อยกว่า/i.test(message);
+  return /เปรียบเทียบ|เทียบ|คันไหนดีกว่า|คันไหนน่าสนใจกว่า|คันไหนไมล์น้อยกว่า/i.test(
+    message
+  );
 }
 
 export function isSelectedCarIntent(message: string): boolean {
-  return /\[SELECTED_CAR_ID:([^\]]+)\]/.test(message) || /คันนี้|คันนั้น|สรุปรถคันนี้|รถคันนี้เหมาะกับใคร/i.test(message);
+  return (
+    /\[SELECTED_CAR_ID:([^\]]+)\]/.test(message) ||
+    /คันนี้|คันนั้น|สรุปรถคันนี้|รถคันนี้เหมาะกับใคร/i.test(message)
+  );
 }
 
 export function extractSelectedCarId(message: string): string | null {

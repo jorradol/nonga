@@ -1,8 +1,9 @@
 /**
- * v6.1L.2h — Client/server-safe pilot session context from last shown car cards.
+ * v6.1L.2i — Client/server-safe pilot session context scoped to active chat session.
  */
 import type { ChatCarCardData, ChatMessage } from "../../../types";
 import {
+  getActivePilotChatSessionId,
   loadChatCarContext,
   loadInChatBuyerContext,
 } from "../../../utils/chatCarContext";
@@ -65,17 +66,21 @@ export function buildPilotSessionContextFromCarCards(
   };
 }
 
-/** Browser: read sessionStorage last car batch for pilot bridge */
-export function buildPilotSessionContextFromStorage(): PilotBuyerSessionContext | undefined {
-  const cars = loadChatCarContext();
-  const hint = loadInChatBuyerContext();
+/** Browser: sessionStorage last car batch — only when chatSessionId matches active chat */
+export function buildPilotSessionContextFromStorage(
+  chatSessionId?: string | null
+): PilotBuyerSessionContext | undefined {
+  const sid = chatSessionId ?? getActivePilotChatSessionId();
+  if (!sid) return undefined;
+  const cars = loadChatCarContext(sid);
+  const hint = loadInChatBuyerContext(sid);
   return buildPilotSessionContextFromCarCards(
     cars,
     hint?.budgetMax ?? undefined
   );
 }
 
-/** Prefer last AI message carCards — survives when sessionStorage is empty */
+/** Prefer last AI message carCards in the current chat transcript */
 export function buildPilotSessionContextFromMessages(
   messages: Pick<ChatMessage, "sender" | "carCards">[],
   lastSearchBudgetMax?: number
@@ -91,23 +96,29 @@ export function buildPilotSessionContextFromMessages(
   return undefined;
 }
 
-/** Merge sessionStorage + chat history; prefer the richer card batch */
+/**
+ * Resolve pilot context for follow-ups — current chat only (v6.1L.2i).
+ * Message carCards win; sessionStorage is used only when bound to the same chatSessionId.
+ */
 export function resolvePilotSessionContextForFollowUp(
-  messages: Pick<ChatMessage, "sender" | "carCards">[]
+  messages: Pick<ChatMessage, "sender" | "carCards">[],
+  chatSessionId?: string | null
 ): PilotBuyerSessionContext | undefined {
-  const hint = loadInChatBuyerContext();
+  const sid = chatSessionId ?? getActivePilotChatSessionId();
+  const hint = sid ? loadInChatBuyerContext(sid) : null;
   const budget = hint?.budgetMax ?? undefined;
-  const fromStorage = buildPilotSessionContextFromStorage();
   const fromMessages = buildPilotSessionContextFromMessages(messages, budget);
-  const storageCount = fromStorage?.recentCarCards.length ?? 0;
   const messageCount = fromMessages?.recentCarCards.length ?? 0;
-  if (messageCount >= storageCount && messageCount > 0) {
+
+  if (messageCount > 0) {
     return fromMessages;
   }
-  if (storageCount > 0) {
-    return fromStorage;
+
+  if (!sid) {
+    return undefined;
   }
-  return fromMessages;
+
+  return buildPilotSessionContextFromStorage(sid);
 }
 
 export function pilotSessionCardsToChatCarCards(

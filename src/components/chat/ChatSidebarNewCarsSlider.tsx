@@ -97,7 +97,7 @@ export function ChatSidebarNewCarsSlider({
     }
 
     const card = buildSidebarCarCardFromCar(car);
-    saveChatCarContext([card]);
+    saveChatCarContext([card], sessionId);
     saveLastSelectedCarId(car.id);
     addRecentlyViewedCarId(car.id);
 
