@@ -186,6 +186,7 @@
     "test:v61l2h-pilot-buyer-followup-hard-guard": "tsx scripts/test-v61l2h-pilot-buyer-followup-hard-guard.mts",
     "test:v61l2i-pilot-car-context-session-scope": "tsx scripts/test-v61l2i-pilot-car-context-session-scope.mts",
     "test:v61l2j-pilot-new-chat-no-response-permission-fallback": "tsx scripts/test-v61l2j-pilot-new-chat-no-response-permission-fallback.mts",
+    "test:v62a-real-stock-controlled-pilot-readiness-plan": "tsx scripts/test-v62a-real-stock-controlled-pilot-readiness-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
