@@ -13,6 +13,7 @@ import {
 import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
 import { resolveCarCardsFromSessionContext } from "./chat/chatPilotSessionContext";
 import { buildListingComparisonInsight } from "./chat/chatSearchReplyCopy";
+import { buildPilotRefinementFollowUpReplyCopy } from "./chat/chatRefinementReplyCopy";
 import { isCompareIntent } from "../../utils/chatCarContext";
 
 export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2h";
@@ -169,52 +170,7 @@ export function buildBuyerRefinementPilotCopy(
   kind: BuyerRefinementKind,
   cards: PilotGroundedCarCard[]
 ): string {
-  const shown = cards.slice(0, 3);
-  const listingLines = shown.map(
-    (c, i) => `${i + 1}. ${formatCarLine(c)}`
-  );
-
-  const lead = `จาก ${shown.length} คันที่เพิ่งแสดงอยู่ น้องเอช่วยคัดแนวให้จากข้อมูลประกาศในระบบก่อนนะครับ`;
-
-  if (kind === "fuel") {
-    return [
-      lead,
-      "",
-      ...listingLines,
-      "",
-      "ถ้าเน้นประหยัดน้ำมัน แนะนำดูเลขไมล์ ปีรถ ประเภทรถ และคำอธิบายประกาศที่พูดถึงการใช้งานจริงก่อนครับ น้องเอไม่แนะนำรุ่นทั่วไปนอกจากรถที่แสดงในการ์ด",
-      "",
-      "ลองกดดูคันที่สนใจก่อน หรือพิมพ์ “เทียบคันที่ 1 กับ 2” ถ้าอยากให้น้องเอช่วยเทียบให้ชัดขึ้นครับ",
-      "",
-      LISTING_DISCLAIMER,
-    ].join("\n");
-  }
-
-  if (kind === "family") {
-    return [
-      lead,
-      "",
-      ...listingLines,
-      "",
-      "ถ้าเน้นรถครอบครัว แนะนำดูประเภทรถ จำนวนที่นั่ง และเลขไมล์เทียบปีจากข้อมูลประกาศครับ",
-      "",
-      "ลองกดดูคันที่ถูกใจก่อน หรือพิมพ์ “เทียบคันที่ 1 กับ 2” เดี๋ยวน้องเอช่วยสรุปข้อดี-ข้อควรเช็กให้ครับ",
-      "",
-      LISTING_DISCLAIMER,
-    ].join("\n");
-  }
-
-  return [
-    lead,
-    "",
-    ...listingLines,
-    "",
-    "ถ้าเน้นผ่อนเบื้องต้น น้องเอช่วยดูจากราคาในการ์ดได้ครับ แต่ค่างวดจริงขึ้นกับดาวน์ ระยะผ่อน และเงื่อนไขไฟแนนซ์ น้องเอไม่ฟันธงค่างวดโดยไม่มีข้อมูลครบ",
-    "",
-    "ลองกดดูคันที่สนใจก่อน แล้วถามต่อว่า “ช่วยประเมินผ่อนเบื้องต้น” ได้ครับ",
-    "",
-    LISTING_DISCLAIMER,
-  ].join("\n");
+  return buildPilotRefinementFollowUpReplyCopy(kind, cards.slice(0, 3));
 }
 
 function effectiveCarCards(input: PilotBuyerCopyInput): PilotGroundedCarCard[] {

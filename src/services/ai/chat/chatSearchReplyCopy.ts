@@ -1,6 +1,11 @@
 /** ข้อความนำผลค้นหา Marketplace — โทนเป็นมิตร ข้อมูลจริง 100% */
 
 import type { ChatCarCardData } from "../../../types";
+import { detectBuyerRefinement } from "./chatPilotBuyerFollowUp";
+import {
+  buildRefinementFollowUpReplyCopy,
+  buildRefinementNoContextCopy,
+} from "./chatRefinementReplyCopy";
 import type { ChatCarSummary, ChatSearchCriteria } from "./marketplaceChatSearch";
 import {
   buildSearchFoundOpener,
@@ -452,6 +457,14 @@ export function buildFollowUpReplyCopy(
   cars: ChatCarCardData[],
   userMessage: string
 ): string {
+  const refinement = detectBuyerRefinement(userMessage);
+  if (refinement) {
+    if (cars.length === 0) {
+      return buildRefinementNoContextCopy(refinement);
+    }
+    return buildRefinementFollowUpReplyCopy(refinement, cars);
+  }
+
   if (cars.length === 0) {
     return (
       "น้องเอยังไม่มีรถจากการค้นหาล่าสุดในบทสนทนานี้ครับ\n\n" +
