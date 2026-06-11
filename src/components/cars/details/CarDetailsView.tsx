@@ -18,7 +18,12 @@ import {
   getListingPrimaryImage,
 } from "../../../utils/listingImages";
 import ListingDescription from "../../listings/ListingDescription";
+import BuyerFriendlyListingCopyPreview from "../../listings/BuyerFriendlyListingCopyPreview";
 import { submitListingReport, type ListingReportReason } from "../../../services/listings/listingReportApi";
+import { useAuth } from "../../../hooks/auth/useAuth";
+import { shouldShowBuyerFriendlyCopyPreview } from "../../../config/buyerFriendlyCopyPreviewGate";
+import { carToBuyerFriendlyListingInput } from "../../../utils/carToBuyerFriendlyListingInput";
+import { buildBuyerFriendlyListingCopy } from "../../../utils/buyerFriendlyListingCopy";
 
 export default function CarDetailsView() {
   const { 
@@ -37,6 +42,7 @@ export default function CarDetailsView() {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [inquireOpen, setInquireOpen] = useState(false);
+  const { isSignedIn, user } = useAuth();
   
   // Local comments state that seeds from localStorage to guarantee seamless local persistence without permissions limits
   const [comments, setComments] = useState<CarComment[]>([]);
@@ -46,6 +52,20 @@ export default function CarDetailsView() {
   const car = useMemo(() => {
     return cars.find((c) => c.id === selectedCarId);
   }, [cars, selectedCarId]);
+
+  const buyerFriendlyPreviewVisible = useMemo(
+    () =>
+      shouldShowBuyerFriendlyCopyPreview({
+        isSignedIn,
+        uid: user?.uid,
+      }),
+    [isSignedIn, user?.uid]
+  );
+
+  const buyerFriendlyPreviewResult = useMemo(() => {
+    if (!buyerFriendlyPreviewVisible || !car) return null;
+    return buildBuyerFriendlyListingCopy(carToBuyerFriendlyListingInput(car));
+  }, [buyerFriendlyPreviewVisible, car]);
 
   // 2. SEO/Metadata Optimization - dynamically update page title and description
   useEffect(() => {
@@ -397,6 +417,13 @@ export default function CarDetailsView() {
                   </p>
                 }
               />
+
+              {buyerFriendlyPreviewVisible && buyerFriendlyPreviewResult && (
+                <BuyerFriendlyListingCopyPreview
+                  result={buyerFriendlyPreviewResult}
+                  tone="dark"
+                />
+              )}
             </div>
           </div>
 
