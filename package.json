@@ -206,6 +206,7 @@
     "test:v62b14-real-stock-manual-smoke-test-allowlisted-staging": "tsx scripts/test-v62b14-real-stock-manual-smoke-test-allowlisted-staging.mts",
     "test:v62b15-real-stock-pilot-acceptance-go-no-go-review": "tsx scripts/test-v62b15-real-stock-pilot-acceptance-go-no-go-review.mts",
     "test:v62c-privacy-safe-auto-redaction-readiness-plan": "tsx scripts/test-v62c-privacy-safe-auto-redaction-readiness-plan.mts",
+    "test:v62d-thailand-used-car-legal-compliance-readiness-plan": "tsx scripts/test-v62d-thailand-used-car-legal-compliance-readiness-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
