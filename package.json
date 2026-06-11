@@ -218,6 +218,7 @@
     "test:v62e4c-advisor-criteria-tts-button": "tsx scripts/test-v62e4c-advisor-criteria-tts-button.mts",
     "test:v62e4c1a-staging-hosting-deploy-tts-button-record": "tsx scripts/test-v62e4c1a-staging-hosting-deploy-tts-button-record.mts",
     "test:v63a-buyer-friendly-listing-copy-readiness": "tsx scripts/test-v63a-buyer-friendly-listing-copy-readiness.mts",
+    "test:v63b-buyer-friendly-listing-copy-deterministic-helper": "tsx scripts/test-v63b-buyer-friendly-listing-copy-deterministic-helper.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
