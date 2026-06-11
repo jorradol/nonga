@@ -214,6 +214,7 @@
     "test:v62e3-image-hosting-migration-execution-record": "tsx scripts/test-v62e3-image-hosting-migration-execution-record.mts",
     "test:v62e4-real-stock-refine-intent-fuel-economy-smoke-fix": "tsx scripts/test-v62e4-real-stock-refine-intent-fuel-economy-smoke-fix.mts",
     "test:v62e4a-staging-deploy-execution-record": "tsx scripts/test-v62e4a-staging-deploy-execution-record.mts",
+    "test:v62e4b-manual-browser-smoke-execution-record": "tsx scripts/test-v62e4b-manual-browser-smoke-execution-record.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
