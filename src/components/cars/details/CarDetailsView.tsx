@@ -18,10 +18,10 @@ import {
   getListingPrimaryImage,
 } from "../../../utils/listingImages";
 import ListingDescription from "../../listings/ListingDescription";
-import BuyerFriendlyListingCopyPreview from "../../listings/BuyerFriendlyListingCopyPreview";
+import BuyerFriendlyListingCopyDetailSection from "../../listings/BuyerFriendlyListingCopyDetailSection";
 import { submitListingReport, type ListingReportReason } from "../../../services/listings/listingReportApi";
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { shouldShowBuyerFriendlyCopyPreview } from "../../../config/buyerFriendlyCopyPreviewGate";
+import { evaluateBuyerFriendlyCopyPreviewGate } from "../../../config/buyerFriendlyCopyPreviewGate";
 import { carToBuyerFriendlyListingInput } from "../../../utils/carToBuyerFriendlyListingInput";
 import { buildBuyerFriendlyListingCopy } from "../../../utils/buyerFriendlyListingCopy";
 
@@ -53,9 +53,9 @@ export default function CarDetailsView() {
     return cars.find((c) => c.id === selectedCarId);
   }, [cars, selectedCarId]);
 
-  const buyerFriendlyPreviewVisible = useMemo(
+  const buyerFriendlyPreviewGate = useMemo(
     () =>
-      shouldShowBuyerFriendlyCopyPreview({
+      evaluateBuyerFriendlyCopyPreviewGate({
         isSignedIn,
         uid: user?.uid,
       }),
@@ -63,9 +63,9 @@ export default function CarDetailsView() {
   );
 
   const buyerFriendlyPreviewResult = useMemo(() => {
-    if (!buyerFriendlyPreviewVisible || !car) return null;
+    if (!buyerFriendlyPreviewGate.visible || !car) return null;
     return buildBuyerFriendlyListingCopy(carToBuyerFriendlyListingInput(car));
-  }, [buyerFriendlyPreviewVisible, car]);
+  }, [buyerFriendlyPreviewGate.visible, car]);
 
   // 2. SEO/Metadata Optimization - dynamically update page title and description
   useEffect(() => {
@@ -418,12 +418,11 @@ export default function CarDetailsView() {
                 }
               />
 
-              {buyerFriendlyPreviewVisible && buyerFriendlyPreviewResult && (
-                <BuyerFriendlyListingCopyPreview
-                  result={buyerFriendlyPreviewResult}
-                  tone="dark"
-                />
-              )}
+              <BuyerFriendlyListingCopyDetailSection
+                gate={buyerFriendlyPreviewGate}
+                result={buyerFriendlyPreviewResult}
+                tone="dark"
+              />
             </div>
           </div>
 

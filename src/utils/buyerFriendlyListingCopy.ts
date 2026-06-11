@@ -44,21 +44,37 @@ const SPEC_SPLIT = /[+,\n/|]+/;
 
 /** Duplicated from listingDescriptionHelper — avoid shared refactor in v6.3B */
 const SPEC_MAP: Record<string, string> = {
+  smartkeyless: "ระบบ Smart Keyless (กุญแจอัจฉริยะ)",
+  keyless: "ระบบ Keyless",
+  cruisecontrol: "ระบบ Cruise Control (ควบคุมความเร็วคงที่)",
+  enginestart: "ปุ่ม Engine Start (สตาร์ทเครื่องยนต์)",
   "บ.": "เบาะหนัง",
   "บ.หนัง": "เบาะหนัง",
   "เบาะหนัง": "เบาะหนัง",
   "หนังปรับไฟฟ้า": "เบาะหนังปรับไฟฟ้า",
   "จอทัชสกรีน": "จอทัชสกรีน",
+  "จอทัชกรีน": "จอทัชสกรีน",
   "จอทัช": "จอทัชสกรีน",
+  "ไฟตัดหมอก": "ไฟตัดหมอก",
+  "ไฟ.ลกข": "ไฟเลี้ยวข้าง",
+  "ไฟลกข": "ไฟเลี้ยวข้าง",
+  "ไฟเลี้ยวข้าง": "ไฟเลี้ยวข้าง",
+  "วิทยุfm/am": "วิทยุ FM/AM",
+  "วิทยุfm": "วิทยุ FM/AM",
   "พวงมาลัยมัลติฟังก์ชั่น": "พวงมาลัยมัลติฟังก์ชัน",
   "พวงมาลัยมัลติ": "พวงมาลัยมัลติฟังก์ชัน",
   "ฝาท้ายไฟฟ้า": "ฝาท้ายไฟฟ้า",
   "บลูทูธ": "ระบบ Bluetooth",
+  "บลูธูท": "ระบบ Bluetooth",
   bluetooth: "ระบบ Bluetooth",
   "ไฟหน้aled": "ไฟหน้า LED",
   "ไฟท้ายled": "ไฟท้าย LED",
   "ล้อแม็ก": "ล้อแม็ก",
 };
+
+const SPEC_MAP_ENTRIES = Object.entries(SPEC_MAP).sort(
+  ([a], [b]) => b.length - a.length
+);
 
 const OVERCLAIM_PATTERNS: RegExp[] = [
   /ไม่เคยช(?:น|นห(?:นัก|า))/gi,
@@ -134,7 +150,7 @@ export function parseBuyerSpecTokens(raw: string): string[] {
     .filter((s) => s.length > 1)
     .map((token) => {
       const key = token.toLowerCase().replace(/\s+/g, "");
-      for (const [k, v] of Object.entries(SPEC_MAP)) {
+      for (const [k, v] of SPEC_MAP_ENTRIES) {
         if (key.includes(k.toLowerCase().replace(/\s+/g, ""))) return v;
       }
       return token.replace(/\s+/g, " ");

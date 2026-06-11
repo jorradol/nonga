@@ -19,7 +19,10 @@ import {
   isUidAllowlistedForBuyerFriendlyCopyPreview,
   shouldShowBuyerFriendlyCopyPreview,
 } from "../src/config/buyerFriendlyCopyPreviewGate.ts";
-import { BUYER_FRIENDLY_PREVIEW_FALLBACK_BANNER } from "../src/components/listings/BuyerFriendlyListingCopyPreview.tsx";
+import {
+  BUYER_FRIENDLY_PREVIEW_FALLBACK_BANNER,
+  BUYER_FRIENDLY_PREVIEW_TITLE,
+} from "../src/components/listings/BuyerFriendlyListingCopyPreview.tsx";
 
 const DOC_PATH =
   "docs/v6.3B.2-buyer-friendly-listing-copy-staging-ui-preview.md";
@@ -243,17 +246,18 @@ const gateSrc = readFileSync("src/config/buyerFriendlyCopyPreviewGate.ts", "utf8
   ok("preview fallback banner constant", previewSrc.includes(BUYER_FRIENDLY_PREVIEW_FALLBACK_BANNER));
   ok("preview guard fail no ListingDescription rewrite", /!result\.guardPass/.test(previewSrc));
   ok("preview guard pass uses ListingDescription", previewSrc.includes("<ListingDescription"));
-  ok("preview staging badge", /Preview · Staging · Deterministic/.test(previewSrc));
+  ok("preview title constant", previewSrc.includes(BUYER_FRIENDLY_PREVIEW_TITLE));
+  ok("preview staging badge", /Preview · Staging/.test(previewSrc));
 }
 
 // --- CarDetailsView contract ---
 {
   ok("UI-01 primary car.description", carDetailsSrc.includes("text={car.description}"));
-  ok("UI-02 imports preview gate", carDetailsSrc.includes("shouldShowBuyerFriendlyCopyPreview"));
-  ok("UI-02 imports preview component", carDetailsSrc.includes("BuyerFriendlyListingCopyPreview"));
+  ok("UI-02 imports preview gate", carDetailsSrc.includes("evaluateBuyerFriendlyCopyPreviewGate"));
+  ok("UI-02 imports detail section", carDetailsSrc.includes("BuyerFriendlyListingCopyDetailSection"));
   ok("UI-02 imports mapper", carDetailsSrc.includes("carToBuyerFriendlyListingInput"));
   ok("UI-02 imports helper", carDetailsSrc.includes("buildBuyerFriendlyListingCopy"));
-  ok("UI-03 gated render", /buyerFriendlyPreviewVisible/.test(carDetailsSrc));
+  ok("UI-03 gated render", /buyerFriendlyPreviewGate/.test(carDetailsSrc));
   ok("UI-04 meta uses car.title not preview", /car\.title.*car\.mileage/s.test(carDetailsSrc));
   ok(
     "UI-04 meta effect no buyerFriendly",

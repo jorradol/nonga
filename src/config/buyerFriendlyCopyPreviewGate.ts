@@ -108,30 +108,119 @@ export function resolveBuyerFriendlyCopyPreviewProjectId(
   return String(readEnv("VITE_FIREBASE_PROJECT_ID") ?? "").trim();
 }
 
-/** All gates must pass — default-deny. Guest and non-allowlisted users never see preview. */
-export function shouldShowBuyerFriendlyCopyPreview(
-  ctx: BuyerFriendlyCopyPreviewContext
-): boolean {
+export type BuyerFriendlyCopyPreviewGateReason =
+  | "visible"
+  | "flag-off"
+  | "non-staging"
+  | "guest-or-unsigned"
+  | "empty-allowlist"
+  | "not-allowlisted";
+
+export interface BuyerFriendlyCopyPreviewGateEvaluation {
+  visible: boolean;
+  reason: BuyerFriendlyCopyPreviewGateReason;
+  /** Flag on and staging host/project — preview feature is active on this build. */
+  featureActive: boolean;
+  /** Signed-in real user (not guest simulated). */
+  signedInEligible: boolean;
+}
+
+function resolveGateContext(
+  ctx: Pick<
+    BuyerFriendlyCopyPreviewContext,
+    "hostname" | "projectId" | "readEnv"
+  >
+) {
   const readEnv = ctx.readEnv ?? defaultReadEnv;
-
-  if (!isBuyerFriendlyCopyPreviewFlagEnabled(readEnv)) {
-    return false;
-  }
-
   const hostname = resolveBuyerFriendlyCopyPreviewHostname(ctx.hostname);
   const projectId = resolveBuyerFriendlyCopyPreviewProjectId(
     ctx.projectId,
     readEnv
   );
-
-  if (!isStagingBuyerFriendlyCopyHost({ hostname, projectId })) {
-    return false;
-  }
-
-  if (!isSignedInForBuyerFriendlyCopyPreview(ctx.isSignedIn, ctx.uid)) {
-    return false;
-  }
-
   const allowlist = parseBuyerFriendlyCopyPreviewAllowlistUids(readEnv);
-  return isUidAllowlistedForBuyerFriendlyCopyPreview(ctx.uid, allowlist);
+  return { readEnv, hostname, projectId, allowlist };
+}
+
+export function isBuyerFriendlyCopyPreviewFeatureActive(
+  ctx: Pick<
+    BuyerFriendlyCopyPreviewContext,
+    "hostname" | "projectId" | "readEnv"
+  >
+): boolean {
+  const { readEnv, hostname, projectId } = resolveGateContext(ctx);
+  if (!isBuyerFriendlyCopyPreviewFlagEnabled(readEnv)) {
+    return false;
+  }
+  return isStagingBuyerFriendlyCopyHost({ hostname, projectId });
+}
+
+/** Evaluates each gate step — used for preview visibility and staging UX clarity. */
+export function evaluateBuyerFriendlyCopyPreviewGate(
+  ctx: BuyerFriendlyCopyPreviewContext
+): BuyerFriendlyCopyPreviewGateEvaluation {
+  const { readEnv, hostname, projectId, allowlist } = resolveGateContext(ctx);
+  const signedInEligible = isSignedInForBuyerFriendlyCopyPreview(
+    ctx.isSignedIn,
+    ctx.uid
+  );
+
+  if (!isBuyerFriendlyCopyPreviewFlagEnabled(readEnv)) {
+    return {
+      visible: false,
+      reason: "flag-off",
+      featureActive: false,
+      signedInEligible,
+    };
+  }
+
+  const staging = isStagingBuyerFriendlyCopyHost({ hostname, projectId });
+  if (!staging) {
+    return {
+      visible: false,
+      reason: "non-staging",
+      featureActive: false,
+      signedInEligible,
+    };
+  }
+
+  if (!signedInEligible) {
+    return {
+      visible: false,
+      reason: "guest-or-unsigned",
+      featureActive: true,
+      signedInEligible: false,
+    };
+  }
+
+  if (allowlist.length === 0) {
+    return {
+      visible: false,
+      reason: "empty-allowlist",
+      featureActive: true,
+      signedInEligible: true,
+    };
+  }
+
+  if (!isUidAllowlistedForBuyerFriendlyCopyPreview(ctx.uid, allowlist)) {
+    return {
+      visible: false,
+      reason: "not-allowlisted",
+      featureActive: true,
+      signedInEligible: true,
+    };
+  }
+
+  return {
+    visible: true,
+    reason: "visible",
+    featureActive: true,
+    signedInEligible: true,
+  };
+}
+
+/** All gates must pass — default-deny. Guest and non-allowlisted users never see preview. */
+export function shouldShowBuyerFriendlyCopyPreview(
+  ctx: BuyerFriendlyCopyPreviewContext
+): boolean {
+  return evaluateBuyerFriendlyCopyPreviewGate(ctx).visible;
 }
