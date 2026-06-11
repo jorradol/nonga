@@ -204,6 +204,7 @@
     "test:v62b13b-sanitized-import-manifest-preparation": "tsx scripts/test-v62b13b-sanitized-import-manifest-preparation.mts",
     "test:v62b13-controlled-real-stock-import-execution-record": "tsx scripts/test-v62b13-controlled-real-stock-import-execution-record.mts",
     "test:v62b14-real-stock-manual-smoke-test-allowlisted-staging": "tsx scripts/test-v62b14-real-stock-manual-smoke-test-allowlisted-staging.mts",
+    "test:v62b15-real-stock-pilot-acceptance-go-no-go-review": "tsx scripts/test-v62b15-real-stock-pilot-acceptance-go-no-go-review.mts",
     "test:v62c-privacy-safe-auto-redaction-readiness-plan": "tsx scripts/test-v62c-privacy-safe-auto-redaction-readiness-plan.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
