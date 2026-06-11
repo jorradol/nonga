@@ -149,7 +149,7 @@ const pkg = readFileSync("package.json", "utf8");
   ok("JH-07 source rich or structured", /template-rich|template-structured/.test(result.source));
   ok("JH-08 guard pass", result.guardPass);
   ok("JH-09 has highlights", /จุดเด่น/.test(result.text));
-  ok("JH-10 has safety disclaimer", /ตรวจสอบสภาพรถจริง/.test(result.text));
+  ok("JH-10 has safety disclaimer", /ตรวจสอบรถจริง|สภาพรถ/.test(result.text));
   ok("JH-11 output guard", passesOutputGuard(result.text).pass);
   ok("JH-12 no overclaim", !/ไม่เคยช|ไมล์แท้|ประหยัดแน่นอน|รับประกัน/i.test(result.text));
 }
@@ -167,8 +167,8 @@ const pkg = readFileSync("package.json", "utf8");
 // --- preview UX ---
 {
   ok("UX-01 human title", previewSrc.includes(BUYER_FRIENDLY_PREVIEW_TITLE));
-  ok("UX-02 subtitle buyer summary", /สรุปรายละเอียดสำหรับผู้ซื้อ/.test(previewSrc));
-  ok("UX-03 safety disclaimer in header", /BUYER_FRIENDLY_SAFETY_DISCLAIMER/.test(previewSrc));
+  ok("UX-02 subtitle buyer summary", /สรุปรายละเอียดสำหรับผู้ซื้อ|ภาษาคนช่วยขาย/.test(previewSrc));
+  ok("UX-03 disclaimer not duplicated in header", !previewSrc.includes("BUYER_FRIENDLY_SAFETY_DISCLAIMER"));
   ok("UX-04 empty source panel", previewSrc.includes("buyer-friendly-copy-preview-empty"));
   ok("UX-05 original description not replaced", !previewSrc.includes("car.description"));
 }

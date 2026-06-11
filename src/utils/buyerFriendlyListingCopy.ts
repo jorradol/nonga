@@ -38,7 +38,59 @@ export interface BuyerFriendlyListingCopyResult {
 }
 
 export const BUYER_FRIENDLY_SAFETY_DISCLAIMER =
-  "จากข้อมูลประกาศ — ควรตรวจสอบสภาพรถจริง เอกสาร และทดลองขับก่อนตัดสินใจซื้อ";
+  "ข้อมูลนี้เป็นการเรียบเรียงจากประกาศเดิม ไม่ใช่การยืนยันสภาพรถ ควรตรวจสอบรถจริง เอกสาร และทดลองขับก่อนตัดสินใจ";
+
+const INTERNAL_NOISE_PATTERNS: RegExp[] = [
+  /controlled\s*pilot\s*source\s*package/gi,
+  /\/?k\s*ต้องตรวจสภาพจริง/gi,
+];
+
+const JUNK_SPEC_TOKEN = /^(?:ab\d+|k)$/i;
+
+type SpecCategory =
+  | "driving"
+  | "access"
+  | "entertainment"
+  | "parking"
+  | "comfort"
+  | "other";
+
+const SPEC_CATEGORY_RULES: { category: SpecCategory; patterns: RegExp[] }[] = [
+  {
+    category: "driving",
+    patterns: [
+      /cruise control/i,
+      /พวงมาลัย/i,
+      /ไฟตัดหมอก/i,
+      /ไฟเลี้ยว/i,
+      /ไฟหน้า/i,
+      /ไฟท้าย/i,
+    ],
+  },
+  {
+    category: "access",
+    patterns: [/engine start/i, /smart keyless/i, /keyless/i, /สตาร์ท/i],
+  },
+  {
+    category: "entertainment",
+    patterns: [
+      /bluetooth/i,
+      /fm\/am/i,
+      /วิทยุ/i,
+      /\busb\b/i,
+      /\bcd\b/i,
+      /จอทัช/i,
+    ],
+  },
+  {
+    category: "parking",
+    patterns: [/กล้อง/i, /เซ็นเซอร์/i, /ถอย/i],
+  },
+  {
+    category: "comfort",
+    patterns: [/เบาะ/i, /ฝาท้าย/i, /ล้อแม็ก/i, /หนัง/i],
+  },
+];
 
 const SPEC_SPLIT = /[+,\n/|]+/;
 
@@ -67,6 +119,12 @@ const SPEC_MAP: Record<string, string> = {
   "บลูทูธ": "ระบบ Bluetooth",
   "บลูธูท": "ระบบ Bluetooth",
   bluetooth: "ระบบ Bluetooth",
+  usb: "USB",
+  cd: "CD",
+  am: "วิทยุ FM/AM",
+  "กล้องถอย": "กล้องถอยหลัง",
+  "กล้องถอยหลัง": "กล้องถอยหลัง",
+  "เซ็นเซอร์ถอย": "เซ็นเซอร์ถอยหลัง",
   "ไฟหน้aled": "ไฟหน้า LED",
   "ไฟท้ายled": "ไฟท้าย LED",
   "ล้อแม็ก": "ล้อแม็ก",
@@ -143,22 +201,143 @@ function uniqueSpecs(specs: string[]): string[] {
   return out;
 }
 
+export function isJunkSpecToken(token: string): boolean {
+  const t = token.trim();
+  if (!t || t.length <= 1) return true;
+  if (JUNK_SPEC_TOKEN.test(t)) return true;
+  if (/controlled\s*pilot|source\s*package/i.test(t)) return true;
+  if (/^[a-z]{1,2}$/i.test(t) && !/^(am|cd)$/i.test(t)) return true;
+  return false;
+}
+
+export function isDisplayableProvince(province?: string): boolean {
+  const p = province?.trim();
+  if (!p || p.length < 3) return false;
+  const thaiLetters = (p.match(/[ก-ฮ]/g) ?? []).length;
+  if (thaiLetters < 2) return false;
+  if (/^ขฐ$/.test(p) || /^[^\s]{1,2}$/.test(p)) return false;
+  return true;
+}
+
+function categorizeSpec(label: string): SpecCategory {
+  for (const rule of SPEC_CATEGORY_RULES) {
+    if (rule.patterns.some((pat) => pat.test(label))) return rule.category;
+  }
+  return "other";
+}
+
+function consolidateEntertainmentLabels(labels: string[]): string[] {
+  const hasTouch = labels.some((s) => /จอทัช/i.test(s));
+  const hasRadio = labels.some((s) => /fm\/am|วิทยุ/i.test(s));
+  const hasBt = labels.some((s) => /bluetooth/i.test(s));
+  const hasUsb = labels.some((s) => /\busb\b/i.test(s));
+  const parts: string[] = [];
+  if (hasTouch) parts.push("จอทัชสกรีน");
+  if (hasRadio) parts.push("วิทยุ FM/AM");
+  if (hasBt) parts.push("Bluetooth");
+  if (hasUsb) parts.push("USB");
+  if (parts.length > 0) return [parts.join(" ")];
+  return labels.filter((s) => !/^(AM|CD|USB|วิทยุ FM\/AM)$/i.test(s));
+}
+
+function groupSpecsForSalesCopy(specs: string[]): Map<SpecCategory, string[]> {
+  const grouped = new Map<SpecCategory, string[]>();
+  for (const spec of specs) {
+    const normalized = normalizeSpecLabel(spec);
+    if (isJunkSpecToken(normalized)) continue;
+    const category = categorizeSpec(normalized);
+    const list = grouped.get(category) ?? [];
+    if (!list.some((s) => s.toLowerCase() === normalized.toLowerCase())) {
+      list.push(normalized);
+    }
+    grouped.set(category, list);
+  }
+  const entertainment = grouped.get("entertainment");
+  if (entertainment?.length) {
+    grouped.set("entertainment", consolidateEntertainmentLabels(entertainment));
+  }
+  return grouped;
+}
+
+function joinThaiList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} และ ${items[1]}`;
+  return `${items.slice(0, -1).join(" ")} และ ${items[items.length - 1]}`;
+}
+
+function normalizeSpecLabel(label: string): string {
+  const key = label.toLowerCase().replace(/\s+/g, "");
+  for (const [k, v] of SPEC_MAP_ENTRIES) {
+    if (key.includes(k.toLowerCase().replace(/\s+/g, ""))) return v;
+  }
+  return label.trim();
+}
+
+function buildSalesFeatureParagraphs(grouped: Map<SpecCategory, string[]>): string[] {
+  const paragraphs: string[] = [];
+  const driving = grouped.get("driving") ?? [];
+  const access = grouped.get("access") ?? [];
+  const comfort = grouped.get("comfort") ?? [];
+  const entertainment = grouped.get("entertainment") ?? [];
+  const parking = grouped.get("parking") ?? [];
+  const other = grouped.get("other") ?? [];
+
+  const drivingComfort = [...comfort, ...driving];
+  if (drivingComfort.length > 0) {
+    paragraphs.push(
+      `จุดเด่นด้านความสะดวกในการขับ มี${joinThaiList(drivingComfort)} ช่วยให้ขับสบายและใช้งานในชีวิตประจำวันสะดวกขึ้น`
+    );
+  }
+
+  if (access.length > 0) {
+    paragraphs.push(
+      `การเข้าใช้งานสะดวกขึ้นด้วย${joinThaiList(access)} ช่วยลดขั้นตอนตอนเริ่มใช้งานรถ`
+    );
+  }
+
+  if (entertainment.length > 0) {
+    paragraphs.push(
+      `${joinThaiList(entertainment)} ช่วยให้การเดินทางและการเชื่อมต่อมือถือใช้งานง่ายขึ้น`
+    );
+  }
+
+  if (parking.length > 0) {
+    paragraphs.push(
+      `${joinThaiList(parking)} ช่วยให้การจอดและถอยรถใช้งานง่ายขึ้น`
+    );
+  }
+
+  if (other.length > 0) {
+    paragraphs.push(
+      `จากข้อมูลประกาศ ยังมี${joinThaiList(other)} ที่ช่วยเสริมการใช้งานตามที่ระบุ`
+    );
+  }
+
+  return paragraphs;
+}
+
 export function parseBuyerSpecTokens(raw: string): string[] {
   return raw
     .split(SPEC_SPLIT)
     .map((s) => s.trim().replace(/^\/k$/i, "").trim())
-    .filter((s) => s.length > 1)
+    .filter((s) => s.length > 1 && !isJunkSpecToken(s))
     .map((token) => {
       const key = token.toLowerCase().replace(/\s+/g, "");
       for (const [k, v] of SPEC_MAP_ENTRIES) {
         if (key.includes(k.toLowerCase().replace(/\s+/g, ""))) return v;
       }
-      return token.replace(/\s+/g, " ");
-    });
+      const cleaned = token.replace(/\s+/g, " ");
+      return isJunkSpecToken(cleaned) ? "" : cleaned;
+    })
+    .filter(Boolean);
 }
 
 export function sanitizeListingCopyText(text: string): string {
   let out = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  for (const pat of INTERNAL_NOISE_PATTERNS) {
+    out = out.replace(pat, " ");
+  }
   for (const pat of PRIVACY_STRIP_PATTERNS) {
     out = out.replace(pat, " ");
   }
@@ -217,10 +396,16 @@ function collectSpecs(
   input: BuyerFriendlyListingCopyInput,
   softenedDescription: string
 ): string[] {
+  const fromFeatures = (input.features ?? [])
+    .map((f) => sanitizeListingCopyText(f))
+    .filter((f) => f && !isJunkSpecToken(f));
+  const fromTags = (input.tags ?? [])
+    .map((t) => sanitizeListingCopyText(t))
+    .filter((t) => t && !isJunkSpecToken(t));
   return uniqueSpecs([
     ...parseBuyerSpecTokens(softenedDescription),
-    ...(input.features ?? []),
-    ...(input.tags ?? []),
+    ...fromFeatures,
+    ...fromTags,
   ]);
 }
 
@@ -238,7 +423,9 @@ function buildStructuredDetailParts(
   if (input.transmission?.trim()) {
     parts.push(`เกียร์ ${input.transmission.trim()}`);
   }
-  if (input.province?.trim()) parts.push(`จังหวัด${input.province.trim()}`);
+  if (isDisplayableProvince(input.province)) {
+    parts.push(`จังหวัด${input.province!.trim()}`);
+  }
   if (input.condition?.trim()) {
     const { text: cond } = softenOmitOverclaims(
       sanitizeListingCopyText(input.condition)
@@ -248,21 +435,44 @@ function buildStructuredDetailParts(
   return parts;
 }
 
-function buildUseCaseLine(input: BuyerFriendlyListingCopyInput): string {
-  const body = (input.bodyType ?? "").toLowerCase();
+function buildBodyTypeHint(input: BuyerFriendlyListingCopyInput): string {
+  const body = `${input.bodyType ?? ""} ${input.model ?? ""}`.toLowerCase();
+  const fuel = formatFuel(input.fuelType);
   if (/suv|คร(?:อ|o)บครัว|7.?ที่/i.test(body)) {
-    return "เหมาะสำหรับผู้ที่มองหารถใช้งานครอบครัวตามสเปกที่แจ้ง";
+    return fuel ? `SUV ${fuel} ใช้งานประจำวัน` : "SUV ใช้งานประจำวัน";
   }
   if (/pickup|กระบะ/i.test(body)) {
-    return "เหมาะสำหรับผู้ที่มองหารถใช้งานและขนส่งตามสเปกที่แจ้ง";
+    return fuel ? `รถกระบะ ${fuel}` : "รถกระบะใช้งานและขนส่ง";
   }
-  return "เหมาะสำหรับผู้ที่มองหารถใช้งานตามสเปกที่แจ้ง";
+  if (fuel) return `รถ${fuel} ใช้งานประจำวัน`;
+  return "รถใช้งานประจำวัน";
 }
 
-function buildHighlightsBlock(specs: string[]): string {
-  if (specs.length === 0) return "";
-  const bullets = specs.map((s) => `- ${s}`).join("\n");
-  return `จุดเด่น\n${bullets}`;
+function buildUseCaseLine(input: BuyerFriendlyListingCopyInput): string {
+  const hint = buildBodyTypeHint(input);
+  return `เหมาะสำหรับผู้ที่มองหา ${hint} ที่อยากได้ความสะดวกจากอุปกรณ์ตามที่ระบุในประกาศ`;
+}
+
+function buildIntroParagraph(
+  input: BuyerFriendlyListingCopyInput,
+  hasSpecs: boolean
+): string {
+  const identity = buildIdentityLine(input);
+  const hint = buildBodyTypeHint(input);
+  let intro = identity
+    ? `จากข้อมูลประกาศ ${identity} คันนี้`
+    : "จากข้อมูลประกาศ คันนี้";
+  intro += `เหมาะกับคนที่มองหา ${hint}`;
+  if (hasSpecs) {
+    intro += " และมีอุปกรณ์ช่วยให้ใช้งานในชีวิตประจำวันสะดวกขึ้น";
+  }
+  return `${intro}.`;
+}
+
+function buildSummarySentence(input: BuyerFriendlyListingCopyInput): string {
+  const details = buildStructuredDetailParts(input);
+  if (details.length === 0) return "";
+  return `ข้อมูลสรุปจากประกาศ: ${details.join(" ")}.`;
 }
 
 type Richness = "empty" | "minimal" | "structured" | "rich";
@@ -299,14 +509,10 @@ function composeRichTemplate(
   sanitizedDescription: string,
   specs: string[]
 ): string {
-  const identity = buildIdentityLine(input);
-  const intro = identity
-    ? `จากข้อมูลประกาศ ${identity}`
-    : "จากข้อมูลประกาศ";
-  const highlights = buildHighlightsBlock(specs);
-  const details = buildStructuredDetailParts(input);
-  const detailLine =
-    details.length > 0 ? `ข้อมูลสรุป: ${details.join(" ")}` : "";
+  const grouped = groupSpecsForSalesCopy(specs);
+  const intro = buildIntroParagraph(input, specs.length > 0);
+  const featureParagraphs = buildSalesFeatureParagraphs(grouped);
+  const summary = buildSummarySentence(input);
   const safeDesc =
     sanitizedDescription.length > 0 &&
     !looksLikeRawSpecOnly(sanitizedDescription)
@@ -316,9 +522,9 @@ function composeRichTemplate(
 
   return [
     intro,
-    highlights,
+    ...featureParagraphs,
     safeDesc,
-    detailLine,
+    summary,
     useCase,
     BUYER_FRIENDLY_SAFETY_DISCLAIMER,
   ]
@@ -330,23 +536,21 @@ function composeStructuredTemplate(
   input: BuyerFriendlyListingCopyInput,
   specs: string[]
 ): string {
-  const identity = buildIdentityLine(input);
-  const intro = identity
-    ? `จากข้อมูลประกาศ ${identity}`
-    : "จากข้อมูลประกาศ";
-  const highlights =
-    specs.length > 0
-      ? `จุดเด่นตามสเปกที่ระบุ: ${specs.join(" ")}`
-      : "รายละเอียดอุปกรณ์และสภาพรถสามารถสอบถามเพิ่มเติมได้";
-  const details = buildStructuredDetailParts(input);
-  const detailLine =
-    details.length > 0 ? `ข้อมูลสรุป: ${details.join(" ")}` : "";
+  const grouped = groupSpecsForSalesCopy(specs);
+  const intro = buildIntroParagraph(input, specs.length > 0);
+  const featureParagraphs = buildSalesFeatureParagraphs(grouped);
+  const summary = buildSummarySentence(input);
+  const fallbackLine =
+    specs.length === 0
+      ? "รายละเอียดอุปกรณ์และสภาพรถสามารถสอบถามเพิ่มเติมได้"
+      : "";
   const useCase = buildUseCaseLine(input);
 
   return [
     intro,
-    highlights,
-    detailLine,
+    ...featureParagraphs,
+    fallbackLine,
+    summary,
     useCase,
     BUYER_FRIENDLY_SAFETY_DISCLAIMER,
   ]

@@ -2,10 +2,7 @@
  * v6.3B.3 — Additive buyer-friendly listing copy preview panel (staging-gated).
  */
 import ListingDescription from "./ListingDescription";
-import {
-  BUYER_FRIENDLY_SAFETY_DISCLAIMER,
-  type BuyerFriendlyListingCopyResult,
-} from "../../utils/buyerFriendlyListingCopy";
+import type { BuyerFriendlyListingCopyResult } from "../../utils/buyerFriendlyListingCopy";
 
 export const BUYER_FRIENDLY_PREVIEW_FALLBACK_BANNER =
   "preview ไม่พร้อม — ใช้ข้อความประกาศเดิมเป็นหลัก";
@@ -13,7 +10,7 @@ export const BUYER_FRIENDLY_PREVIEW_FALLBACK_BANNER =
 export const BUYER_FRIENDLY_PREVIEW_TITLE = "น้องเอช่วยสรุปให้อ่านง่าย";
 
 export const BUYER_FRIENDLY_PREVIEW_SUBTITLE =
-  "สรุปรายละเอียดสำหรับผู้ซื้อ — แปลภาษารถให้เข้าใจง่าย";
+  "สรุปรายละเอียดสำหรับผู้ซื้อ — ภาษาคนช่วยขาย อ่านง่ายจากข้อมูลประกาศ";
 
 export const BUYER_FRIENDLY_PREVIEW_EMPTY_NOTICE =
   "ยังไม่มีข้อมูลประกาศเพียงพอสำหรับสรุปให้อ่านง่าย";
@@ -56,9 +53,6 @@ function PreviewHeader({ tone }: { tone: "dark" | "light" }) {
         </span>
       </div>
       <p className={`text-xs leading-relaxed ${muted}`}>{BUYER_FRIENDLY_PREVIEW_SUBTITLE}</p>
-      <p className={`text-[10px] leading-relaxed ${muted}`}>
-        {BUYER_FRIENDLY_SAFETY_DISCLAIMER}
-      </p>
     </div>
   );
 }
