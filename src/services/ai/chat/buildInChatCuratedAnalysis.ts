@@ -16,6 +16,8 @@ import {
 
 export const IN_CHAT_CURATED_TITLE = "บทเกณฑ์คัดสรรของน้องเอ";
 
+export const IN_CHAT_CURATED_SPEAK_ARIA_LABEL = "ฟังบทเกณฑ์คัดสรรของน้องเอ";
+
 export const IN_CHAT_CURATED_FORBIDDEN =
   /(?:ล้านเปอร์เซ็นต์|ทนทานที่สุด|พละกำลังเหนือระดับ|บำรุงรักษาง่ายที่สุด|คันนี้มีคนทัก|ไม่เคยชน|ไม่จุกจิกแน่นอน|ดึงใจชัวร์|รวยแน่นอน|เครื่องดีแน่นอน|สีเดิมแน่นอน)/i;
 
@@ -233,4 +235,20 @@ export function buildInChatCuratedAnalysis(
     closing,
     paragraphs: [opening, highlights, closing],
   };
+}
+
+/** Visible in-panel text only — for browser TTS (no hidden fields). */
+export function buildInChatCuratedSpeakableText(
+  analysis: InChatCuratedAnalysis
+): string {
+  const parts = [analysis.title, analysis.opening, analysis.highlights, analysis.closing]
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.join("\n\n");
+}
+
+export function hasInChatCuratedSpeakableText(
+  analysis: InChatCuratedAnalysis
+): boolean {
+  return buildInChatCuratedSpeakableText(analysis).trim().length > 0;
 }

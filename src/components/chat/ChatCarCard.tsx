@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchListingInterestQueueStats } from "../../services/leads/buyerLeadApi";
 import { buildPublicInterestLabel } from "../../services/leads/buyerLeadQueuePolicy";
-import { Car, ChevronDown, ChevronUp, ImageOff, PhoneCall, Quote, Sparkles } from "lucide-react";
+import { Car, ChevronDown, ChevronUp, ImageOff, PhoneCall, Quote, Sparkles, Volume2, VolumeX } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
+import { useSpeech } from "../../hooks/chat/useSpeech";
 import {
   buildInChatCuratedAnalysis,
+  buildInChatCuratedSpeakableText,
+  hasInChatCuratedSpeakableText,
+  IN_CHAT_CURATED_SPEAK_ARIA_LABEL,
   IN_CHAT_CURATED_TITLE,
 } from "../../services/ai/chat/buildInChatCuratedAnalysis";
 
@@ -172,16 +176,50 @@ function ExpandableDescription({ text }: { text: string }) {
 
 function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
   const analysis = useMemo(() => buildInChatCuratedAnalysis(car), [car]);
+  const speakableText = useMemo(
+    () => buildInChatCuratedSpeakableText(analysis),
+    [analysis]
+  );
+  const canSpeak = hasInChatCuratedSpeakableText(analysis);
+  const ttsMessageId = `curated-tts-${car.id}`;
+  const { toggleSpeak, isSpeaking } = useSpeech();
+  const speaking = isSpeaking(ttsMessageId);
 
   return (
     <div
       className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-3 space-y-2.5"
       data-testid="chat-car-curated-analysis"
     >
-      <div className="flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-        <Quote className="w-3 h-3 text-orange-500/70 shrink-0" />
-        <span className="text-[11px] font-bold text-orange-400">{analysis.title}</span>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+          <Quote className="w-3 h-3 text-orange-500/70 shrink-0" />
+          <span className="text-[11px] font-bold text-orange-400">{analysis.title}</span>
+        </div>
+        {canSpeak ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleSpeak(speakableText, ttsMessageId);
+            }}
+            className={`shrink-0 p-1 rounded transition cursor-pointer ${
+              speaking
+                ? "text-sky-400 hover:bg-sky-500/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+            }`}
+            aria-label={IN_CHAT_CURATED_SPEAK_ARIA_LABEL}
+            title={speaking ? "หยุดบรรยาย" : IN_CHAT_CURATED_SPEAK_ARIA_LABEL}
+            data-testid="chat-car-curated-tts-btn"
+            data-car-id={car.id}
+          >
+            {speaking ? (
+              <VolumeX className="w-3.5 h-3.5" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+        ) : null}
       </div>
       <div className="space-y-2 text-[11px] sm:text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
         <p>{analysis.opening}</p>
