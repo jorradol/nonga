@@ -125,7 +125,8 @@ function main(): void {
     path.join(process.cwd(), "src/components/chat/ChatSidebarNewCarsSlider.tsx"),
     "utf8"
   );
-  if (!sliderSrc.includes("รถเข้าใหม่")) fail("slider-title");
+  if (!sliderSrc.includes("รถมาใหม่")) fail("slider-title");
+  if (sliderSrc.includes("รถเข้าใหม่")) fail("slider-no-legacy-title");
   if (sliderSrc.includes("กี่คัน") || sliderSrc.includes("queue.length")) {
     fail("slider-no-queue-count-copy");
   }

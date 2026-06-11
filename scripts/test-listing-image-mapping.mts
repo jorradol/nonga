@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   sanitizeListingImagesForId,
   getListingPrimaryImage,
+  normalizeListingImageDisplayUrl,
   LISTING_PLACEHOLDER_IMAGE,
 } from "../src/utils/listingImages.ts";
 
@@ -39,5 +40,23 @@ const primary = getListingPrimaryImage(
   CAR_A
 );
 assert.ok(primary.includes(CAR_A));
+
+const driveShare =
+  "https://drive.google.com/file/d/AbCdEfGhIjKlMnOpQrStUvWx/view?usp=sharing";
+const driveDisplay = normalizeListingImageDisplayUrl(driveShare);
+assert.ok(driveDisplay.includes("drive.google.com/uc?export=view&id="));
+assert.ok(driveDisplay.includes("AbCdEfGhIjKlMnOpQrStUvWx"));
+assert.equal(
+  normalizeListingImageDisplayUrl(`/storage/listings/${CAR_A}/01-x.jpg`),
+  `/storage/listings/${CAR_A}/01-x.jpg`
+);
+
+const drivePrimary = getListingPrimaryImage(
+  {
+    id: CAR_A,
+    images: [driveShare],
+  }
+);
+assert.ok(drivePrimary.includes("uc?export=view&id="));
 
 console.log("test:listing-images — OK");

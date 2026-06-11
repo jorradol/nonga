@@ -14,6 +14,7 @@ import {
   buildSidebarNewCarsQueue,
   sidebarCarIntroLine,
 } from "../../utils/chatSidebarNewCarsQueue";
+import { LISTING_PLACEHOLDER_IMAGE } from "../../utils/listingImages";
 
 interface ChatSidebarNewCarsSliderProps {
   collapsed: boolean;
@@ -40,6 +41,11 @@ export function ChatSidebarNewCarsSlider({
   const slideCount = slides.length;
   const safeIndex = slideCount > 0 ? index % slideCount : 0;
   const current = slideCount > 0 ? slides[safeIndex] : null;
+  const [imageSrc, setImageSrc] = useState(LISTING_PLACEHOLDER_IMAGE);
+
+  useEffect(() => {
+    setImageSrc(current?.imageUrl ?? LISTING_PLACEHOLDER_IMAGE);
+  }, [current?.id, current?.imageUrl]);
 
   useEffect(() => {
     setIndex(0);
@@ -131,14 +137,20 @@ export function ChatSidebarNewCarsSlider({
           disabled={isGenerating}
           className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700/80 bg-gradient-to-b from-slate-800/70 to-slate-950 shadow-md shadow-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 disabled:opacity-50"
           title={`${current.brand} ${current.model}`}
-          aria-label={`รถเข้าใหม่ ${current.brand} ${current.model}`}
+          aria-label={`รถมาใหม่ ${current.brand} ${current.model}`}
         >
           <img
-            src={current.imageUrl}
+            src={imageSrc}
             alt=""
             className="w-full h-full object-contain object-center"
             loading="lazy"
             decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => {
+              if (imageSrc !== LISTING_PLACEHOLDER_IMAGE) {
+                setImageSrc(LISTING_PLACEHOLDER_IMAGE);
+              }
+            }}
           />
         </button>
       </div>
@@ -155,7 +167,7 @@ export function ChatSidebarNewCarsSlider({
         className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 px-0.5"
         id="sidebar-new-cars-title"
       >
-        รถเข้าใหม่
+        รถมาใหม่
       </p>
       <div className="relative rounded-xl overflow-hidden border border-slate-700/70 bg-slate-900/60 shadow-lg shadow-black/25">
         <button
@@ -167,11 +179,17 @@ export function ChatSidebarNewCarsSlider({
           aria-label={`ดู ${current.brand} ${current.model} ในแชท`}
         >
           <img
-            src={current.imageUrl}
+            src={imageSrc}
             alt={`${current.brand} ${current.model}`}
             className="w-full h-full max-md:object-contain max-md:object-center md:object-cover"
             loading="lazy"
             decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => {
+              if (imageSrc !== LISTING_PLACEHOLDER_IMAGE) {
+                setImageSrc(LISTING_PLACEHOLDER_IMAGE);
+              }
+            }}
           />
         </button>
 

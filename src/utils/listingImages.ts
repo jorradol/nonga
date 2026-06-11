@@ -3,6 +3,11 @@
  * ห้ามสุ่ม / ห้าม reorder local ก่อน remote / ห้าม legacy stock แทนรูปจริง
  */
 
+import {
+  googleDriveFileViewUrl,
+  parseGoogleDriveFileId,
+} from "./inventoryImport/imageLinkExtractor";
+
 export const LISTING_PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
 
@@ -19,6 +24,22 @@ export const LEGACY_STOCK_IMAGE_URLS = new Set([
 
 export function isLocalListingImageUrl(url: string): boolean {
   return String(url).startsWith("/storage/listings/");
+}
+
+/**
+ * Normalize external image URLs for browser <img> display.
+ * Google Drive share links (/file/d/.../view) are not img-hotlink safe — use uc export=view.
+ * Does not mutate stored listing records.
+ */
+export function normalizeListingImageDisplayUrl(url: string): string {
+  const u = String(url ?? "").trim();
+  if (!u || u === LISTING_PLACEHOLDER_IMAGE) return u;
+  if (!/^https?:\/\//i.test(u)) return u;
+  const fileId = parseGoogleDriveFileId(u);
+  if (fileId && u.includes("drive.google.com")) {
+    return googleDriveFileViewUrl(fileId);
+  }
+  return u;
 }
 
 export function extractStorageListingId(url: string): string | null {
@@ -145,7 +166,9 @@ function resolveListingPrimaryImage(
         : [];
   for (const raw of list) {
     const url = String(raw ?? "").trim();
-    if (isValidListingImageUrl(url, listingId)) return url;
+    if (isValidListingImageUrl(url, listingId)) {
+      return normalizeListingImageDisplayUrl(url);
+    }
   }
   return LISTING_PLACEHOLDER_IMAGE;
 }
@@ -197,7 +220,9 @@ export function getListingGalleryImages(
   const out: string[] = [];
   for (const raw of list.slice(0, 12)) {
     const url = String(raw ?? "").trim();
-    if (isValidListingImageUrl(url, listingId)) out.push(url);
+    if (isValidListingImageUrl(url, listingId)) {
+      out.push(normalizeListingImageDisplayUrl(url));
+    }
   }
   return out.length > 0 ? out : [LISTING_PLACEHOLDER_IMAGE];
 }

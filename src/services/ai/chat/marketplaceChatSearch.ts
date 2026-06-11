@@ -6,6 +6,7 @@ import {
   isLocalListingImageUrl,
   isValidListingImageUrl,
   listingImageUrlReferencesListing,
+  normalizeListingImageDisplayUrl,
 } from "../../../utils/listingImages";
 import {
   inferVehicleBodyClass,
@@ -155,7 +156,8 @@ export function resolveChatListingImageUrls(car: ChatInventoryCar): string[] {
     ) {
       continue;
     }
-    if (!urls.includes(url)) urls.push(url);
+    const displayUrl = normalizeListingImageDisplayUrl(url);
+    if (!urls.includes(displayUrl)) urls.push(displayUrl);
   }
   return urls;
 }
