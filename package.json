@@ -209,6 +209,7 @@
     "test:v62d-thailand-used-car-legal-compliance-readiness-plan": "tsx scripts/test-v62d-thailand-used-car-legal-compliance-readiness-plan.mts",
     "test:v62e-pilot-monitoring-feedback-loop-readiness-plan": "tsx scripts/test-v62e-pilot-monitoring-feedback-loop-readiness-plan.mts",
     "test:v62e1-real-stock-preview-image-diagnosis-copy-polish": "tsx scripts/test-v62e1-real-stock-preview-image-diagnosis-copy-polish.mts",
+    "test:v62e1a-hosting-deploy-execution-record": "tsx scripts/test-v62e1a-hosting-deploy-execution-record.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
