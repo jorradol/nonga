@@ -267,6 +267,7 @@
     "test:v65h-production-pilot-approval-packet": "tsx scripts/test-v65h-production-pilot-approval-packet.mts",
     "test:v65i-production-pilot-owner-decision-record-packet": "tsx scripts/test-v65i-production-pilot-owner-decision-record-packet.mts",
     "test:v65j-production-pilot-execution-handoff-boundary-packet": "tsx scripts/test-v65j-production-pilot-execution-handoff-boundary-packet.mts",
+    "test:v65k-execution-approval-separation-version-boundary-packet": "tsx scripts/test-v65k-execution-approval-separation-version-boundary-packet.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
