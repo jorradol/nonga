@@ -133,18 +133,29 @@ const docForUidScan = doc
   }
 }
 
-// --- legacy labels in source AIControlCenter ---
+// --- legacy labels in source AIControlCenter (post v6.4C.2 remediation) ---
 {
   ok("source AIControlCenter exists", existsSync(AI_CONTROL_CENTER));
-  for (const label of LEGACY_LABELS) {
-    ok(
-      `source legacy label ${label.slice(0, 24)}`,
-      controlCenter.includes(label)
-    );
-  }
   ok(
-    "source simulated stats comment",
-    /Simulated stats card row/i.test(controlCenter)
+    "source v64c2 safety banner",
+    controlCenter.includes("legacy-ai-control-safety-banner")
+  );
+  ok(
+    "source live sync remediated",
+    !controlCenter.includes("LIVE SYNC") &&
+      controlCenter.includes("Demo / Not connected")
+  );
+  ok(
+    "source gemini flash misleading copy removed",
+    !controlCenter.includes("Gemini 3.5 Flash Core Speed")
+  );
+  ok(
+    "source legacy admin config badge",
+    controlCenter.includes("Legacy admin config")
+  );
+  ok(
+    "source mock analytics banner",
+    controlCenter.includes("legacy-ai-control-analytics-mock-banner")
   );
 }
 

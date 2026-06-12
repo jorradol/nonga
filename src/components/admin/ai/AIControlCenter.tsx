@@ -5,7 +5,7 @@ import {
   Sparkles, Sliders, Smile, Wand2, Cpu, BookOpen, ShieldCheck, 
   Activity, Code, Workflow, MessageSquare, Plus, Trash2, Edit3, 
   Save, X, Check, RotateCcw, TrendingUp, Compass, Eye, AlertTriangle,
-  Play, CheckCircle2, Heart, Zap, Award, BarChart3, HelpCircle
+  Play, CheckCircle2, Heart, Zap, Award, BarChart3, HelpCircle, Lock, Shield
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -145,8 +145,32 @@ ${activeRules.join("\n") || "No custom structural rules active."}
   };
 
   return (
-    <div className="space-y-6 text-slate-300 selection:bg-orange-500/30">
-      
+    <section
+      className="space-y-6 text-slate-300 selection:bg-orange-500/30"
+      data-testid="legacy-ai-control-center"
+      data-legacy-disclosure="true"
+      aria-label="Legacy AI Control Center admin config demo"
+    >
+      {/* v6.4C.2 — Safety banner: authoritative OFF state + legacy disclosure */}
+      <div
+        className="rounded-2xl border border-amber-500/30 bg-amber-950/25 p-4 space-y-2 text-left"
+        data-testid="legacy-ai-control-safety-banner"
+      >
+        <p className="text-[11px] text-amber-100/95 flex items-start gap-2 leading-relaxed">
+          <Shield className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+          <span>
+            <strong className="text-amber-200">Legacy admin config (demo)</strong> — AI
+            provider remains <strong className="text-amber-200">OFF</strong>. Real Gemini is{" "}
+            <strong className="text-amber-200">not enabled</strong>. Save/delete below persist
+            legacy config drafts (localStorage/Firestore) —{" "}
+            <strong className="text-amber-200">not</strong> connected to real provider runtime.
+            Analytics and metrics in this section are{" "}
+            <strong className="text-amber-200">mock/placeholder</strong> with no live data
+            source. No secrets, raw prompts, or full UID are displayed here.
+          </span>
+        </p>
+      </div>
+
       {/* Header Visual Shield with glassmorphism */}
       <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 border border-white/[0.06] bg-[#0c0c0e]/80 backdrop-blur-xl">
         <div className="absolute right-0 top-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-orange-600/10 blur-[80px] pointer-events-none"></div>
@@ -154,20 +178,27 @@ ${activeRules.join("\n") || "No custom structural rules active."}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 text-left">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 px-3 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[10px] font-black tracking-widest uppercase">
-                Enterprise Co-Pilot Core
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="p-1.5 px-3 rounded-full bg-slate-500/10 border border-slate-500/25 text-slate-300 text-[10px] font-black tracking-widest uppercase"
+                data-testid="legacy-ai-control-disclosure-badge"
+              >
+                Legacy admin config
               </span>
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              <span className="text-[10px] text-green-400 font-bold font-mono">LIVE SYNC</span>
+              <span className="flex items-center gap-1 p-1.5 px-3 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-[10px] font-black tracking-widest uppercase">
+                <Lock className="w-3 h-3" />
+                Demo / Not connected
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white font-display tracking-tight flex items-center gap-2.5">
               <Cpu className="w-8 h-8 text-orange-500 shrink-0" />
               Nong A AI Control Center
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              สถาปัตยกรรมควบคุมพฤติกรรม ตรรกวิเคราะห์ ประโยคโต้ตอบ และระบบคัดกรองความปลอดภัยของน้องเอ 
-              (Nong A) ดีลแมนประเสริฐประจำแพลตฟอร์ม โดยไม่ต้องเขียนโปรแกรมแก้ไขโค้ดใดๆ 👑
+              Legacy module สำหรับร่าง config (prompts, moods, rules) —{" "}
+              <strong className="text-amber-200/90">not connected to real Gemini</strong>.
+              ใช้เพื่อเตรียม control modules ในอนาคตภายใต้ v6.4 control plane — ไม่ใช่สถานะ
+              production AI live
             </p>
           </div>
 
@@ -206,6 +237,16 @@ ${activeRules.join("\n") || "No custom structural rules active."}
           </div>
         )}
       </div>
+
+      <p
+        className="text-[10px] text-slate-400 border border-white/[0.06] bg-white/[0.02] rounded-xl px-4 py-2.5 leading-relaxed"
+        data-testid="legacy-ai-control-write-warning"
+      >
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 inline mr-1.5 align-[-2px]" />
+        <strong className="text-amber-200/90">Legacy config persistence:</strong> ปุ่ม
+        รีบูต/สร้างคอนฟิก/บันทึก/ลบ ด้านล่างเก็บแบบร่าง admin config เท่านั้น — ไม่เปิด real
+        provider และไม่เรียก Gemini API
+      </p>
 
       {/* Main SaaS Tabs Panel */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
@@ -271,7 +312,7 @@ ${activeRules.join("\n") || "No custom structural rules active."}
               className={`whitespace-nowrap flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition w-full ${getTabStyle("analytics")}`}
             >
               <Activity className="w-4 h-4 text-indigo-400" />
-              <span>8. Advanced AI Analytics 📊</span>
+              <span>8. Mock Analytics 📊 (no live data)</span>
             </button>
           </nav>
           
@@ -279,7 +320,9 @@ ${activeRules.join("\n") || "No custom structural rules active."}
           <div className="p-4 rounded-xl border border-white/[0.05] bg-gradient-to-br from-white/[0.01] to-white/[0.02] text-left space-y-3.5">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-orange-400" />
-              <h3 className="text-xs font-black text-white">ผังจำลองสมองกล (Sandbox Room)</h3>
+              <h3 className="text-xs font-black text-white">
+                ผังจำลองสมองกล (Sandbox — local demo only)
+              </h3>
             </div>
             
             <div className="space-y-2">
@@ -820,59 +863,93 @@ ${activeRules.join("\n") || "No custom structural rules active."}
 
             {/* 8. ADVANCED ANALYTICS TAB */}
             {activeTab === "analytics" && (
-              <div className="space-y-6">
+              <div className="space-y-6" data-testid="legacy-ai-control-analytics-panel">
+                <div
+                  className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 px-4 py-3 text-[11px] text-indigo-200/90"
+                  data-testid="legacy-ai-control-analytics-mock-banner"
+                >
+                  <strong className="text-indigo-200">Mock analytics</strong> — placeholder
+                  metrics only. <strong>No live data source</strong>. Not connected to real
+                  Gemini or production telemetry.
+                </div>
                 <div className="flex items-center justify-between border-b border-white/[0.05] pb-3">
                   <div>
                     <h3 className="text-base font-black text-white flex items-center gap-2">
                       <BarChart3 className="w-5 h-5 text-indigo-400" />
-                      Advanced AI Analytics & Monitoring Room
+                      Mock AI Analytics (demo / not connected)
                     </h3>
-                    <p className="text-slate-400 text-xs">สแกนวัดระดับความพึงพอใจลูกค้า อัตราการยื่นข้อเสนอ และความแม่นยำในการเลือกคำซิกเนเจอร์</p>
+                    <p className="text-slate-400 text-xs">
+                      ตัวเลขด้านล่างเป็น placeholder — ไม่ใช่รายงาน production จริง
+                    </p>
                   </div>
                 </div>
 
-                {/* Simulated stats card row */}
+                {/* Placeholder stats card row — no live data source */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] text-left">
+                  <div
+                    className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] text-left"
+                    data-testid="legacy-ai-control-metric-placeholder"
+                  >
+                    <span className="text-[9px] text-amber-400/90 font-bold uppercase tracking-wide block mb-1">
+                      Placeholder
+                    </span>
                     <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">AI Response Success Rate:</span>
-                    <span className="text-2xl font-black text-emerald-400 font-mono block mt-1">99.82%</span>
-                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">✓ ปราศจากความเสี่ยงเนื้อหาติดขัด</span>
+                    <span className="text-2xl font-black text-emerald-400/80 font-mono block mt-1">99.82%</span>
+                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">Mock — no live data source</span>
                   </div>
                   <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] text-left">
-                    <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Avg Response Latency:</span>
-                    <span className="text-2xl font-black text-sky-400 font-mono block mt-1">1.28s</span>
-                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">✦ Gemini 3.5 Flash Core Speed</span>
+                    <span className="text-[9px] text-amber-400/90 font-bold uppercase tracking-wide block mb-1">
+                      Placeholder
+                    </span>
+                    <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Avg Response Latency (demo):</span>
+                    <span className="text-2xl font-black text-sky-400/80 font-mono block mt-1">1.28s</span>
+                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">
+                      Not connected — Gemini runtime not enabled (future-only)
+                    </span>
                   </div>
                   <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] text-left">
-                    <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Deals Driven by AI (Nong A):</span>
-                    <span className="text-2xl font-black text-orange-400 font-mono block mt-1">74.2%</span>
-                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">★ เพิ่มจากไตรมาสที่แล้ว 12%</span>
+                    <span className="text-[9px] text-amber-400/90 font-bold uppercase tracking-wide block mb-1">
+                      Placeholder
+                    </span>
+                    <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Deals Driven by AI (demo):</span>
+                    <span className="text-2xl font-black text-orange-400/80 font-mono block mt-1">74.2%</span>
+                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">Mock metric — no analytics backend</span>
                   </div>
                   <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] text-left">
-                    <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">AI Active Memory Profiles:</span>
-                    <span className="text-2xl font-black text-purple-400 font-mono block mt-1">1,480 คน</span>
-                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">✔ ข้อมูลเก็บอยู่ใน localStorage + FireStore</span>
+                    <span className="text-[9px] text-amber-400/90 font-bold uppercase tracking-wide block mb-1">
+                      Placeholder
+                    </span>
+                    <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">AI Active Memory Profiles (demo):</span>
+                    <span className="text-2xl font-black text-purple-400/80 font-mono block mt-1">1,480 คน</span>
+                    <span className="text-[9.5px] text-slate-500 font-mono block mt-1">
+                      Mock — admin config cache only, not live memory service
+                    </span>
                   </div>
                 </div>
 
-                {/* Fine tuning pipeline status visualization */}
+                {/* Fine tuning pipeline — future-ready, not connected */}
                 <div className="p-5 rounded-xl border border-white/[0.05] bg-gradient-to-r from-indigo-950/20 to-purple-950/20 text-left space-y-3.5 relative overflow-hidden">
                   <div className="absolute right-0 top-0 -mr-12 -mt-12 w-32 h-32 rounded-full bg-indigo-500/10 blur-[50px]"></div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded font-black font-mono">
-                      PIPELINE STATUS
+                      Future-ready
                     </span>
-                    <h4 className="text-sm font-black text-white">Nong A Fine-Tuning Module (Future-ready)</h4>
+                    <span className="text-[10px] text-amber-300/90 font-bold uppercase">
+                      Not connected to real Gemini
+                    </span>
+                    <h4 className="text-sm font-black text-white w-full sm:w-auto">
+                      Nong A Fine-Tuning Module (demo placeholder)
+                    </h4>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
-                    ระบบรวบรวมข้อมูลสนทนาระหว่าง ดีลเลอร์พาร์ทเนอร์ และลูกค้า เพื่อทำ Fine-Tuning โมเดลขนาดกะทัดรัด (Compact Specialist) 
-                    เพื่อลดต้นทุนการประมวลผลระบบสไลด์รถลง 40% และให้ความจำเฉพาะระดับสมรรถนะ
+                    แผนรวบรวมข้อมูลสนทนาเพื่อ fine-tuning ในอนาคต — รอบนี้เป็น UI placeholder
+                    เท่านั้น ไม่มี pipeline จริงและไม่เรียก Gemini API
                   </p>
                   
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                      <span>รวบรวมข้อความแชทคุณภาพ (Datasets Compiled)</span>
-                      <span>8,420 / 10,000 ข้อความ</span>
+                      <span>รวบรวมข้อความแชทคุณภาพ (Datasets Compiled — mock)</span>
+                      <span>8,420 / 10,000 ข้อความ (placeholder)</span>
                     </div>
                     <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
                       <div className="bg-indigo-500 h-full rounded-full" style={{ width: "84.2%" }}></div>
@@ -883,7 +960,9 @@ ${activeRules.join("\n") || "No custom structural rules active."}
                 {/* Score breakdown metrics lists */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                   <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-                    <h5 className="font-bold text-xs text-white uppercase tracking-wider mb-2">คำพูดปิดดีลยอดนิยมประจำวัน (Top Automated Expressions)</h5>
+                    <h5 className="font-bold text-xs text-white uppercase tracking-wider mb-2">
+                      คำพูดปิดดีลยอดนิยม (mock sample data)
+                    </h5>
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between p-2 bg-black/20 rounded">
                         <span>"รถคันนี้มีคนทักแน่ครับ 🔥"</span>
@@ -901,7 +980,9 @@ ${activeRules.join("\n") || "No custom structural rules active."}
                   </div>
 
                   <div className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-                    <h5 className="font-bold text-xs text-white uppercase tracking-wider mb-2">ดักพฤติกรรมความปลอดภัยและคัดกรอง (Moderation Logs summary)</h5>
+                    <h5 className="font-bold text-xs text-white uppercase tracking-wider mb-2">
+                      ดักพฤติกรรมความปลอดภัย (Moderation Logs — mock summary)
+                    </h5>
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between p-2 bg-[#ff0000]/5 text-red-400 rounded">
                         <span>สกัดพรรณนาคำพูดไม่เหมาะสม (Blacklist Blocked)</span>
@@ -1425,6 +1506,6 @@ ${activeRules.join("\n") || "No custom structural rules active."}
         </div>
       </div>
 
-    </div>
+    </section>
   );
 }
