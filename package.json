@@ -259,6 +259,7 @@
     "test:v64v-limited-staging-pilot-review-approval-packet": "tsx scripts/test-v64v-limited-staging-pilot-review-approval-packet.mts",
     "test:v65a-production-readiness-gap-review-phase-transition-baseline": "tsx scripts/test-v65a-production-readiness-gap-review-phase-transition-baseline.mts",
     "test:v65b-production-privacy-data-handling-review-packet": "tsx scripts/test-v65b-production-privacy-data-handling-review-packet.mts",
+    "test:v65c-production-cost-guard-quota-review-packet": "tsx scripts/test-v65c-production-cost-guard-quota-review-packet.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
