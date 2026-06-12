@@ -243,6 +243,7 @@
     "test:v64f-real-provider-adapter-skeleton-disabled-by-default": "tsx scripts/test-v64f-real-provider-adapter-skeleton-disabled-by-default.mts",
     "test:v64g-ai-control-contract-safety-evidence-readiness": "tsx scripts/test-v64g-ai-control-contract-safety-evidence-readiness.mts",
     "test:v64h-real-pilot-dry-run-gate-plan": "tsx scripts/test-v64h-real-pilot-dry-run-gate-plan.mts",
+    "test:v64i-owner-approval-packet-pilot-runbook": "tsx scripts/test-v64i-owner-approval-packet-pilot-runbook.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
