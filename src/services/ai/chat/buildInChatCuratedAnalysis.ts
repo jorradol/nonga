@@ -223,6 +223,9 @@ function buildFeatureWeave(car: ChatCarCardData): string | undefined {
     description: car.description,
     fuelType: car.fuelType,
     bodyClassLabel: car.bodyClassLabel,
+    brand: car.brand,
+    model: car.model,
+    year: car.year,
   });
   if (!result.guardPass || !result.text.trim()) return undefined;
   assertInChatCuratedSafe(result.text);

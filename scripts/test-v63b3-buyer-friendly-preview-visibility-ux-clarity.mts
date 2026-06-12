@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import {
   buildBuyerFriendlyListingCopy,
+  containsGoldenSellerHook,
   parseBuyerSpecTokens,
   passesOutputGuard,
 } from "../src/utils/buyerFriendlyListingCopy.ts";
@@ -148,7 +149,7 @@ const pkg = readFileSync("package.json", "utf8");
   });
   ok("JH-07 source rich or structured", /template-rich|template-structured/.test(result.source));
   ok("JH-08 guard pass", result.guardPass);
-  ok("JH-09 has highlights", /จุดเด่น/.test(result.text));
+  ok("JH-09 has golden seller voice", containsGoldenSellerHook(result.text));
   ok("JH-10 has safety disclaimer", /ตรวจสอบรถจริง|สภาพรถ/.test(result.text));
   ok("JH-11 output guard", passesOutputGuard(result.text).pass);
   ok("JH-12 no overclaim", !/ไม่เคยช|ไมล์แท้|ประหยัดแน่นอน|รับประกัน/i.test(result.text));

@@ -1,7 +1,10 @@
 /**
  * v6.3B — Buyer-friendly listing copy (deterministic/template only)
+ * v6.3B.6 — Golden seller voice refinement (deterministic hooks + benefit bridges)
  * Pure functions — no AI, no network, no DB. Input whitelist public-safe fields.
  */
+
+import { buildStableSeed, pickStableVariant } from "../services/ai/chat/thaiSalesCopyVariation";
 
 export interface BuyerFriendlyListingCopyInput {
   description?: string;
@@ -161,15 +164,47 @@ const OVERCLAIM_PATTERNS: RegExp[] = [
   /ไมล์แท้(?:\s*100\s*%|\s*100%)?/gi,
   /เลขไมล์(?:แท้|จริง)(?:\s*100\s*%|\s*100%)?/gi,
   /ประหยัดแน่(?:นอ|น)/gi,
+  /ประหยัดมาก/gi,
   /สภาพนางฟ้า/gi,
   /สภาพป้ายแดง/gi,
+  /สภาพสวยจัด/gi,
   /รับประก(?:ัน|ัน\d+\s*(?:เดือน|ปี|วัน))/gi,
   /warranty/gi,
   /ฟรีด(?:าว|าวน์)/gi,
   /ผ่อน\s*0\s*%/gi,
   /(?:^|\s)\d+(?:\.\d+)?\s*km\/l/gi,
   /(?:^|\s)\d+(?:\.\d+)?\s*ก(?:ิ|ิโ)โล(?:ลitre)?\s*\/\s*ล(?:ิ|ิต)/gi,
+  /ดีที่สุด/gi,
+  /คุ้มที่สุด/gi,
+  /เจ้าของเดียว/gi,
+  /มือเดียว/gi,
 ];
+
+/** v6.3B.6 — pressure / hype sales language (strip input, block output) */
+const HYPE_FORBIDDEN_PATTERNS: RegExp[] = [
+  /รีบจัด/gi,
+  /ห้ามพลาด/gi,
+  /จบแน่นอน/gi,
+  /ราคานี้ไม่มีอีก/gi,
+  /โอกาสสุดท้าย/gi,
+  /ของดี/gi,
+  /ของหายาก/gi,
+  /ลงมือเลย/gi,
+  /รีบตัดสินใจ/gi,
+  /ขายดีมาก/gi,
+];
+
+/** Markers for golden seller hook detection in tests */
+export const GOLDEN_SELLER_HOOK_MARKERS = [
+  "จุดที่น่าสนใจ",
+  "จุดที่น่าดู",
+  "จุดน่าสนใจ",
+  "จุดที่คันนี้ให้มา",
+] as const;
+
+export function containsGoldenSellerHook(text: string): boolean {
+  return GOLDEN_SELLER_HOOK_MARKERS.some((marker) => text.includes(marker));
+}
 
 const PRIVACY_STRIP_PATTERNS: RegExp[] = [
   /\b0[689]\d[-\s]?\d{3}[-\s]?\d{4}\b/g,
@@ -194,6 +229,12 @@ const OUTPUT_FORBIDDEN_PATTERNS: RegExp[] = [
   /รับประก(?:ัน|ัน\d+)/i,
   /warranty/i,
   /ฟรีด(?:าว|าวน์)/i,
+  /ดีที่สุด/i,
+  /คุ้มที่สุด/i,
+  /สภาพสวยจัด/i,
+  /เจ้าของเดียว/i,
+  /มือเดียว/i,
+  ...HYPE_FORBIDDEN_PATTERNS.map((pat) => new RegExp(pat.source, "i")),
 ];
 
 const RICH_DESCRIPTION_MIN = 24;
@@ -361,38 +402,123 @@ function normalizeSpecLabel(label: string): string {
   return isDisplayableSpecLabel(finalLabel) ? finalLabel : "";
 }
 
-function buildSalesFeatureParagraphs(grouped: Map<SpecCategory, string[]>): string[] {
+function buildGoldenSellerSeed(parts: {
+  brand?: string;
+  model?: string;
+  year?: number;
+  bodyType?: string;
+  bodyClassLabel?: string;
+  fuelType?: string;
+}): string {
+  return buildStableSeed([
+    parts.brand,
+    parts.model,
+    parts.year,
+    parts.bodyClassLabel ?? parts.bodyType,
+    parts.fuelType,
+  ]);
+}
+
+function formatBodyClassLabel(bodyType?: string, bodyClassLabel?: string): string {
+  const label = (bodyClassLabel ?? bodyType ?? "").trim();
+  if (!label) return "";
+  if (/^suv$/i.test(label)) return "SUV";
+  if (/pickup|กระบะ/i.test(label)) return "กระบะ";
+  return label;
+}
+
+function buildBodyFuelContext(bodyType?: string, bodyClassLabel?: string, fuelType?: string): string {
+  const body = formatBodyClassLabel(bodyType, bodyClassLabel);
+  const fuel = formatFuel(fuelType);
+  if (body && fuel) {
+    return `เป็น ${body} ${fuel} ที่เหมาะกับการใช้งานประจำวัน`;
+  }
+  if (body) {
+    return `เป็น ${body} ที่เหมาะกับการใช้งานประจำวัน`;
+  }
+  if (fuel) {
+    return `เป็นรถ${fuel} ที่เหมาะกับการใช้งานประจำวัน`;
+  }
+  return "";
+}
+
+function pickGoldenHookPrefix(seed: string, slot: string): string {
+  return pickStableVariant(seed, slot, [
+    "คันนี้จุดที่น่าดูคือ",
+    "จุดที่น่าสนใจของคันนี้คือ",
+    "ถ้าเน้นใช้งานประจำวัน จุดที่คันนี้ให้มาคือ",
+  ] as const);
+}
+
+function buildGoldenDetailHook(seed: string, bodyCtx: string): string {
+  const prefix = pickGoldenHookPrefix(seed, "golden.detail.hook");
+  return bodyCtx ? `${prefix}${bodyCtx}` : prefix.replace(/คือ$/, "คือ");
+}
+
+function buildGoldenInChatHook(seed: string, bodyCtx: string): string {
+  if (bodyCtx) {
+    return `${pickGoldenHookPrefix(seed, "golden.chat.hook")}${bodyCtx}`;
+  }
+  return pickStableVariant(seed, "golden.chat.hookNoBody", [
+    "จุดน่าสนใจคือคันนี้ไม่ได้มีแค่สเปกพื้นฐาน แต่ยังมีอุปกรณ์ที่ช่วยให้ใช้งานประจำวันง่ายขึ้น",
+    "จุดที่น่าสนใจของคันนี้คือยังมีอุปกรณ์ช่วยให้ใช้งานประจำวันสะดวกขึ้นพอสมควร",
+    "ถ้าเน้นใช้งานประจำวัน จุดที่คันนี้ให้มาคือยังมีอุปกรณ์ช่วยให้ใช้งานง่ายขึ้น",
+  ] as const);
+}
+
+function buildSecondaryBenefitSentence(
+  entertainment: string[],
+  parking: string[]
+): string {
+  if (entertainment.length > 0 && parking.length > 0) {
+    return `ส่วน${joinThaiList(entertainment)} กับ${joinThaiList(parking)} ก็ช่วยให้การเดินทางและการจอดรถสะดวกขึ้น`;
+  }
+  if (entertainment.length > 0) {
+    return `ส่วน${joinThaiList(entertainment)} ก็ช่วยให้การเดินทางและเชื่อมต่อมือถือสะดวกขึ้น`;
+  }
+  if (parking.length > 0) {
+    return `${joinThaiList(parking)} ช่วยตอนถอยจอดและใช้งานในที่แคบ`;
+  }
+  return "";
+}
+
+function buildGoldenSellerDetailParagraphs(
+  input: BuyerFriendlyListingCopyInput,
+  grouped: Map<SpecCategory, string[]>,
+  seed: string
+): string[] {
   const paragraphs: string[] = [];
+  const comfort = grouped.get("comfort") ?? [];
   const driving = grouped.get("driving") ?? [];
   const access = grouped.get("access") ?? [];
-  const comfort = grouped.get("comfort") ?? [];
   const entertainment = grouped.get("entertainment") ?? [];
   const parking = grouped.get("parking") ?? [];
   const other = grouped.get("other") ?? [];
 
-  const drivingComfort = [...comfort, ...driving];
-  if (drivingComfort.length > 0) {
-    paragraphs.push(
-      `จุดเด่นด้านความสะดวกในการขับ มี${joinThaiList(drivingComfort)} ช่วยให้ขับสบายและใช้งานในชีวิตประจำวันสะดวกขึ้น`
-    );
+  const primarySpecs = [...comfort, ...driving, ...access];
+  const bodyCtx = buildBodyFuelContext(input.bodyType, undefined, input.fuelType);
+
+  if (primarySpecs.length > 0 || bodyCtx) {
+    const hook = buildGoldenDetailHook(seed, bodyCtx);
+    if (primarySpecs.length > 0) {
+      paragraphs.push(
+        `${hook} และมีอุปกรณ์ช่วยให้ใช้รถง่ายขึ้นพอสมควร ทั้ง${joinThaiList(primarySpecs)}`
+      );
+    } else {
+      paragraphs.push(hook);
+    }
   }
 
-  if (access.length > 0) {
-    paragraphs.push(
-      `การเข้าใช้งานสะดวกขึ้นด้วย${joinThaiList(access)} ช่วยลดขั้นตอนตอนเริ่มใช้งานรถ`
-    );
-  }
-
-  if (entertainment.length > 0) {
-    paragraphs.push(
-      `${joinThaiList(entertainment)} ช่วยให้การเดินทางและการเชื่อมต่อมือถือใช้งานง่ายขึ้น`
-    );
-  }
-
-  if (parking.length > 0) {
-    paragraphs.push(
-      `${joinThaiList(parking)} ช่วยให้การจอดและถอยรถใช้งานง่ายขึ้น`
-    );
+  const secondary = buildSecondaryBenefitSentence(entertainment, parking);
+  if (secondary) {
+    const softClose = pickStableVariant(seed, "golden.detail.softClose", [
+      "สำหรับคนที่อยากได้รถที่มีความสะดวกครบ ๆ จุดนี้ถือว่าน่าดูต่อ",
+      "เหมาะกับคนที่อยากได้รถใช้จริงแบบสะดวก ๆ",
+      "ถ้าเน้นใช้งานประจำวัน จุดนี้น่าดูต่ออีกที",
+    ] as const);
+    paragraphs.push(`${secondary} — ${softClose}`);
+  } else if (primarySpecs.length === 0 && !bodyCtx && entertainment.length + parking.length > 0) {
+    paragraphs.push(buildSecondaryBenefitSentence(entertainment, parking));
   }
 
   if (other.length > 0) {
@@ -407,11 +533,20 @@ function buildSalesFeatureParagraphs(grouped: Map<SpecCategory, string[]>): stri
   return paragraphs;
 }
 
-/** v6.3B.5 — compact in-chat sales weave input (public-safe fields only) */
+function buildGoldenFactsLine(input: BuyerFriendlyListingCopyInput): string {
+  const details = buildStructuredDetailParts(input);
+  if (details.length === 0) return "";
+  return `จากข้อมูลประกาศ ${details.join(" ")}`;
+}
+
+/** v6.3B.5 / v6.3B.6 — compact in-chat sales weave input (public-safe fields only) */
 export interface CompactInChatSalesWeaveInput {
   description?: string;
   fuelType?: string;
   bodyClassLabel?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
 }
 
 export interface CompactInChatSalesWeaveResult {
@@ -432,17 +567,47 @@ const IN_CHAT_WEAVE_SPEC_ORDER: SpecCategory[] = [
   "parking",
 ];
 
-function buildInChatWeaveLead(bodyClassLabel?: string, fuelType?: string): string {
-  const body = bodyClassLabel?.trim();
-  const fuel = formatFuel(fuelType);
-  if (body && fuel) {
-    return `เป็น ${body} ${fuel} ที่เหมาะกับการใช้งานประจำวัน`;
+function composeGoldenInChatWeave(
+  seed: string,
+  bodyCtx: string,
+  features: string[],
+  includeSoftClose: boolean
+): string {
+  const hook = buildGoldenInChatHook(seed, bodyCtx);
+  const featureList = joinThaiList(features);
+  const bridge = pickStableVariant(seed, "golden.chat.bridge", [
+    ` เช่น ${featureList}`,
+    ` ทั้ง${featureList}`,
+    ` อย่างเช่น ${featureList}`,
+  ] as const);
+
+  let text = `${hook}${bridge}`;
+  if (includeSoftClose) {
+    const close = pickStableVariant(seed, "golden.chat.close", [
+      " เหมาะกับคนที่อยากได้รถใช้จริงแบบสะดวก ๆ ครับ",
+      " น่าดูต่อถ้าอยากได้รถใช้งานประจำวันแบบครบ ๆ ครับ",
+      " ถือว่าเหมาะกับคนที่เน้นความสะดวกในชีวิตประจำวันครับ",
+    ] as const);
+    text += close;
   }
-  if (body) {
-    return `เป็น ${body} ที่เหมาะกับการใช้งานประจำวัน`;
-  }
-  if (fuel) {
-    return `เป็นรถ${fuel} ที่เหมาะกับการใช้งานประจำวัน`;
+  return text;
+}
+
+function trimInChatWeaveToMax(
+  seed: string,
+  bodyCtx: string,
+  features: string[]
+): string {
+  const bodyVariants = bodyCtx ? [bodyCtx, ""] : [""];
+  for (const ctx of bodyVariants) {
+    const working = [...features];
+    while (working.length >= IN_CHAT_WEAVE_MIN_SPECS) {
+      for (const withClose of [true, false]) {
+        const text = composeGoldenInChatWeave(seed, ctx, working, withClose);
+        if (text.length <= IN_CHAT_WEAVE_MAX_CHARS) return text;
+      }
+      working.pop();
+    }
   }
   return "";
 }
@@ -480,29 +645,8 @@ function pickSpecsForInChatWeave(specs: string[]): string[] {
   return picked;
 }
 
-function composeInChatWeaveSentence(
-  lead: string,
-  features: string[]
-): string {
-  const featureList = joinThaiList(features);
-  if (lead) {
-    return `${lead} มีอุปกรณ์ช่วยให้ขับสบายขึ้น เช่น ${featureList}`;
-  }
-  return `มีอุปกรณ์ช่วยให้ขับสบายขึ้น เช่น ${featureList}`;
-}
-
-function trimInChatWeaveToMax(lead: string, features: string[]): string {
-  const working = [...features];
-  while (working.length >= IN_CHAT_WEAVE_MIN_SPECS) {
-    const text = composeInChatWeaveSentence(lead, working);
-    if (text.length <= IN_CHAT_WEAVE_MAX_CHARS) return text;
-    working.pop();
-  }
-  return "";
-}
-
 /**
- * v6.3B.5 — one compact sales-tone paragraph for in-chat curated analysis.
+ * v6.3B.5 / v6.3B.6 — compact golden-seller weave for in-chat curated analysis.
  * Omits entirely when specs insufficient or guards fail.
  */
 export function buildCompactInChatSalesWeave(
@@ -520,8 +664,9 @@ export function buildCompactInChatSalesWeave(
     return { text: "", guardPass: true, warnings };
   }
 
-  const lead = buildInChatWeaveLead(input.bodyClassLabel, input.fuelType);
-  const text = trimInChatWeaveToMax(lead, features);
+  const seed = buildGoldenSellerSeed(input);
+  const bodyCtx = buildBodyFuelContext(undefined, input.bodyClassLabel, input.fuelType);
+  const text = trimInChatWeaveToMax(seed, bodyCtx, features);
   if (!text) {
     warnings.push("weave-length-trim-failed");
     return { text: "", guardPass: true, warnings };
@@ -572,7 +717,7 @@ export function softenOmitOverclaims(text: string): {
 } {
   let out = text;
   let omitted = false;
-  for (const pat of OVERCLAIM_PATTERNS) {
+  for (const pat of [...OVERCLAIM_PATTERNS, ...HYPE_FORBIDDEN_PATTERNS]) {
     const next = out.replace(pat, " ");
     if (next !== out) omitted = true;
     out = next;
@@ -660,44 +805,53 @@ function buildStructuredDetailParts(
   return parts;
 }
 
-function buildBodyTypeHint(input: BuyerFriendlyListingCopyInput): string {
-  const body = `${input.bodyType ?? ""} ${input.model ?? ""}`.toLowerCase();
-  const fuel = formatFuel(input.fuelType);
-  if (/suv|คร(?:อ|o)บครัว|7.?ที่/i.test(body)) {
-    return fuel ? `SUV ${fuel} ใช้งานประจำวัน` : "SUV ใช้งานประจำวัน";
-  }
-  if (/pickup|กระบะ/i.test(body)) {
-    return fuel ? `รถกระบะ ${fuel}` : "รถกระบะใช้งานและขนส่ง";
-  }
-  if (fuel) return `รถ${fuel} ใช้งานประจำวัน`;
-  return "รถใช้งานประจำวัน";
-}
 
-function buildUseCaseLine(input: BuyerFriendlyListingCopyInput): string {
-  const hint = buildBodyTypeHint(input);
-  return `เหมาะสำหรับผู้ที่มองหา ${hint} ที่อยากได้ความสะดวกจากอุปกรณ์ตามที่ระบุในประกาศ`;
-}
-
-function buildIntroParagraph(
+function composeRichTemplate(
   input: BuyerFriendlyListingCopyInput,
-  hasSpecs: boolean
+  sanitizedDescription: string,
+  specs: string[]
 ): string {
-  const identity = buildIdentityLine(input);
-  const hint = buildBodyTypeHint(input);
-  let intro = identity
-    ? `จากข้อมูลประกาศ ${identity} คันนี้`
-    : "จากข้อมูลประกาศ คันนี้";
-  intro += `เหมาะกับคนที่มองหา ${hint}`;
-  if (hasSpecs) {
-    intro += " และมีอุปกรณ์ช่วยให้ใช้งานในชีวิตประจำวันสะดวกขึ้น";
-  }
-  return `${intro}.`;
+  const grouped = groupSpecsForSalesCopy(specs);
+  const seed = buildGoldenSellerSeed(input);
+  const featureParagraphs = buildGoldenSellerDetailParagraphs(input, grouped, seed);
+  const summary = buildGoldenFactsLine(input);
+  const safeDesc =
+    sanitizedDescription.length > 0 &&
+    !looksLikeRawSpecOnly(sanitizedDescription)
+      ? sanitizedDescription
+      : "";
+
+  return [
+    ...featureParagraphs,
+    safeDesc,
+    summary,
+    BUYER_FRIENDLY_SAFETY_DISCLAIMER,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
-function buildSummarySentence(input: BuyerFriendlyListingCopyInput): string {
-  const details = buildStructuredDetailParts(input);
-  if (details.length === 0) return "";
-  return `ข้อมูลสรุปจากประกาศ: ${details.join(" ")}.`;
+function composeStructuredTemplate(
+  input: BuyerFriendlyListingCopyInput,
+  specs: string[]
+): string {
+  const grouped = groupSpecsForSalesCopy(specs);
+  const seed = buildGoldenSellerSeed(input);
+  const featureParagraphs = buildGoldenSellerDetailParagraphs(input, grouped, seed);
+  const summary = buildGoldenFactsLine(input);
+  const fallbackLine =
+    specs.length === 0
+      ? "รายละเอียดอุปกรณ์และสภาพรถสามารถสอบถามเพิ่มเติมได้"
+      : "";
+
+  return [
+    ...featureParagraphs,
+    fallbackLine,
+    summary,
+    BUYER_FRIENDLY_SAFETY_DISCLAIMER,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 type Richness = "empty" | "minimal" | "structured" | "rich";
@@ -727,60 +881,6 @@ function classifyRichness(
     return "structured";
   }
   return "minimal";
-}
-
-function composeRichTemplate(
-  input: BuyerFriendlyListingCopyInput,
-  sanitizedDescription: string,
-  specs: string[]
-): string {
-  const grouped = groupSpecsForSalesCopy(specs);
-  const intro = buildIntroParagraph(input, specs.length > 0);
-  const featureParagraphs = buildSalesFeatureParagraphs(grouped);
-  const summary = buildSummarySentence(input);
-  const safeDesc =
-    sanitizedDescription.length > 0 &&
-    !looksLikeRawSpecOnly(sanitizedDescription)
-      ? sanitizedDescription
-      : "";
-  const useCase = buildUseCaseLine(input);
-
-  return [
-    intro,
-    ...featureParagraphs,
-    safeDesc,
-    summary,
-    useCase,
-    BUYER_FRIENDLY_SAFETY_DISCLAIMER,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function composeStructuredTemplate(
-  input: BuyerFriendlyListingCopyInput,
-  specs: string[]
-): string {
-  const grouped = groupSpecsForSalesCopy(specs);
-  const intro = buildIntroParagraph(input, specs.length > 0);
-  const featureParagraphs = buildSalesFeatureParagraphs(grouped);
-  const summary = buildSummarySentence(input);
-  const fallbackLine =
-    specs.length === 0
-      ? "รายละเอียดอุปกรณ์และสภาพรถสามารถสอบถามเพิ่มเติมได้"
-      : "";
-  const useCase = buildUseCaseLine(input);
-
-  return [
-    intro,
-    ...featureParagraphs,
-    fallbackLine,
-    summary,
-    useCase,
-    BUYER_FRIENDLY_SAFETY_DISCLAIMER,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 function composeMinimalTemplate(input: BuyerFriendlyListingCopyInput): string {

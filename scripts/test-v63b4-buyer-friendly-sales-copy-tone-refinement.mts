@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import {
   buildBuyerFriendlyListingCopy,
   BUYER_FRIENDLY_SAFETY_DISCLAIMER,
+  containsGoldenSellerHook,
   isDisplayableProvince,
   isJunkSpecToken,
   parseBuyerSpecTokens,
@@ -62,7 +63,7 @@ const pkg = readFileSync("package.json", "utf8");
 {
   ok("module no fetch", !/fetch\s*\(/.test(moduleSrc));
   ok("module no gemini", !/generateContent|gemini/i.test(moduleSrc));
-  ok("module sales tone helpers", /buildSalesFeatureParagraphs|groupSpecsForSalesCopy/.test(moduleSrc));
+  ok("module golden voice helpers", /buildGoldenSellerDetailParagraphs|composeGoldenInChatWeave/.test(moduleSrc));
   ok("module junk token filter", moduleSrc.includes("isJunkSpecToken"));
   ok("module province guard", moduleSrc.includes("isDisplayableProvince"));
   ok("module internal noise strip", /INTERNAL_NOISE_PATTERNS|controlled\s*pilot/i.test(moduleSrc));
@@ -111,15 +112,17 @@ const pkg = readFileSync("package.json", "utf8");
   });
   ok("ST-01 guard pass", result.guardPass);
   ok("ST-02 prose not raw bullets", !/^-\s/m.test(result.text));
-  ok("ST-03 has sales intro", /จากข้อมูลประกาศ/.test(result.text));
-  ok("ST-04 has benefit grouping", /ความสะดวกในการขับ|การเข้าใช้งาน|Bluetooth|FM\/AM/i.test(result.text));
+  const lead = result.text.split(/\n\n+/)[0] ?? "";
+  ok("ST-03 golden hook lead", containsGoldenSellerHook(lead));
+  ok("ST-03 lead not listing report", !/^จากข้อมูลประกาศ/.test(lead.trim()));
+  ok("ST-04 soft benefit language", /สะดวก|พอสมควร|น่าดู|ช่วยให้/i.test(result.text));
   ok("ST-05 no AB2 in output", !/\bAB2\b/i.test(result.text));
   ok("ST-06 no pilot package", !/controlled pilot/i.test(result.text));
   ok("ST-07 no garbled province", !/จังหวัดขฐ/.test(result.text));
   ok("ST-08 consolidated entertainment", !/\bAM\b.*\bCD\b.*\bUSB\b.*\bAM\b/m.test(result.text));
   ok("ST-09 single disclaimer", (result.text.match(/ข้อมูลนี้เป็นการเรียบเรียง/g) ?? []).length === 1);
   ok("ST-10 disclaimer constant", result.text.includes(BUYER_FRIENDLY_SAFETY_DISCLAIMER));
-  ok("ST-11 suitable for line", /เหมาะสำหรับผู้ที่มองหา/i.test(result.text));
+  ok("ST-11 soft use-case close", /น่าดูต่อ|เหมาะกับคนที่|สะดวก/i.test(result.text));
   ok("ST-12 no superlative claim", !/ดีที่สุด|คุ้มที่สุด/i.test(result.text));
   ok("ST-13 output guard", passesOutputGuard(result.text).pass);
   ok("ST-14 no overclaim", !/ไม่เคยช|ไมล์แท้|ประหยัดแน่นอน|รับประกัน/i.test(result.text));

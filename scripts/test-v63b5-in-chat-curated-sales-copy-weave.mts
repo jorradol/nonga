@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import {
   buildCompactInChatSalesWeave,
   buildBuyerFriendlyListingCopy,
+  containsGoldenSellerHook,
   passesOutputGuard,
   isCorruptedMixedThaiLatinSpecLabel,
   containsThaiLatinMixedCorruption,
@@ -154,8 +155,9 @@ console.log("=== v6.3B.5 In-Chat Curated Analysis Sales Copy Weave ===\n");
   });
   ok("W-01 weave non-empty", weave.text.length > 0);
   ok("W-01 weave guard pass", weave.guardPass);
-  ok("W-02 sales tone phrase", /ขับสบาย|สะดวก/i.test(weave.text));
-  ok("W-02 has eg connector", weave.text.includes("เช่น"));
+  ok("W-02 golden seller hook", containsGoldenSellerHook(weave.text));
+  ok("W-02 soft benefit phrase", /สะดวก|น่าดู|พอสมควร|เหมาะกับ/i.test(weave.text));
+  ok("W-02 has spec bridge", /เช่น|ทั้ง|อย่างเช่น/.test(weave.text));
   ok("W-02 feature leather", /เบาะหนัง/i.test(weave.text));
   ok("W-02 feature cruise", /Cruise Control/i.test(weave.text));
   ok("W-03 no AB2", !/\bAB2\b/i.test(weave.text));
