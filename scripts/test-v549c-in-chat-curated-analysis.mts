@@ -15,7 +15,11 @@ import type { ChatInventoryCar } from "../src/services/ai/chat/marketplaceChatSe
 import {
   saveInChatBuyerContext,
   saveChatSearchContext,
+  setActivePilotChatSessionId,
 } from "../src/utils/chatCarContext.ts";
+
+const TEST_SESSION = "test-v549c-curated-session";
+setActivePilotChatSessionId(TEST_SESSION);
 
 if (typeof global !== "undefined" && !(global as { sessionStorage?: Storage }).sessionStorage) {
   const store = new Map<string, string>();
@@ -80,6 +84,7 @@ ok("no-setview", !cardSource.includes("setView"), "");
 ok("has-expand-btn", cardSource.includes("chat-car-card-expand-btn"), "");
 ok("has-curated-panel", cardSource.includes("chat-car-curated-analysis"), "");
 ok("curated-title-in-ui", cardSource.includes("ChatCarCuratedAnalysisPanel") && cardSource.includes("analysis.title"), "");
+ok("v635-feature-weave-render", cardSource.includes("analysis.featureWeave"), "");
 
 console.log("\n--- v5.4.9C curated analysis copy ---");
 const camryAnalysis = buildInChatCuratedAnalysis(camryCard);

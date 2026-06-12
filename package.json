@@ -227,6 +227,7 @@
     "test:v63b3a-staging-hosting-deploy-execution-record": "tsx scripts/test-v63b3a-staging-hosting-deploy-execution-record.mts",
     "test:v63b4-buyer-friendly-sales-copy-tone-refinement": "tsx scripts/test-v63b4-buyer-friendly-sales-copy-tone-refinement.mts",
     "test:v63b4a-staging-hosting-deploy-execution-record": "tsx scripts/test-v63b4a-staging-hosting-deploy-execution-record.mts",
+    "test:v63b5-in-chat-curated-sales-copy-weave": "tsx scripts/test-v63b5-in-chat-curated-sales-copy-weave.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",

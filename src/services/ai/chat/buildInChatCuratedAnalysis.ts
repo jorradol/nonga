@@ -1,4 +1,4 @@
-/** v5.4.9c — in-chat “บทเกณฑ์คัดสรรของน้องเอ” (deterministic, facts-only) */
+/** v5.4.9c + v6.3B.5 — in-chat “บทเกณฑ์คัดสรรของน้องเอ” (deterministic, facts-only) */
 
 import type { ChatCarCardData } from "../../../types";
 import {
@@ -6,6 +6,7 @@ import {
   loadInChatBuyerContext,
   type InChatBuyerContext,
 } from "../../../utils/chatCarContext";
+import { buildCompactInChatSalesWeave } from "../../../utils/buyerFriendlyListingCopy";
 import { BUYER_PITCH_FORBIDDEN_CLAIM } from "./buyerCarPitchCopy";
 import {
   buildStableSeed,
@@ -24,6 +25,8 @@ export const IN_CHAT_CURATED_FORBIDDEN =
 export interface InChatCuratedAnalysis {
   title: string;
   opening: string;
+  /** v6.3B.5 — optional compact sales weave between opening and highlights */
+  featureWeave?: string;
   highlights: string;
   closing: string;
   paragraphs: string[];
@@ -143,7 +146,11 @@ function buildOpening(
   return text;
 }
 
-function buildHighlights(car: ChatCarCardData, seed: string): string {
+function buildHighlights(
+  car: ChatCarCardData,
+  seed: string,
+  omitDescriptionSnippet = false
+): string {
   const lines: string[] = [];
   const label = `${car.brand} ${car.model}`.trim();
 
@@ -176,7 +183,7 @@ function buildHighlights(car: ChatCarCardData, seed: string): string {
     lines.push("• ยังไม่มีรูปในระบบ — แนะนำขอดูรูป/นัดดูรถจริงเพิ่มครับ");
   }
 
-  if (car.description?.trim()) {
+  if (car.description?.trim() && !omitDescriptionSnippet) {
     const snippet = car.description.trim();
     const preview =
       snippet.length > 100 ? `${snippet.slice(0, 98).trim()}…` : snippet;
@@ -211,6 +218,17 @@ function buildClosing(_car: ChatCarCardData, seed: string): string {
   return text;
 }
 
+function buildFeatureWeave(car: ChatCarCardData): string | undefined {
+  const result = buildCompactInChatSalesWeave({
+    description: car.description,
+    fuelType: car.fuelType,
+    bodyClassLabel: car.bodyClassLabel,
+  });
+  if (!result.guardPass || !result.text.trim()) return undefined;
+  assertInChatCuratedSafe(result.text);
+  return result.text;
+}
+
 /**
  * Build warm curated analysis for expanded in-chat car detail.
  */
@@ -225,15 +243,24 @@ export function buildInChatCuratedAnalysis(
   const seed = buildStableSeed([car.id, weave, ctx?.message ?? "", car.brand, car.model]);
 
   const opening = buildOpening(car, weave, seed);
-  const highlights = buildHighlights(car, seed);
+  const featureWeave = buildFeatureWeave(car);
+  const highlights = buildHighlights(car, seed, Boolean(featureWeave));
   const closing = buildClosing(car, seed);
+
+  const paragraphs = [
+    opening,
+    ...(featureWeave ? [featureWeave] : []),
+    highlights,
+    closing,
+  ];
 
   return {
     title: IN_CHAT_CURATED_TITLE,
     opening,
+    ...(featureWeave ? { featureWeave } : {}),
     highlights,
     closing,
-    paragraphs: [opening, highlights, closing],
+    paragraphs,
   };
 }
 
@@ -241,8 +268,14 @@ export function buildInChatCuratedAnalysis(
 export function buildInChatCuratedSpeakableText(
   analysis: InChatCuratedAnalysis
 ): string {
-  const parts = [analysis.title, analysis.opening, analysis.highlights, analysis.closing]
-    .map((part) => part.trim())
+  const parts = [
+    analysis.title,
+    analysis.opening,
+    analysis.featureWeave,
+    analysis.highlights,
+    analysis.closing,
+  ]
+    .map((part) => part?.trim() ?? "")
     .filter(Boolean);
   return parts.join("\n\n");
 }

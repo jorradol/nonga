@@ -72,6 +72,7 @@ console.log("=== v6.2E.4C Advisor Criteria TTS Button ===\n");
   const emptyAnalysis = {
     title: "",
     opening: "",
+    featureWeave: undefined as string | undefined,
     highlights: "",
     closing: "",
     paragraphs: [] as string[],
@@ -132,6 +133,8 @@ console.log("=== v6.2E.4C Advisor Criteria TTS Button ===\n");
   ok("module exports speak aria label", CURATED_SRC.includes("IN_CHAT_CURATED_SPEAK_ARIA_LABEL"));
   ok("module exports speakable builder", CURATED_SRC.includes("buildInChatCuratedSpeakableText"));
   ok("module exports has speakable", CURATED_SRC.includes("hasInChatCuratedSpeakableText"));
+  ok("module featureWeave field", CURATED_SRC.includes("featureWeave"));
+  ok("card renders featureWeave", CARD_SRC.includes("analysis.featureWeave"));
 }
 
 // --- package ---

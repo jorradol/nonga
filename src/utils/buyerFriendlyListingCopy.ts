@@ -94,6 +94,25 @@ const SPEC_CATEGORY_RULES: { category: SpecCategory; patterns: RegExp[] }[] = [
 
 const SPEC_SPLIT = /[+,\n/|]+/;
 
+/** Pure-Thai canonical steering label — no Latin injected into Thai syllables */
+export const STEERING_WHEEL_MULTIFUNCTION_DISPLAY =
+  "\u0E1E\u0E27\u0E07\u0E21\u0E32\u0E25\u0E31\u0E22\u0E21\u0E31\u0E25\u0E15\u0E34\u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19";
+
+/** Garbled latin-injected steering fragments that must never appear in buyer-facing output. */
+export const FORBIDDEN_STEERING_GARBLE_FRAGMENTS = [
+  "\u0E1E\u0E27\u0E07\u0E21al\u0E17i",
+  "\u0E1E\u0E27\u0E07\u0E21al\u0E17i\u0E21al\u0E17i\u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19",
+  "\u0E1E\u0E27\u0E07\u0E21al\u0E17i\u0E21al\u0E15\u0E34\u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19",
+] as const;
+
+export function containsForbiddenSteeringGarble(text: string): boolean {
+  if (!text.trim()) return false;
+  if (FORBIDDEN_STEERING_GARBLE_FRAGMENTS.some((frag) => text.includes(frag))) {
+    return true;
+  }
+  return containsThaiLatinMixedCorruption(text);
+}
+
 /** Duplicated from listingDescriptionHelper — avoid shared refactor in v6.3B */
 const SPEC_MAP: Record<string, string> = {
   smartkeyless: "ระบบ Smart Keyless (กุญแจอัจฉริยะ)",
@@ -113,12 +132,14 @@ const SPEC_MAP: Record<string, string> = {
   "ไฟเลี้ยวข้าง": "ไฟเลี้ยวข้าง",
   "วิทยุfm/am": "วิทยุ FM/AM",
   "วิทยุfm": "วิทยุ FM/AM",
-  "พวงมาลัยมัลติฟังก์ชั่น": "พวงมาลัยมัลติฟังก์ชัน",
-  "พวงมาลัยมัลติ": "พวงมาลัยมัลติฟังก์ชัน",
+  "พวงมาลัยมัลติฟังก์ชั่น": STEERING_WHEEL_MULTIFUNCTION_DISPLAY,
+  "พวงมาลัยมัลติ": STEERING_WHEEL_MULTIFUNCTION_DISPLAY,
   "ฝาท้ายไฟฟ้า": "ฝาท้ายไฟฟ้า",
   "บลูทูธ": "ระบบ Bluetooth",
   "บลูธูท": "ระบบ Bluetooth",
   bluetooth: "ระบบ Bluetooth",
+  /** garbled latin-injected steering token → canonical pure Thai */
+  "\u0E1E\u0E27\u0E07\u0E21al\u0E17i": STEERING_WHEEL_MULTIFUNCTION_DISPLAY,
   usb: "USB",
   cd: "CD",
   am: "วิทยุ FM/AM",
@@ -219,6 +240,50 @@ export function isDisplayableProvince(province?: string): boolean {
   return true;
 }
 
+/** Latin letters injected into a Thai spec token (charset corruption). */
+export function isCorruptedMixedThaiLatinSpecLabel(label: string): boolean {
+  const compact = label.trim().replace(/\s+/g, "");
+  if (!compact) return false;
+  if (/^(?:cruisecontrol|enginestart|smartkeyless|keyless|bluetooth|usb|cd|am|fm\/am)$/i.test(compact)) {
+    return false;
+  }
+  if (/^[a-z0-9\s()./-]+$/i.test(compact) && !/[ก-ฮ]/.test(compact)) return false;
+  if (/[ก-ฮ][a-z]{1,4}[ก-ฮ]/i.test(compact)) return true;
+  if (/^[\u0E1E\u0E27\u0E07\u0E21][a-z]{1,4}/i.test(compact)) return true;
+  return false;
+}
+
+/** True when sales copy output contains Thai/Latin charset corruption. */
+export function containsThaiLatinMixedCorruption(text: string): boolean {
+  if (!text.trim()) return false;
+  return (
+    /[\u0E00-\u0E7F][a-z]{1,4}[\u0E00-\u0E7F]/i.test(text) ||
+    /[\u0E1E\u0E27\u0E07\u0E21][a-z]{1,4}/i.test(text)
+  );
+}
+
+/** Displayable spec label — pure Thai or known English product names only. */
+export function isDisplayableSpecLabel(label: string): boolean {
+  const t = label.trim();
+  if (!t) return false;
+  return !isCorruptedMixedThaiLatinSpecLabel(t);
+}
+
+function repairSteeringWheelSpecLabel(label: string): string | null {
+  const compact = label.trim().replace(/\s+/g, "");
+  if (!/[\u0E1E\u0E27\u0E07\u0E21]|พวงม/i.test(compact)) return null;
+  if (/^[\u0E1E\u0E27\u0E07\u0E21][a-z]{1,4}/i.test(compact)) {
+    return STEERING_WHEEL_MULTIFUNCTION_DISPLAY;
+  }
+  if (
+    isCorruptedMixedThaiLatinSpecLabel(label) &&
+    /[\u0E1E\u0E27\u0E07\u0E21]|พวงม/i.test(compact)
+  ) {
+    return STEERING_WHEEL_MULTIFUNCTION_DISPLAY;
+  }
+  return null;
+}
+
 function categorizeSpec(label: string): SpecCategory {
   for (const rule of SPEC_CATEGORY_RULES) {
     if (rule.patterns.some((pat) => pat.test(label))) return rule.category;
@@ -244,7 +309,9 @@ function groupSpecsForSalesCopy(specs: string[]): Map<SpecCategory, string[]> {
   const grouped = new Map<SpecCategory, string[]>();
   for (const spec of specs) {
     const normalized = normalizeSpecLabel(spec);
-    if (isJunkSpecToken(normalized)) continue;
+    if (!normalized || isJunkSpecToken(normalized) || !isDisplayableSpecLabel(normalized)) {
+      continue;
+    }
     const category = categorizeSpec(normalized);
     const list = grouped.get(category) ?? [];
     if (!list.some((s) => s.toLowerCase() === normalized.toLowerCase())) {
@@ -267,11 +334,31 @@ function joinThaiList(items: string[]): string {
 }
 
 function normalizeSpecLabel(label: string): string {
-  const key = label.toLowerCase().replace(/\s+/g, "");
+  const trimmed = label.trim();
+  if (!trimmed) return "";
+
+  const steering = repairSteeringWheelSpecLabel(trimmed);
+  if (steering && isDisplayableSpecLabel(steering)) return steering;
+
+  const key = trimmed.toLowerCase().replace(/\s+/g, "");
   for (const [k, v] of SPEC_MAP_ENTRIES) {
-    if (key.includes(k.toLowerCase().replace(/\s+/g, ""))) return v;
+    if (key.includes(k.toLowerCase().replace(/\s+/g, ""))) {
+      return isDisplayableSpecLabel(v) ? v : "";
+    }
   }
-  return label.trim();
+
+  if (isCorruptedMixedThaiLatinSpecLabel(trimmed)) return "";
+
+  const compact = trimmed.replace(/\s+/g, "");
+  if (
+    (/[\u0E1E\u0E27\u0E07\u0E21]/.test(compact) || /พวงม/i.test(compact)) &&
+    /[a-z0-9]/i.test(compact.replace(/[\u0E00-\u0E7F]/g, ""))
+  ) {
+    return "";
+  }
+
+  const finalLabel = trimmed;
+  return isDisplayableSpecLabel(finalLabel) ? finalLabel : "";
 }
 
 function buildSalesFeatureParagraphs(grouped: Map<SpecCategory, string[]>): string[] {
@@ -309,26 +396,161 @@ function buildSalesFeatureParagraphs(grouped: Map<SpecCategory, string[]>): stri
   }
 
   if (other.length > 0) {
-    paragraphs.push(
-      `จากข้อมูลประกาศ ยังมี${joinThaiList(other)} ที่ช่วยเสริมการใช้งานตามที่ระบุ`
-    );
+    const safeOther = other.filter((s) => isDisplayableSpecLabel(s));
+    if (safeOther.length > 0) {
+      paragraphs.push(
+        `จากข้อมูลประกาศ ยังมี${joinThaiList(safeOther)} ที่ช่วยเสริมการใช้งานตามที่ระบุ`
+      );
+    }
   }
 
   return paragraphs;
+}
+
+/** v6.3B.5 — compact in-chat sales weave input (public-safe fields only) */
+export interface CompactInChatSalesWeaveInput {
+  description?: string;
+  fuelType?: string;
+  bodyClassLabel?: string;
+}
+
+export interface CompactInChatSalesWeaveResult {
+  text: string;
+  guardPass: boolean;
+  warnings: string[];
+}
+
+const IN_CHAT_WEAVE_MAX_CHARS = 220;
+const IN_CHAT_WEAVE_MIN_SPECS = 2;
+const IN_CHAT_WEAVE_MAX_SPECS = 6;
+
+const IN_CHAT_WEAVE_SPEC_ORDER: SpecCategory[] = [
+  "comfort",
+  "driving",
+  "access",
+  "entertainment",
+  "parking",
+];
+
+function buildInChatWeaveLead(bodyClassLabel?: string, fuelType?: string): string {
+  const body = bodyClassLabel?.trim();
+  const fuel = formatFuel(fuelType);
+  if (body && fuel) {
+    return `เป็น ${body} ${fuel} ที่เหมาะกับการใช้งานประจำวัน`;
+  }
+  if (body) {
+    return `เป็น ${body} ที่เหมาะกับการใช้งานประจำวัน`;
+  }
+  if (fuel) {
+    return `เป็นรถ${fuel} ที่เหมาะกับการใช้งานประจำวัน`;
+  }
+  return "";
+}
+
+function pickSpecsForInChatWeave(specs: string[]): string[] {
+  const byCategory = new Map<SpecCategory, string[]>();
+  for (const raw of specs) {
+    const normalized = normalizeSpecLabel(raw);
+    if (!normalized || isJunkSpecToken(normalized) || !isDisplayableSpecLabel(normalized)) {
+      continue;
+    }
+    const category = categorizeSpec(normalized);
+    if (category === "other") continue;
+    const list = byCategory.get(category) ?? [];
+    if (!list.some((s) => s.toLowerCase() === normalized.toLowerCase())) {
+      list.push(normalized);
+    }
+    byCategory.set(category, list);
+  }
+
+  const entertainment = byCategory.get("entertainment");
+  if (entertainment?.length) {
+    byCategory.set("entertainment", consolidateEntertainmentLabels(entertainment));
+  }
+
+  const picked: string[] = [];
+  for (const category of IN_CHAT_WEAVE_SPEC_ORDER) {
+    for (const label of byCategory.get(category) ?? []) {
+      if (picked.length >= IN_CHAT_WEAVE_MAX_SPECS) return picked;
+      if (!picked.some((s) => s.toLowerCase() === label.toLowerCase())) {
+        picked.push(label);
+      }
+    }
+  }
+  return picked;
+}
+
+function composeInChatWeaveSentence(
+  lead: string,
+  features: string[]
+): string {
+  const featureList = joinThaiList(features);
+  if (lead) {
+    return `${lead} มีอุปกรณ์ช่วยให้ขับสบายขึ้น เช่น ${featureList}`;
+  }
+  return `มีอุปกรณ์ช่วยให้ขับสบายขึ้น เช่น ${featureList}`;
+}
+
+function trimInChatWeaveToMax(lead: string, features: string[]): string {
+  const working = [...features];
+  while (working.length >= IN_CHAT_WEAVE_MIN_SPECS) {
+    const text = composeInChatWeaveSentence(lead, working);
+    if (text.length <= IN_CHAT_WEAVE_MAX_CHARS) return text;
+    working.pop();
+  }
+  return "";
+}
+
+/**
+ * v6.3B.5 — one compact sales-tone paragraph for in-chat curated analysis.
+ * Omits entirely when specs insufficient or guards fail.
+ */
+export function buildCompactInChatSalesWeave(
+  input: CompactInChatSalesWeaveInput
+): CompactInChatSalesWeaveResult {
+  const warnings: string[] = [];
+  const rawDesc = input.description ?? "";
+  const sanitized = sanitizeListingCopyText(rawDesc);
+  const { text: softenedDesc, omitted } = softenOmitOverclaims(sanitized);
+  if (omitted) warnings.push("seller-overclaim-omitted");
+
+  const specs = uniqueSpecs(parseBuyerSpecTokens(softenedDesc));
+  const features = pickSpecsForInChatWeave(specs);
+  if (features.length < IN_CHAT_WEAVE_MIN_SPECS) {
+    return { text: "", guardPass: true, warnings };
+  }
+
+  const lead = buildInChatWeaveLead(input.bodyClassLabel, input.fuelType);
+  const text = trimInChatWeaveToMax(lead, features);
+  if (!text) {
+    warnings.push("weave-length-trim-failed");
+    return { text: "", guardPass: true, warnings };
+  }
+
+  const guard = passesOutputGuard(text);
+  if (!guard.pass) {
+    warnings.push(`output-guard-failed:${guard.reason ?? "unknown"}`);
+    return { text: "", guardPass: false, warnings };
+  }
+  if (containsThaiLatinMixedCorruption(text)) {
+    warnings.push("mixed-script-corruption-in-output");
+    return { text: "", guardPass: false, warnings };
+  }
+
+  return { text, guardPass: true, warnings };
 }
 
 export function parseBuyerSpecTokens(raw: string): string[] {
   return raw
     .split(SPEC_SPLIT)
     .map((s) => s.trim().replace(/^\/k$/i, "").trim())
-    .filter((s) => s.length > 1 && !isJunkSpecToken(s))
+    .filter((s) => s.length > 1)
     .map((token) => {
-      const key = token.toLowerCase().replace(/\s+/g, "");
-      for (const [k, v] of SPEC_MAP_ENTRIES) {
-        if (key.includes(k.toLowerCase().replace(/\s+/g, ""))) return v;
+      const normalized = normalizeSpecLabel(token.replace(/\s+/g, " "));
+      if (!normalized || isJunkSpecToken(normalized) || !isDisplayableSpecLabel(normalized)) {
+        return "";
       }
-      const cleaned = token.replace(/\s+/g, " ");
-      return isJunkSpecToken(cleaned) ? "" : cleaned;
+      return normalized;
     })
     .filter(Boolean);
 }
@@ -366,6 +588,9 @@ export function passesOutputGuard(text: string): {
     if (pat.test(text)) {
       return { pass: false, reason: pat.source.slice(0, 40) };
     }
+  }
+  if (containsThaiLatinMixedCorruption(text)) {
+    return { pass: false, reason: "mixed-script-corruption" };
   }
   return { pass: true };
 }
@@ -638,7 +863,7 @@ export function buildBuyerFriendlyListingCopy(
   const composed = composeByRichness(richness, input, softenedDesc, specs);
   const guard = passesOutputGuard(composed.text);
 
-  if (guard.pass) {
+  if (guard.pass && !containsThaiLatinMixedCorruption(composed.text)) {
     return {
       text: composed.text,
       source: composed.source,
@@ -651,10 +876,13 @@ export function buildBuyerFriendlyListingCopy(
   const fallbackText = composeFallbackOriginal(softenedDesc);
   const fallbackGuard = passesOutputGuard(fallbackText);
 
-  return {
-    text: fallbackGuard.pass
+  const safeFallback =
+    fallbackGuard.pass && !containsThaiLatinMixedCorruption(fallbackText)
       ? fallbackText
-      : BUYER_FRIENDLY_SAFETY_DISCLAIMER,
+      : BUYER_FRIENDLY_SAFETY_DISCLAIMER;
+
+  return {
+    text: safeFallback,
     source: "fallback-original",
     guardPass: false,
     warnings,

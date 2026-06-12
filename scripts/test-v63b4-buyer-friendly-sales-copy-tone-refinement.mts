@@ -11,6 +11,11 @@ import {
   parseBuyerSpecTokens,
   passesOutputGuard,
   sanitizeListingCopyText,
+  isCorruptedMixedThaiLatinSpecLabel,
+  containsThaiLatinMixedCorruption,
+  containsForbiddenSteeringGarble,
+  STEERING_WHEEL_MULTIFUNCTION_DISPLAY,
+  FORBIDDEN_STEERING_GARBLE_FRAGMENTS,
 } from "../src/utils/buyerFriendlyListingCopy.ts";
 import { BUYER_FRIENDLY_PREVIEW_SUBTITLE } from "../src/components/listings/BuyerFriendlyListingCopyPreview.tsx";
 
@@ -21,8 +26,15 @@ const PREVIEW_PATH = "src/components/listings/BuyerFriendlyListingCopyPreview.ts
 const SYNTHETIC_BRAND = "ยี่ห้อตัวอย่าง";
 const SYNTHETIC_MODEL = "รุ่นตัวอย่าง";
 
+/** Pure-Thai canonical literal — must match STEERING_WHEEL_MULTIFUNCTION_DISPLAY exactly */
+const PURE_THAI_STEERING_MULTIFUNCTION =
+  "\u0E1E\u0E27\u0E07\u0E21\u0E32\u0E25\u0E31\u0E22\u0E21\u0E31\u0E25\u0E15\u0E34\u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19";
+
+/** Latin-injected steering corruption in synthetic input only (never in expected output) */
+const GARBLED_STEERING_INPUT = "\u0E1E\u0E27\u0E07\u0E21al\u0E17i";
+
 const JARGON_SAMPLE =
-  "AB2 + บ.หนัง + พวงมalทi + Cruise Control + Engine Start + Smart Keyless + จอทัชสกรีน + Bluetooth + วิทยุ FM/AM + AM + CD + USB + /k ต้องตรวจสภาพจริง — controlled pilot source package";
+  `AB2 + บ.หนัง + ${GARBLED_STEERING_INPUT} + Cruise Control + Engine Start + Smart Keyless + จอทัชสกรีn + Bluetooth + วิทยุ FM/AM + AM + CD + USB + /k ต้องตรวจสภาพจริง — controlled pilot source package`;
 
 function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
@@ -71,6 +83,9 @@ const pkg = readFileSync("package.json", "utf8");
   ok("parse omits AB2", !tokens.some((t) => /^AB2$/i.test(t)));
   ok("parse omits standalone k", !tokens.some((t) => /^k$/i.test(t)));
   ok("parse expands seat", tokens.some((t) => /เบาะหนัง/i.test(t)));
+  ok("detect garbled steering latin", isCorruptedMixedThaiLatinSpecLabel("\u0E1E\u0E27\u0E07\u0E21al\u0E17i"));
+  ok("repair garbled steering token", tokens.includes(STEERING_WHEEL_MULTIFUNCTION_DISPLAY));
+  ok("parse omits raw garbled steering", !tokens.some((t) => /\u0E1E\u0E27\u0E07\u0E21al\u0E17i/.test(t)));
   const cleaned = sanitizeListingCopyText(JARGON_SAMPLE);
   ok("sanitize strips pilot package", !/controlled pilot source package/i.test(cleaned));
 }
@@ -108,6 +123,26 @@ const pkg = readFileSync("package.json", "utf8");
   ok("ST-12 no superlative claim", !/ดีที่สุด|คุ้มที่สุด/i.test(result.text));
   ok("ST-13 output guard", passesOutputGuard(result.text).pass);
   ok("ST-14 no overclaim", !/ไม่เคยช|ไมล์แท้|ประหยัดแน่นอน|รับประกัน/i.test(result.text));
+  ok("ST-15 no garbled mixed latin steering", !containsThaiLatinMixedCorruption(result.text));
+  ok("ST-15 proper steering multifunc", result.text.includes(PURE_THAI_STEERING_MULTIFUNCTION));
+  ok(
+    "ST-16 canonical equals pure thai literal",
+    STEERING_WHEEL_MULTIFUNCTION_DISPLAY === PURE_THAI_STEERING_MULTIFUNCTION
+  );
+  ok("ST-17 output excludes forbidden al-i stem", !result.text.includes(FORBIDDEN_STEERING_GARBLE_FRAGMENTS[0]));
+  ok(
+    "ST-17 output excludes forbidden al-i full garble",
+    !result.text.includes(FORBIDDEN_STEERING_GARBLE_FRAGMENTS[1])
+  );
+  ok("ST-18 no forbidden steering garble helper", !containsForbiddenSteeringGarble(result.text));
+  console.log("\n--- steering evidence (v63b4 detail preview output) ---");
+  console.log("CANONICAL_DISPLAY=", STEERING_WHEEL_MULTIFUNCTION_DISPLAY);
+  console.log(
+    "PURE_LITERAL_MATCH=",
+    STEERING_WHEEL_MULTIFUNCTION_DISPLAY === PURE_THAI_STEERING_MULTIFUNCTION
+  );
+  console.log("OUTPUT_HAS_CANONICAL=", result.text.includes(PURE_THAI_STEERING_MULTIFUNCTION));
+  console.log("OUTPUT_NO_FORBIDDEN_GARBLE=", !containsForbiddenSteeringGarble(result.text));
 }
 
 // --- sparse fallback ---

@@ -223,6 +223,7 @@ function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
       </div>
       <div className="space-y-2 text-[11px] sm:text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
         <p>{analysis.opening}</p>
+        {analysis.featureWeave ? <p>{analysis.featureWeave}</p> : null}
         <p>{analysis.highlights}</p>
         <p className="text-slate-400">{analysis.closing}</p>
       </div>
