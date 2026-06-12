@@ -256,6 +256,7 @@
     "test:v64s-runtime-redaction-integration-final-go-no-go-approval-packet": "tsx scripts/test-v64s-runtime-redaction-integration-final-go-no-go-approval-packet.mts",
     "test:v64t-staging-real-provider-pilot-smoke-final-go-no-go-approval-packet": "tsx scripts/test-v64t-staging-real-provider-pilot-smoke-final-go-no-go-approval-packet.mts",
     "test:v64u-pilot-monitoring-kill-switch-verification-approval-packet": "tsx scripts/test-v64u-pilot-monitoring-kill-switch-verification-approval-packet.mts",
+    "test:v64v-limited-staging-pilot-review-approval-packet": "tsx scripts/test-v64v-limited-staging-pilot-review-approval-packet.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
