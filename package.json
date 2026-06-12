@@ -235,6 +235,7 @@
     "test:v64b-ai-control-model-types-static-readiness": "tsx scripts/test-v64b-ai-control-model-types-static-readiness.mts",
     "test:v64c-admin-read-only-ai-control-status-panel-readiness": "tsx scripts/test-v64c-admin-read-only-ai-control-status-panel-readiness.mts",
     "test:v64ca-staging-hosting-deploy-execution-record": "tsx scripts/test-v64ca-staging-hosting-deploy-execution-record.mts",
+    "test:v64c1-legacy-ai-control-center-disclosure-safety-audit": "tsx scripts/test-v64c1-legacy-ai-control-center-disclosure-safety-audit.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
