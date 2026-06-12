@@ -238,6 +238,7 @@
     "test:v64c1-legacy-ai-control-center-disclosure-safety-audit": "tsx scripts/test-v64c1-legacy-ai-control-center-disclosure-safety-audit.mts",
     "test:v64c2-legacy-ai-control-center-disclosure-ui-remediation": "tsx scripts/test-v64c2-legacy-ai-control-center-disclosure-ui-remediation.mts",
     "test:v64c2a-staging-hosting-deploy-execution-record": "tsx scripts/test-v64c2a-staging-hosting-deploy-execution-record.mts",
+    "test:v64d-mock-provider-shadow-harness-readiness": "tsx scripts/test-v64d-mock-provider-shadow-harness-readiness.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
