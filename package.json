@@ -262,6 +262,7 @@
     "test:v65c-production-cost-guard-quota-review-packet": "tsx scripts/test-v65c-production-cost-guard-quota-review-packet.mts",
     "test:v65d-production-incident-rollback-playbook-packet": "tsx scripts/test-v65d-production-incident-rollback-playbook-packet.mts",
     "test:v65e-user-visible-ai-behavior-policy-review-packet": "tsx scripts/test-v65e-user-visible-ai-behavior-policy-review-packet.mts",
+    "test:v65f-staging-execution-decision-consolidation-packet": "tsx scripts/test-v65f-staging-execution-decision-consolidation-packet.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
