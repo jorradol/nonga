@@ -248,6 +248,7 @@
     "test:v64k-redaction-logging-contract-readiness": "tsx scripts/test-v64k-redaction-logging-contract-readiness.mts",
     "test:v64l-synthetic-real-provider-invocation-plan-docs-only": "tsx scripts/test-v64l-synthetic-real-provider-invocation-plan-docs-only.mts",
     "test:v64m-redaction-test-fixture-implementation-candidate": "tsx scripts/test-v64m-redaction-test-fixture-implementation-candidate.mts",
+    "test:v64n-staging-secret-wiring-execution-candidate-approval-required": "tsx scripts/test-v64n-staging-secret-wiring-execution-candidate-approval-required.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
