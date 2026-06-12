@@ -20,6 +20,7 @@ import { AdminRevenueDashboardPreview } from "./revenue/AdminRevenueDashboardPre
 import { motion, AnimatePresence } from "motion/react";
 import AIControlCenter from "./ai/AIControlCenter";
 import { SmartSalesAiControlPreview } from "./ai/SmartSalesAiControlPreview";
+import { AiControlStatusPanel } from "./aiControl/AiControlStatusPanel";
 
 // Robust mock charts data set
 const growthTrendData = [
@@ -1313,6 +1314,11 @@ export default function AdminDashboardView() {
 
         {adminState.activeTab === "ai-control" && (
           <div className="space-y-6" data-testid="admin-ai-control-tab-panel">
+            <AiControlStatusPanel
+              actorRole={
+                effectiveAdminRole === "superadmin" ? "superadmin" : "admin"
+              }
+            />
             {effectiveAdminRole === "superadmin" && (
               <SmartSalesAiControlPreview />
             )}
