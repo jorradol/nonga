@@ -277,6 +277,7 @@
     "test:v65r-staging-runtime-switch-alignment-execution-record-gate-b-readiness": "tsx scripts/test-v65r-staging-runtime-switch-alignment-execution-record-gate-b-readiness.mts",
     "test:v65s-gate-b-synthetic-invocation-pre-execution-approval-packet": "tsx scripts/test-v65s-gate-b-synthetic-invocation-pre-execution-approval-packet.mts",
     "test:v65t-gate-b-synthetic-invocation-execution-record-gate-c-readiness": "tsx scripts/test-v65t-gate-b-synthetic-invocation-execution-record-gate-c-readiness.mts",
+    "test:v65u-gate-c-runtime-redaction-integration-pre-execution-approval-packet": "tsx scripts/test-v65u-gate-c-runtime-redaction-integration-pre-execution-approval-packet.mts",
     "gate-b-synthetic-invocation-exec:dry-run": "tsx scripts/gate-b-synthetic-invocation-exec.mts",
     "gate-b-synthetic-invocation-exec:execute-approved": "tsx scripts/gate-b-synthetic-invocation-exec.mts --execute-approved",
     "test:gate-b-synthetic-invocation-harness": "tsx scripts/test-gate-b-synthetic-invocation-harness.mts",
