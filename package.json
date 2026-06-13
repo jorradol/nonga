@@ -287,6 +287,7 @@
     "test:v66d-first-dealer-outreach-execution-approval-packet": "tsx scripts/test-v66d-first-dealer-outreach-execution-approval-packet.mts",
     "test:v66e-thor-auto-real-dealer-pilot-foundation-internal-split-plan": "tsx scripts/test-v66e-thor-auto-real-dealer-pilot-foundation-internal-split-plan.mts",
     "test:v66f-thor-auto-static-data-readiness-listing-workflow-prep": "tsx scripts/test-v66f-thor-auto-static-data-readiness-listing-workflow-prep.mts",
+    "test:v66g-thor-auto-manual-pilot-approval-packet": "tsx scripts/test-v66g-thor-auto-manual-pilot-approval-packet.mts",
     "gate-b-synthetic-invocation-exec:dry-run": "tsx scripts/gate-b-synthetic-invocation-exec.mts",
     "gate-b-synthetic-invocation-exec:execute-approved": "tsx scripts/gate-b-synthetic-invocation-exec.mts --execute-approved",
     "test:gate-b-synthetic-invocation-harness": "tsx scripts/test-gate-b-synthetic-invocation-harness.mts",
