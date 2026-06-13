@@ -23,6 +23,9 @@ coverage/
 # Keep example env file for documentation only
 !.env.example
 
+# Thor Auto / dealer private offline prep (full plate, raw source — never commit)
+.private/
+
 # Local data storage
 data/marketplace-inventory.json
 data/dealer-draft-inventory.json

@@ -1,0 +1,41 @@
+---
+description: Thor Auto / dealer manual prep — full plate private source, plateMasked downstream only
+globs: docs/v6.6*.md,.private/**/*
+alwaysApply: false
+---
+
+# Thor Auto Plate Handling (Private Source → Masked Downstream)
+
+## Private source (full plate allowed)
+
+- Dealer may send **full plate** in original import files for operator convenience.
+- Full plate files live **only** in `.private/` or other local/private paths.
+- **Never** `git add .private/` or commit source files with full plates.
+
+## Transformation (offline manual prep only)
+
+1. Read full plate from private source — offline step only.
+2. Produce `plateMasked` for all downstream artifacts.
+3. Mask examples: `XX-1234`, `กข-****`, `XX-****`.
+4. If format uncertain → default `XX-****`.
+5. **Never** store or forward full plate in committed, public, or user-visible outputs.
+
+## Blocked in downstream
+
+- Repo commits with full plate
+- Gemini / AI prompts with full plate
+- Listing drafts, caption drafts, execution reports (for commit/public), admin review artifacts with full plate
+- Runtime import, Firestore, deploy, publish, payment — unchanged; still forbidden without separate approval
+
+## Clean data field
+
+- Use **`plateMasked` only** in clean data, drafts, captions, reports.
+- Do not add `plateFull` to repo-tracked templates or outputs.
+
+## Every execution report must confirm
+
+1. Full-plate sources are private/offline only
+2. No full plate committed to repo
+3. No full plate in drafts/reports/outputs used downstream
+4. Clean data uses `plateMasked` only
+5. No end-customer PII introduced
