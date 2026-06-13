@@ -289,6 +289,7 @@
     "test:v66f-thor-auto-static-data-readiness-listing-workflow-prep": "tsx scripts/test-v66f-thor-auto-static-data-readiness-listing-workflow-prep.mts",
     "test:v66g-thor-auto-manual-pilot-approval-packet": "tsx scripts/test-v66g-thor-auto-manual-pilot-approval-packet.mts",
     "test:v66h-thor-auto-manual-pilot-pre-execution-approval": "tsx scripts/test-v66h-thor-auto-manual-pilot-pre-execution-approval.mts",
+    "test:v66i-thor-auto-manual-pilot-preparation-execution-record": "tsx scripts/test-v66i-thor-auto-manual-pilot-preparation-execution-record.mts",
     "gate-b-synthetic-invocation-exec:dry-run": "tsx scripts/gate-b-synthetic-invocation-exec.mts",
     "gate-b-synthetic-invocation-exec:execute-approved": "tsx scripts/gate-b-synthetic-invocation-exec.mts --execute-approved",
     "test:gate-b-synthetic-invocation-harness": "tsx scripts/test-gate-b-synthetic-invocation-harness.mts",
