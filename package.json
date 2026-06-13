@@ -271,6 +271,7 @@
     "test:v65l-execution-packet-index-approval-checklist-packet": "tsx scripts/test-v65l-execution-packet-index-approval-checklist-packet.mts",
     "test:v65m-execution-readiness-freeze-closure-packet": "tsx scripts/test-v65m-execution-readiness-freeze-closure-packet.mts",
     "test:v65n-first-execution-gate-selection-candidate-packet": "tsx scripts/test-v65n-first-execution-gate-selection-candidate-packet.mts",
+    "test:v65o-staging-secret-wiring-execution-candidate-approval-packet": "tsx scripts/test-v65o-staging-secret-wiring-execution-candidate-approval-packet.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
