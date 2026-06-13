@@ -276,6 +276,8 @@
     "test:v65q-staging-runtime-ai-switch-alignment-approval-packet": "tsx scripts/test-v65q-staging-runtime-ai-switch-alignment-approval-packet.mts",
     "test:v65r-staging-runtime-switch-alignment-execution-record-gate-b-readiness": "tsx scripts/test-v65r-staging-runtime-switch-alignment-execution-record-gate-b-readiness.mts",
     "test:v65s-gate-b-synthetic-invocation-pre-execution-approval-packet": "tsx scripts/test-v65s-gate-b-synthetic-invocation-pre-execution-approval-packet.mts",
+    "gate-b-synthetic-invocation-exec:dry-run": "tsx scripts/gate-b-synthetic-invocation-exec.mts",
+    "test:gate-b-synthetic-invocation-harness": "tsx scripts/test-gate-b-synthetic-invocation-harness.mts",
     "test:v56e1-buyer-purchase-profile-reuse": "tsx scripts/test-v56e1-buyer-purchase-profile-reuse.mts",
     "test:v56e2-buyer-lead-text-parser": "tsx scripts/test-v56e2-buyer-lead-text-parser.mts",
     "test:v546-mobile-chat-layout-playwright": "tsx scripts/test-v546-mobile-chat-layout-playwright.mts",
