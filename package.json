@@ -281,6 +281,7 @@
     "test:v65u-exec-gate-c-runtime-redaction-integration-minimal-candidate": "tsx scripts/test-v65u-exec-gate-c-runtime-redaction-integration-minimal-candidate.mts",
     "test:v65v-gate-c-minimal-redaction-guard-execution-record-gate-d-readiness": "tsx scripts/test-v65v-gate-c-minimal-redaction-guard-execution-record-gate-d-readiness.mts",
     "test:v65w-gate-d-staging-real-provider-pilot-smoke-pre-execution-approval-packet": "tsx scripts/test-v65w-gate-d-staging-real-provider-pilot-smoke-pre-execution-approval-packet.mts",
+    "test:v66a-controlled-revenue-pilot-scope-packet": "tsx scripts/test-v66a-controlled-revenue-pilot-scope-packet.mts",
     "gate-b-synthetic-invocation-exec:dry-run": "tsx scripts/gate-b-synthetic-invocation-exec.mts",
     "gate-b-synthetic-invocation-exec:execute-approved": "tsx scripts/gate-b-synthetic-invocation-exec.mts --execute-approved",
     "test:gate-b-synthetic-invocation-harness": "tsx scripts/test-gate-b-synthetic-invocation-harness.mts",
