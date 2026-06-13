@@ -1,14 +1,16 @@
 /**
  * v6.5S.EXEC — Gate B Synthetic Invocation Harness
  *
- * Default: dry-run only (validate payload + guards — no network, no Gemini).
- * Network execution is structurally present but hard-disabled until a separate
- * owner-approved execution slice sets HARNESS_NETWORK_EXECUTION_ENABLED.
+ * Default: dry-run (validate payload + guards — no network).
+ * Live invoke: `--execute-approved` + GATE_B_SYNTHETIC_EXECUTION_APPROVED + GEMINI_API_KEY
+ *               (requires HARNESS_NETWORK_EXECUTION_ENABLED — separate owner approval to run).
  *
  * NOT imported by App, user chat, live runtime, or admin shadow paths.
  *
  * npm run gate-b-synthetic-invocation-exec:dry-run
+ * npm run gate-b-synthetic-invocation-exec:execute-approved  (owner-approved live invoke only)
  */
+import { GoogleGenAI } from "@google/genai";
 import type { AiControlSurfaceId } from "../src/config/aiControl/aiControlTypes.ts";
 import {
   SYNTHETIC_REDACTION_FIXTURES,
@@ -19,17 +21,18 @@ import {
   type SyntheticRedactedMetadataFixture,
 } from "../src/services/ai/redactionTestFixtures.ts";
 
-export const GATE_B_HARNESS_VERSION = "v6.5S.EXEC-harness";
+export const GATE_B_HARNESS_VERSION = "v6.5S.EXEC-harness-live";
 export const GATE_B_SCENARIO_ID = "SYNTH_REDACTION_SCENARIO_001";
 export const GATE_B_INVOCATION_CAP = 1;
 export const GATE_B_GEMINI_MODEL = "gemini-3.5-flash";
 export const GATE_B_SURFACE_ID: AiControlSurfaceId = "buyerFriendlyDetailPreview";
+export const GATE_B_MAX_OUTPUT_TOKENS = 64;
 
 /**
- * Hard-disabled for harness-only slice (Option B).
- * Future execution slice may flip to true only after separate owner approval.
+ * Live network path enabled after Gate B Live Invocation Patch.
+ * Dry-run remains default; live invoke still requires CLI + approval env + API key.
  */
-export const HARNESS_NETWORK_EXECUTION_ENABLED = false;
+export const HARNESS_NETWORK_EXECUTION_ENABLED = true;
 
 export const GATE_B_EXECUTION_APPROVAL_ENV = "GATE_B_SYNTHETIC_EXECUTION_APPROVED";
 
@@ -48,7 +51,8 @@ export type GateBStopReasonCode =
   | "network_execution_disabled"
   | "missing_execution_approval_env"
   | "missing_api_key"
-  | "empty_prompt";
+  | "empty_prompt"
+  | "provider_error";
 
 export class GateBHarnessStopError extends Error {
   readonly code: GateBStopReasonCode;
@@ -111,6 +115,21 @@ export type GateBHarnessResult = {
   metadataReport?: GateBMetadataOnlyResult;
   message: string;
 };
+
+export type GateBGeminiCaller = (
+  payload: GateBSyntheticPayload,
+  readEnv: (key: string) => string | undefined
+) => Promise<GateBMetadataOnlyResult>;
+
+let testGeminiCaller: GateBGeminiCaller | null = null;
+
+export function setGateBGeminiCallerForTests(fn: GateBGeminiCaller | null): void {
+  testGeminiCaller = fn;
+}
+
+export function resetGateBGeminiCallerForTests(): void {
+  testGeminiCaller = null;
+}
 
 export function buildGateBSyntheticPayload(): GateBSyntheticPayload {
   return {
@@ -231,6 +250,25 @@ function parseExecutionApprovalEnv(
   return raw === "1" || raw === "true" || raw === "yes";
 }
 
+export function latencyBucket(ms: number): string {
+  if (ms < 500) return "<500ms";
+  if (ms < 2000) return "500ms-2s";
+  return ">2s";
+}
+
+export function tokenEstimateBucketFromUsage(usage?: {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}): string {
+  const prompt = usage?.promptTokenCount;
+  const candidates = usage?.candidatesTokenCount;
+  if (prompt === undefined && candidates === undefined) {
+    return "unknown-minimal";
+  }
+  return `${prompt ?? 0}-${candidates ?? 0}`;
+}
+
 function buildDryRunMetadataReport(): GateBMetadataOnlyResult {
   return {
     successFailureCategory: "dry-run",
@@ -244,25 +282,80 @@ function buildDryRunMetadataReport(): GateBMetadataOnlyResult {
   };
 }
 
+function buildLiveMetadataReport(input: {
+  success: boolean;
+  latencyMs: number;
+  usage?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+}): GateBMetadataOnlyResult {
+  return {
+    successFailureCategory: input.success ? "success" : "failure",
+    modelId: GATE_B_GEMINI_MODEL,
+    latencyBucket: latencyBucket(input.latencyMs),
+    tokenEstimateBucket: tokenEstimateBucketFromUsage(input.usage),
+    costBucket: "minimal-single-call",
+    networkCallMade: true,
+    invocationCount: 1,
+    redactionApplied: true,
+  };
+}
+
 /**
- * Provider invoke stub — network disabled in harness-only slice.
- * Returns metadata-only shape; never logs raw response body.
+ * Isolated harness live provider invoke — metadata-only; never logs raw response body or secret.
  */
 export async function invokeGateBProviderOnce(
-  _payload: GateBSyntheticPayload,
-  _readEnv: (key: string) => string | undefined
+  payload: GateBSyntheticPayload,
+  readEnv: (key: string) => string | undefined
 ): Promise<GateBMetadataOnlyResult> {
   if (!HARNESS_NETWORK_EXECUTION_ENABLED) {
     throw new GateBHarnessStopError(
       "network_execution_disabled",
-      "Harness network execution is disabled — dry-run only until separate execution approval"
+      "Harness network execution is disabled"
     );
   }
 
-  throw new GateBHarnessStopError(
-    "execution_not_authorized",
-    "Provider invoke path not enabled in this harness slice"
-  );
+  if (testGeminiCaller) {
+    return testGeminiCaller(payload, readEnv);
+  }
+
+  const apiKey = readEnv("GEMINI_API_KEY")?.trim();
+  if (!apiKey) {
+    throw new GateBHarnessStopError(
+      "missing_api_key",
+      "GEMINI_API_KEY missing (operator must supply at runtime — never log value)"
+    );
+  }
+
+  const started = Date.now();
+  try {
+    const client = new GoogleGenAI({ apiKey });
+    const response = await client.models.generateContent({
+      model: GATE_B_GEMINI_MODEL,
+      contents: [{ text: payload.prompt }],
+      config: { maxOutputTokens: GATE_B_MAX_OUTPUT_TOKENS },
+    });
+
+    const elapsed = Date.now() - started;
+    // Response text intentionally discarded — metadata-only reporting.
+    void String(response.text ?? "").length;
+
+    return buildLiveMetadataReport({
+      success: true,
+      latencyMs: elapsed,
+      usage: response.usageMetadata,
+    });
+  } catch (err) {
+    const elapsed = Date.now() - started;
+    throw new GateBHarnessStopError(
+      "provider_error",
+      `Provider call failed after ${latencyBucket(elapsed)}: ${
+        err instanceof Error ? err.message.slice(0, 120) : "unknown"
+      }`
+    );
+  }
 }
 
 export async function runGateBHarness(input: {
@@ -337,7 +430,7 @@ export async function runGateBHarness(input: {
       stopReason: "network_execution_disabled",
       validation,
       payloadScenarioId: GATE_B_SCENARIO_ID,
-      message: "Stopped: harness network execution disabled in v6.5S harness slice",
+      message: "Stopped: harness network execution disabled",
     };
   }
 

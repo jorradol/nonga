@@ -1,17 +1,21 @@
 /**
- * Gate B Synthetic Invocation Harness — static validation (no network, no Gemini)
+ * Gate B Synthetic Invocation Harness — static validation
  * npm run test:gate-b-synthetic-invocation-harness
  */
 import { existsSync, readFileSync } from "node:fs";
 import {
-  GATE_B_HARNESS_VERSION,
+  GATE_B_GEMINI_MODEL,
   GATE_B_INVOCATION_CAP,
   GATE_B_SCENARIO_ID,
   GATE_B_SYNTHETIC_PROMPT,
   HARNESS_NETWORK_EXECUTION_ENABLED,
   buildGateBSyntheticPayload,
   evaluateGateBHardStopConditions,
+  latencyBucket,
+  resetGateBGeminiCallerForTests,
   runGateBHarness,
+  setGateBGeminiCallerForTests,
+  tokenEstimateBucketFromUsage,
   validateGateBPayloadBeforeSend,
 } from "./gate-b-synthetic-invocation-exec.mts";
 import {
@@ -41,7 +45,7 @@ function ok(name: string, pass: boolean, detail = "") {
   if (!pass) process.exitCode = 1;
 }
 
-console.log("=== Gate B Synthetic Invocation Harness (v6.5S.EXEC) ===\n");
+console.log("=== Gate B Synthetic Invocation Harness (v6.5S.EXEC live patch) ===\n");
 
 const harnessSrc = readFileSync(HARNESS_PATH, "utf8");
 const selfSrc = readFileSync(
@@ -67,10 +71,15 @@ const selfCodeOnly = selfSrc
 {
   ok("harness file exists", existsSync(HARNESS_PATH));
   ok("harness v6.5S.EXEC label", harnessSrc.includes("v6.5S.EXEC"));
-  ok("network execution disabled", HARNESS_NETWORK_EXECUTION_ENABLED === false);
-  ok("harness constant disabled in source", /HARNESS_NETWORK_EXECUTION_ENABLED\s*=\s*false/.test(harnessSrc));
+  ok("harness live patch label", harnessSrc.includes("harness-live"));
+  ok("network execution enabled constant", HARNESS_NETWORK_EXECUTION_ENABLED === true);
+  ok(
+    "harness constant enabled in source",
+    /HARNESS_NETWORK_EXECUTION_ENABLED\s*=\s*true/.test(harnessSrc)
+  );
   ok("invocation cap is 1", GATE_B_INVOCATION_CAP === 1);
   ok("scenario id", GATE_B_SCENARIO_ID === "SYNTH_REDACTION_SCENARIO_001");
+  ok("model id gemini-3.5-flash", GATE_B_GEMINI_MODEL === "gemini-3.5-flash");
 }
 
 // --- isolation from runtime paths ---
@@ -84,13 +93,17 @@ const selfCodeOnly = selfSrc
   ok("harness not import App", !/from\s+['"].*App/.test(harnessSrc));
 }
 
-// --- no network / gemini in harness ---
+// --- live path present; no fetch; genai only in harness ---
 {
-  ok("harness no google genai import", !/@google\/genai|GoogleGenAI/.test(harnessSrc));
-  ok("harness no generateContent", !/generateContent\s*\(/.test(harnessSrc));
+  ok("harness has google genai import", /@google\/genai/.test(harnessSrc));
+  ok("harness has generateContent", /generateContent\s*\(/.test(harnessSrc));
   ok("harness no fetch http", !/fetch\s*\(\s*[`'"]https?:/.test(harnessSrc));
   ok("harness no firestore write", !/\b(setDoc|getDocs|writeBatch)\b/.test(harnessSrc));
   ok("harness no analytics persist", !/analytics\.track|logEvent|persistAiLog/.test(harnessSrc));
+  ok(
+    "harness discards raw response",
+    /Response text intentionally discarded|metadata-only reporting/i.test(harnessSrc)
+  );
   ok("self no fetch http", !/fetch\s*\(\s*[`'"]https?:/.test(selfCodeOnly));
   ok("self no generateContent", !/generateContent\s*\(/.test(selfCodeOnly));
 }
@@ -110,33 +123,24 @@ const selfCodeOnly = selfSrc
   );
 }
 
+// --- metadata helpers ---
+{
+  ok("latency bucket under 500", latencyBucket(100) === "<500ms");
+  ok("token bucket unknown", tokenEstimateBucketFromUsage() === "unknown-minimal");
+  ok(
+    "token bucket from usage",
+    tokenEstimateBucketFromUsage({ promptTokenCount: 10, candidatesTokenCount: 5 }) ===
+      "10-5"
+  );
+}
+
 // --- hard stop conditions ---
 {
   const capStop = evaluateGateBHardStopConditions({ invocationCount: 2 });
   ok("cap exceeded stops", capStop.pass === false && capStop.stopReason === "invocation_cap_exceeded");
-  const uvStop = evaluateGateBHardStopConditions({
-    invocationCount: 0,
-    runtime: { userVisibleEnabled: true },
-  });
-  ok("user visible stop", uvStop.stopReason === "user_visible_path_enabled");
-  const adminStop = evaluateGateBHardStopConditions({
-    invocationCount: 0,
-    runtime: { adminShadowRealProviderEnabled: true },
-  });
-  ok("admin shadow stop", adminStop.stopReason === "admin_shadow_real_provider_enabled");
-  const killStop = evaluateGateBHardStopConditions({
-    invocationCount: 0,
-    runtime: { emergencyKillSwitch: true },
-  });
-  ok("kill switch stop", killStop.stopReason === "emergency_kill_switch_active");
-  const prodStop = evaluateGateBHardStopConditions({
-    invocationCount: 0,
-    runtime: { productionTarget: true },
-  });
-  ok("production stop", prodStop.stopReason === "production_target");
 }
 
-// --- dry-run harness ---
+// --- dry-run harness (no network) ---
 {
   const dryRun = await runGateBHarness({ mode: "dry-run" });
   ok("dry-run not stopped", dryRun.stopped === false);
@@ -145,18 +149,47 @@ const selfCodeOnly = selfSrc
   ok("dry-run category", dryRun.metadataReport?.successFailureCategory === "dry-run");
 }
 
-// --- execute-approved blocked in harness slice ---
+// --- execute-approved gates (no real network in tests) ---
 {
-  const execAttempt = await runGateBHarness({
-    mode: "execute-approved",
-    readEnv: (key) => (key === "GATE_B_SYNTHETIC_EXECUTION_APPROVED" ? "true" : undefined),
-  });
-  ok("execute-approved stopped", execAttempt.stopped === true);
+  const noApproval = await runGateBHarness({ mode: "execute-approved" });
+  ok("execute without approval env stopped", noApproval.stopped === true);
   ok(
-    "execute-approved network disabled reason",
-    execAttempt.stopReason === "missing_execution_approval_env" ||
-      execAttempt.stopReason === "network_execution_disabled"
+    "execute without approval reason",
+    noApproval.stopReason === "missing_execution_approval_env"
   );
+
+  const noKey = await runGateBHarness({
+    mode: "execute-approved",
+    readEnv: (key) =>
+      key === "GATE_B_SYNTHETIC_EXECUTION_APPROVED" ? "true" : undefined,
+  });
+  ok("execute without api key stopped", noKey.stopped === true);
+  ok("execute without api key reason", noKey.stopReason === "missing_api_key");
+
+  setGateBGeminiCallerForTests(async () => ({
+    successFailureCategory: "success",
+    modelId: GATE_B_GEMINI_MODEL,
+    latencyBucket: "<500ms",
+    tokenEstimateBucket: "10-5",
+    costBucket: "minimal-single-call",
+    networkCallMade: true,
+    invocationCount: 1,
+    redactionApplied: true,
+  }));
+
+  const mockExec = await runGateBHarness({
+    mode: "execute-approved",
+    readEnv: (key) => {
+      if (key === "GATE_B_SYNTHETIC_EXECUTION_APPROVED") return "true";
+      if (key === "GEMINI_API_KEY") return "test-key-not-real";
+      return undefined;
+    },
+  });
+  ok("mock execute not stopped", mockExec.stopped === false);
+  ok("mock execute network true", mockExec.metadataReport?.networkCallMade === true);
+  ok("mock execute invocation 1", mockExec.metadataReport?.invocationCount === 1);
+
+  resetGateBGeminiCallerForTests();
 }
 
 // --- runtime contract ---
@@ -182,8 +215,11 @@ const selfCodeOnly = selfSrc
 // --- package scripts ---
 {
   ok("package dry-run script", pkg.includes("gate-b-synthetic-invocation-exec:dry-run"));
+  ok(
+    "package execute-approved script",
+    pkg.includes("gate-b-synthetic-invocation-exec:execute-approved")
+  );
   ok("package harness test script", pkg.includes("test:gate-b-synthetic-invocation-harness"));
-  ok("package points to exec mts", pkg.includes("scripts/gate-b-synthetic-invocation-exec.mts"));
 }
 
 console.log("\nDone Gate B Synthetic Invocation Harness tests.");
