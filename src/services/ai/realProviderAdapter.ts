@@ -1,5 +1,6 @@
 /**
- * v6.4F — Real provider adapter skeleton (disabled by default, no network, no secrets).
+ * v6.4F / v6.5U.EXEC — Real provider adapter skeleton (disabled by default, no network, no secrets).
+ * v6.5U.EXEC adds runtime-adjacent redaction validation — still blocked, no provider invoke.
  * Not wired to useChat, orchestrator, Firestore, or backend — readiness only.
  *
  * Future Gemini secret must come from approved Secret Manager path only
@@ -20,8 +21,12 @@ import {
 import { BUYER_FRIENDLY_SAFETY_DISCLAIMER } from "../../utils/buyerFriendlyListingCopy.ts";
 import type { AiShadowHarnessExpectation } from "./aiShadowHarness.ts";
 import type { MockAiProviderMetadata } from "./mockAiProvider.ts";
+import {
+  validateAdapterMetadataSerialization,
+  validateAdapterPayloadRedaction,
+} from "./realProviderRedactionGuard.ts";
 
-export const REAL_PROVIDER_ADAPTER_VERSION = "v6.4F-skeleton-disabled";
+export const REAL_PROVIDER_ADAPTER_VERSION = "v6.5U.EXEC-gate-c-minimal";
 
 /** v6.4F — adapter is structurally present but hard-disabled until future approval. */
 export const REAL_PROVIDER_ADAPTER_DEFAULT_ENABLED = false;
@@ -42,7 +47,9 @@ export type RealProviderBlockedReasonCode =
   | "missing_allowlist"
   | "admin_cannot_enable"
   | "adapter_not_enabled"
-  | "staging_gates_incomplete";
+  | "staging_gates_incomplete"
+  | "forbidden_content_in_payload"
+  | "metadata_invariant_failed";
 
 export type RealProviderFallbackReasonCode =
   | RealProviderBlockedReasonCode
@@ -78,6 +85,7 @@ export interface RealProviderAdapterMetadata {
   adminCanEnableRealProvider: false;
   surfaceId: AiControlSurfaceId;
   effectiveProviderStatus: AiProviderStatus;
+  redactionApplied: boolean;
 }
 
 export interface RealProviderAdapterResult {
@@ -90,6 +98,8 @@ export interface RealProviderAdapterResult {
 
 export interface RealProviderAdapterInput {
   surfaceId: AiControlSurfaceId;
+  /** Optional redacted payload candidate — validated pre-guard; never sent to provider in v6.5U.EXEC. */
+  payloadCandidate?: string;
 }
 
 export interface RealProviderGuardEvaluation {
@@ -190,7 +200,8 @@ function guardBlock(
 
 function buildBlockedMetadata(
   input: RealProviderAdapterInput,
-  evaluation: RealProviderGuardEvaluation
+  evaluation: RealProviderGuardEvaluation,
+  options?: { redactionApplied?: boolean }
 ): RealProviderAdapterMetadata {
   const config = DEFAULT_AI_CONTROL_PLANE_CONFIG;
   const effectiveProviderStatus = resolveEffectiveProviderStatus({
@@ -211,6 +222,36 @@ function buildBlockedMetadata(
     adminCanEnableRealProvider: false,
     surfaceId: input.surfaceId,
     effectiveProviderStatus,
+    redactionApplied: options?.redactionApplied ?? false,
+  };
+}
+
+function blockedAdapterResult(
+  input: RealProviderAdapterInput,
+  evaluation: RealProviderGuardEvaluation,
+  options?: { redactionApplied?: boolean }
+): RealProviderAdapterResult {
+  const metadata = buildBlockedMetadata(input, evaluation, options);
+  const metadataCheck = validateAdapterMetadataSerialization(
+    JSON.stringify(metadata)
+  );
+  if (!metadataCheck.pass && metadataCheck.stopReason) {
+    const metaBlock = guardBlock(metadataCheck.stopReason, "blocked");
+    return {
+      blocked: true,
+      fallbackUsed: true,
+      text: BUYER_FRIENDLY_SAFETY_DISCLAIMER,
+      metadata: buildBlockedMetadata(input, metaBlock, { redactionApplied: false }),
+      reasonCode: metadataCheck.stopReason,
+    };
+  }
+
+  return {
+    blocked: true,
+    fallbackUsed: true,
+    text: BUYER_FRIENDLY_SAFETY_DISCLAIMER,
+    metadata,
+    reasonCode: evaluation.reasonCode,
   };
 }
 
@@ -222,14 +263,17 @@ export function invokeRealProviderAdapterSkeleton(
   input: RealProviderAdapterInput,
   guardContext: RealProviderAdapterGuardContext = defaultRealProviderAdapterGuardContext()
 ): RealProviderAdapterResult {
+  const payloadCheck = validateAdapterPayloadRedaction(input.payloadCandidate);
+  if (!payloadCheck.pass && payloadCheck.stopReason) {
+    return blockedAdapterResult(
+      input,
+      guardBlock(payloadCheck.stopReason, "blocked"),
+      { redactionApplied: false }
+    );
+  }
+
   const evaluation = evaluateRealProviderAdapterGuards(guardContext);
-  return {
-    blocked: true,
-    fallbackUsed: true,
-    text: BUYER_FRIENDLY_SAFETY_DISCLAIMER,
-    metadata: buildBlockedMetadata(input, evaluation),
-    reasonCode: evaluation.reasonCode,
-  };
+  return blockedAdapterResult(input, evaluation, { redactionApplied: true });
 }
 
 /** Type-only bridge — confirms adapter metadata aligns with shadow harness expectations. */
