@@ -284,6 +284,7 @@
     "test:v66a-controlled-revenue-pilot-scope-packet": "tsx scripts/test-v66a-controlled-revenue-pilot-scope-packet.mts",
     "test:v66b-dealer-starter-pilot-offer-outreach-packet": "tsx scripts/test-v66b-dealer-starter-pilot-offer-outreach-packet.mts",
     "test:v66c-dealer-outreach-approval-first-prospect-checklist": "tsx scripts/test-v66c-dealer-outreach-approval-first-prospect-checklist.mts",
+    "test:v66d-first-dealer-outreach-execution-approval-packet": "tsx scripts/test-v66d-first-dealer-outreach-execution-approval-packet.mts",
     "gate-b-synthetic-invocation-exec:dry-run": "tsx scripts/gate-b-synthetic-invocation-exec.mts",
     "gate-b-synthetic-invocation-exec:execute-approved": "tsx scripts/gate-b-synthetic-invocation-exec.mts --execute-approved",
     "test:gate-b-synthetic-invocation-harness": "tsx scripts/test-gate-b-synthetic-invocation-harness.mts",
