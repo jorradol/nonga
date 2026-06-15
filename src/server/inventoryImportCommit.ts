@@ -35,7 +35,7 @@ import {
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
 
-function resolveDealerIdForImport(
+export function resolveDealerIdForImport(
   owner: CommitImportOwner,
   row: CommitImportRowInput
 ): string {
