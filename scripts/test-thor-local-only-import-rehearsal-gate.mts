@@ -84,6 +84,10 @@ ok(
 const gateDoc = "docs/v6.6O-local-only-runtime-import-gate.md";
 ok("v6.6O gate doc exists", fs.existsSync(gateDoc));
 
+const gitignore = fs.readFileSync(".gitignore", "utf8");
+ok("gitignore ignores data/checkpoints/", /data\/checkpoints\/?/.test(gitignore));
+ok("gitignore ignores .private/", /\.private\//.test(gitignore));
+
 if (failed) {
   console.log("\n=== FAIL ===");
   process.exit(1);
