@@ -16,6 +16,7 @@ import {
   isAdminShadowRealProviderCaseAllowed,
   type AdminShadowGeminiCallResult,
 } from "./salesBrainAdminShadowRealProvider";
+import { isGlobalChatShadowEmergencyKillSwitchActive } from "./salesBrainChatShadowRealProvider";
 import { defaultEnvReader } from "./salesBrainRealProvider";
 import { redactPiiForSalesBrainLog } from "./salesBrainMock";
 import {
@@ -339,6 +340,14 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     return {
       providerNetwork: false,
       realProviderGateReason: "admin_shadow_real_provider_flag_off",
+    };
+  }
+
+  if (isGlobalChatShadowEmergencyKillSwitchActive(readEnv)) {
+    return {
+      providerNetwork: false,
+      realProviderGateReason: "emergency_kill_switch",
+      realProviderFallbackReason: "emergency_kill_switch",
     };
   }
 
