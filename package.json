@@ -25,6 +25,7 @@
     "test:v68c2-staging-kill-switch-drill-execution-record": "tsx scripts/test-v68c2-staging-kill-switch-drill-execution-record.mts",
     "test:v68d-real-user-visible-allowlist-pilot": "tsx scripts/test-v68d-real-user-visible-allowlist-pilot.mts",
     "test:v68d1-user-visible-real-provider-invoke-fix": "tsx scripts/test-v68d1-user-visible-real-provider-invoke-fix.mts",
+    "test:v68d2-real-gemini-user-visible-allowlist-pilot-execution-record": "tsx scripts/test-v68d2-real-gemini-user-visible-allowlist-pilot-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
     "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",
