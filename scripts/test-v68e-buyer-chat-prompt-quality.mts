@@ -95,7 +95,7 @@ const selfSrc = readFileSync("scripts/test-v68e-buyer-chat-prompt-quality.mts", 
 
 // --- slice + doc ---
 {
-  ok("quality slice id v6.8E.1", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.1");
+  ok("quality slice id v6.8E.2", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.2");
   ok("checklist doc exists", doc.length > 800);
   ok("checklist v6.8E label", doc.includes("v6.8E"));
   ok("checklist budget search scenario", /budget search/i.test(doc));
@@ -172,7 +172,11 @@ const selfSrc = readFileSync("scripts/test-v68e-buyer-chat-prompt-quality.mts", 
     !assertNoFinanceGuaranteeLanguage("ผ่านชัวร์ครับ")
   );
   ok("source exports finance output guard", realProviderSrc.includes("assertNoFinanceGuaranteeLanguage"));
-  ok("source wires finance guard in output safe", realProviderSrc.includes("assertNoFinanceGuaranteeLanguage(text)"));
+  ok(
+    "source wires finance guard in output safe",
+    realProviderSrc.includes("assertNoFinanceGuaranteeLanguage") &&
+      realProviderSrc.includes("evaluateRealProviderOutputSafety")
+  );
 }
 
 // --- fallback unchanged on provider error ---

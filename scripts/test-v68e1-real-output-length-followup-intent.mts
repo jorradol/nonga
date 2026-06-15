@@ -90,10 +90,10 @@ const selfSrc = readFileSync("scripts/test-v68e1-real-output-length-followup-int
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.1", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.1");
+  ok("quality slice v6.8E.2", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.2");
   ok("doc v6.8E PARTIAL noted", /v6\.8E.*PARTIAL|PARTIAL.*v6\.8E/i.test(doc));
   ok("doc min length criteria", /ไม่ควรสั้นผิดปกติ|minimum|อย่างน้อย/i.test(doc));
-  ok("doc v6.8E.1 rerun", /v6\.8E\.1|rerun smoke/i.test(doc));
+  ok("doc v6.8E.1 rerun or v6.8E.2", /v6\.8E\.1|v6\.8E\.2|rerun smoke/i.test(doc));
 }
 
 // --- follow-up intent coverage ---

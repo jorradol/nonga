@@ -218,7 +218,8 @@ const selfSrc = readFileSync("scripts/test-v68d-real-user-visible-allowlist-pilo
 {
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
-    redactedProviderOutput: "น้องเอช่วยแนะนำรถจากข้อมูลในระบบครับ มีรถให้เลือกหลายคันในงบที่คุยกัน",
+    redactedProviderOutput:
+      "สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ",
     requestIdHash: "mockhashv68d",
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
   }));
@@ -256,7 +257,7 @@ const selfSrc = readFileSync("scripts/test-v68d-real-user-visible-allowlist-pilo
 
   ok("real apply network true", applied.payload.realProviderNetwork === true);
   ok("real apply gate ok", applied.payload.realProviderGateReason === "real_provider_call_ok");
-  ok("real apply text from provider", applied.payload.userVisibleText.includes("น้องเอช่วยแนะนำ"));
+  ok("real apply text from provider", applied.payload.userVisibleText.includes("น้องเอคัดรถ"));
 
   resetUserVisibleGeminiCallerForTests();
 }

@@ -37,8 +37,18 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.1 — buyer prompt quality / output length / follow-up intent */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.1";
+/** v6.8E.2 — unsafe output diagnostics / Thai complete answers */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.2";
+
+export type UserVisibleOutputUnsafeReason =
+  | "too_short"
+  | "pipe_echo"
+  | "finance_forbidden_phrase"
+  | "meta_instruction_leak"
+  | "non_thai_output"
+  | "incomplete_sentence"
+  | "generic_safety_guard"
+  | "empty_output";
 
 export type UserVisibleBuyerAnswerScenario =
   | "budget"
@@ -50,12 +60,30 @@ export type UserVisibleBuyerAnswerScenario =
 
 export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenario, number> = {
   budget: 120,
-  finance: 90,
-  compare: 100,
-  summarize: 90,
-  fit: 90,
-  general: 70,
+  finance: 150,
+  compare: 120,
+  summarize: 100,
+  fit: 120,
+  general: 80,
 };
+
+/** Meta / instruction leak — must trigger mock fallback (v6.8E.2). */
+export const USER_VISIBLE_META_INSTRUCTION_LEAK_PATTERNS: RegExp[] = [
+  /let'?s be careful/i,
+  /do not invent/i,
+  /\bI should\b/i,
+  /\bI need to\b/i,
+  /\bas an AI\b/i,
+  /\baccording to (?:the )?prompt\b/i,
+  /ตาม\s*instruction/i,
+  /ตาม\s*prompt/i,
+];
+
+export const USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS = [
+  "ภาษาไทยเท่านั้น",
+  "ห้ามพูดถึง prompt",
+  "จบประโยคสมบูรณ์",
+] as const;
 
 export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 768;
 
@@ -141,28 +169,29 @@ function buildScenarioAnswerGuidance(
   switch (scenario) {
     case "budget":
       return [
-        `งานนี้: แนะนำรถจาก listing (${cardCount || "หลาย"} คัน) — ตอบอย่างน้อย ${minChars} ตัวอักษร.`,
-        "รูปแบบ: ทักทายสั้น ๆ แล้วอธิบายทีละคัน 2–3 ประโยคต่อคัน (ไม่ซ้ำ) จากข้อมูลจริง ปิดท้าย CTA นุ่มนวล.",
+        `งานนี้: แนะนำรถจาก listing (${cardCount || "หลาย"} คัน) เป็นภาษาไทย — อย่างน้อย ${minChars} ตัวอักษร.`,
+        "รูปแบบ: ทักทายสั้น ๆ แล้วอธิบายทีละคัน 1–2 ประโยคต่อคัน (ไม่ซ้ำ) จากข้อมูลจริง ปิดท้าย CTA นุ่มนวลด้วย ครับ/ค่ะ.",
       ].join(" ");
     case "finance":
       return [
-        `งานนี้: ตอบเรื่องผ่อน/ไฟแนนซ์ — อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
-        "อธิบายแนวประเมินเบื้องต้นจากราคาใน listing เท่านั้น ห้ามรับประกันอนุมัติ.",
+        `งานนี้: ตอบเรื่องผ่อน/ไฟแนนซ์เป็นภาษาไทยเท่านั้น — อย่างน้อย ${minChars} ตัวอักษร, 2–4 ประโยค.`,
+        "ใช้คำว่า ประเมินเบื้องต้น / ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ / ทีมงานช่วยประสานรายละเอียด — ห้ามรับประกันอนุมัติ.",
+        "ห้ามเดาตัวเลขงวดหรือดอกเบี้ยแม่นยำ ถ้าไม่มีใน listing ให้บอกให้ทีมงานตรวจเงื่อนไขก่อน.",
       ].join(" ");
     case "compare":
       return [
-        `งานนี้: เทียบรถจาก listing — อย่างน้อย ${minChars} ตัวอักษร, 4–6 ประโยค.`,
-        "เปรียบจุดต่างที่มีในข้อมูลจริง ถ้าช่องว่างให้บอกว่ายังไม่มีข้อมูลนี้ในระบบ.",
+        `งานนี้: เทียบรถจาก listing เป็นภาษาไทย — อย่างน้อย ${minChars} ตัวอักษร, 4–6 ประโยค.`,
+        "เปรียบคันที่ 1 กับ 2 ด้วยหัวข้อชัดเจน (ปี ราคา ไมล์ ประเภท) จากข้อมูลจริง จบด้วย ครับ/ค่ะ.",
       ].join(" ");
     case "summarize":
       return [
-        `งานนี้: สรุปจุดเด่นจาก listing คันล่าสุด — อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
-        "อ้างเฉพาะ brand/model/ปี/ราคา/ไมล์/ประเภทที่มี ห้ามแต่งสภาพหรือประวัติ.",
+        `งานนี้: สรุปจุดเด่นคันเดียวจาก listing — ภาษาไทย อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
+        "อ้างเฉพาะ brand/model/ปี/ราคา/ไมล์/ประเภทที่มี ห้ามแต่งสภาพหรือประวัติ จบด้วย ครับ/ค่ะ.",
       ].join(" ");
     case "fit":
       return [
-        `งานนี้: บอกว่าเหมาะกับใครจากข้อมูล listing — อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
-        "อิงประเภทรถ ปี ราคา ไมล์ที่มี ห้ามฟันธงเกินข้อมูล.",
+        `งานนี้: บอกว่าเหมาะกับใครจากข้อมูล listing — ภาษาไทย อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
+        "อิงประเภทรถ ปี ราคา ไมล์ที่มี ห้ามฟันธงเกินข้อมูล จบด้วย ครับ/ค่ะ.",
       ].join(" ");
     default:
       return `ตอบครบประเด็น อย่างน้อย ${minChars} ตัวอักษร (ประมาณ 3–5 ประโยค) ไม่ยาวเกินจำเป็น.`;
@@ -202,6 +231,133 @@ export function extractUserVisibleGeminiResponseText(response: {
     }
   }
   return parts.join("").trim();
+}
+
+export function hasMetaInstructionLeak(text: string): boolean {
+  for (const pattern of USER_VISIBLE_META_INSTRUCTION_LEAK_PATTERNS) {
+    if (pattern.test(text)) return true;
+  }
+  return false;
+}
+
+/** Reject answers dominated by Latin/English when user-visible reply must be Thai. */
+export function hasExcessiveNonThaiContent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const latinWords = trimmed.match(/\b[A-Za-z]{2,}\b/g) ?? [];
+  const latinChars = (trimmed.match(/[A-Za-z]/g) ?? []).length;
+  const thaiChars = (trimmed.match(/[\u0E00-\u0E7F]/g) ?? []).length;
+
+  if (thaiChars === 0 && latinChars > 8) return true;
+  if (thaiChars < 20 && latinWords.length >= 2) return true;
+  if (/\b[A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){3,}/.test(trimmed)) return true;
+
+  // Thai-first answers may include brand/model tokens (Toyota Vios, Honda City).
+  if (thaiChars >= 80 && latinWords.length <= 10 && latinChars / (thaiChars + latinChars) <= 0.22) {
+    return false;
+  }
+
+  if (latinWords.length >= 4) return true;
+  if (latinChars >= 24) return true;
+  if (thaiChars > 0 && latinChars / (thaiChars + latinChars) > 0.22) return true;
+  return false;
+}
+
+/** Buyer-visible replies must end as a complete Thai sentence (ครับ/ค่ะ or clear closure). */
+export function looksLikeIncompleteSentence(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  if (/(?:ครับ|ค่ะ|นะครับ|นะคะ)(?:[.!?…])?$/.test(t)) return false;
+  if (/[.!?…]$/.test(t) && /[\u0E00-\u0E7F]/.test(t) && !hasExcessiveNonThaiContent(t)) {
+    return false;
+  }
+  if (/[a-zA-Z,(]$/.test(t)) return true;
+  if (/[\u0E00-\u0E7F]$/.test(t)) return true;
+  return true;
+}
+
+export interface UserVisibleOutputSafetyResult {
+  safe: boolean;
+  unsafeReason?: UserVisibleOutputUnsafeReason;
+  scenario: UserVisibleBuyerAnswerScenario;
+  outputLength: number;
+}
+
+export interface UserVisibleOutputUnsafeDiagnostics {
+  sliceId: typeof USER_VISIBLE_REAL_PROVIDER_SLICE_ID;
+  qualitySliceId: typeof USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID;
+  route: "user-visible";
+  modelId: string;
+  scenario: UserVisibleBuyerAnswerScenario;
+  outputLength: number;
+  unsafeReason: UserVisibleOutputUnsafeReason;
+  gateReason: "real_provider_output_unsafe";
+  outputSampleRedacted: string;
+}
+
+function redactOutputSampleForDiagnostics(text: string, max = 80): string {
+  let sample = text.trim().slice(0, max);
+  sample = redactPiiForSalesBrainLog(sample);
+  sample = sample.replace(/AIza[0-9A-Za-z\-_]+/g, "[api-key-redacted]");
+  sample = sample.replace(/Bearer\s+\S+/gi, "[auth-redacted]");
+  return sample;
+}
+
+export function evaluateRealProviderOutputSafety(
+  text: string,
+  userMessage: string,
+  carCardCount: number
+): UserVisibleOutputSafetyResult {
+  const scenario = detectUserVisibleBuyerScenario(userMessage);
+  const trimmed = text.trim();
+  const outputLength = trimmed.length;
+
+  if (!trimmed) {
+    return { safe: false, unsafeReason: "empty_output", scenario, outputLength: 0 };
+  }
+  if (!assertNoPilotDebugMarker(trimmed)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
+  if (!assertNoFinanceGuaranteeLanguage(trimmed)) {
+    return { safe: false, unsafeReason: "finance_forbidden_phrase", scenario, outputLength };
+  }
+  if (hasMetaInstructionLeak(trimmed)) {
+    return { safe: false, unsafeReason: "meta_instruction_leak", scenario, outputLength };
+  }
+  if (hasExcessiveNonThaiContent(trimmed)) {
+    return { safe: false, unsafeReason: "non_thai_output", scenario, outputLength };
+  }
+  if (looksLikeListingPipeEcho(trimmed)) {
+    return { safe: false, unsafeReason: "pipe_echo", scenario, outputLength };
+  }
+  if (!assertRealProviderOutputMinLength(trimmed, userMessage, carCardCount)) {
+    return { safe: false, unsafeReason: "too_short", scenario, outputLength };
+  }
+  if (looksLikeIncompleteSentence(trimmed)) {
+    return { safe: false, unsafeReason: "incomplete_sentence", scenario, outputLength };
+  }
+  if (isPilotBuyerFollowUpMessage(userMessage)) {
+    if (!assertPilotFollowUpCopySafe(trimmed, carCardCount)) {
+      return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+    }
+  } else if (!assertPilotCopySafe(trimmed, carCardCount, userMessage)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
+  return { safe: true, scenario, outputLength };
+}
+
+export function isRealProviderOutputSafe(
+  text: string,
+  userMessage: string,
+  carCardCount: number
+): boolean {
+  return evaluateRealProviderOutputSafety(text, userMessage, carCardCount).safe;
+}
+
+function logUserVisibleOutputUnsafeDiagnostics(
+  diagnostics: UserVisibleOutputUnsafeDiagnostics
+): void {
+  console.warn("[user-visible-real-provider]", JSON.stringify(diagnostics));
 }
 
 export type UserVisibleRealProviderGateReason =
@@ -329,8 +485,14 @@ function buildUserVisibleBuyerSystemInstruction(
 
   return [
     `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (staging pilot เท่านั้น, ${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
-    "ตอบเป็นภาษาไทย เป็นประโยคสมบูรณ์ เป็นกันเอง สุภาพ ไม่ใช้ emoji มากเกินไป.",
+    "ตอบเป็นภาษาไทยเท่านั้น เป็นประโยคสมบูรณ์ เป็นกันเอง สุภาพ ไม่ใช้ emoji มากเกินไป.",
+    "ทุกคำตอบต้องจบประโยคสมบูรณ์ด้วย ครับ หรือ ค่ะ — ห้ามตัดกลางประโยค.",
     "ตอบครบประเด็น ประมาณ 3–6 ประโยค หรือ 2–4 bullet ตามบริบท — ไม่สั้นจนไม่ครบ ไม่ยาวเกินจำเป็น.",
+    "",
+    "[ภาษาไทยเท่านั้น — ห้าม meta]",
+    "ห้ามใช้ภาษาอังกฤษในคำตอบที่ผู้ใช้เห็น.",
+    "ห้ามพูดถึง prompt, instruction, กฎ, model, AI หรือเหตุผลภายใน.",
+    "ห้ามใช้ประโยค meta เช่น let's be careful, do not invent, I should, as an AI.",
     "",
     "[รูปแบบคำตอบ]",
     "ตอบเป็นภาษาไทยเป็นประโยคสมบูรณ์เท่านั้น — ห้ามตอบแบบ pipe listing (`#1 | Toyota | ราคา`) หรือคัดลอกบรรทัด listing ดิบ.",
@@ -587,32 +749,6 @@ export async function invokeUserVisibleRealProvider(input: {
   return caller(adapterInput, { readEnv, pilotOrchestration: input.pilotOrchestration });
 }
 
-function isRealProviderOutputSafe(
-  text: string,
-  userMessage: string,
-  carCardCount: number
-): boolean {
-  if (!text.trim()) {
-    return false;
-  }
-  if (!assertNoPilotDebugMarker(text)) {
-    return false;
-  }
-  if (!assertNoFinanceGuaranteeLanguage(text)) {
-    return false;
-  }
-  if (looksLikeListingPipeEcho(text)) {
-    return false;
-  }
-  if (!assertRealProviderOutputMinLength(text, userMessage, carCardCount)) {
-    return false;
-  }
-  if (isPilotBuyerFollowUpMessage(userMessage)) {
-    return assertPilotFollowUpCopySafe(text, carCardCount);
-  }
-  return assertPilotCopySafe(text, carCardCount, userMessage);
-}
-
 /** Block finance guarantee language in real-provider user-visible output. */
 export function assertNoFinanceGuaranteeLanguage(text: string): boolean {
   for (const pattern of USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS) {
@@ -681,7 +817,19 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
       readEnv,
     });
     const text = real.redactedProviderOutput.trim();
-    if (!isRealProviderOutputSafe(text, input.userMessage, carCardCount)) {
+    const safety = evaluateRealProviderOutputSafety(text, input.userMessage, carCardCount);
+    if (!safety.safe) {
+      logUserVisibleOutputUnsafeDiagnostics({
+        sliceId: USER_VISIBLE_REAL_PROVIDER_SLICE_ID,
+        qualitySliceId: USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+        route: "user-visible",
+        modelId: real.modelId,
+        scenario: safety.scenario,
+        outputLength: safety.outputLength,
+        unsafeReason: safety.unsafeReason ?? "generic_safety_guard",
+        gateReason: "real_provider_output_unsafe",
+        outputSampleRedacted: redactOutputSampleForDiagnostics(text),
+      });
       return {
         ...input.bridgeResult,
         payload: {
