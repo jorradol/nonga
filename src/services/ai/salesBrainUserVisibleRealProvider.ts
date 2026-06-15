@@ -40,8 +40,8 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.7 — minimal Gemini thinking budget for user-visible Thai output recovery */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.7";
+/** v6.8E.8 — increased output token budget; v6.8E.7 thinkingLevel MINIMAL retained */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.8";
 
 /** Required prefix for Gemini final answer — stripped before user-visible delivery. */
 export const USER_VISIBLE_FINAL_ANSWER_MARKER = "คำตอบ:";
@@ -227,7 +227,8 @@ export const USER_VISIBLE_RETRY_UNSAFE_REASONS: ReadonlySet<UserVisibleOutputUns
   "missing_final_answer_marker",
 ]);
 
-export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 768;
+/** v6.8E.8 Phase B — doubled from 768 so Thai answers can finish without MAX_TOKENS truncation */
+export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 1536;
 
 /** Prompt rules exported for offline quality tests (no Gemini network). */
 export const USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS = [

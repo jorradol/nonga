@@ -53,7 +53,7 @@ const selfSrc = readFileSync(
 
 // --- slice + package ---
 {
-  ok("quality slice v6.8E.7", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.7");
+  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
   ok(
     "request shape minimal thinking",
     USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split_minimal_thinking"
@@ -69,8 +69,8 @@ const selfSrc = readFileSync(
     pilotOrchestration: { carCardCount: 1, recentCarCards: SAMPLE_CARDS },
   });
   ok("request shape includes thinkingLevel", shape.thinkingLevel === ThinkingLevel.MINIMAL);
-  ok("maxOutputTokens still 768", shape.maxOutputTokens === USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS);
-  ok("maxOutputTokens controlled", shape.maxOutputTokens === 768);
+  ok("maxOutputTokens uses central constant", shape.maxOutputTokens === USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS);
+  ok("maxOutputTokens Phase B 1536", shape.maxOutputTokens === 1536);
 
   const apiConfig = buildUserVisibleGeminiApiConfig({
     systemInstruction: shape.systemInstruction,

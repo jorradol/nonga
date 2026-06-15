@@ -116,7 +116,7 @@ const selfSrc = readFileSync("scripts/test-v68e3-thai-brand-voice-vehicle-englis
 
 // --- slice + docs ---
 {
-  ok("quality slice v6.8E.7", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.7");
+  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
   ok("v68e2 execution record exists", execRecord.includes("v6.8E.2") && execRecord.includes("too_short"));
   ok("doc v6.8E.3 section", /v6\.8E\.3|Thai brand voice|vehicle English/i.test(doc));
   ok("package script v68e3", pkg.includes("test:v68e3-thai-brand-voice-vehicle-english-recovery"));

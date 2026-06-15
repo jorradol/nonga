@@ -95,7 +95,7 @@ const selfSrc = readFileSync("scripts/test-v68e-buyer-chat-prompt-quality.mts", 
 
 // --- slice + doc ---
 {
-  ok("quality slice id v6.8E.7", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.7");
+  ok("quality slice id v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
   ok("checklist doc exists", doc.length > 800);
   ok("checklist v6.8E label", doc.includes("v6.8E"));
   ok("checklist budget search scenario", /budget search/i.test(doc));

@@ -110,7 +110,7 @@ const realProviderSrc = readFileSync("src/services/ai/salesBrainUserVisibleRealP
 
 // --- slice + execution record ---
 {
-  ok("quality slice v6.8E.7", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.7");
+  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
   ok("v6.8E.4 partial record exists", execRecord.includes("v6.8E.4") && execRecord.includes("0/6"));
   ok("v6.8E.4 record next v6.8E.5", execRecord.includes("v6.8E.5"));
   ok("package script v68e5", pkg.includes("test:v68e5-deterministic-fallback-real-gemini-investigation"));
@@ -218,7 +218,7 @@ const realProviderSrc = readFileSync("src/services/ai/salesBrainUserVisibleRealP
   ok("prompt requires marker", prompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
   ok("prompt no sentence count trap", !/3[–-]6\s*ประโยค/.test(prompt));
   ok("prompt no char count trap", !/อย่างน้อย \d+ ตัวอักษร/.test(prompt));
-  ok("prompt slice v6.8E.7", prompt.includes("v6.8E.7"));
+  ok("prompt slice v6.8E.8", prompt.includes("v6.8E.8"));
 
   const retry = buildUserVisibleGeminiRetryPrompt(
     "งบ 4 แสน มีรถอะไรน่าเล่น",
