@@ -33,6 +33,51 @@ import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
+/** v6.8E — buyer prompt quality / listing-grounded reply rules */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E";
+
+/** Prompt rules exported for offline quality tests (no Gemini network). */
+export const USER_VISIBLE_BUYER_GROUNDING_RULE_MARKERS = [
+  "ข้อมูล listing ที่อนุญาตให้อ้างอิง",
+  "ยังไม่มีข้อมูลนี้ในระบบ",
+  "ห้ามแต่งรุ่น ราคา ปี ไมล์ โปรโมชัน",
+] as const;
+
+export const USER_VISIBLE_BUYER_MULTI_CARD_RULE_MARKERS = [
+  "หลายคัน",
+  "ไม่ซ้ำ",
+  "แต่ละคัน",
+] as const;
+
+export const USER_VISIBLE_FINANCE_FORBIDDEN_PHRASES = [
+  "อนุมัติแน่นอน",
+  "การันตี",
+  "ผ่อนได้แน่นอน",
+  "ผ่านชัวร์",
+  "รับประกันอนุมัติ",
+] as const;
+
+export const USER_VISIBLE_FINANCE_SAFE_PHRASE_MARKERS = [
+  "ประเมินเบื้องต้น",
+  "ขึ้นอยู่กับเงื่อนไขไฟแนนซ์",
+  "ทีมงานช่วยประสานรายละเอียด",
+] as const;
+
+export const USER_VISIBLE_BUYER_CTA_RULE_MARKERS = [
+  "ฝากชื่อ",
+  "เบอร์",
+  "ทีมงานติดต่อกลับ",
+] as const;
+
+/** Output guard — finance guarantee language must trigger mock fallback. */
+export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [
+  /อนุมัติแน่นอน/,
+  /ผ่อนได้แน่นอน/,
+  /ผ่านชัวร์/,
+  /รับประกัน(?:อนุมัติ|ผ่าน)/,
+  /การันตี(?:อนุมัติ|ผ่าน|ผ่อน)/,
+];
+
 export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
 /** Align with admin SS-01 — single contents text part; no config.systemInstruction (Gemini API SDK). */
 export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_contents_text_merged_instruction";
@@ -135,10 +180,11 @@ function formatListingContextForPrompt(
       const parts = [
         `#${c.index}`,
         `${c.brand} ${c.model}`.trim(),
-        c.year ? `${c.year}` : "",
+        c.year ? `ปี ${c.year}` : "",
         c.price ? `ราคา ${c.price.toLocaleString("th-TH")} บาท` : "",
-        c.mileage ? `ไมล์ ${c.mileage.toLocaleString("th-TH")}` : "",
+        c.mileage ? `ไมล์ ${c.mileage.toLocaleString("th-TH")} กม.` : "",
         c.fuelType ? `เชื้อเพลิง ${c.fuelType}` : "",
+        c.bodyClassLabel ? `ประเภท ${c.bodyClassLabel}` : "",
         c.description ? `คำอธิบาย: ${c.description}` : "",
       ].filter(Boolean);
       return parts.join(" | ");
@@ -150,17 +196,43 @@ function buildUserVisibleBuyerSystemInstruction(
   pilotOrchestration?: UserVisiblePilotOrchestrationHint
 ): string {
   const listingBlock = formatListingContextForPrompt(pilotOrchestration);
+  const cardCount =
+    pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
+  const multiCardNote =
+    cardCount >= 2
+      ? "ผู้ใช้เห็นหลายคัน — อธิบายแต่ละคันให้ต่างกันตามข้อมูลจริงของคันนั้น ห้ามใช้ประโยคซ้ำแข็งทุกคัน"
+      : "";
+
   return [
-    "คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (staging pilot เท่านั้น).",
-    "ตอบเป็นภาษาไทย กระชับ เป็นกันเอง ไม่ใช้ emoji มากเกินไป.",
-    "ขอบเขต: แนะนำ/เปรียบเทียบรถจากข้อมูล listing ด้านล่างเท่านั้น — ห้ามแต่งรุ่น ราคา โปรโมชัน หรือสเปกที่ไม่มีใน listing.",
-    "ห้ามรับปากแทน dealer หรือยืนยันไฟแนนซ์/ประกันอนุมัติแน่นอน — อธิบายแบบทั่วไปได้.",
-    "เมื่อผู้ใช้สนใจ ชวนฝากชื่อ/เบอร์ติดต่อได้ แต่ห้ามขอหรือยืนยัน PII ที่ละเอียดเกินไป.",
+    `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (staging pilot เท่านั้น, ${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
+    "ตอบเป็นภาษาไทย กระชับ เป็นกันเอง สุภาพ ไม่ใช้ emoji มากเกินไป.",
+    "",
+    "[กฎข้อมูล — ห้ามแต่ง]",
+    "อ้างอิงได้เฉพาะข้อมูล listing ด้านล่างเท่านั้น — ห้ามแต่งรุ่น ราคา ปี ไมล์ โปรโมชัน ส่วนลด หรือสเปกที่ไม่มีใน listing.",
+    "ถ้าช่องข้อมูลไม่มีใน listing ให้ตอบว่า \"ยังไม่มีข้อมูลนี้ในระบบ\" ห้ามเดาหรือเติมเอง.",
+    "ห้ามสรุปเหนือข้อมูลจริง ห้ามแต่งผลตรวจสภาพ ประวัติศูนย์ หรือของแถมที่ไม่มีใน listing.",
+    multiCardNote,
+    "",
+    "[หลายคัน — ไม่ซ้ำ]",
+    "เมื่อแนะนำหรือเทียบหลายคัน ให้แต่ละคันมีมุมอธิบายต่างกันตามข้อมูลจริง (เช่น ปี ไมล์ ราคา ประเภทรถ).",
+    "ห้ามใช้ประโยคซ้ำแข็งทุกคัน — อ้างจุดเด่นที่มีในข้อมูลจริงของแต่ละคัน.",
+    "",
+    "[ไฟแนนซ์/ผ่อน]",
+    "ห้ามใช้คำ: อนุมัติแน่นอน, การันตี, ผ่อนได้แน่นอน, ผ่านชัวร์, รับประกันอนุมัติ.",
+    "ใช้ภาษา: ประเมินเบื้องต้น, ขึ้นอยู่กับเงื่อนไขไฟแนนซ์, ทีมงานช่วยประสานรายละเอียดให้ได้.",
+    "ห้ามรับปากแทน dealer หรือสถาบันไฟแนนซ์ — อธิบายแนวทางทั่วไปได้เท่านั้น.",
+    "",
+    "[CTA]",
+    "เมื่อผู้ใช้สนใจ ชวนนุ่มนวล เช่น \"ถ้าชอบคันไหน ลองฝากชื่อ/เบอร์ไว้ให้ทีมงานติดต่อกลับได้ครับ\".",
+    "ห้ามกดดัน ห้ามยืนยันข้อมูลส่วนตัวแทนผู้ใช้.",
+    "",
     "ห้ามตอบเรื่องนอกขอบเขตรถ/ตลาดรถมือสองแบบเปิดกว้าง.",
     "",
     "ข้อมูล listing ที่อนุญาตให้อ้างอิง:",
     listingBlock,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildUserVisibleBuyerPrompt(redactedUserMessage: string): string {
@@ -397,10 +469,21 @@ function isRealProviderOutputSafe(
   if (!assertNoPilotDebugMarker(text)) {
     return false;
   }
+  if (!assertNoFinanceGuaranteeLanguage(text)) {
+    return false;
+  }
   if (isPilotBuyerFollowUpMessage(userMessage)) {
     return assertPilotFollowUpCopySafe(text, carCardCount);
   }
   return assertPilotCopySafe(text, carCardCount, userMessage);
+}
+
+/** Block finance guarantee language in real-provider user-visible output. */
+export function assertNoFinanceGuaranteeLanguage(text: string): boolean {
+  for (const pattern of USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS) {
+    if (pattern.test(text)) return false;
+  }
+  return true;
 }
 
 /**
