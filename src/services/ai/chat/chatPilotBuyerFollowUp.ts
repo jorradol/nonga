@@ -47,9 +47,23 @@ export function detectBuyerRefinement(message: string): BuyerRefinementKind | nu
   return null;
 }
 
+export function isPilotBuyerCardInsightFollowUp(message: string): boolean {
+  const t = message.trim();
+  if (/สรุป(?:จุดเด่น|จุดดึง)|จุดเด่น(?:ของ)?(?:คัน|รถ)/i.test(t)) return true;
+  if (
+    /คันนี้เหมาะกับใคร|เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function isPilotBuyerFollowUpMessage(message: string): boolean {
   if (extractNumberedComparePair(message)) return true;
   if (detectBuyerRefinement(message)) return true;
+  if (isPilotBuyerCardInsightFollowUp(message)) return true;
   if (isCompareIntent(message) && /คันที่\s*\d+|คันแรก|2\s*คัน/i.test(message)) return true;
   if (/ช่วยเทียบ|เทียบคันที่|เปรียบเทียบคันที่/i.test(message)) return true;
   return false;

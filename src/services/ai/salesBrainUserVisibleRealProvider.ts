@@ -29,14 +29,42 @@ import {
   assertPilotCopySafe,
   assertPilotFollowUpCopySafe,
 } from "./salesBrainUserVisiblePilotBuyerCopy";
-import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
+import {
+  isPilotBuyerCardInsightFollowUp,
+  isPilotBuyerFollowUpMessage,
+  extractNumberedComparePair,
+} from "./chat/chatPilotBuyerFollowUp";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E — buyer prompt quality / listing-grounded reply rules */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E";
+/** v6.8E.1 — buyer prompt quality / output length / follow-up intent */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.1";
+
+export type UserVisibleBuyerAnswerScenario =
+  | "budget"
+  | "finance"
+  | "compare"
+  | "summarize"
+  | "fit"
+  | "general";
+
+export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenario, number> = {
+  budget: 120,
+  finance: 90,
+  compare: 100,
+  summarize: 90,
+  fit: 90,
+  general: 70,
+};
+
+export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 768;
 
 /** Prompt rules exported for offline quality tests (no Gemini network). */
+export const USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS = [
+  "ห้ามตอบแบบ pipe listing",
+  "3–6 ประโยค",
+  "รูปแบบคำตอบ",
+] as const;
 export const USER_VISIBLE_BUYER_GROUNDING_RULE_MARKERS = [
   "ข้อมูล listing ที่อนุญาตให้อ้างอิง",
   "ยังไม่มีข้อมูลนี้ในระบบ",
@@ -82,6 +110,99 @@ export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
 /** Align with admin SS-01 — single contents text part; no config.systemInstruction (Gemini API SDK). */
 export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_contents_text_merged_instruction";
 const MAX_USER_VISIBLE_OUTPUT_CHARS = 1200;
+
+export function detectUserVisibleBuyerScenario(
+  message: string
+): UserVisibleBuyerAnswerScenario {
+  const t = message.trim();
+  if (isPilotBuyerCardInsightFollowUp(t)) {
+    if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(t)) {
+      return "fit";
+    }
+    return "summarize";
+  }
+  if (extractNumberedComparePair(t) || /เทียบ|เปรียบเทียบ/i.test(t)) {
+    return "compare";
+  }
+  if (/ผ่อน|ไฟแนนซ์|งวด|ดาวน์/i.test(t)) {
+    return "finance";
+  }
+  if (/งบ|งบประมาณ|มีรถอะไร|หารถ/i.test(t)) {
+    return "budget";
+  }
+  return "general";
+}
+
+function buildScenarioAnswerGuidance(
+  scenario: UserVisibleBuyerAnswerScenario,
+  cardCount: number
+): string {
+  const minChars = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
+  switch (scenario) {
+    case "budget":
+      return [
+        `งานนี้: แนะนำรถจาก listing (${cardCount || "หลาย"} คัน) — ตอบอย่างน้อย ${minChars} ตัวอักษร.`,
+        "รูปแบบ: ทักทายสั้น ๆ แล้วอธิบายทีละคัน 2–3 ประโยคต่อคัน (ไม่ซ้ำ) จากข้อมูลจริง ปิดท้าย CTA นุ่มนวล.",
+      ].join(" ");
+    case "finance":
+      return [
+        `งานนี้: ตอบเรื่องผ่อน/ไฟแนนซ์ — อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
+        "อธิบายแนวประเมินเบื้องต้นจากราคาใน listing เท่านั้น ห้ามรับประกันอนุมัติ.",
+      ].join(" ");
+    case "compare":
+      return [
+        `งานนี้: เทียบรถจาก listing — อย่างน้อย ${minChars} ตัวอักษร, 4–6 ประโยค.`,
+        "เปรียบจุดต่างที่มีในข้อมูลจริง ถ้าช่องว่างให้บอกว่ายังไม่มีข้อมูลนี้ในระบบ.",
+      ].join(" ");
+    case "summarize":
+      return [
+        `งานนี้: สรุปจุดเด่นจาก listing คันล่าสุด — อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
+        "อ้างเฉพาะ brand/model/ปี/ราคา/ไมล์/ประเภทที่มี ห้ามแต่งสภาพหรือประวัติ.",
+      ].join(" ");
+    case "fit":
+      return [
+        `งานนี้: บอกว่าเหมาะกับใครจากข้อมูล listing — อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
+        "อิงประเภทรถ ปี ราคา ไมล์ที่มี ห้ามฟันธงเกินข้อมูล.",
+      ].join(" ");
+    default:
+      return `ตอบครบประเด็น อย่างน้อย ${minChars} ตัวอักษร (ประมาณ 3–5 ประโยค) ไม่ยาวเกินจำเป็น.`;
+  }
+}
+
+/** Reject listing pipe echo mistaken as a complete answer. */
+export function looksLikeListingPipeEcho(text: string): boolean {
+  const trimmed = text.trim();
+  const pipes = (trimmed.match(/\|/g) ?? []).length;
+  return pipes >= 2 && trimmed.length < USER_VISIBLE_MIN_OUTPUT_CHARS.general;
+}
+
+export function assertRealProviderOutputMinLength(
+  text: string,
+  userMessage: string,
+  carCardCount: number
+): boolean {
+  const scenario = detectUserVisibleBuyerScenario(userMessage);
+  const min = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
+  if (carCardCount <= 0 && (scenario === "summarize" || scenario === "fit")) {
+    return false;
+  }
+  return text.trim().length >= min;
+}
+
+export function extractUserVisibleGeminiResponseText(response: {
+  text?: string;
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+}): string {
+  const direct = String(response.text ?? "").trim();
+  if (direct) return direct;
+  const parts: string[] = [];
+  for (const candidate of response.candidates ?? []) {
+    for (const part of candidate.content?.parts ?? []) {
+      if (part.text) parts.push(part.text);
+    }
+  }
+  return parts.join("").trim();
+}
 
 export type UserVisibleRealProviderGateReason =
   | "real_provider_eligible"
@@ -193,11 +314,14 @@ function formatListingContextForPrompt(
 }
 
 function buildUserVisibleBuyerSystemInstruction(
-  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+  pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
+  userMessage: string
 ): string {
   const listingBlock = formatListingContextForPrompt(pilotOrchestration);
   const cardCount =
     pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
+  const scenario = detectUserVisibleBuyerScenario(userMessage);
+  const scenarioGuidance = buildScenarioAnswerGuidance(scenario, cardCount);
   const multiCardNote =
     cardCount >= 2
       ? "ผู้ใช้เห็นหลายคัน — อธิบายแต่ละคันให้ต่างกันตามข้อมูลจริงของคันนั้น ห้ามใช้ประโยคซ้ำแข็งทุกคัน"
@@ -205,7 +329,12 @@ function buildUserVisibleBuyerSystemInstruction(
 
   return [
     `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (staging pilot เท่านั้น, ${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
-    "ตอบเป็นภาษาไทย กระชับ เป็นกันเอง สุภาพ ไม่ใช้ emoji มากเกินไป.",
+    "ตอบเป็นภาษาไทย เป็นประโยคสมบูรณ์ เป็นกันเอง สุภาพ ไม่ใช้ emoji มากเกินไป.",
+    "ตอบครบประเด็น ประมาณ 3–6 ประโยค หรือ 2–4 bullet ตามบริบท — ไม่สั้นจนไม่ครบ ไม่ยาวเกินจำเป็น.",
+    "",
+    "[รูปแบบคำตอบ]",
+    "ตอบเป็นภาษาไทยเป็นประโยคสมบูรณ์เท่านั้น — ห้ามตอบแบบ pipe listing (`#1 | Toyota | ราคา`) หรือคัดลอกบรรทัด listing ดิบ.",
+    scenarioGuidance,
     "",
     "[กฎข้อมูล — ห้ามแต่ง]",
     "อ้างอิงได้เฉพาะข้อมูล listing ด้านล่างเท่านั้น — ห้ามแต่งรุ่น ราคา ปี ไมล์ โปรโมชัน ส่วนลด หรือสเปกที่ไม่มีใน listing.",
@@ -245,7 +374,7 @@ export function buildUserVisibleGeminiCombinedPrompt(
   pilotOrchestration?: UserVisiblePilotOrchestrationHint
 ): string {
   return [
-    buildUserVisibleBuyerSystemInstruction(pilotOrchestration),
+    buildUserVisibleBuyerSystemInstruction(pilotOrchestration, redactedUserMessage),
     "",
     buildUserVisibleBuyerPrompt(redactedUserMessage),
   ].join("\n");
@@ -344,12 +473,12 @@ async function defaultUserVisibleGeminiCaller(
     model: USER_VISIBLE_REAL_GEMINI_MODEL,
     contents: [{ text: prompt }],
     config: {
-      maxOutputTokens: 512,
+      maxOutputTokens: USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
       temperature: 0.7,
     },
   });
 
-  const rawText = String(response.text ?? "").trim();
+  const rawText = extractUserVisibleGeminiResponseText(response);
   const redactedProviderOutput = redactPiiForSalesBrainLog(rawText).slice(
     0,
     MAX_USER_VISIBLE_OUTPUT_CHARS
@@ -470,6 +599,12 @@ function isRealProviderOutputSafe(
     return false;
   }
   if (!assertNoFinanceGuaranteeLanguage(text)) {
+    return false;
+  }
+  if (looksLikeListingPipeEcho(text)) {
+    return false;
+  }
+  if (!assertRealProviderOutputMinLength(text, userMessage, carCardCount)) {
     return false;
   }
   if (isPilotBuyerFollowUpMessage(userMessage)) {

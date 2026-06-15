@@ -202,10 +202,16 @@ export function runUserVisibleOrchestrationBridge(
   input: UserVisibleOrchestrationBridgeInput
 ): UserVisibleOrchestrationBridgeResult {
   const environment = resolveBridgeEnvironment(input.environment);
-  let orchestrated = tryOrchestrateChatReplyCore(input.userMessage, input.inventory, {
-    attachedImageCount: input.attachedImageCount,
-    displayName: input.displayName,
-  });
+  const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
+  const preferPilotSessionFirst =
+    sessionCards.length > 0 && isPilotBuyerFollowUpMessage(input.userMessage);
+
+  let orchestrated = preferPilotSessionFirst
+    ? null
+    : tryOrchestrateChatReplyCore(input.userMessage, input.inventory, {
+        attachedImageCount: input.attachedImageCount,
+        displayName: input.displayName,
+      });
 
   if (!orchestrated && input.pilotSessionContext) {
     orchestrated = tryOrchestratedReplyFromPilotSession(
