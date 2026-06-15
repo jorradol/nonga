@@ -38,6 +38,7 @@
     "test:v68e8-gemini-output-token-budget-phase-b": "tsx scripts/test-v68e8-gemini-output-token-budget-phase-b.mts",
     "test:v68e9-structured-output-contract": "tsx scripts/test-v68e9-structured-output-contract.mts",
     "test:v68e8-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e8-manual-quality-smoke-partial-execution-record.mts",
+    "test:v68e9-structured-output-contract-staging-smoke-execution-record": "tsx scripts/test-v68e9-structured-output-contract-staging-smoke-execution-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
