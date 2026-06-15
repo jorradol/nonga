@@ -119,7 +119,7 @@ function tryOrchestratedReplyFromPilotSession(
   };
 }
 
-function resolvePilotOrchestrationHint(
+export function resolvePilotOrchestrationHint(
   orchestrated: OrchestratedChatReply,
   pilotSessionContext?: PilotBuyerSessionContext
 ): UserVisiblePilotOrchestrationHint {
@@ -360,12 +360,18 @@ export async function handleChatUserVisibleOrchestratePost(
       pilotSessionContext,
     });
 
+    const pilotOrchestrationForRealProvider =
+      pilotOrchestration ??
+      (result.orchestrated
+        ? resolvePilotOrchestrationHint(result.orchestrated, pilotSessionContext)
+        : undefined);
+
     result = await maybeApplyUserVisibleRealProvider({
       bridgeResult: result,
       userMessage,
       firebaseUid: auth.uid,
       userRole: mapAuthToSalesBrainRole(auth),
-      pilotOrchestration,
+      pilotOrchestration: pilotOrchestrationForRealProvider,
       env: process.env as Record<string, string | undefined>,
     });
 

@@ -34,6 +34,8 @@ import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTyp
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
 export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
+/** Align with admin SS-01 — single contents text part; no config.systemInstruction (Gemini API SDK). */
+export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_contents_text_merged_instruction";
 const MAX_USER_VISIBLE_OUTPUT_CHARS = 1200;
 
 export type UserVisibleRealProviderGateReason =
@@ -165,6 +167,77 @@ function buildUserVisibleBuyerPrompt(redactedUserMessage: string): string {
   return `ข้อความผู้ใช้ (redacted): ${redactedUserMessage}`;
 }
 
+/** Merge system instruction into contents text — same SDK surface as admin shadow SS-01. */
+export function buildUserVisibleGeminiCombinedPrompt(
+  redactedUserMessage: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): string {
+  return [
+    buildUserVisibleBuyerSystemInstruction(pilotOrchestration),
+    "",
+    buildUserVisibleBuyerPrompt(redactedUserMessage),
+  ].join("\n");
+}
+
+/** Satisfy v6.0N listing guard when pilot already has grounded cards/count. */
+export function enrichUserVisibleAdapterInputWithListingContext(
+  input: SalesBrainAdapterInput,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): SalesBrainAdapterInput {
+  if (input.listingContext?.listingId) {
+    return input;
+  }
+  const cards = pilotOrchestration?.recentCarCards ?? [];
+  const cardCount = cards.length > 0 ? cards.length : pilotOrchestration?.carCardCount ?? 0;
+  if (cardCount <= 0) {
+    return input;
+  }
+  const first = cards[0];
+  return {
+    ...input,
+    listingContext: {
+      listingId: first ? `pilot-card-${first.index}` : `pilot-orchestrated-${cardCount}-cards`,
+      fieldsPresent: first
+        ? ["brand", "model", "year", "price"]
+        : ["orchestratedCarCards"],
+    },
+  };
+}
+
+export interface UserVisibleRealProviderErrorDiagnostics {
+  sliceId: typeof USER_VISIBLE_REAL_PROVIDER_SLICE_ID;
+  route: "user-visible";
+  modelId: string;
+  requestShape: typeof USER_VISIBLE_GEMINI_REQUEST_SHAPE;
+  errorName: string;
+  errorMessageRedacted: string;
+}
+
+/** Redact provider errors for server logs — no secrets, prompts, or PII. */
+export function redactUserVisibleRealProviderError(
+  error: unknown,
+  modelId: string = USER_VISIBLE_REAL_GEMINI_MODEL
+): UserVisibleRealProviderErrorDiagnostics {
+  const errorName = error instanceof Error ? error.name : "UnknownError";
+  const raw = error instanceof Error ? error.message : String(error);
+  let errorMessageRedacted = redactPiiForSalesBrainLog(raw).slice(0, 200);
+  errorMessageRedacted = errorMessageRedacted.replace(/AIza[0-9A-Za-z\-_]+/g, "[api-key-redacted]");
+  errorMessageRedacted = errorMessageRedacted.replace(/Bearer\s+\S+/gi, "[auth-redacted]");
+  errorMessageRedacted = errorMessageRedacted.replace(/GEMINI_API_KEY[=:\s]\S+/gi, "GEMINI_API_KEY=[redacted]");
+  return {
+    sliceId: USER_VISIBLE_REAL_PROVIDER_SLICE_ID,
+    route: "user-visible",
+    modelId,
+    requestShape: USER_VISIBLE_GEMINI_REQUEST_SHAPE,
+    errorName,
+    errorMessageRedacted,
+  };
+}
+
+function logUserVisibleRealProviderFailure(diagnostics: UserVisibleRealProviderErrorDiagnostics): void {
+  console.warn("[user-visible-real-provider]", JSON.stringify(diagnostics));
+}
+
 async function defaultUserVisibleGeminiCaller(
   input: SalesBrainAdapterInput,
   options: {
@@ -174,25 +247,31 @@ async function defaultUserVisibleGeminiCaller(
 ): Promise<UserVisibleGeminiCallResult> {
   const readEnv = options.readEnv;
   assertGeminiApiKeyPresentForAdminShadow(readEnv);
+  const adapterInput = enrichUserVisibleAdapterInputWithListingContext(
+    input,
+    options.pilotOrchestration
+  );
   const config = {
-    ...resolveRealProviderConfig(input, "gemini"),
+    ...resolveRealProviderConfig(adapterInput, "gemini"),
     networkEnabled: true,
     adminShadowRouteOnly: false,
     userVisibleRouteOnly: true,
   };
-  const request = buildProviderRequest(input, config);
+  const request = buildProviderRequest(adapterInput, config);
   const apiKey = readEnv("GEMINI_API_KEY")?.trim();
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY not configured");
   }
 
   const client = new GoogleGenAI({ apiKey });
-  const systemInstruction = buildUserVisibleBuyerSystemInstruction(options.pilotOrchestration);
+  const prompt = buildUserVisibleGeminiCombinedPrompt(
+    request.redactedUserMessage,
+    options.pilotOrchestration
+  );
   const response = await client.models.generateContent({
     model: USER_VISIBLE_REAL_GEMINI_MODEL,
-    contents: [{ text: buildUserVisibleBuyerPrompt(request.redactedUserMessage) }],
+    contents: [{ text: prompt }],
     config: {
-      systemInstruction,
       maxOutputTokens: 512,
       temperature: 0.7,
     },
@@ -412,6 +491,7 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
       },
     } as T;
   } catch (error) {
+    logUserVisibleRealProviderFailure(redactUserVisibleRealProviderError(error));
     if (shouldFallbackOnRealProviderError(error)) {
       return {
         ...input.bridgeResult,
