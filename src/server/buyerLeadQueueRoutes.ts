@@ -36,12 +36,19 @@ function ownerScopeFromAuth(auth: Awaited<ReturnType<typeof getServerAuthContext
   };
 }
 
-function canViewSellerQueueForListing(
+function canManageBuyerLeadForListing(
   auth: Awaited<ReturnType<typeof getServerAuthContext>>,
   listing: MarketplaceCarRecord
 ): boolean {
   if (canAccessAdmin(auth)) return true;
   return canManageListingWithScope(ownerScopeFromAuth(auth), listing);
+}
+
+function canViewSellerQueueForListing(
+  auth: Awaited<ReturnType<typeof getServerAuthContext>>,
+  listing: MarketplaceCarRecord
+): boolean {
+  return canManageBuyerLeadForListing(auth, listing);
 }
 
 export function registerBuyerLeadQueueRoutes(
@@ -103,7 +110,11 @@ export function registerBuyerLeadQueueRoutes(
       if (!lead) {
         return res.status(404).json({ success: false, message: "ไม่พบลีด" });
       }
-      if (lead.sellerId !== auth.uid && !canAccessAdmin(auth)) {
+      const listing = await deps.inventoryRepository.listings.getById(lead.listingId);
+      if (!listing) {
+        return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
+      }
+      if (!canManageBuyerLeadForListing(auth, listing)) {
         return res.status(403).json({ success: false, message: "ไม่มีสิทธิ์ข้ามลีดนี้ครับ" });
       }
       const result = await sellerSkipQueueLead({
@@ -142,7 +153,11 @@ export function registerBuyerLeadQueueRoutes(
       if (!lead) {
         return res.status(404).json({ success: false, message: "ไม่พบลีด" });
       }
-      if (lead.sellerId !== auth.uid && !canAccessAdmin(auth)) {
+      const listing = await deps.inventoryRepository.listings.getById(lead.listingId);
+      if (!listing) {
+        return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
+      }
+      if (!canManageBuyerLeadForListing(auth, listing)) {
         return res.status(403).json({ success: false, message: "ไม่มีสิทธิ์เปิดเบอร์ลีดนี้ครับ" });
       }
       const result = await sellerRevealQueueLead({
@@ -185,7 +200,11 @@ export function registerBuyerLeadQueueRoutes(
       if (!lead) {
         return res.status(404).json({ success: false, message: "ไม่พบลีด" });
       }
-      if (lead.sellerId !== auth.uid && !canAccessAdmin(auth)) {
+      const listing = await deps.inventoryRepository.listings.getById(lead.listingId);
+      if (!listing) {
+        return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
+      }
+      if (!canManageBuyerLeadForListing(auth, listing)) {
         return res.status(403).json({ success: false, message: "ไม่มีสิทธิ์อัปเดตลีดนี้ครับ" });
       }
       const result = await sellerRecordQueueOutcome({

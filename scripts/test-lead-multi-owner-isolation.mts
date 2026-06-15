@@ -243,29 +243,25 @@ for (const listing of memberListings) {
   }
 }
 
-// --- Gap report: dealer mutation auth mismatch ---
+// --- v6.7B: dealer mutation auth via listing scope ---
 {
   const listing = dealerListings[0]!;
-  const dealerFirebaseUid = "firebase-dealer-user-abc";
-  const leadResult = await createFakeLead(repo, listing, "buyer-a", "GapTest", "0840000004");
-  if (leadResult.ok) {
-    const sellerRole = resolveBuyerLeadViewerRole({
-      viewerUid: dealerFirebaseUid,
-      viewerIsAdmin: false,
-      lead: leadResult.lead,
-      listingSellerId: listing.ownerId,
-    });
-    ok(
-      "GAP: dealer firebase uid does NOT get listing_seller role",
-      sellerRole === "public",
-      `role=${sellerRole}, sellerId=${leadResult.lead.sellerId}, uid=${dealerFirebaseUid}`
-    );
-    ok(
-      "GAP DOCUMENTED: skip/reveal/outcome checks auth.uid === sellerId (owner-{dealerId})",
-      leadResult.lead.sellerId === listing.ownerId &&
-        leadResult.lead.sellerId !== dealerFirebaseUid
-    );
-  }
+  const dealerScope = {
+    ownerId: "firebase-dealer-user-abc",
+    dealerId: "sim-1thor",
+    isAdmin: false,
+    role: "dealer",
+    provider: "dev-stub" as const,
+  };
+  ok(
+    "dealer scope can manage own listing for mutations",
+    canManageListingWithScope(dealerScope, listing)
+  );
+  ok(
+    "dealer firebase uid still differs from sellerId (expected)",
+    listing.ownerId === "owner-sim-1thor" &&
+      dealerScope.ownerId !== listing.ownerId
+  );
 }
 
 // --- Gap report: parent dealer group ---

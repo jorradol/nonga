@@ -18,6 +18,7 @@
     "run:thor-local-only-import-rehearsal": "tsx scripts/run-thor-local-only-import-rehearsal.mts",
     "test:thor-local-only-import-rehearsal-gate": "tsx scripts/test-thor-local-only-import-rehearsal-gate.mts",
     "test:lead-multi-owner-isolation": "tsx scripts/test-lead-multi-owner-isolation.mts",
+    "test:v67b-dealer-mutation-auth-guard": "tsx scripts/test-v67b-dealer-mutation-auth-guard.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
     "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",

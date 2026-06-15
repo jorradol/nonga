@@ -222,11 +222,11 @@ for (const reason of [
   ok("my listings card image testid", listings.includes('testId="my-listings-card-image"'));
 }
 
-// --- route auth guard strings (skip/reveal owner-only) ---
+// --- Route auth guard uses listing scope (v6.7B) ---
 {
   const routes = readFileSync("src/server/buyerLeadQueueRoutes.ts", "utf8");
-  ok("skip route checks sellerId", routes.includes("lead.sellerId !== auth.uid"));
-  ok("queue route checks listing owner", routes.includes("sellerId !== auth.uid"));
+  ok("skip route uses listing scope guard", routes.includes("canManageBuyerLeadForListing(auth, listing)"));
+  ok("mutation routes no raw lead.sellerId uid check", !routes.includes("lead.sellerId !== auth.uid"));
 }
 
 console.log("\nDone v5.6E.3 seller queue smoke & UX hardening tests.");
