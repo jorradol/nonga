@@ -35,6 +35,7 @@
     "test:v68e5-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e5-manual-quality-smoke-partial-execution-record.mts",
     "test:v68e6-gemini-call-shape-diagnostics-system-instruction": "tsx scripts/test-v68e6-gemini-call-shape-diagnostics-system-instruction.mts",
     "test:v68e7-gemini-thinking-budget-output-strategy": "tsx scripts/test-v68e7-gemini-thinking-budget-output-strategy.mts",
+    "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
