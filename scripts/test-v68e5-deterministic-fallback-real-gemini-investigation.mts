@@ -110,7 +110,7 @@ const realProviderSrc = readFileSync("src/services/ai/salesBrainUserVisibleRealP
 
 // --- slice + execution record ---
 {
-  ok("quality slice v6.8E.6", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.6");
+  ok("quality slice v6.8E.7", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.7");
   ok("v6.8E.4 partial record exists", execRecord.includes("v6.8E.4") && execRecord.includes("0/6"));
   ok("v6.8E.4 record next v6.8E.5", execRecord.includes("v6.8E.5"));
   ok("package script v68e5", pkg.includes("test:v68e5-deterministic-fallback-real-gemini-investigation"));
@@ -204,7 +204,7 @@ const realProviderSrc = readFileSync("src/services/ai/salesBrainUserVisibleRealP
 
 // --- real Gemini investigation / minimal prompt patch ---
 {
-  ok("request shape system instruction split", USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split");
+  ok("request shape system instruction split", USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split_minimal_thinking");
   ok("model id set", USER_VISIBLE_REAL_GEMINI_MODEL === "gemini-3.5-flash");
   ok("extraction uses response.text path", realProviderSrc.includes("response.text"));
   ok("extraction uses candidates parts fallback", realProviderSrc.includes("candidate.content?.parts"));
@@ -218,7 +218,7 @@ const realProviderSrc = readFileSync("src/services/ai/salesBrainUserVisibleRealP
   ok("prompt requires marker", prompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
   ok("prompt no sentence count trap", !/3[–-]6\s*ประโยค/.test(prompt));
   ok("prompt no char count trap", !/อย่างน้อย \d+ ตัวอักษร/.test(prompt));
-  ok("prompt slice v6.8E.6", prompt.includes("v6.8E.6"));
+  ok("prompt slice v6.8E.7", prompt.includes("v6.8E.7"));
 
   const retry = buildUserVisibleGeminiRetryPrompt(
     "งบ 4 แสน มีรถอะไรน่าเล่น",

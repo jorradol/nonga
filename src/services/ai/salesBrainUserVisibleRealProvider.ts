@@ -2,7 +2,7 @@
  * v6.8D — Real Gemini user-visible provider (staging + allowlist + explicit flag only).
  * Wired from server orchestration bridge only — not browser bundle.
  */
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import {
   assertGeminiApiKeyPresentForAdminShadow,
   buildProviderRequest,
@@ -40,8 +40,8 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.6 — systemInstruction split + real Gemini output diagnostics */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.6";
+/** v6.8E.7 — minimal Gemini thinking budget for user-visible Thai output recovery */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.7";
 
 /** Required prefix for Gemini final answer — stripped before user-visible delivery. */
 export const USER_VISIBLE_FINAL_ANSWER_MARKER = "คำตอบ:";
@@ -277,7 +277,10 @@ export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [
 
 export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
 /** v6.8E.6 — persona/contract in systemInstruction; listing + user message in contents. */
-export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_system_instruction_split";
+/** v6.8E.7 — adds thinkingLevel MINIMAL so output budget is not consumed by internal reasoning. */
+export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_system_instruction_split_minimal_thinking";
+/** Cap internal reasoning — gemini-3.5-flash cannot disable thinking; MINIMAL is lowest level. */
+export const USER_VISIBLE_GEMINI_THINKING_LEVEL = ThinkingLevel.MINIMAL;
 const MAX_USER_VISIBLE_OUTPUT_CHARS = 1200;
 
 export function detectUserVisibleBuyerScenario(
@@ -370,6 +373,7 @@ export function extractUserVisibleGeminiResponseText(response: {
   const parts: string[] = [];
   for (const candidate of response.candidates ?? []) {
     for (const part of candidate.content?.parts ?? []) {
+      if (part.thought) continue;
       if (part.text) parts.push(part.text);
     }
   }
@@ -903,6 +907,28 @@ export interface UserVisibleGeminiRequestShape {
   contentsText: string;
   maxOutputTokens: number;
   temperature: number;
+  thinkingLevel: ThinkingLevel;
+}
+
+/** Offline/test helper — maps request shape to SDK generateContent config (no network). */
+export function buildUserVisibleGeminiApiConfig(input: {
+  systemInstruction: string;
+  maxOutputTokens: number;
+  temperature: number;
+  thinkingLevel?: ThinkingLevel;
+}): {
+  systemInstruction: string;
+  maxOutputTokens: number;
+  temperature: number;
+  thinkingConfig: { thinkingLevel: ThinkingLevel };
+} {
+  const thinkingLevel = input.thinkingLevel ?? USER_VISIBLE_GEMINI_THINKING_LEVEL;
+  return {
+    systemInstruction: input.systemInstruction,
+    maxOutputTokens: input.maxOutputTokens,
+    temperature: input.temperature,
+    thinkingConfig: { thinkingLevel },
+  };
 }
 
 /** Exported for offline call-shape tests — no network. */
@@ -934,6 +960,7 @@ export function buildUserVisibleGeminiRequestShape(input: {
     contentsText,
     maxOutputTokens: USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
     temperature: input.retryContext ? 0.35 : 0.5,
+    thinkingLevel: USER_VISIBLE_GEMINI_THINKING_LEVEL,
   };
 }
 
@@ -1034,11 +1061,11 @@ async function defaultUserVisibleGeminiCaller(
   const response = await client.models.generateContent({
     model: requestShape.model,
     contents: [{ text: requestShape.contentsText }],
-    config: {
+    config: buildUserVisibleGeminiApiConfig({
       systemInstruction: requestShape.systemInstruction,
       maxOutputTokens: requestShape.maxOutputTokens,
       temperature: requestShape.temperature,
-    },
+    }),
   });
 
   const rawText = extractUserVisibleGeminiResponseText(response);

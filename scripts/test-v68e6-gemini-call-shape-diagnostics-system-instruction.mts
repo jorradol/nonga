@@ -71,8 +71,8 @@ const selfSrc = readFileSync(
 
 // --- slice + package ---
 {
-  ok("quality slice v6.8E.6", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.6");
-  ok("request shape split constant", USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split");
+  ok("quality slice v6.8E.7", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.7");
+  ok("request shape split constant", USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split_minimal_thinking");
   ok("package script v68e6", pkg.includes("test:v68e6-gemini-call-shape-diagnostics-system-instruction"));
 }
 
@@ -86,7 +86,7 @@ const selfSrc = readFileSync(
   ok("caller uses contents text part", realProviderSrc.includes("contents: [{ text: requestShape.contentsText }]"));
   ok("systemInstruction has persona", shape.systemInstruction.includes("น้องเอ"));
   ok("systemInstruction has output contract marker", shape.systemInstruction.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
-  ok("systemInstruction has slice id", shape.systemInstruction.includes("v6.8E.6"));
+  ok("systemInstruction has slice id", shape.systemInstruction.includes("v6.8E.7"));
   ok("systemInstruction no listing card data", !shape.systemInstruction.includes("Toyota Vios"));
   ok("systemInstruction no user message", !shape.systemInstruction.includes(BUYER_MSG));
   ok("contents has listing context", shape.contentsText.includes("ข้อมูล listing:"));
@@ -149,7 +149,7 @@ const selfSrc = readFileSync(
       thoughtsTokenCount: 7,
     },
   });
-  ok("diag quality slice", diag.qualitySliceId === "v6.8E.6");
+  ok("diag quality slice", diag.qualitySliceId === "v6.8E.7");
   ok("diag finishReason", diag.finishReason === "STOP");
   ok("diag outputTokenCount", diag.outputTokenCount === 42);
   ok("diag thoughtsTokenCount", diag.thoughtsTokenCount === 7);
@@ -158,7 +158,7 @@ const selfSrc = readFileSync(
 
   const sparse = extractUserVisibleGeminiResponseDiagnostics({ candidates: [] });
   ok("sparse diag no finishReason", sparse.finishReason === undefined);
-  ok("sparse diag slice only", sparse.qualitySliceId === "v6.8E.6");
+  ok("sparse diag slice only", sparse.qualitySliceId === "v6.8E.7");
 
   const text = extractUserVisibleGeminiResponseText({
     candidates: [{ content: { parts: [{ text: `${USER_VISIBLE_FINAL_ANSWER_MARKER} ทดสอบครับ` }] } }],
