@@ -104,6 +104,9 @@ export function normalizeAiEndpointBucket(path: string): string {
   }
   if (path.startsWith("/api/ai/captions/trends")) return "ai:captions:trends";
   if (path.startsWith("/api/ai/captions/generate")) return "ai:captions:generate";
+  if (path.startsWith("/api/ai/chat-user-visible-orchestrate")) {
+    return "ai:chat-user-visible-orchestrate";
+  }
   if (path.startsWith("/api/showroom/insights")) return "ai:showroom-insights";
   return "ai:other";
 }

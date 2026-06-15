@@ -25,6 +25,7 @@ const AI_GUARDED_PREFIXES = [
   "/api/ai/vision",
   "/api/ai/post-generator",
   "/api/ai/captions",
+  "/api/ai/chat-user-visible-orchestrate",
   "/api/showroom/insights",
 ] as const;
 

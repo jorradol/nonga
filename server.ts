@@ -67,6 +67,11 @@ import {
   buildListingPatchForNewReport,
 } from "./src/server/listingModeration";
 import { registerAiEndpointGuards } from "./src/server/security/aiEndpointGuard";
+import {
+  canInvokeLegacyGeminiProvider,
+  getLegacyGeminiBlockReason,
+  logLegacyGeminiBlocked,
+} from "./src/server/security/legacyGeminiSafety";
 import { registerAdminPilotUserRoutes } from "./src/server/adminPilotUserRoutes";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
@@ -161,6 +166,17 @@ if (hasGeminiApiKey()) {
       }
     }
   });
+}
+
+function canUseLegacyGemini(): boolean {
+  return canInvokeLegacyGeminiProvider(ai !== null);
+}
+
+function logLegacyGeminiUnavailable(routeLabel: string): void {
+  const reason = getLegacyGeminiBlockReason(ai !== null);
+  if (reason) {
+    logLegacyGeminiBlocked(routeLabel, reason);
+  }
 }
 
 // 1. API: Get marketplace listings
@@ -549,8 +565,8 @@ app.post("/api/gemini/chat", async (req, res) => {
     return res.status(400).json({ success: false, error: "Prompt message is required" });
   }
 
-  if (!ai) {
-    console.warn("[chat] GEMINI_API_KEY missing — mock reply");
+  if (!canUseLegacyGemini()) {
+    logLegacyGeminiUnavailable("chat");
     return res.json({
       success: true,
       isMock: true,
@@ -620,7 +636,7 @@ app.post("/api/gemini/chat", async (req, res) => {
 
 // 4a. API: Get Showroom AI Insights & Recommendations
 app.post("/api/showroom/insights", async (req, res) => {
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     return res.json({
       success: true,
       insights: "⚡ ยินดีต้อนรับสู่แดชบอร์ดวิเคราะห์โชว์รูมแบบเรียลไทม์! โชว์รูมแห่งนี้มีชื่อเสียงในการคัดเกรดรถบ้านพรีเมียม สภาพนางฟ้าไร้รอยขีดข่วน พร้อมการการันตีประวัติ 100% ตัวถังสวยใสตอบโจทย์คนรักความประณีต",
@@ -680,7 +696,7 @@ app.post("/api/showroom/insights", async (req, res) => {
 
 // 4a-2. API: Admin Platform AI Health Audit
 app.post("/api/admin/ai-audit", async (req, res) => {
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     return res.json({
       success: true,
       verdict: "🛡️ ระบบวิเคราะห์พบประเด็นความสุ่มเสี่ยงระดับต่ำ แต่แนะนำให้ผู้ดูแลระบบตรวจสอบรายงานลิขสิทธิ์สไลด์รถและตรวจเช็คอีเมลสแปมสบู่เพื่อตัดปัญหาเนื้อหาผิดกฎหมาย",
@@ -758,8 +774,8 @@ app.post("/api/gemini/chat-stream", async (req, res) => {
     return res.end();
   }
 
-  if (!ai) {
-    console.warn("[chat-stream] GEMINI_API_KEY missing — streaming mock reply");
+  if (!canUseLegacyGemini()) {
+    logLegacyGeminiUnavailable("chat-stream");
     await streamMockChatSSE(res, message, getLiveInventory());
     return;
   }
@@ -832,7 +848,7 @@ app.post("/api/gemini/chat-stream", async (req, res) => {
 
 // 4c. API: Analyze memory profiles
 app.post("/api/gemini/analyze-memory", async (req, res) => {
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     return res.status(500).json({ success: false, error: "Not configured" });
   }
 
@@ -972,7 +988,7 @@ app.post("/api/ai/vision/analyze", async (req, res) => {
   ];
 
   // If Gemini client NOT configured or failed, return custom realistic mock results automatically
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     console.log("Gemini API is not configured (Mocking Visual Car analysis)...");
     const randomIndex = Math.floor(Math.random() * mockCarAnalyses.length);
     const mockData = {
@@ -1115,10 +1131,8 @@ app.post("/api/gemini/generate-post", async (req, res) => {
   const { brand, model, year, price, type, condition, mileage, fuelType, customNotes } =
     req.body ?? {};
 
-  if (!ai) {
-    console.warn(
-      "[generate-post] GEMINI_API_KEY missing — returning mock description (dev mode)"
-    );
+  if (!canUseLegacyGemini()) {
+    logLegacyGeminiUnavailable("generate-post");
     return res.json({
       success: true,
       isMock: true,
@@ -1197,7 +1211,7 @@ app.post("/api/ai/post-generator/questions", async (req, res) => {
     }
   ];
 
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     console.log("Gemini API not configured. Returning premium mock follow-up questions...");
     return res.json({ success: true, isMock: true, questions: defaultMockQuestions });
   }
@@ -1299,7 +1313,7 @@ app.post("/api/ai/post-generator/generate", async (req, res) => {
     return { facebook: fb, tiktok: tk, seoDescription: seo, marketplaceTitle: title, shortCaption: shortC, viralHook: hook, closingCta: cta, tags };
   };
 
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     console.log("Gemini API not configured. Serving rich formatted mock post based on tone...");
     return res.json({ success: true, isMock: true, posts: getMockPackage() });
   }
@@ -1508,7 +1522,7 @@ app.post("/api/ai/captions/generate", async (req, res) => {
     };
   };
 
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     console.log("Gemini is not configured. Serving rich mock caption engine values...");
     return res.json({ success: true, isMock: true, data: getOfflineCaption() });
   }
@@ -1664,7 +1678,7 @@ app.post("/api/seo/generate-page", async (req, res) => {
     };
   };
 
-  if (!ai) {
+  if (!canUseLegacyGemini()) {
     const fallback = getOfflineSeoTemplate();
     const mockPage = {
       id: `dynamic_seo_${Date.now()}`,
