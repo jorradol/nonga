@@ -37,8 +37,8 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.2 — unsafe output diagnostics / Thai complete answers */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.2";
+/** v6.8E.3 — Thai brand voice, vehicle English allowlist, real output recovery */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.3";
 
 export type UserVisibleOutputUnsafeReason =
   | "too_short"
@@ -48,6 +48,7 @@ export type UserVisibleOutputUnsafeReason =
   | "non_thai_output"
   | "incomplete_sentence"
   | "generic_safety_guard"
+  | "customer_address_term"
   | "empty_output";
 
 export type UserVisibleBuyerAnswerScenario =
@@ -67,42 +68,126 @@ export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenari
   general: 80,
 };
 
-/** Meta / instruction leak — must trigger mock fallback (v6.8E.2). */
+/** Meta / instruction leak — must trigger mock fallback (v6.8E.2+). */
 export const USER_VISIBLE_META_INSTRUCTION_LEAK_PATTERNS: RegExp[] = [
   /let'?s be careful/i,
   /do not invent/i,
   /\bI should\b/i,
   /\bI need to\b/i,
+  /\bI must\b/i,
   /\bas an AI\b/i,
   /\baccording to (?:the )?prompt\b/i,
+  /\bWait,\b/,
+  /Sentence\s*\d/i,
+  /\binstruction\b/i,
+  /\bprompt\b/i,
+  /\brules\b/i,
   /ตาม\s*instruction/i,
   /ตาม\s*prompt/i,
 ];
 
 export const USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS = [
-  "ภาษาไทยเท่านั้น",
-  "ห้ามพูดถึง prompt",
-  "จบประโยคสมบูรณ์",
+  "ภาษาไทยเป็นหลัก",
+  "ตอบเฉพาะคำตอบสุดท้าย",
+  "ห้ามแสดงแผน",
 ] as const;
+
+export const USER_VISIBLE_BUYER_PERSONA_MARKERS = [
+  "น้องเอ",
+  "คุณลูกค้า",
+  "ห้ามเดาว่า",
+  "ปังปุริเย่",
+] as const;
+
+export const USER_VISIBLE_TWO_LAYER_KNOWLEDGE_MARKERS = [
+  "จากข้อมูลในประกาศนี้",
+  "จากความรู้ทั่วไปของรุ่นนี้",
+  "ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง",
+] as const;
+
+export const USER_VISIBLE_VEHICLE_ENGLISH_ALLOWED_MARKERS = [
+  "ชื่อยี่ห้อ/รุ่น/เทคนิคเป็นภาษาอังกฤษได้",
+] as const;
+
+/** Static automotive English tokens allowed in Thai buyer answers. */
+export const USER_VISIBLE_STATIC_VEHICLE_ENGLISH_TERMS = [
+  "Honda",
+  "Toyota",
+  "Mazda",
+  "Nissan",
+  "Isuzu",
+  "Mitsubishi",
+  "Ford",
+  "Chevrolet",
+  "BMW",
+  "Mercedes-Benz",
+  "Mercedes",
+  "HR-V",
+  "CR-V",
+  "Vios",
+  "City",
+  "Camry",
+  "Yaris",
+  "ATIV",
+  "Civic",
+  "Fortuner",
+  "D-Max",
+  "Hybrid",
+  "e:HEV",
+  "Turbo",
+  "CVT",
+  "AT",
+  "MT",
+  "SUV",
+  "Crossover",
+  "Sedan",
+  "Hatchback",
+  "Pickup",
+  "MPV",
+  "4WD",
+  "ABS",
+  "RS",
+  "EL",
+] as const;
+
+export const USER_VISIBLE_GUESSED_CUSTOMER_ADDRESS_PATTERNS: RegExp[] = [
+  /(?:^|[\s,.])ลุง(?:ครับ|ค่ะ|[\s,.]|$)/,
+  /(?:^|[\s,.])ป้า(?:ครับ|ค่ะ|[\s,.]|$)/,
+  /(?:^|[\s,.])เฮีย(?:ครับ|ค่ะ|[\s,.]|$)/,
+  /(?:^|[\s,.])เจ๊(?:ครับ|ค่ะ|[\s,.]|$)/,
+  /(?:^|[\s,.])พี่(?:ครับ|ค่ะ|[\s,.]|$)/,
+  /(?:^|[\s,.])น้อง(?:ครับ|ค่ะ|[\s,.]|$)/,
+];
+
+export const USER_VISIBLE_FORBIDDEN_BRAND_VOICE_TERMS = ["ปังปุริเย่"] as const;
+
+export const USER_VISIBLE_GENERAL_KNOWLEDGE_DISCLAIMER_MARKERS = [
+  "ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง",
+  "ควรตรวจสภาพและทดลองขับจริงก่อนตัดสินใจ",
+] as const;
+
+export const USER_VISIBLE_RETRY_UNSAFE_REASONS: ReadonlySet<UserVisibleOutputUnsafeReason> = new Set([
+  "too_short",
+  "non_thai_output",
+]);
 
 export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 768;
 
 /** Prompt rules exported for offline quality tests (no Gemini network). */
 export const USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS = [
-  "ห้ามตอบแบบ pipe listing",
+  "ตอบเฉพาะคำตอบสุดท้าย",
   "3–6 ประโยค",
   "รูปแบบคำตอบ",
 ] as const;
 export const USER_VISIBLE_BUYER_GROUNDING_RULE_MARKERS = [
   "ข้อมูล listing ที่อนุญาตให้อ้างอิง",
-  "ยังไม่มีข้อมูลนี้ในระบบ",
-  "ห้ามแต่งรุ่น ราคา ปี ไมล์ โปรโมชัน",
+  "จากข้อมูลในประกาศนี้",
+  "ห้ามแต่ง",
 ] as const;
 
 export const USER_VISIBLE_BUYER_MULTI_CARD_RULE_MARKERS = [
-  "หลายคัน",
-  "ไม่ซ้ำ",
   "แต่ละคัน",
+  "ห้ามซ้ำ",
 ] as const;
 
 export const USER_VISIBLE_FINANCE_FORBIDDEN_PHRASES = [
@@ -233,6 +318,48 @@ export function extractUserVisibleGeminiResponseText(response: {
   return parts.join("").trim();
 }
 
+function escapeRegexToken(token: string): string {
+  return token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Collect brand/model/trim tokens from listing cards for English allowlist checks. */
+export function extractVehicleEnglishAllowlistFromPilotOrchestration(
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): string[] {
+  const terms = new Set<string>(USER_VISIBLE_STATIC_VEHICLE_ENGLISH_TERMS);
+  for (const card of pilotOrchestration?.recentCarCards ?? []) {
+    for (const part of [card.brand, card.model, card.fuelType, card.bodyClassLabel]) {
+      const raw = String(part ?? "").trim();
+      if (!raw) continue;
+      for (const token of raw.split(/[\s/|,-]+/)) {
+        const t = token.trim();
+        if (t.length >= 2) terms.add(t);
+      }
+    }
+    if (card.description) {
+      for (const token of card.description.match(/\b[A-Za-z][A-Za-z0-9:+\-.]{1,}\b/g) ?? []) {
+        if (token.length >= 2) terms.add(token);
+      }
+    }
+  }
+  return [...terms];
+}
+
+/** Strip allowed vehicle English before Thai-ratio guard. */
+export function stripAllowedVehicleEnglishForThaiCheck(
+  text: string,
+  allowedVehicleTerms: Iterable<string> = USER_VISIBLE_STATIC_VEHICLE_ENGLISH_TERMS
+): string {
+  let stripped = text;
+  const sorted = [...new Set(allowedVehicleTerms)].sort((a, b) => b.length - a.length);
+  for (const term of sorted) {
+    if (term.length < 2) continue;
+    stripped = stripped.replace(new RegExp(`\\b${escapeRegexToken(term)}\\b`, "gi"), " ");
+  }
+  stripped = stripped.replace(/\b\d+(?:\.\d+)?\b/g, " ");
+  return stripped.replace(/\s+/g, " ").trim();
+}
+
 export function hasMetaInstructionLeak(text: string): boolean {
   for (const pattern of USER_VISIBLE_META_INSTRUCTION_LEAK_PATTERNS) {
     if (pattern.test(text)) return true;
@@ -240,26 +367,40 @@ export function hasMetaInstructionLeak(text: string): boolean {
   return false;
 }
 
+export function hasGuessedCustomerAddressTerm(text: string): boolean {
+  for (const pattern of USER_VISIBLE_GUESSED_CUSTOMER_ADDRESS_PATTERNS) {
+    if (pattern.test(text)) return true;
+  }
+  return false;
+}
+
+export function hasForbiddenBrandVoiceTerm(text: string): boolean {
+  return USER_VISIBLE_FORBIDDEN_BRAND_VOICE_TERMS.some((term) => text.includes(term));
+}
+
 /** Reject answers dominated by Latin/English when user-visible reply must be Thai. */
-export function hasExcessiveNonThaiContent(text: string): boolean {
+export function hasExcessiveNonThaiContent(
+  text: string,
+  allowedVehicleTerms?: Iterable<string>
+): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
-  const latinWords = trimmed.match(/\b[A-Za-z]{2,}\b/g) ?? [];
-  const latinChars = (trimmed.match(/[A-Za-z]/g) ?? []).length;
-  const thaiChars = (trimmed.match(/[\u0E00-\u0E7F]/g) ?? []).length;
+  const stripped = stripAllowedVehicleEnglishForThaiCheck(trimmed, allowedVehicleTerms);
+  const latinWords = stripped.match(/\b[A-Za-z]{2,}\b/g) ?? [];
+  const latinChars = (stripped.match(/[A-Za-z]/g) ?? []).length;
+  const thaiChars = (stripped.match(/[\u0E00-\u0E7F]/g) ?? []).length;
 
   if (thaiChars === 0 && latinChars > 8) return true;
   if (thaiChars < 20 && latinWords.length >= 2) return true;
-  if (/\b[A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){3,}/.test(trimmed)) return true;
+  if (/\b[A-Za-z]{2,}(?:\s+[A-Za-z]{2,}){2,}/.test(stripped)) return true;
 
-  // Thai-first answers may include brand/model tokens (Toyota Vios, Honda City).
-  if (thaiChars >= 80 && latinWords.length <= 10 && latinChars / (thaiChars + latinChars) <= 0.22) {
+  if (thaiChars >= 60 && latinWords.length <= 6 && latinChars / (thaiChars + latinChars + 1) <= 0.18) {
     return false;
   }
 
-  if (latinWords.length >= 4) return true;
-  if (latinChars >= 24) return true;
-  if (thaiChars > 0 && latinChars / (thaiChars + latinChars) > 0.22) return true;
+  if (latinWords.length >= 3) return true;
+  if (latinChars >= 20) return true;
+  if (thaiChars > 0 && latinChars / (thaiChars + latinChars) > 0.18) return true;
   return false;
 }
 
@@ -293,6 +434,7 @@ export interface UserVisibleOutputUnsafeDiagnostics {
   unsafeReason: UserVisibleOutputUnsafeReason;
   gateReason: "real_provider_output_unsafe";
   outputSampleRedacted: string;
+  retryAttempt?: boolean;
 }
 
 function redactOutputSampleForDiagnostics(text: string, max = 80): string {
@@ -303,14 +445,20 @@ function redactOutputSampleForDiagnostics(text: string, max = 80): string {
   return sample;
 }
 
+export interface UserVisibleOutputSafetyOptions {
+  allowedVehicleTerms?: Iterable<string>;
+}
+
 export function evaluateRealProviderOutputSafety(
   text: string,
   userMessage: string,
-  carCardCount: number
+  carCardCount: number,
+  options?: UserVisibleOutputSafetyOptions
 ): UserVisibleOutputSafetyResult {
   const scenario = detectUserVisibleBuyerScenario(userMessage);
   const trimmed = text.trim();
   const outputLength = trimmed.length;
+  const vehicleTerms = options?.allowedVehicleTerms;
 
   if (!trimmed) {
     return { safe: false, unsafeReason: "empty_output", scenario, outputLength: 0 };
@@ -324,7 +472,13 @@ export function evaluateRealProviderOutputSafety(
   if (hasMetaInstructionLeak(trimmed)) {
     return { safe: false, unsafeReason: "meta_instruction_leak", scenario, outputLength };
   }
-  if (hasExcessiveNonThaiContent(trimmed)) {
+  if (hasGuessedCustomerAddressTerm(trimmed)) {
+    return { safe: false, unsafeReason: "customer_address_term", scenario, outputLength };
+  }
+  if (hasForbiddenBrandVoiceTerm(trimmed)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
+  if (hasExcessiveNonThaiContent(trimmed, vehicleTerms)) {
     return { safe: false, unsafeReason: "non_thai_output", scenario, outputLength };
   }
   if (looksLikeListingPipeEcho(trimmed)) {
@@ -417,6 +571,10 @@ export type UserVisibleGeminiCaller = (
   options: {
     readEnv: SalesBrainEnvReader;
     pilotOrchestration?: UserVisiblePilotOrchestrationHint;
+    retryContext?: {
+      priorUnsafeReason: UserVisibleOutputUnsafeReason;
+      redactedUserMessage: string;
+    };
   }
 ) => Promise<UserVisibleGeminiCallResult>;
 
@@ -478,52 +636,76 @@ function buildUserVisibleBuyerSystemInstruction(
     pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
   const scenario = detectUserVisibleBuyerScenario(userMessage);
   const scenarioGuidance = buildScenarioAnswerGuidance(scenario, cardCount);
-  const multiCardNote =
-    cardCount >= 2
-      ? "ผู้ใช้เห็นหลายคัน — อธิบายแต่ละคันให้ต่างกันตามข้อมูลจริงของคันนั้น ห้ามใช้ประโยคซ้ำแข็งทุกคัน"
-      : "";
+  const minChars = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
 
   return [
-    `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (staging pilot เท่านั้น, ${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
-    "ตอบเป็นภาษาไทยเท่านั้น เป็นประโยคสมบูรณ์ เป็นกันเอง สุภาพ ไม่ใช้ emoji มากเกินไป.",
-    "ทุกคำตอบต้องจบประโยคสมบูรณ์ด้วย ครับ หรือ ค่ะ — ห้ามตัดกลางประโยค.",
-    "ตอบครบประเด็น ประมาณ 3–6 ประโยค หรือ 2–4 bullet ตามบริบท — ไม่สั้นจนไม่ครบ ไม่ยาวเกินจำเป็น.",
+    `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}, staging pilot).`,
     "",
-    "[ภาษาไทยเท่านั้น — ห้าม meta]",
-    "ห้ามใช้ภาษาอังกฤษในคำตอบที่ผู้ใช้เห็น.",
-    "ห้ามพูดถึง prompt, instruction, กฎ, model, AI หรือเหตุผลภายใน.",
-    "ห้ามใช้ประโยค meta เช่น let's be careful, do not invent, I should, as an AI.",
+    "[บุคลิกน้องเอ]",
+    "ตอบภาษาไทย สุภาพ อบอุ่น เป็นมิตร มีเสน่ห์แบบไทย ไม่แข็งเหมือนระบบ ไม่พูดเหมือนแปลจากอังกฤษ.",
+    "เรียกลูกค้าว่า “คุณลูกค้า” หรือไม่ต้องเรียกขาน — ห้ามเดาว่า ลุง/ป้า/พี่/น้อง/เฮีย/เจ๊.",
+    "ใช้ “ครับ” เป็นค่า default จบประโยค — ห้ามใช้คำว่า “ปังปุริเย่”.",
+    "",
+    "[สัญญาคำตอบ — สำคัญที่สุด]",
+    "ตอบเฉพาะคำตอบสุดท้ายที่ลูกค้าเห็นเท่านั้น — ห้ามแสดงแผน เหตุผลภายใน หรือขั้นตอนคิด.",
+    `ภาษาไทยเป็นหลัก อย่างน้อย ${minChars} ตัวอักษร ประมาณ 3–6 ประโยค จบด้วย ครับ/ค่ะ.`,
+    "ชื่อยี่ห้อ/รุ่น/เทคนิคเป็นภาษาอังกฤษได้ (เช่น Honda HR-V, Toyota Vios, Hybrid, CVT) — ห้ามใช้อังกฤษอธิบายหรือ meta.",
     "",
     "[รูปแบบคำตอบ]",
-    "ตอบเป็นภาษาไทยเป็นประโยคสมบูรณ์เท่านั้น — ห้ามตอบแบบ pipe listing (`#1 | Toyota | ราคา`) หรือคัดลอกบรรทัด listing ดิบ.",
     scenarioGuidance,
+    cardCount >= 2
+      ? "เมื่อมีหลายคัน — อธิบายแต่ละคันต่างกันตามข้อมูลจริง ห้ามซ้ำแข็ง."
+      : "",
     "",
-    "[กฎข้อมูล — ห้ามแต่ง]",
-    "อ้างอิงได้เฉพาะข้อมูล listing ด้านล่างเท่านั้น — ห้ามแต่งรุ่น ราคา ปี ไมล์ โปรโมชัน ส่วนลด หรือสเปกที่ไม่มีใน listing.",
-    "ถ้าช่องข้อมูลไม่มีใน listing ให้ตอบว่า \"ยังไม่มีข้อมูลนี้ในระบบ\" ห้ามเดาหรือเติมเอง.",
-    "ห้ามสรุปเหนือข้อมูลจริง ห้ามแต่งผลตรวจสภาพ ประวัติศูนย์ หรือของแถมที่ไม่มีใน listing.",
-    multiCardNote,
+    "[ข้อมูล 2 ชั้น]",
+    "ชั้น 1 — จากข้อมูลในประกาศนี้: ราคา ปี ไมล์ สภาพ อุปกรณ์ โปรโมชัน ต้องมาจาก listing เท่านั้น ห้ามแต่ง.",
+    "ถ้าช่องข้อมูลไม่มี ให้บอกว่า ยังไม่มีข้อมูลนี้ในระบบ.",
+    "ชั้น 2 — จากความรู้ทั่วไปของรุ่นนี้: ใช้ได้เฉพาะ insight ทั่วไป (ลักษณะใช้งาน จุดเด่นทั่วไป) พร้อม disclaimer:",
+    "“ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง ควรตรวจสภาพและทดลองขับจริงก่อนตัดสินใจครับ”",
+    "ห้ามอ้างราคาตลาดปัจจุบัน รีวิวภายนอก หรือปัญหาประจำรุ่นแบบเฉพาะเจาะจง.",
+    "ถ้าถามเรื่องตลาดนอกระบบ ให้บอกว่าน้องเอยังอ้างอิงจากข้อมูลในระบบและความรู้ทั่วไปเท่านั้น.",
     "",
-    "[หลายคัน — ไม่ซ้ำ]",
-    "เมื่อแนะนำหรือเทียบหลายคัน ให้แต่ละคันมีมุมอธิบายต่างกันตามข้อมูลจริง (เช่น ปี ไมล์ ราคา ประเภทรถ).",
-    "ห้ามใช้ประโยคซ้ำแข็งทุกคัน — อ้างจุดเด่นที่มีในข้อมูลจริงของแต่ละคัน.",
+    "[ไฟแนนซ์] ห้าม: อนุมัติแน่นอน, การันตี, ผ่อนได้แน่นอน, ผ่านชัวร์, รับประกันอนุมัติ.",
+    "[CTA] ชวนนุ่มนวลให้ฝากชื่อ/เบอร์ให้ทีมงานติดต่อกลับได้ครับ",
     "",
-    "[ไฟแนนซ์/ผ่อน]",
-    "ห้ามใช้คำ: อนุมัติแน่นอน, การันตี, ผ่อนได้แน่นอน, ผ่านชัวร์, รับประกันอนุมัติ.",
-    "ใช้ภาษา: ประเมินเบื้องต้น, ขึ้นอยู่กับเงื่อนไขไฟแนนซ์, ทีมงานช่วยประสานรายละเอียดให้ได้.",
-    "ห้ามรับปากแทน dealer หรือสถาบันไฟแนนซ์ — อธิบายแนวทางทั่วไปได้เท่านั้น.",
-    "",
-    "[CTA]",
-    "เมื่อผู้ใช้สนใจ ชวนนุ่มนวล เช่น \"ถ้าชอบคันไหน ลองฝากชื่อ/เบอร์ไว้ให้ทีมงานติดต่อกลับได้ครับ\".",
-    "ห้ามกดดัน ห้ามยืนยันข้อมูลส่วนตัวแทนผู้ใช้.",
-    "",
-    "ห้ามตอบเรื่องนอกขอบเขตรถ/ตลาดรถมือสองแบบเปิดกว้าง.",
+    "ตัวอย่างโครงสร้าง (ข้อมูลสมมุติ):",
+    "สวัสดีครับ น้องเอคัดรถในงบที่ขอมา 2 คันแล้วครับ คันแรก Brand Model ปี XXXX ราคา XXX,XXX บาท เหมาะใช้งานประจำครับ คันที่สอง ... ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ",
     "",
     "ข้อมูล listing ที่อนุญาตให้อ้างอิง:",
     listingBlock,
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+export function buildUserVisibleGeminiRetryPrompt(
+  redactedUserMessage: string,
+  pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
+  priorUnsafeReason: UserVisibleOutputUnsafeReason
+): string {
+  const scenario = detectUserVisibleBuyerScenario(redactedUserMessage);
+  const minChars = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
+  const listingBlock = formatListingContextForPrompt(pilotOrchestration);
+  const reasonNote =
+    priorUnsafeReason === "non_thai_output"
+      ? "คำตอบก่อนหน้ามีภาษาอังกฤษเกินไป"
+      : "คำตอบก่อนหน้าสั้นเกินไป";
+
+  return [
+    `ตอบใหม่เป็นภาษาไทยเท่านั้น (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID} retry).`,
+    `${reasonNote} — ตอบเฉพาะคำตอบสุดท้าย ห้ามแสดงแผนหรือเหตุผลภายใน.`,
+    `อย่างน้อย ${minChars} ตัวอักษร 3–6 ประโยค จบด้วย ครับ.`,
+    "ชื่อรถภาษาอังกฤษได้ ห้าม meta/instruction leak.",
+    buildScenarioAnswerGuidance(
+      scenario,
+      pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0
+    ),
+    "",
+    "ข้อมูล listing:",
+    listingBlock,
+    "",
+    `ข้อความผู้ใช้: ${redactedUserMessage}`,
+  ].join("\n");
 }
 
 function buildUserVisibleBuyerPrompt(redactedUserMessage: string): string {
@@ -606,6 +788,10 @@ async function defaultUserVisibleGeminiCaller(
   options: {
     readEnv: SalesBrainEnvReader;
     pilotOrchestration?: UserVisiblePilotOrchestrationHint;
+    retryContext?: {
+      priorUnsafeReason: UserVisibleOutputUnsafeReason;
+      redactedUserMessage: string;
+    };
   }
 ): Promise<UserVisibleGeminiCallResult> {
   const readEnv = options.readEnv;
@@ -627,16 +813,22 @@ async function defaultUserVisibleGeminiCaller(
   }
 
   const client = new GoogleGenAI({ apiKey });
-  const prompt = buildUserVisibleGeminiCombinedPrompt(
-    request.redactedUserMessage,
-    options.pilotOrchestration
-  );
+  const prompt = options.retryContext
+    ? buildUserVisibleGeminiRetryPrompt(
+        options.retryContext.redactedUserMessage,
+        options.pilotOrchestration,
+        options.retryContext.priorUnsafeReason
+      )
+    : buildUserVisibleGeminiCombinedPrompt(
+        request.redactedUserMessage,
+        options.pilotOrchestration
+      );
   const response = await client.models.generateContent({
     model: USER_VISIBLE_REAL_GEMINI_MODEL,
     contents: [{ text: prompt }],
     config: {
       maxOutputTokens: USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
-      temperature: 0.7,
+      temperature: options.retryContext ? 0.35 : 0.5,
     },
   });
 
@@ -727,6 +919,10 @@ export async function invokeUserVisibleRealProvider(input: {
   userRole: SalesBrainUserRole;
   pilotOrchestration?: UserVisiblePilotOrchestrationHint;
   readEnv?: SalesBrainEnvReader;
+  retryContext?: {
+    priorUnsafeReason: UserVisibleOutputUnsafeReason;
+    redactedUserMessage: string;
+  };
 }): Promise<UserVisibleGeminiCallResult> {
   const readEnv = input.readEnv ?? defaultEnvReader;
   const { redactedUserMessage } = prepareProviderPayload({
@@ -746,7 +942,11 @@ export async function invokeUserVisibleRealProvider(input: {
   };
 
   const caller = testGeminiCaller ?? defaultUserVisibleGeminiCaller;
-  return caller(adapterInput, { readEnv, pilotOrchestration: input.pilotOrchestration });
+  return caller(adapterInput, {
+    readEnv,
+    pilotOrchestration: input.pilotOrchestration,
+    retryContext: input.retryContext,
+  });
 }
 
 /** Block finance guarantee language in real-provider user-visible output. */
@@ -810,20 +1010,83 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
   }
 
   try {
+    const vehicleTerms = extractVehicleEnglishAllowlistFromPilotOrchestration(
+      input.pilotOrchestration
+    );
+    const evaluateOutput = (text: string) =>
+      evaluateRealProviderOutputSafety(text, input.userMessage, carCardCount, {
+        allowedVehicleTerms: vehicleTerms,
+      });
+
+    const { redactedUserMessage } = prepareProviderPayload({
+      userMessage: input.userMessage,
+      userRole: input.userRole,
+      aiMode: "high",
+      provider: "real",
+      paidProvider: "gemini",
+    });
+
     const real = await invokeUserVisibleRealProvider({
       userMessage: input.userMessage,
       userRole: input.userRole,
       pilotOrchestration: input.pilotOrchestration,
       readEnv,
     });
-    const text = real.redactedProviderOutput.trim();
-    const safety = evaluateRealProviderOutputSafety(text, input.userMessage, carCardCount);
+    let text = real.redactedProviderOutput.trim();
+    let safety = evaluateOutput(text);
+    let usedModelId = real.modelId;
+
+    if (
+      !safety.safe &&
+      safety.unsafeReason &&
+      USER_VISIBLE_RETRY_UNSAFE_REASONS.has(safety.unsafeReason)
+    ) {
+      const retryReal = await invokeUserVisibleRealProvider({
+        userMessage: input.userMessage,
+        userRole: input.userRole,
+        pilotOrchestration: input.pilotOrchestration,
+        readEnv,
+        retryContext: {
+          priorUnsafeReason: safety.unsafeReason,
+          redactedUserMessage,
+        },
+      });
+      const retryText = retryReal.redactedProviderOutput.trim();
+      const retrySafety = evaluateOutput(retryText);
+      if (retrySafety.safe) {
+        text = retryText;
+        safety = retrySafety;
+        usedModelId = retryReal.modelId;
+      } else {
+        logUserVisibleOutputUnsafeDiagnostics({
+          sliceId: USER_VISIBLE_REAL_PROVIDER_SLICE_ID,
+          qualitySliceId: USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+          route: "user-visible",
+          modelId: retryReal.modelId,
+          scenario: retrySafety.scenario,
+          outputLength: retrySafety.outputLength,
+          unsafeReason: retrySafety.unsafeReason ?? "generic_safety_guard",
+          gateReason: "real_provider_output_unsafe",
+          outputSampleRedacted: redactOutputSampleForDiagnostics(retryText),
+          retryAttempt: true,
+        });
+        return {
+          ...input.bridgeResult,
+          payload: {
+            ...input.bridgeResult.payload,
+            realProviderNetwork: false,
+            realProviderGateReason: "real_provider_output_unsafe",
+          },
+        } as T;
+      }
+    }
+
     if (!safety.safe) {
       logUserVisibleOutputUnsafeDiagnostics({
         sliceId: USER_VISIBLE_REAL_PROVIDER_SLICE_ID,
         qualitySliceId: USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
         route: "user-visible",
-        modelId: real.modelId,
+        modelId: usedModelId,
         scenario: safety.scenario,
         outputLength: safety.outputLength,
         unsafeReason: safety.unsafeReason ?? "generic_safety_guard",

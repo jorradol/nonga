@@ -7,6 +7,7 @@ import {
   assertPilotFollowUpCopySafe,
   detectBuyerRefinement,
   extractNumberedComparePair,
+  isPilotBuyerCardInsightFollowUp,
   isPilotBuyerFollowUpMessage,
   type BuyerRefinementKind,
 } from "./chat/chatPilotBuyerFollowUp";
@@ -166,6 +167,49 @@ export function buildBuyerComparePilotCopy(
   return body;
 }
 
+export function buildBuyerSummarizePilotCopy(
+  cards: PilotGroundedCarCard[],
+  cardIndex = 1
+): string {
+  const selected = resolveCarCardsFromSessionContext(cards, [cardIndex]);
+  const card = selected[0] ?? cards[0];
+  if (!card) return buildPilotFollowUpNoContextCopy();
+
+  const angle = inferUseAngle(card);
+  return [
+    `ได้ครับ น้องเอขอสรุปจุดเด่นของคันที่ ${card.index} จากข้อมูลในระบบนะครับ`,
+    "",
+    formatCarLine(card),
+    angle ? `จุดเด่นตามประกาศ: ${angle}` : "",
+    card.description ? `รายละเอียดเพิ่มจากประกาศ: ${card.description}` : "",
+    "",
+    "ถ้าอยากเทียบกับคันอื่น พิมพ์ “เทียบคันที่ 1 กับ 2” ได้ครับ",
+    LISTING_DISCLAIMER,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildBuyerFitPilotCopy(
+  cards: PilotGroundedCarCard[],
+  cardIndex = 1
+): string {
+  const selected = resolveCarCardsFromSessionContext(cards, [cardIndex]);
+  const card = selected[0] ?? cards[0];
+  if (!card) return buildPilotFollowUpNoContextCopy();
+
+  const angle = inferUseAngle(card);
+  return [
+    `จากข้อมูลประกาศของคันที่ ${card.index} น้องเอประเมินว่า`,
+    "",
+    formatCarLine(card),
+    `เหมาะกับผู้ที่มองหารถในกลุ่มนี้ — ${angle}`,
+    "",
+    "ข้อมูลนี้มาจากประกาศในระบบเท่านั้น ควรดูสภาพจริงก่อนตัดสินใจครับ",
+    LISTING_DISCLAIMER,
+  ].join("\n");
+}
+
 export function buildBuyerRefinementPilotCopy(
   kind: BuyerRefinementKind,
   cards: PilotGroundedCarCard[]
@@ -226,6 +270,19 @@ export function buildPilotBuyerUserVisibleCopy(
     };
   }
 
+  if (isPilotBuyerCardInsightFollowUp(input.userMessage) && sessionCount > 0) {
+    if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(input.userMessage)) {
+      return {
+        text: buildBuyerFitPilotCopy(sessionCards),
+        pilotPathActive: true,
+      };
+    }
+    return {
+      text: buildBuyerSummarizePilotCopy(sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
   if (followUp && sessionCount > 0 && comparePair) {
     return {
       text: buildBuyerComparePilotCopy(comparePair, sessionCards),
@@ -253,10 +310,12 @@ export function buildPilotBuyerUserVisibleCopy(
   }
 
   if (followUp && sessionCount > 0) {
-    return {
-      text: buildBuyerComparePilotCopy({ a: 1, b: Math.min(2, sessionCount) }, sessionCards),
-      pilotPathActive: true,
-    };
+    if (/เทียบ|เปรียบเทียบ|ช่วยเทียบ/i.test(input.userMessage)) {
+      return {
+        text: buildBuyerComparePilotCopy({ a: 1, b: Math.min(2, sessionCount) }, sessionCards),
+        pilotPathActive: true,
+      };
+    }
   }
 
   return null;
