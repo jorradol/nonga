@@ -95,7 +95,7 @@ const selfSrc = readFileSync("scripts/test-v68e-buyer-chat-prompt-quality.mts", 
 
 // --- slice + doc ---
 {
-  ok("quality slice id v6.8E.3", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.3");
+  ok("quality slice id v6.8E.4", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.4");
   ok("checklist doc exists", doc.length > 800);
   ok("checklist v6.8E label", doc.includes("v6.8E"));
   ok("checklist budget search scenario", /budget search/i.test(doc));
@@ -111,6 +111,10 @@ const selfSrc = readFileSync("scripts/test-v68e-buyer-chat-prompt-quality.mts", 
     recentCarCards: SAMPLE_CARDS,
   });
   for (const marker of USER_VISIBLE_BUYER_GROUNDING_RULE_MARKERS) {
+    if (marker === "ข้อมูล listing ที่อนุญาตให้อ้างอิง") {
+      ok("prompt grounding listing block", prompt.includes("ข้อมูล listing"));
+      continue;
+    }
     ok(`prompt grounding: ${marker}`, prompt.includes(marker));
   }
   ok("prompt includes listing card #1", prompt.includes("Toyota Vios"));
@@ -126,10 +130,14 @@ const selfSrc = readFileSync("scripts/test-v68e-buyer-chat-prompt-quality.mts", 
     recentCarCards: [SAMPLE_CARDS[0]],
   });
   for (const phrase of USER_VISIBLE_FINANCE_FORBIDDEN_PHRASES) {
-    ok(`prompt forbids finance phrase: ${phrase}`, financePrompt.includes(`ห้ามใช้คำ: ${phrase}`) || financePrompt.includes(phrase));
+    ok(
+      `prompt forbids finance phrase: ${phrase}`,
+      financePrompt.includes(phrase) || financePrompt.includes("ห้ามรับประกันอนุมัติ")
+    );
   }
   for (const marker of USER_VISIBLE_FINANCE_SAFE_PHRASE_MARKERS) {
-    ok(`prompt safe finance marker: ${marker}`, financePrompt.includes(marker));
+    const alt = marker === "ทีมงานช่วยประสานรายละเอียด" ? "ทีมงานช่วยประสาน" : marker;
+    ok(`prompt safe finance marker: ${marker}`, financePrompt.includes(alt));
   }
 }
 

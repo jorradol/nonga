@@ -28,8 +28,8 @@ import {
   maybeApplyUserVisibleRealProvider,
   resetUserVisibleGeminiCallerForTests,
   setUserVisibleGeminiCallerForTests,
-  USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+  USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_MIN_OUTPUT_CHARS,
   USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
   USER_VISIBLE_REAL_GEMINI_MODEL,
@@ -90,10 +90,8 @@ const selfSrc = readFileSync("scripts/test-v68e1-real-output-length-followup-int
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.3", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.3");
-  ok("doc v6.8E PARTIAL noted", /v6\.8E.*PARTIAL|PARTIAL.*v6\.8E/i.test(doc));
-  ok("doc min length criteria", /ไม่ควรสั้นผิดปกติ|minimum|อย่างน้อย/i.test(doc));
-  ok("doc v6.8E.1 rerun or v6.8E.3", /v6\.8E\.1|v6\.8E\.2|v6\.8E\.3|rerun smoke/i.test(doc));
+  ok("quality slice v6.8E.4", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.4");
+  ok("doc v6.8E.1 rerun or v6.8E.4", /v6\.8E\.1|v6\.8E\.2|v6\.8E\.3|v6\.8E\.4|rerun smoke/i.test(doc));
 }
 
 // --- follow-up intent coverage ---
@@ -123,11 +121,8 @@ const selfSrc = readFileSync("scripts/test-v68e1-real-output-length-followup-int
     carCardCount: 3,
     recentCarCards: SAMPLE_CARDS,
   });
-  for (const marker of USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS) {
-    ok(`prompt format marker: ${marker}`, budgetPrompt.includes(marker));
-  }
-  ok("prompt no กระชับ-only", !/ตอบเป็นภาษาไทย กระชับ/.test(budgetPrompt));
-  ok("prompt has min chars budget", budgetPrompt.includes(String(USER_VISIBLE_MIN_OUTPUT_CHARS.budget)));
+  ok("prompt requires marker", budgetPrompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("prompt no char count in prompt", !budgetPrompt.includes(String(USER_VISIBLE_MIN_OUTPUT_CHARS.budget)));
   ok("prompt scenario budget", budgetPrompt.includes("แนะนำรถจาก listing"));
 
   const financePrompt = buildUserVisibleGeminiCombinedPrompt("ผ่อนประมาณเท่าไหร่ได้ไหม", {

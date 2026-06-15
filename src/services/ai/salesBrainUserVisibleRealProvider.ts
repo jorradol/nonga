@@ -31,14 +31,19 @@ import {
 } from "./salesBrainUserVisiblePilotBuyerCopy";
 import {
   isPilotBuyerCardInsightFollowUp,
+  isPilotBuyerFinanceFollowUp,
+  isPilotBuyerGeneralKnowledgeFollowUp,
   isPilotBuyerFollowUpMessage,
   extractNumberedComparePair,
 } from "./chat/chatPilotBuyerFollowUp";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.3 — Thai brand voice, vehicle English allowlist, real output recovery */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.3";
+/** v6.8E.4 — final-answer marker recovery, general knowledge routing, EV-aware guard */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.4";
+
+/** Required prefix for Gemini final answer — stripped before user-visible delivery. */
+export const USER_VISIBLE_FINAL_ANSWER_MARKER = "คำตอบ:";
 
 export type UserVisibleOutputUnsafeReason =
   | "too_short"
@@ -49,6 +54,8 @@ export type UserVisibleOutputUnsafeReason =
   | "incomplete_sentence"
   | "generic_safety_guard"
   | "customer_address_term"
+  | "missing_final_answer_marker"
+  | "unsourced_ev_speculation"
   | "empty_output";
 
 export type UserVisibleBuyerAnswerScenario =
@@ -57,6 +64,7 @@ export type UserVisibleBuyerAnswerScenario =
   | "compare"
   | "summarize"
   | "fit"
+  | "generalKnowledge"
   | "general";
 
 export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenario, number> = {
@@ -65,6 +73,7 @@ export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenari
   compare: 120,
   summarize: 100,
   fit: 120,
+  generalKnowledge: 150,
   general: 80,
 };
 
@@ -78,6 +87,10 @@ export const USER_VISIBLE_META_INSTRUCTION_LEAK_PATTERNS: RegExp[] = [
   /\bas an AI\b/i,
   /\baccording to (?:the )?prompt\b/i,
   /\bWait,\b/,
+  /Let'?s count/i,
+  /count characters/i,
+  /characters\?/i,
+  /\(Incorporate/i,
   /Sentence\s*\d/i,
   /\binstruction\b/i,
   /\bprompt\b/i,
@@ -90,6 +103,7 @@ export const USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS = [
   "ภาษาไทยเป็นหลัก",
   "ตอบเฉพาะคำตอบสุดท้าย",
   "ห้ามแสดงแผน",
+  USER_VISIBLE_FINAL_ANSWER_MARKER,
 ] as const;
 
 export const USER_VISIBLE_BUYER_PERSONA_MARKERS = [
@@ -148,7 +162,45 @@ export const USER_VISIBLE_STATIC_VEHICLE_ENGLISH_TERMS = [
   "ABS",
   "RS",
   "EL",
+  "EV",
+  "BEV",
+  "HEV",
+  "PHEV",
+  "Plug-in Hybrid",
+  "kWh",
+  "CCS2",
+  "Type 2",
+  "Wallbox",
+  "Battery",
+  "Range",
 ] as const;
+
+/** EV-specific English tokens allowed in Thai buyer answers (v6.8E.4). */
+export const USER_VISIBLE_EV_ENGLISH_TERMS = [
+  "EV",
+  "BEV",
+  "HEV",
+  "PHEV",
+  "Plug-in Hybrid",
+  "Hybrid",
+  "e:HEV",
+  "kWh",
+  "AC",
+  "DC",
+  "CCS2",
+  "Type 2",
+  "Wallbox",
+  "Battery",
+  "Range",
+] as const;
+
+/** Block unsourced EV battery/range/charge claims when listing lacks those fields. */
+export const USER_VISIBLE_UNSOURCED_EV_SPECULATION_PATTERNS: RegExp[] = [
+  /\d+(?:\.\d+)?\s*kWh/i,
+  /ระยะวิ่ง(?:ประมาณ)?\s*\d+\s*(?:กม\.?|km)/i,
+  /ค่าชาร์จ(?:ประมาณ)?\s*\d+/i,
+  /ประกันแบต(?:เตอรี่)?\s*\d+/i,
+];
 
 export const USER_VISIBLE_GUESSED_CUSTOMER_ADDRESS_PATTERNS: RegExp[] = [
   /(?:^|[\s,.])ลุง(?:ครับ|ค่ะ|[\s,.]|$)/,
@@ -169,6 +221,7 @@ export const USER_VISIBLE_GENERAL_KNOWLEDGE_DISCLAIMER_MARKERS = [
 export const USER_VISIBLE_RETRY_UNSAFE_REASONS: ReadonlySet<UserVisibleOutputUnsafeReason> = new Set([
   "too_short",
   "non_thai_output",
+  "missing_final_answer_marker",
 ]);
 
 export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 768;
@@ -228,6 +281,7 @@ export function detectUserVisibleBuyerScenario(
   message: string
 ): UserVisibleBuyerAnswerScenario {
   const t = message.trim();
+  if (isPilotBuyerGeneralKnowledgeFollowUp(t)) return "generalKnowledge";
   if (isPilotBuyerCardInsightFollowUp(t)) {
     if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(t)) {
       return "fit";
@@ -237,7 +291,7 @@ export function detectUserVisibleBuyerScenario(
   if (extractNumberedComparePair(t) || /เทียบ|เปรียบเทียบ/i.test(t)) {
     return "compare";
   }
-  if (/ผ่อน|ไฟแนนซ์|งวด|ดาวน์/i.test(t)) {
+  if (isPilotBuyerFinanceFollowUp(t)) {
     return "finance";
   }
   if (/งบ|งบประมาณ|มีรถอะไร|หารถ/i.test(t)) {
@@ -250,36 +304,25 @@ function buildScenarioAnswerGuidance(
   scenario: UserVisibleBuyerAnswerScenario,
   cardCount: number
 ): string {
-  const minChars = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
   switch (scenario) {
     case "budget":
-      return [
-        `งานนี้: แนะนำรถจาก listing (${cardCount || "หลาย"} คัน) เป็นภาษาไทย — อย่างน้อย ${minChars} ตัวอักษร.`,
-        "รูปแบบ: ทักทายสั้น ๆ แล้วอธิบายทีละคัน 1–2 ประโยคต่อคัน (ไม่ซ้ำ) จากข้อมูลจริง ปิดท้าย CTA นุ่มนวลด้วย ครับ/ค่ะ.",
-      ].join(" ");
+      return `แนะนำรถจาก listing (${cardCount || "หลาย"} คัน) ทีละคัน ไม่ซ้ำ จบด้วย CTA นุ่มนวล`;
     case "finance":
-      return [
-        `งานนี้: ตอบเรื่องผ่อน/ไฟแนนซ์เป็นภาษาไทยเท่านั้น — อย่างน้อย ${minChars} ตัวอักษร, 2–4 ประโยค.`,
-        "ใช้คำว่า ประเมินเบื้องต้น / ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ / ทีมงานช่วยประสานรายละเอียด — ห้ามรับประกันอนุมัติ.",
-        "ห้ามเดาตัวเลขงวดหรือดอกเบี้ยแม่นยำ ถ้าไม่มีใน listing ให้บอกให้ทีมงานตรวจเงื่อนไขก่อน.",
-      ].join(" ");
+      return "ตอบเรื่องผ่อน/ไฟแนนซ์ ใช้คำ ประเมินเบื้องต้น / ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ / ทีมงานช่วยประสาน — ห้ามรับประกันอนุมัติ ห้ามเดาตัวเลขงวด";
     case "compare":
-      return [
-        `งานนี้: เทียบรถจาก listing เป็นภาษาไทย — อย่างน้อย ${minChars} ตัวอักษร, 4–6 ประโยค.`,
-        "เปรียบคันที่ 1 กับ 2 ด้วยหัวข้อชัดเจน (ปี ราคา ไมล์ ประเภท) จากข้อมูลจริง จบด้วย ครับ/ค่ะ.",
-      ].join(" ");
+      return "เทียบคันที่ 1 กับ 2 จากข้อมูลจริง (ปี ราคา ไมล์ ประเภท)";
     case "summarize":
-      return [
-        `งานนี้: สรุปจุดเด่นคันเดียวจาก listing — ภาษาไทย อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
-        "อ้างเฉพาะ brand/model/ปี/ราคา/ไมล์/ประเภทที่มี ห้ามแต่งสภาพหรือประวัติ จบด้วย ครับ/ค่ะ.",
-      ].join(" ");
+      return "สรุปจุดเด่นคันเดียวจาก listing ห้ามแต่งสภาพหรือประวัติ";
     case "fit":
+      return "บอกว่าเหมาะกับใครจากข้อมูล listing ห้ามฟันธงเกินข้อมูล";
+    case "generalKnowledge":
       return [
-        `งานนี้: บอกว่าเหมาะกับใครจากข้อมูล listing — ภาษาไทย อย่างน้อย ${minChars} ตัวอักษร, 3–5 ประโยค.`,
-        "อิงประเภทรถ ปี ราคา ไมล์ที่มี ห้ามฟันธงเกินข้อมูล จบด้วย ครับ/ค่ะ.",
+        "แยก จากข้อมูลในประกาศนี้ กับ จากความรู้ทั่วไปของรุ่นนี้",
+        "ใส่ disclaimer ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง",
+        "ห้ามอ้างราคาตลาดล่าสุดหรือรีวิวภายนอก",
       ].join(" ");
     default:
-      return `ตอบครบประเด็น อย่างน้อย ${minChars} ตัวอักษร (ประมาณ 3–5 ประโยค) ไม่ยาวเกินจำเป็น.`;
+      return "ตอบครบประเด็น ไม่ยาวเกินจำเป็น";
   }
 }
 
@@ -297,7 +340,7 @@ export function assertRealProviderOutputMinLength(
 ): boolean {
   const scenario = detectUserVisibleBuyerScenario(userMessage);
   const min = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
-  if (carCardCount <= 0 && (scenario === "summarize" || scenario === "fit")) {
+  if (carCardCount <= 0 && (scenario === "summarize" || scenario === "fit" || scenario === "generalKnowledge")) {
     return false;
   }
   return text.trim().length >= min;
@@ -316,6 +359,74 @@ export function extractUserVisibleGeminiResponseText(response: {
     }
   }
   return parts.join("").trim();
+}
+
+export function extractUserVisibleFinalAnswer(raw: string): {
+  found: boolean;
+  answer: string;
+  preamble: string;
+} {
+  const trimmed = raw.trim();
+  const markerIdx = trimmed.indexOf(USER_VISIBLE_FINAL_ANSWER_MARKER);
+  if (markerIdx < 0) {
+    return { found: false, answer: trimmed, preamble: "" };
+  }
+  const preamble = trimmed.slice(0, markerIdx).trim();
+  const answer = trimmed
+    .slice(markerIdx + USER_VISIBLE_FINAL_ANSWER_MARKER.length)
+    .trim();
+  return { found: true, answer, preamble };
+}
+
+/** Strip final-answer marker; reject planning/meta before marker. */
+export function normalizeUserVisibleProviderOutput(raw: string): {
+  text: string;
+  rejectReason?: UserVisibleOutputUnsafeReason;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { text: "", rejectReason: "empty_output" };
+  }
+  const extracted = extractUserVisibleFinalAnswer(trimmed);
+  if (!extracted.found) {
+    return { text: trimmed, rejectReason: "missing_final_answer_marker" };
+  }
+  if (extracted.preamble && hasMetaInstructionLeak(extracted.preamble)) {
+    return { text: extracted.answer, rejectReason: "meta_instruction_leak" };
+  }
+  if (!extracted.answer) {
+    return { text: "", rejectReason: "empty_output" };
+  }
+  return { text: extracted.answer };
+}
+
+/** True when listing cards include EV battery/range/charger fields. */
+export function listingHasEvBatteryFields(
+  cards: UserVisiblePilotOrchestrationHint["recentCarCards"] = []
+): boolean {
+  for (const card of cards) {
+    const blob = `${card.description ?? ""} ${card.fuelType ?? ""}`;
+    if (
+      /\d+\s*kWh|ระยะวิ่ง\s*\d+|ประกันแบต|หัวชาร์จ|CCS2|Type\s*2|Wallbox/i.test(
+        blob
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function hasUnsourcedEvSpeculation(
+  text: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): boolean {
+  const cards = pilotOrchestration?.recentCarCards ?? [];
+  if (listingHasEvBatteryFields(cards)) return false;
+  for (const pattern of USER_VISIBLE_UNSOURCED_EV_SPECULATION_PATTERNS) {
+    if (pattern.test(text)) return true;
+  }
+  return false;
 }
 
 function escapeRegexToken(token: string): string {
@@ -447,6 +558,7 @@ function redactOutputSampleForDiagnostics(text: string, max = 80): string {
 
 export interface UserVisibleOutputSafetyOptions {
   allowedVehicleTerms?: Iterable<string>;
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint;
 }
 
 export function evaluateRealProviderOutputSafety(
@@ -471,6 +583,9 @@ export function evaluateRealProviderOutputSafety(
   }
   if (hasMetaInstructionLeak(trimmed)) {
     return { safe: false, unsafeReason: "meta_instruction_leak", scenario, outputLength };
+  }
+  if (hasUnsourcedEvSpeculation(trimmed, options?.pilotOrchestration)) {
+    return { safe: false, unsafeReason: "unsourced_ev_speculation", scenario, outputLength };
   }
   if (hasGuessedCustomerAddressTerm(trimmed)) {
     return { safe: false, unsafeReason: "customer_address_term", scenario, outputLength };
@@ -636,42 +751,24 @@ function buildUserVisibleBuyerSystemInstruction(
     pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
   const scenario = detectUserVisibleBuyerScenario(userMessage);
   const scenarioGuidance = buildScenarioAnswerGuidance(scenario, cardCount);
-  const minChars = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
 
   return [
-    `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสองของ Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}, staging pilot).`,
+    `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสอง Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
+    "ตอบภาษาไทย สุภาพ อบอุ่น — เรียก คุณลูกค้า หรือไม่เรียกขาน ห้ามเดา ลุง/ป้า/เฮีย/เจ๊ ห้ามใช้ ปังปุริเย่.",
     "",
-    "[บุคลิกน้องเอ]",
-    "ตอบภาษาไทย สุภาพ อบอุ่น เป็นมิตร มีเสน่ห์แบบไทย ไม่แข็งเหมือนระบบ ไม่พูดเหมือนแปลจากอังกฤษ.",
-    "เรียกลูกค้าว่า “คุณลูกค้า” หรือไม่ต้องเรียกขาน — ห้ามเดาว่า ลุง/ป้า/พี่/น้อง/เฮีย/เจ๊.",
-    "ใช้ “ครับ” เป็นค่า default จบประโยค — ห้ามใช้คำว่า “ปังปุริเย่”.",
-    "",
-    "[สัญญาคำตอบ — สำคัญที่สุด]",
-    "ตอบเฉพาะคำตอบสุดท้ายที่ลูกค้าเห็นเท่านั้น — ห้ามแสดงแผน เหตุผลภายใน หรือขั้นตอนคิด.",
-    `ภาษาไทยเป็นหลัก อย่างน้อย ${minChars} ตัวอักษร ประมาณ 3–6 ประโยค จบด้วย ครับ/ค่ะ.`,
-    "ชื่อยี่ห้อ/รุ่น/เทคนิคเป็นภาษาอังกฤษได้ (เช่น Honda HR-V, Toyota Vios, Hybrid, CVT) — ห้ามใช้อังกฤษอธิบายหรือ meta.",
-    "",
-    "[รูปแบบคำตอบ]",
+    `[สัญญาคำตอบ] เริ่มบรรทัดแรกด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" แล้วตามด้วยคำตอบภาษาไทย 3–6 ประโยค จบด้วย ครับ.`,
+    "ตอบเฉพาะคำตอบสุดท้าย — ห้ามแสดงแผน เหตุผล หรือข้อความภาษาอังกฤษ (ยกเว้นชื่อรถ/เทคนิค เช่น Honda HR-V, Hybrid, CVT, EV).",
     scenarioGuidance,
-    cardCount >= 2
-      ? "เมื่อมีหลายคัน — อธิบายแต่ละคันต่างกันตามข้อมูลจริง ห้ามซ้ำแข็ง."
-      : "",
+    cardCount >= 2 ? "หลายคัน — อธิบายแต่ละคันต่างกัน ห้ามซ้ำแข็ง." : "",
+    "จากข้อมูลในประกาศนี้เท่านั้น — ห้ามแต่งราคา/ปี/ไมล์/โปรโมชัน ถ้าไม่มีให้บอก ยังไม่มีข้อมูลนี้ในระบบ.",
+    "จากความรู้ทั่วไปของรุ่นนี้ได้เฉพาะ insight ทั่วไป พร้อม disclaimer ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง.",
+    "รถไฟฟ้า/EV: พูดได้ว่าเป็นรถไฟฟ้าจาก fuelType ถ้ามี — ห้ามเดา kWh ระยะวิ่ง ค่าชาร์จ ประกันแบต ถ้า listing ไม่มี.",
+    "ไฟแนนซ์: ห้าม อนุมัติแน่นอน/การันตี/ผ่อนได้แน่นอน — ใช้ ประเมินเบื้องต้น ขึ้นอยู่กับเงื่อนไขไฟแนนซ์.",
+    "ชวนฝากชื่อ/เบอร์ให้ทีมงานติดต่อกลับได้ครับ",
     "",
-    "[ข้อมูล 2 ชั้น]",
-    "ชั้น 1 — จากข้อมูลในประกาศนี้: ราคา ปี ไมล์ สภาพ อุปกรณ์ โปรโมชัน ต้องมาจาก listing เท่านั้น ห้ามแต่ง.",
-    "ถ้าช่องข้อมูลไม่มี ให้บอกว่า ยังไม่มีข้อมูลนี้ในระบบ.",
-    "ชั้น 2 — จากความรู้ทั่วไปของรุ่นนี้: ใช้ได้เฉพาะ insight ทั่วไป (ลักษณะใช้งาน จุดเด่นทั่วไป) พร้อม disclaimer:",
-    "“ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง ควรตรวจสภาพและทดลองขับจริงก่อนตัดสินใจครับ”",
-    "ห้ามอ้างราคาตลาดปัจจุบัน รีวิวภายนอก หรือปัญหาประจำรุ่นแบบเฉพาะเจาะจง.",
-    "ถ้าถามเรื่องตลาดนอกระบบ ให้บอกว่าน้องเอยังอ้างอิงจากข้อมูลในระบบและความรู้ทั่วไปเท่านั้น.",
+    `ตัวอย่าง: ${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถ Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ... ถ้าสนใจฝากชื่อเบอร์ได้ครับ`,
     "",
-    "[ไฟแนนซ์] ห้าม: อนุมัติแน่นอน, การันตี, ผ่อนได้แน่นอน, ผ่านชัวร์, รับประกันอนุมัติ.",
-    "[CTA] ชวนนุ่มนวลให้ฝากชื่อ/เบอร์ให้ทีมงานติดต่อกลับได้ครับ",
-    "",
-    "ตัวอย่างโครงสร้าง (ข้อมูลสมมุติ):",
-    "สวัสดีครับ น้องเอคัดรถในงบที่ขอมา 2 คันแล้วครับ คันแรก Brand Model ปี XXXX ราคา XXX,XXX บาท เหมาะใช้งานประจำครับ คันที่สอง ... ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ",
-    "",
-    "ข้อมูล listing ที่อนุญาตให้อ้างอิง:",
+    "ข้อมูล listing:",
     listingBlock,
   ]
     .filter(Boolean)
@@ -684,27 +781,24 @@ export function buildUserVisibleGeminiRetryPrompt(
   priorUnsafeReason: UserVisibleOutputUnsafeReason
 ): string {
   const scenario = detectUserVisibleBuyerScenario(redactedUserMessage);
-  const minChars = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
   const listingBlock = formatListingContextForPrompt(pilotOrchestration);
-  const reasonNote =
+  const repairNote =
     priorUnsafeReason === "non_thai_output"
-      ? "คำตอบก่อนหน้ามีภาษาอังกฤษเกินไป"
-      : "คำตอบก่อนหน้าสั้นเกินไป";
+      ? "คำตอบก่อนหน้ามีภาษาอังกฤษหรือ meta"
+      : priorUnsafeReason === "missing_final_answer_marker"
+        ? "คำตอบก่อนหน้าไม่มีคำตอบ:"
+        : "คำตอบก่อนหน้าสั้นเกินไป";
 
   return [
-    `ตอบใหม่เป็นภาษาไทยเท่านั้น (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID} retry).`,
-    `${reasonNote} — ตอบเฉพาะคำตอบสุดท้าย ห้ามแสดงแผนหรือเหตุผลภายใน.`,
-    `อย่างน้อย ${minChars} ตัวอักษร 3–6 ประโยค จบด้วย ครับ.`,
-    "ชื่อรถภาษาอังกฤษได้ ห้าม meta/instruction leak.",
+    `${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID} retry — ${repairNote}.`,
+    `เขียนใหม่ภาษาไทยเท่านั้น เริ่มด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" 3–6 ประโยค จบด้วย ครับ.`,
+    "ห้ามแสดงแผนหรือเหตุผลภายใน ชื่อรถภาษาอังกฤษได้.",
     buildScenarioAnswerGuidance(
       scenario,
       pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0
     ),
-    "",
-    "ข้อมูล listing:",
     listingBlock,
-    "",
-    `ข้อความผู้ใช้: ${redactedUserMessage}`,
+    `ข้อความ: ${redactedUserMessage}`,
   ].join("\n");
 }
 
@@ -1016,7 +1110,24 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     const evaluateOutput = (text: string) =>
       evaluateRealProviderOutputSafety(text, input.userMessage, carCardCount, {
         allowedVehicleTerms: vehicleTerms,
+        pilotOrchestration: input.pilotOrchestration,
       });
+
+    const processRawOutput = (raw: string) => {
+      const normalized = normalizeUserVisibleProviderOutput(raw.trim());
+      if (normalized.rejectReason) {
+        return {
+          text: normalized.text,
+          safety: {
+            safe: false as const,
+            unsafeReason: normalized.rejectReason,
+            scenario: detectUserVisibleBuyerScenario(input.userMessage),
+            outputLength: normalized.text.length,
+          },
+        };
+      }
+      return { text: normalized.text, safety: evaluateOutput(normalized.text) };
+    };
 
     const { redactedUserMessage } = prepareProviderPayload({
       userMessage: input.userMessage,
@@ -1032,8 +1143,7 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
       pilotOrchestration: input.pilotOrchestration,
       readEnv,
     });
-    let text = real.redactedProviderOutput.trim();
-    let safety = evaluateOutput(text);
+    let { text, safety } = processRawOutput(real.redactedProviderOutput);
     let usedModelId = real.modelId;
 
     if (
@@ -1051,11 +1161,10 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
           redactedUserMessage,
         },
       });
-      const retryText = retryReal.redactedProviderOutput.trim();
-      const retrySafety = evaluateOutput(retryText);
-      if (retrySafety.safe) {
-        text = retryText;
-        safety = retrySafety;
+      const retryProcessed = processRawOutput(retryReal.redactedProviderOutput);
+      if (retryProcessed.safety.safe) {
+        text = retryProcessed.text;
+        safety = retryProcessed.safety;
         usedModelId = retryReal.modelId;
       } else {
         logUserVisibleOutputUnsafeDiagnostics({
@@ -1063,11 +1172,11 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
           qualitySliceId: USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
           route: "user-visible",
           modelId: retryReal.modelId,
-          scenario: retrySafety.scenario,
-          outputLength: retrySafety.outputLength,
-          unsafeReason: retrySafety.unsafeReason ?? "generic_safety_guard",
+          scenario: retryProcessed.safety.scenario,
+          outputLength: retryProcessed.safety.outputLength,
+          unsafeReason: retryProcessed.safety.unsafeReason ?? "generic_safety_guard",
           gateReason: "real_provider_output_unsafe",
-          outputSampleRedacted: redactOutputSampleForDiagnostics(retryText),
+          outputSampleRedacted: redactOutputSampleForDiagnostics(retryProcessed.text),
           retryAttempt: true,
         });
         return {

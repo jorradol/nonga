@@ -30,6 +30,7 @@
     "test:v68e1-real-output-length-followup-intent": "tsx scripts/test-v68e1-real-output-length-followup-intent.mts",
     "test:v68e2-unsafe-output-thai-complete": "tsx scripts/test-v68e2-unsafe-output-thai-complete.mts",
     "test:v68e3-thai-brand-voice-vehicle-english-recovery": "tsx scripts/test-v68e3-thai-brand-voice-vehicle-english-recovery.mts",
+    "test:v68e4-final-answer-recovery-general-knowledge-ev-guard": "tsx scripts/test-v68e4-final-answer-recovery-general-knowledge-ev-guard.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
     "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",

@@ -33,6 +33,7 @@ import {
   setUserVisibleGeminiCallerForTests,
   USER_VISIBLE_GEMINI_REQUEST_SHAPE,
   USER_VISIBLE_REAL_GEMINI_MODEL,
+  USER_VISIBLE_FINAL_ANSWER_MARKER,
 } from "../src/services/ai/salesBrainUserVisibleRealProvider.ts";
 import {
   resolvePilotOrchestrationHint,
@@ -226,8 +227,7 @@ const selfSrc = readFileSync("scripts/test-v68d1-user-visible-real-provider-invo
 {
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
-    redactedProviderOutput:
-      "สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ",
+    redactedProviderOutput: `${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ`,
     requestIdHash: "mockhashv68d1",
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
   }));

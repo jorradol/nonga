@@ -25,6 +25,7 @@ import {
   resetUserVisibleGeminiCallerForTests,
   setUserVisibleGeminiCallerForTests,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+  USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS,
   USER_VISIBLE_REAL_GEMINI_MODEL,
   type UserVisibleOutputUnsafeReason,
@@ -130,7 +131,7 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.3", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.3");
+  ok("quality slice v6.8E.4", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.4");
   ok("doc v6.8E.1 PARTIAL noted", /v6\.8E\.1.*PARTIAL|PARTIAL.*v6\.8E\.1/i.test(doc));
   ok("doc Thai only criteria", /ภาษาไทย|Thai only|Thai brand voice/i.test(doc));
   ok("doc no meta leak criteria", /meta|instruction leak/i.test(doc));
@@ -146,15 +147,15 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
   ok("source no full prompt log", !/console\.warn\([^)]*buildUserVisibleGeminiCombinedPrompt/.test(realProviderSrc));
 }
 
-// --- prompt Thai-only markers ---
+// --- prompt final-answer contract (v6.8E.4) ---
 {
   const prompt = buildUserVisibleGeminiCombinedPrompt("งบ 4 แสน มีรถอะไรน่าเล่น", {
     carCardCount: 2,
     recentCarCards: SAMPLE_CARDS,
   });
-  for (const marker of USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS) {
-    ok(`prompt Thai marker: ${marker}`, prompt.includes(marker));
-  }
+  ok("prompt requires marker", prompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("prompt no char count trap", !/อย่างน้อย \d+ ตัวอักษร/.test(prompt));
+  ok("prompt final answer contract", prompt.includes("ตอบเฉพาะคำตอบสุดท้าย") || prompt.includes("คำตอบสุดท้าย"));
 }
 
 // --- unsafe reason taxonomy ---
@@ -267,7 +268,7 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
 {
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
-    redactedProviderOutput: GOOD_BUDGET_THAI,
+    redactedProviderOutput: `${USER_VISIBLE_FINAL_ANSWER_MARKER} ${GOOD_BUDGET_THAI}`,
     requestIdHash: "mockhashv68e2-good",
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
   }));

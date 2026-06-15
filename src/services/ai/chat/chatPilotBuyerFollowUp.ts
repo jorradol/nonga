@@ -60,10 +60,31 @@ export function isPilotBuyerCardInsightFollowUp(message: string): boolean {
   return false;
 }
 
+/** v6.8E.4 — finance follow-up when session cards exist (not initial budget search). */
+export function isPilotBuyerFinanceFollowUp(message: string): boolean {
+  const t = message.trim();
+  if (/งบ|งบประมาณ|มีรถอะไร|หารถ/i.test(t) && !/ผ่อน|ไฟแนนซ์|งวด|ดาวน์/i.test(t)) {
+    return false;
+  }
+  return /ผ่อน|ไฟแนนซ์|งวด|ดาวน์/i.test(t);
+}
+
+/** v6.8E.4 — general model knowledge follow-up (requires session cards for real path). */
+export function isPilotBuyerGeneralKnowledgeFollowUp(message: string): boolean {
+  const t = message.trim();
+  if (/โดยทั่วไป|รุ่นนี้.*น่าใช้|เทียบกับรถในตลาด|ควรดูอะไร|ข้อควรระวังของรุ่น|จุดเด่นทั่วไป/i.test(t)) {
+    return true;
+  }
+  if (/ตลาดตอนนี้/i.test(t) && /รุ่นนี้|คันนี้/i.test(t)) return true;
+  return false;
+}
+
 export function isPilotBuyerFollowUpMessage(message: string): boolean {
   if (extractNumberedComparePair(message)) return true;
   if (detectBuyerRefinement(message)) return true;
   if (isPilotBuyerCardInsightFollowUp(message)) return true;
+  if (isPilotBuyerFinanceFollowUp(message)) return true;
+  if (isPilotBuyerGeneralKnowledgeFollowUp(message)) return true;
   if (isCompareIntent(message) && /คันที่\s*\d+|คันแรก|2\s*คัน/i.test(message)) return true;
   if (/ช่วยเทียบ|เทียบคันที่|เปรียบเทียบคันที่/i.test(message)) return true;
   return false;

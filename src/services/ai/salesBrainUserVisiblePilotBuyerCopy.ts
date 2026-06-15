@@ -8,6 +8,8 @@ import {
   detectBuyerRefinement,
   extractNumberedComparePair,
   isPilotBuyerCardInsightFollowUp,
+  isPilotBuyerFinanceFollowUp,
+  isPilotBuyerGeneralKnowledgeFollowUp,
   isPilotBuyerFollowUpMessage,
   type BuyerRefinementKind,
 } from "./chat/chatPilotBuyerFollowUp";
@@ -210,6 +212,57 @@ export function buildBuyerFitPilotCopy(
   ].join("\n");
 }
 
+/** v6.8E.4 — safe finance fallback when real provider blocked. */
+export function buildBuyerFinancePilotCopy(cards: PilotGroundedCarCard[]): string {
+  const card = cards[0];
+  if (!card) return buildPilotFollowUpNoContextCopy();
+
+  return [
+    `จากข้อมูลประกาศของคันที่ ${card.index} น้องเอยังประเมินยอดผ่อนแน่นอนไม่ได้จากข้อมูลในระบบเท่านั้นครับ`,
+    "",
+    formatCarLine(card),
+    "ยอดผ่อนขึ้นกับราคารถ เงินดาวน์ ระยะผ่อน ดอกเบี้ย และผลอนุมัติไฟแนนซ์ของแต่ละเจ้าครับ",
+    "น้องเอช่วยประเมินเบื้องต้นได้ แต่ต้องให้ทีมงานตรวจเงื่อนไขไฟแนนซ์กับคุณลูกค้าอีกครั้งครับ",
+    "ถ้าสะดวก ฝากชื่อและเบอร์ติดต่อให้ทีมงานช่วยประสานรายละเอียดได้ครับ",
+    LISTING_DISCLAIMER,
+  ].join("\n");
+}
+
+const GENERAL_KNOWLEDGE_DISCLAIMER =
+  "ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง ควรตรวจสภาพและทดลองขับจริงก่อนตัดสินใจครับ";
+
+/** v6.8E.4 — general model knowledge fallback grounded on listing + safe disclaimer. */
+export function buildBuyerGeneralKnowledgePilotCopy(
+  cards: PilotGroundedCarCard[],
+  cardIndex = 1
+): string {
+  const selected = resolveCarCardsFromSessionContext(cards, [cardIndex]);
+  const card = selected[0] ?? cards[0];
+  if (!card) return buildPilotFollowUpNoContextCopy();
+
+  const evNote =
+    card.fuelType && /electric|ไฟฟ้า|ev|hybrid|ปลั๊กอิน/i.test(card.fuelType)
+      ? "จากข้อมูลในประกาศนี้เป็นรถไฟฟ้าหรือไฮบริด — ถ้ายังไม่มีข้อมูลแบตเตอรี่ ระยะวิ่ง หรือหัวชาร์จในระบบ น้องเอจะยังไม่เดาให้ครับ"
+      : "";
+
+  return [
+    "จากข้อมูลในประกาศนี้",
+    "",
+    formatCarLine(card),
+    card.fuelType ? `เชื้อเพลิง/ระบบขับ: ${card.fuelType}` : "",
+    card.description ? `จากประกาศ: ${card.description}` : "",
+    evNote,
+    "",
+    "จากความรู้ทั่วไปของรุ่นนี้ น้องเอแนะนำให้ดูสภาพจริง ประวัติการดูแล ไมล์ และการใช้งานที่ตรงกับคุณลูกค้าครับ",
+    "ถ้าต้องการเทียบกับรถในตลาด น้องเอช่วยเทียบจากข้อมูลในระบบก่อนได้ครับ — ข้อมูลตลาดล่าสุดนอกระบบต้องให้ทีมงานตรวจเพิ่มครับ",
+    "",
+    GENERAL_KNOWLEDGE_DISCLAIMER,
+    LISTING_DISCLAIMER,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function buildBuyerRefinementPilotCopy(
   kind: BuyerRefinementKind,
   cards: PilotGroundedCarCard[]
@@ -266,6 +319,20 @@ export function buildPilotBuyerUserVisibleCopy(
   if (refinement && sessionCount > 0) {
     return {
       text: buildBuyerRefinementPilotCopy(refinement, sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (isPilotBuyerFinanceFollowUp(input.userMessage) && sessionCount > 0) {
+    return {
+      text: buildBuyerFinancePilotCopy(sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (isPilotBuyerGeneralKnowledgeFollowUp(input.userMessage) && sessionCount > 0) {
+    return {
+      text: buildBuyerGeneralKnowledgePilotCopy(sessionCards),
       pilotPathActive: true,
     };
   }
