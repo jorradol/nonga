@@ -29,6 +29,7 @@ import {
   resetUserVisibleGeminiCallerForTests,
   setUserVisibleGeminiCallerForTests,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
   USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_MIN_OUTPUT_CHARS,
   USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
@@ -90,7 +91,7 @@ const selfSrc = readFileSync("scripts/test-v68e1-real-output-length-followup-int
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
+  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.9");
   ok("doc v6.8E.1 rerun or v6.8E.5", /v6\.8E\.1|v6\.8E\.2|v6\.8E\.3|v6\.8E\.4|v6\.8E\.5|rerun smoke/i.test(doc));
 }
 
@@ -121,7 +122,7 @@ const selfSrc = readFileSync("scripts/test-v68e1-real-output-length-followup-int
     carCardCount: 3,
     recentCarCards: SAMPLE_CARDS,
   });
-  ok("prompt requires marker", budgetPrompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("prompt requires finalAnswerTh", budgetPrompt.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
   ok("prompt no char count in prompt", !budgetPrompt.includes(String(USER_VISIBLE_MIN_OUTPUT_CHARS.budget)));
   ok("prompt scenario budget", budgetPrompt.includes("แนะนำรถจาก listing"));
 

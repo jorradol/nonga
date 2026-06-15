@@ -19,16 +19,16 @@ import { NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV } from "../src/services/ai/sal
 import {
   buildUserVisibleGeminiApiConfig,
   buildUserVisibleGeminiRequestShape,
+  buildUserVisibleStructuredOutputJson,
   evaluateRealProviderOutputSafety,
   extractUserVisibleGeminiResponseDiagnostics,
   looksLikeIncompleteSentence,
   maybeApplyUserVisibleRealProvider,
-  normalizeUserVisibleProviderOutput,
+  parseUserVisibleStructuredOutput,
   setUserVisibleGeminiCallerForTests,
   resetUserVisibleGeminiCallerForTests,
   type UserVisibleRealProviderBridgeResult,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
-  USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_GEMINI_THINKING_LEVEL,
   USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
   USER_VISIBLE_RETRY_UNSAFE_REASONS,
@@ -93,7 +93,7 @@ const selfSrc = readFileSync(
 
 // --- slice + central constant ---
 {
-  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
+  ok("quality slice v6.8E.9", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.9");
   ok("maxOutputTokens constant 1536", USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS === 1536);
   ok("package script v68e8", pkg.includes("test:v68e8-gemini-output-token-budget-phase-b"));
   ok("thinking level MINIMAL retained", USER_VISIBLE_GEMINI_THINKING_LEVEL === ThinkingLevel.MINIMAL);
@@ -133,7 +133,8 @@ const selfSrc = readFileSync(
 
 // --- retry max 1 unchanged ---
 {
-  ok("retry unsafe reasons set unchanged", USER_VISIBLE_RETRY_UNSAFE_REASONS.size === 3);
+  ok("retry unsafe reasons includes structured parse", USER_VISIBLE_RETRY_UNSAFE_REASONS.has("invalid_structured_output"));
+  ok("incomplete_sentence not retryable", !USER_VISIBLE_RETRY_UNSAFE_REASONS.has("incomplete_sentence"));
   const retryMatches = realProviderSrc.match(/invokeUserVisibleRealProvider\(/g) ?? [];
   ok("maybeApply has single retry invoke path", retryMatches.length >= 2);
   ok("no third retry invoke", !/retryAttempt:\s*2/.test(realProviderSrc));
@@ -141,19 +142,21 @@ const selfSrc = readFileSync(
 
 // --- incomplete sentence guard still blocks ---
 {
-  const incomplete = `${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับ`;
-  const normalized = normalizeUserVisibleProviderOutput(incomplete);
-  ok("incomplete sentence detector", looksLikeIncompleteSentence(normalized.text) === true);
-  const safety = evaluateRealProviderOutputSafety(normalized.text, BUYER_MSG, 2);
+  const incompleteBody =
+    "สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับ";
+  const incomplete = parseUserVisibleStructuredOutput(buildUserVisibleStructuredOutputJson(incompleteBody));
+  ok("incomplete sentence detector", looksLikeIncompleteSentence(incomplete.text!) === true);
+  const safety = evaluateRealProviderOutputSafety(incomplete.text!, BUYER_MSG, 2);
   ok("incomplete sentence blocks delivery", safety.safe === false && safety.unsafeReason === "incomplete_sentence");
 }
 
 // --- valid completed Thai output can pass ---
 {
-  const good = `${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ`;
-  const normalized = normalizeUserVisibleProviderOutput(good);
-  ok("completed Thai marker pass", normalized.rejectReason === undefined);
-  ok("completed Thai safety pass", evaluateRealProviderOutputSafety(normalized.text, BUYER_MSG, 2).safe === true);
+  const goodBody =
+    "สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ";
+  const good = parseUserVisibleStructuredOutput(buildUserVisibleStructuredOutputJson(goodBody));
+  ok("completed Thai structured pass", good.rejectReason === undefined);
+  ok("completed Thai safety pass", evaluateRealProviderOutputSafety(good.text!, BUYER_MSG, 2).safe === true);
 }
 
 // --- fallback on unsafe (no raw Gemini leak) ---
@@ -172,6 +175,7 @@ const selfSrc = readFileSync(
 
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
+    providerOutputFull: '{"candidates":[{"content":{"parts":[{"text":"raw json leak"}]}}]}',
     redactedProviderOutput: '{"candidates":[{"content":{"parts":[{"text":"raw json leak"}]}}]}',
     requestIdHash: "hash-test",
     modelId: "gemini-3.5-flash",
@@ -197,7 +201,10 @@ const selfSrc = readFileSync(
 
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
-    redactedProviderOutput: `${USER_VISIBLE_FINAL_ANSWER_MARKER} ผ่อนได้แน่นอนครับ อนุมัติแน่นอน รับประกันอนุมัติทุกเคส ฝากชื่อเบอร์ได้ครับ`,
+    providerOutputFull: buildUserVisibleStructuredOutputJson(
+      "ผ่อนได้แน่นอนครับ อนุมัติแน่นอน รับประกันอนุมัติทุกเคส ฝากชื่อเบอร์ได้ครับ"
+    ),
+    redactedProviderOutput: "[redacted-finance]",
     requestIdHash: "hash-finance",
     modelId: "gemini-3.5-flash",
   }));
@@ -230,7 +237,7 @@ const selfSrc = readFileSync(
       thoughtsTokenCount: 0,
     },
   });
-  ok("diag quality slice v6.8E.8", diag.qualitySliceId === "v6.8E.8");
+  ok("diag quality slice v6.8E.9", diag.qualitySliceId === "v6.8E.9");
   ok("diag finishReason logged", diag.finishReason === "STOP");
   ok("diag outputTokenCount logged", diag.outputTokenCount === 512);
   ok("diag thoughtsTokenCount logged", diag.thoughtsTokenCount === 0);

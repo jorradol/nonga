@@ -7,16 +7,17 @@ import { ThinkingLevel } from "@google/genai";
 import {
   buildUserVisibleGeminiApiConfig,
   buildUserVisibleGeminiRequestShape,
+  buildUserVisibleStructuredOutputJson,
   evaluateRealProviderOutputSafety,
   extractUserVisibleGeminiResponseText,
-  normalizeUserVisibleProviderOutput,
+  parseUserVisibleStructuredOutput,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
-  USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_GEMINI_REQUEST_SHAPE,
   USER_VISIBLE_GEMINI_THINKING_LEVEL,
   USER_VISIBLE_REAL_GEMINI_MODEL,
   USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
   USER_VISIBLE_RETRY_UNSAFE_REASONS,
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
 } from "../src/services/ai/salesBrainUserVisibleRealProvider.ts";
 
 const REAL_PROVIDER_SRC = "src/services/ai/salesBrainUserVisibleRealProvider.ts";
@@ -53,10 +54,11 @@ const selfSrc = readFileSync(
 
 // --- slice + package ---
 {
-  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
+  ok("quality slice v6.8E.9", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.9");
   ok(
-    "request shape minimal thinking",
-    USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split_minimal_thinking"
+    "request shape structured json",
+    USER_VISIBLE_GEMINI_REQUEST_SHAPE ===
+      "sdk_system_instruction_split_minimal_thinking_structured_json"
   );
   ok("package script v68e7", pkg.includes("test:v68e7-gemini-thinking-budget-output-strategy"));
   ok("thinking level MINIMAL", USER_VISIBLE_GEMINI_THINKING_LEVEL === ThinkingLevel.MINIMAL);
@@ -105,7 +107,7 @@ const selfSrc = readFileSync(
         content: {
           parts: [
             { text: "English planning draft", thought: true },
-            { text: `${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอช่วยคัดรถให้ครับ` },
+            { text: buildUserVisibleStructuredOutputJson("สวัสดีครับ น้องเอช่วยคัดรถให้ครับ") },
           ],
         },
       },
@@ -118,7 +120,7 @@ const selfSrc = readFileSync(
 
 // --- retry max 1 (unchanged) ---
 {
-  ok("retry unsafe reasons set unchanged", USER_VISIBLE_RETRY_UNSAFE_REASONS.size === 3);
+  ok("retry unsafe reasons includes structured parse", USER_VISIBLE_RETRY_UNSAFE_REASONS.has("invalid_structured_output"));
   const retryMatches = realProviderSrc.match(/invokeUserVisibleRealProvider\(/g) ?? [];
   ok("maybeApply has single retry invoke path", retryMatches.length >= 2);
   ok("no third retry invoke", !/retryAttempt:\s*2/.test(realProviderSrc));
@@ -126,26 +128,28 @@ const selfSrc = readFileSync(
 
 // --- guard regression ---
 {
-  const good = `${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ`;
-  const normalized = normalizeUserVisibleProviderOutput(good);
-  ok("marker pass", normalized.rejectReason === undefined);
-  ok("marker pass safety", evaluateRealProviderOutputSafety(normalized.text, BUYER_MSG, 2).safe === true);
-
-  const noMarker = normalizeUserVisibleProviderOutput("สวัสดีครับ น้องเอช่วยหารถครับ");
-  ok("missing marker blocks", noMarker.rejectReason === "missing_final_answer_marker");
-
-  const short = normalizeUserVisibleProviderOutput(`${USER_VISIBLE_FINAL_ANSWER_MARKER} สั้นครับ`);
-  ok("too_short blocks", evaluateRealProviderOutputSafety(short.text, BUYER_MSG, 2).safe === false);
-
-  const financeBad = normalizeUserVisibleProviderOutput(
-    `${USER_VISIBLE_FINAL_ANSWER_MARKER} ผ่อนได้แน่นอนครับ อนุมัติแน่นอน รับประกันอนุมัติทุกเคส ฝากชื่อเบอร์ได้ครับ`
+  const goodJson = buildUserVisibleStructuredOutputJson(
+    "สวัสดีครับ น้องเอคัดรถในงบประมาณ 4 แสนบาทมาให้ 3 คันแล้วนะครับ คันแรก Toyota Vios ปี 2020 ราคา 350,000 บาท ไมล์ตามประกาศ เหมาะใช้งานประจำครับ คันที่สอง Honda City ปี 2019 ราคาใกล้เคียงกัน อีกคันในรายการคุ้มงบครับ ถ้าสนใจคันไหน ฝากชื่อเบอร์ให้ทีมงานติดต่อกลับได้ครับ"
   );
-  ok("finance forbidden blocks", evaluateRealProviderOutputSafety(financeBad.text, FINANCE_MSG, 1).unsafeReason === "finance_forbidden_phrase");
+  const good = parseUserVisibleStructuredOutput(goodJson);
+  ok("structured parse pass", good.rejectReason === undefined);
+  ok("structured parse safety pass", evaluateRealProviderOutputSafety(good.text!, BUYER_MSG, 2).safe === true);
 
-  const evBad = normalizeUserVisibleProviderOutput(
-    `${USER_VISIBLE_FINAL_ANSWER_MARKER} แบต 40 kWh ระยะวิ่ง 350 กม. ค่าชาร์จประมาณ 500 บาท ครับ`
+  const noField = parseUserVisibleStructuredOutput('{"other":"x"}');
+  ok("missing finalAnswerTh blocks", noField.rejectReason === "missing_final_answer_th");
+
+  const short = parseUserVisibleStructuredOutput(buildUserVisibleStructuredOutputJson("สั้นครับ"));
+  ok("too_short blocks", evaluateRealProviderOutputSafety(short.text!, BUYER_MSG, 2).safe === false);
+
+  const financeBad = parseUserVisibleStructuredOutput(
+    buildUserVisibleStructuredOutputJson("ผ่อนได้แน่นอนครับ อนุมัติแน่นอน รับประกันอนุมัติทุกเคส ฝากชื่อเบอร์ได้ครับ")
   );
-  const evSafety = evaluateRealProviderOutputSafety(evBad.text, "ถ้าคันนี้เป็นรถไฟฟ้า ต้องดูอะไร", 1, {
+  ok("finance forbidden blocks", evaluateRealProviderOutputSafety(financeBad.text!, FINANCE_MSG, 1).unsafeReason === "finance_forbidden_phrase");
+
+  const evBad = parseUserVisibleStructuredOutput(
+    buildUserVisibleStructuredOutputJson("แบต 40 kWh ระยะวิ่ง 350 กม. ค่าชาร์จประมาณ 500 บาท ครับ")
+  );
+  const evSafety = evaluateRealProviderOutputSafety(evBad.text!, "ถ้าคันนี้เป็นรถไฟฟ้า ต้องดูอะไร", 1, {
     pilotOrchestration: {
       carCardCount: 1,
       recentCarCards: [
@@ -164,10 +168,20 @@ const selfSrc = readFileSync(
   ok("ev speculation blocks", evSafety.unsafeReason === "unsourced_ev_speculation");
 }
 
-// --- no JSON path in v6.8E.7 (Phase A only) ---
+// --- v6.8E.9 structured JSON path (Phase C) ---
 {
-  ok("no responseMimeType json in caller", !/responseMimeType:\s*["']application\/json["']/.test(realProviderSrc));
-  ok("no responseSchema in caller", !realProviderSrc.includes("responseSchema:"));
+  ok("responseMimeType json in api config", buildUserVisibleGeminiApiConfig({
+    systemInstruction: "test",
+    maxOutputTokens: 1536,
+    temperature: 0.5,
+  }).responseMimeType === "application/json");
+  ok("responseSchema in api config", buildUserVisibleGeminiApiConfig({
+    systemInstruction: "test",
+    maxOutputTokens: 1536,
+    temperature: 0.5,
+  }).responseSchema.required.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
+  ok("responseSchema in caller", realProviderSrc.includes("responseSchema:"));
+  ok("responseMimeType in caller", realProviderSrc.includes('responseMimeType: "application/json"'));
 }
 
 // --- static script safety ---

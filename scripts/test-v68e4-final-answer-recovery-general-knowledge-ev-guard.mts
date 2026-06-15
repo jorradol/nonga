@@ -18,6 +18,7 @@ import { NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV } from "../src/services/ai/sal
 import {
   buildUserVisibleGeminiCombinedPrompt,
   buildUserVisibleGeminiRetryPrompt,
+  buildUserVisibleStructuredOutputJson,
   evaluateRealProviderOutputSafety,
   extractUserVisibleFinalAnswer,
   hasMetaInstructionLeak,
@@ -30,6 +31,7 @@ import {
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
   USER_VISIBLE_EV_ENGLISH_TERMS,
   USER_VISIBLE_FINAL_ANSWER_MARKER,
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
   USER_VISIBLE_REAL_GEMINI_MODEL,
   USER_VISIBLE_RETRY_UNSAFE_REASONS,
 } from "../src/services/ai/salesBrainUserVisibleRealProvider.ts";
@@ -138,7 +140,7 @@ const pkg = readFileSync("package.json", "utf8");
 
 // --- slice + execution record ---
 {
-  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
+  ok("quality slice v6.8E.9", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.9");
   ok("v6.8E.3 partial record exists", execRecord.includes("v6.8E.3") && execRecord.includes("0/6"));
   ok("package script v68e4", pkg.includes("test:v68e4-final-answer-recovery-general-knowledge-ev-guard"));
 }
@@ -168,7 +170,7 @@ const pkg = readFileSync("package.json", "utf8");
     carCardCount: 2,
     recentCarCards: SAMPLE_CARDS,
   });
-  ok("prompt requires marker", prompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("prompt requires finalAnswerTh", prompt.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
   ok("prompt no char count trap", !/อย่างน้อย \d+ ตัวอักษร/.test(prompt));
   ok("prompt has EV rule", /รถไฟฟ้า|EV|kWh/.test(prompt));
 
@@ -178,7 +180,7 @@ const pkg = readFileSync("package.json", "utf8");
     "missing_final_answer_marker"
   );
   ok("retry repair prompt", retry.includes("คำตอบก่อนหน้าไม่มีคำตอบ:"));
-  ok("retry requires marker", retry.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("retry requires finalAnswerTh", retry.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
 }
 
 // --- general knowledge routing ---
@@ -267,12 +269,13 @@ const pkg = readFileSync("package.json", "utf8");
     calls += 1;
     return {
       providerNetworkUsed: true,
-      redactedProviderOutput:
+      providerOutputFull:
         calls === 1
-          ? THAI_WITH_MARKER("สั้นเกินไปครับ")
-          : THAI_WITH_MARKER(
+          ? buildUserVisibleStructuredOutputJson("สั้นเกินไปครับ")
+          : buildUserVisibleStructuredOutputJson(
               "ผ่อนได้แน่นอนครับ อนุมัติแน่นอน ทุกคนผ่านชัวร์ครับ ทีมงานช่วยได้ครับ ประเมินเบื้องต้นครับ ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ครับ ฝากชื่อเบอร์ได้ครับ"
             ),
+      redactedProviderOutput: "[redacted]",
       requestIdHash: `mockhashv68e4-finance-${calls}`,
       modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
     };
@@ -310,9 +313,10 @@ const pkg = readFileSync("package.json", "utf8");
     calls += 1;
     return {
       providerNetworkUsed: true,
-      redactedProviderOutput: options.retryContext
-        ? THAI_WITH_MARKER(THAI_LONG)
-        : THAI_WITH_MARKER("สั้นเกินไปครับ"),
+      providerOutputFull: options.retryContext
+        ? buildUserVisibleStructuredOutputJson(THAI_LONG)
+        : buildUserVisibleStructuredOutputJson("สั้นเกินไปครับ"),
+      redactedProviderOutput: "[redacted]",
       requestIdHash: `mockhashv68e4-ok-${calls}`,
       modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
     };
@@ -338,10 +342,10 @@ const pkg = readFileSync("package.json", "utf8");
     pilotOrchestration: { recentCarCards: SAMPLE_CARDS, carCardCount: 2 },
   });
 
-  ok("marker retry real path ok", applied.payload.realProviderGateReason === "real_provider_call_ok");
-  ok("user text no marker prefix", !applied.payload.userVisibleText.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("structured retry real path ok", applied.payload.realProviderGateReason === "real_provider_call_ok");
+  ok("user text no json leak", !applied.payload.userVisibleText.includes('"finalAnswerTh"'));
   ok("meta still blocked", hasMetaInstructionLeak("Wait, let's be careful"));
-  ok("retry reasons include marker", USER_VISIBLE_RETRY_UNSAFE_REASONS.has("missing_final_answer_marker"));
+  ok("retry reasons include structured parse", USER_VISIBLE_RETRY_UNSAFE_REASONS.has("invalid_structured_output"));
   resetUserVisibleGeminiCallerForTests();
 }
 

@@ -40,11 +40,14 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.8 — increased output token budget; v6.8E.7 thinkingLevel MINIMAL retained */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.8";
+/** v6.8E.9 — structured JSON finalAnswerTh; v6.8E.8 output budget + v6.8E.7 thinkingLevel MINIMAL retained */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.9";
 
-/** Required prefix for Gemini final answer — stripped before user-visible delivery. */
+/** Legacy marker — retained for offline guard tests; real path uses structured JSON (v6.8E.9+). */
 export const USER_VISIBLE_FINAL_ANSWER_MARKER = "คำตอบ:";
+
+/** Structured output field — sole user-visible payload from real Gemini (v6.8E.9). */
+export const USER_VISIBLE_STRUCTURED_OUTPUT_FIELD = "finalAnswerTh";
 
 export type UserVisibleOutputUnsafeReason =
   | "too_short"
@@ -56,6 +59,8 @@ export type UserVisibleOutputUnsafeReason =
   | "generic_safety_guard"
   | "customer_address_term"
   | "missing_final_answer_marker"
+  | "invalid_structured_output"
+  | "missing_final_answer_th"
   | "unsourced_ev_speculation"
   | "empty_output";
 
@@ -106,7 +111,7 @@ export const USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS = [
   "ภาษาไทยเป็นหลัก",
   "ตอบเฉพาะคำตอบสุดท้าย",
   "ห้ามแสดงแผน",
-  USER_VISIBLE_FINAL_ANSWER_MARKER,
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
 ] as const;
 
 export const USER_VISIBLE_BUYER_PERSONA_MARKERS = [
@@ -225,6 +230,8 @@ export const USER_VISIBLE_RETRY_UNSAFE_REASONS: ReadonlySet<UserVisibleOutputUns
   "too_short",
   "non_thai_output",
   "missing_final_answer_marker",
+  "invalid_structured_output",
+  "missing_final_answer_th",
 ]);
 
 /** v6.8E.8 Phase B — doubled from 768 so Thai answers can finish without MAX_TOKENS truncation */
@@ -233,9 +240,23 @@ export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 1536;
 /** Prompt rules exported for offline quality tests (no Gemini network). */
 export const USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS = [
   "ตอบเฉพาะคำตอบสุดท้าย",
-  USER_VISIBLE_FINAL_ANSWER_MARKER,
-  "รูปแบบคำตอบ",
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
+  "JSON object",
 ] as const;
+
+/** Gemini responseSchema for user-visible structured output (v6.8E.9). */
+export const USER_VISIBLE_STRUCTURED_OUTPUT_JSON_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    [USER_VISIBLE_STRUCTURED_OUTPUT_FIELD]: {
+      type: "string" as const,
+      description:
+        "คำตอบภาษาไทยสุดท้ายสำหรับลูกค้า จบด้วย ครับ หรือ ค่ะ — ห้ามใส่ JSON key หรือ meta",
+    },
+  },
+  required: [USER_VISIBLE_STRUCTURED_OUTPUT_FIELD],
+  additionalProperties: false,
+};
 export const USER_VISIBLE_BUYER_GROUNDING_RULE_MARKERS = [
   "ข้อมูล listing ที่อนุญาตให้อ้างอิง",
   "จากข้อมูลในประกาศนี้",
@@ -279,7 +300,9 @@ export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [
 export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
 /** v6.8E.6 — persona/contract in systemInstruction; listing + user message in contents. */
 /** v6.8E.7 — adds thinkingLevel MINIMAL so output budget is not consumed by internal reasoning. */
-export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_system_instruction_split_minimal_thinking";
+/** v6.8E.9 — adds responseMimeType application/json + finalAnswerTh schema. */
+export const USER_VISIBLE_GEMINI_REQUEST_SHAPE =
+  "sdk_system_instruction_split_minimal_thinking_structured_json";
 /** Cap internal reasoning — gemini-3.5-flash cannot disable thinking; MINIMAL is lowest level. */
 export const USER_VISIBLE_GEMINI_THINKING_LEVEL = ThinkingLevel.MINIMAL;
 const MAX_USER_VISIBLE_OUTPUT_CHARS = 1200;
@@ -447,6 +470,65 @@ export function normalizeUserVisibleProviderOutput(raw: string): {
     return { text: "", rejectReason: "empty_output" };
   }
   return { text: extracted.answer };
+}
+
+/** Build structured JSON payload for offline tests and mocks. */
+export function buildUserVisibleStructuredOutputJson(finalAnswerTh: string): string {
+  return JSON.stringify({ [USER_VISIBLE_STRUCTURED_OUTPUT_FIELD]: finalAnswerTh });
+}
+
+export function stripJsonMarkdownFence(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+/** Detect raw JSON contract leaked into user-visible Thai text. */
+export function looksLikeStructuredOutputJsonLeak(text: string): boolean {
+  const t = text.trim();
+  return (
+    /\{\s*"finalAnswerTh"\s*:/.test(t) ||
+    (/^\s*\{/.test(t) && t.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD))
+  );
+}
+
+/** Parse real Gemini structured output — extract finalAnswerTh only; fail-closed on contract violations. */
+export function parseUserVisibleStructuredOutput(raw: string): {
+  text: string;
+  rejectReason?: UserVisibleOutputUnsafeReason;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { text: "", rejectReason: "empty_output" };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripJsonMarkdownFence(trimmed));
+  } catch {
+    return { text: "", rejectReason: "invalid_structured_output" };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { text: "", rejectReason: "invalid_structured_output" };
+  }
+  const record = parsed as Record<string, unknown>;
+  if (!(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD in record)) {
+    return { text: "", rejectReason: "missing_final_answer_th" };
+  }
+  const finalAnswerTh = record[USER_VISIBLE_STRUCTURED_OUTPUT_FIELD];
+  if (typeof finalAnswerTh !== "string") {
+    return { text: "", rejectReason: "invalid_structured_output" };
+  }
+  const text = finalAnswerTh.trim();
+  if (!text) {
+    return { text: "", rejectReason: "empty_output" };
+  }
+  if (looksLikeStructuredOutputJsonLeak(text)) {
+    return { text, rejectReason: "generic_safety_guard" };
+  }
+  return { text };
 }
 
 /** True when listing cards include EV battery/range/charger fields. */
@@ -637,6 +719,9 @@ export function evaluateRealProviderOutputSafety(
   if (!trimmed) {
     return { safe: false, unsafeReason: "empty_output", scenario, outputLength: 0 };
   }
+  if (looksLikeStructuredOutputJsonLeak(trimmed)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
   if (!assertNoPilotDebugMarker(trimmed)) {
     return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
   }
@@ -738,6 +823,9 @@ export interface UserVisibleRealProviderBridgeResult {
 
 export interface UserVisibleGeminiCallResult {
   providerNetworkUsed: true;
+  /** Full provider text — used for parse + guards before any truncation. */
+  providerOutputFull?: string;
+  /** Redacted sample only — diagnostics/logging; must not be used for guard decisions. */
   redactedProviderOutput: string;
   requestIdHash: string;
   modelId: string;
@@ -818,8 +906,9 @@ function buildUserVisibleBuyerSystemInstruction(
     `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสอง Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
     "ตอบภาษาไทย สุภาพ อบอุ่น — เรียก คุณลูกค้า หรือไม่เรียกขาน ห้ามเดา ลุง/ป้า/เฮีย/เจ๊ ห้ามใช้ ปังปุริเย่.",
     "",
-    `[สัญญาคำตอบ] เริ่มบรรทัดแรกด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" แล้วตามด้วยคำตอบภาษาไทย จบด้วย ครับ.`,
-    "ตอบเฉพาะคำตอบสุดท้าย — ห้ามแสดงแผน เหตุผล หรือข้อความภาษาอังกฤษ (ยกเว้นชื่อรถ/เทคนิค เช่น Honda HR-V, Hybrid, CVT, EV).",
+    `[สัญญาคำตอบ] ตอบเป็น JSON object เท่านั้น มี field เดียว "${USER_VISIBLE_STRUCTURED_OUTPUT_FIELD}" — ใส่คำตอบภาษาไทยที่ลูกค้าเห็นใน ${USER_VISIBLE_STRUCTURED_OUTPUT_FIELD} จบด้วย ครับ หรือ ค่ะ`,
+    "ตอบเฉพาะคำตอบสุดท้าย — ห้ามแสดงแผน เหตุผล markdown หรือข้อความภาษาอังกฤษ (ยกเว้นชื่อรถ/เทคนิค เช่น Honda HR-V, Hybrid, CVT, EV).",
+    `ห้ามใส่ key อื่น — ${USER_VISIBLE_STRUCTURED_OUTPUT_FIELD} ต้องเป็นประโยคไทยสมบูรณ์เท่านั้น ห้ามใส่ JSON wrapper ซ้อนในข้อความ`,
     scenarioGuidance,
     cardCount >= 2 ? "หลายคัน — อธิบายแต่ละคันต่างกัน ห้ามซ้ำแข็ง." : "",
     "จากข้อมูลในประกาศนี้เท่านั้น — ห้ามแต่งราคา/ปี/ไมล์/โปรโมชัน ถ้าไม่มีให้บอก ยังไม่มีข้อมูลนี้ในระบบ.",
@@ -828,7 +917,7 @@ function buildUserVisibleBuyerSystemInstruction(
     "ไฟแนนซ์: ห้าม อนุมัติแน่นอน/การันตี/ผ่อนได้แน่นอน — ใช้ ประเมินเบื้องต้น ขึ้นอยู่กับเงื่อนไขไฟแนนซ์.",
     "ชวนฝากชื่อ/เบอร์ให้ทีมงานติดต่อกลับได้ครับ",
     "",
-    `ตัวอย่าง: ${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถ Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ... ถ้าสนใจฝากชื่อเบอร์ได้ครับ`,
+    `ตัวอย่าง: ${buildUserVisibleStructuredOutputJson("สวัสดีครับ น้องเอคัดรถ Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ... ถ้าสนใจฝากชื่อเบอร์ได้ครับ")}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -852,6 +941,12 @@ function buildUserVisibleGeminiRetryRepairNote(
 ): string {
   if (priorUnsafeReason === "non_thai_output") {
     return "คำตอบก่อนหน้ามีภาษาอังกฤษหรือ meta";
+  }
+  if (
+    priorUnsafeReason === "missing_final_answer_th" ||
+    priorUnsafeReason === "invalid_structured_output"
+  ) {
+    return "คำตอบก่อนหน้าไม่เป็น JSON ตามสัญญา finalAnswerTh";
   }
   if (priorUnsafeReason === "missing_final_answer_marker") {
     return "คำตอบก่อนหน้าไม่มีคำตอบ:";
@@ -909,6 +1004,8 @@ export interface UserVisibleGeminiRequestShape {
   maxOutputTokens: number;
   temperature: number;
   thinkingLevel: ThinkingLevel;
+  responseMimeType: "application/json";
+  responseSchema: typeof USER_VISIBLE_STRUCTURED_OUTPUT_JSON_SCHEMA;
 }
 
 /** Offline/test helper — maps request shape to SDK generateContent config (no network). */
@@ -922,6 +1019,8 @@ export function buildUserVisibleGeminiApiConfig(input: {
   maxOutputTokens: number;
   temperature: number;
   thinkingConfig: { thinkingLevel: ThinkingLevel };
+  responseMimeType: "application/json";
+  responseSchema: typeof USER_VISIBLE_STRUCTURED_OUTPUT_JSON_SCHEMA;
 } {
   const thinkingLevel = input.thinkingLevel ?? USER_VISIBLE_GEMINI_THINKING_LEVEL;
   return {
@@ -929,6 +1028,8 @@ export function buildUserVisibleGeminiApiConfig(input: {
     maxOutputTokens: input.maxOutputTokens,
     temperature: input.temperature,
     thinkingConfig: { thinkingLevel },
+    responseMimeType: "application/json",
+    responseSchema: USER_VISIBLE_STRUCTURED_OUTPUT_JSON_SCHEMA,
   };
 }
 
@@ -962,6 +1063,8 @@ export function buildUserVisibleGeminiRequestShape(input: {
     maxOutputTokens: USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
     temperature: input.retryContext ? 0.35 : 0.5,
     thinkingLevel: USER_VISIBLE_GEMINI_THINKING_LEVEL,
+    responseMimeType: "application/json",
+    responseSchema: USER_VISIBLE_STRUCTURED_OUTPUT_JSON_SCHEMA,
   };
 }
 
@@ -1078,6 +1181,7 @@ async function defaultUserVisibleGeminiCaller(
 
   return {
     providerNetworkUsed: true,
+    providerOutputFull: rawText,
     redactedProviderOutput,
     requestIdHash: request.requestIdHash,
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
@@ -1259,20 +1363,23 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
       });
 
     const processRawOutput = (raw: string) => {
-      const normalized = normalizeUserVisibleProviderOutput(raw.trim());
-      if (normalized.rejectReason) {
+      const parsed = parseUserVisibleStructuredOutput(raw.trim());
+      if (parsed.rejectReason) {
         return {
-          text: normalized.text,
+          text: parsed.text,
           safety: {
             safe: false as const,
-            unsafeReason: normalized.rejectReason,
+            unsafeReason: parsed.rejectReason,
             scenario: detectUserVisibleBuyerScenario(input.userMessage),
-            outputLength: normalized.text.length,
+            outputLength: parsed.text.length,
           },
         };
       }
-      return { text: normalized.text, safety: evaluateOutput(normalized.text) };
+      return { text: parsed.text, safety: evaluateOutput(parsed.text) };
     };
+
+    const resolveProviderRawOutput = (result: UserVisibleGeminiCallResult) =>
+      result.providerOutputFull ?? result.redactedProviderOutput;
 
     const { redactedUserMessage } = prepareProviderPayload({
       userMessage: input.userMessage,
@@ -1288,7 +1395,7 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
       pilotOrchestration: input.pilotOrchestration,
       readEnv,
     });
-    let { text, safety } = processRawOutput(real.redactedProviderOutput);
+    let { text, safety } = processRawOutput(resolveProviderRawOutput(real));
     let usedModelId = real.modelId;
     const firstAttemptUnsafeReason = safety.safe ? undefined : safety.unsafeReason;
     const firstAttemptResponseDiagnostics = real.responseDiagnostics;
@@ -1308,7 +1415,7 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
           redactedUserMessage,
         },
       });
-      const retryProcessed = processRawOutput(retryReal.redactedProviderOutput);
+      const retryProcessed = processRawOutput(resolveProviderRawOutput(retryReal));
       if (retryProcessed.safety.safe) {
         text = retryProcessed.text;
         safety = retryProcessed.safety;

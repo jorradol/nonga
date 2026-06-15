@@ -15,6 +15,7 @@ import {
   hasMetaInstructionLeak,
   normalizeUserVisibleProviderOutput,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
   USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_GEMINI_REQUEST_SHAPE,
   USER_VISIBLE_REAL_GEMINI_MODEL,
@@ -71,8 +72,8 @@ const selfSrc = readFileSync(
 
 // --- slice + package ---
 {
-  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
-  ok("request shape split constant", USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split_minimal_thinking");
+  ok("quality slice v6.8E.9", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.9");
+  ok("request shape split constant", USER_VISIBLE_GEMINI_REQUEST_SHAPE === "sdk_system_instruction_split_minimal_thinking_structured_json");
   ok("package script v68e6", pkg.includes("test:v68e6-gemini-call-shape-diagnostics-system-instruction"));
 }
 
@@ -85,8 +86,8 @@ const selfSrc = readFileSync(
   ok("caller uses systemInstruction field", realProviderSrc.includes("systemInstruction: requestShape.systemInstruction"));
   ok("caller uses contents text part", realProviderSrc.includes("contents: [{ text: requestShape.contentsText }]"));
   ok("systemInstruction has persona", shape.systemInstruction.includes("น้องเอ"));
-  ok("systemInstruction has output contract marker", shape.systemInstruction.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
-  ok("systemInstruction has slice id", shape.systemInstruction.includes("v6.8E.8"));
+  ok("systemInstruction has output contract field", shape.systemInstruction.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
+  ok("systemInstruction has slice id", shape.systemInstruction.includes("v6.8E.9"));
   ok("systemInstruction no listing card data", !shape.systemInstruction.includes("Toyota Vios"));
   ok("systemInstruction no user message", !shape.systemInstruction.includes(BUYER_MSG));
   ok("contents has listing context", shape.contentsText.includes("ข้อมูล listing:"));
@@ -113,7 +114,7 @@ const selfSrc = readFileSync(
     },
   });
   ok("retry same systemInstruction", retry.systemInstruction === first.systemInstruction);
-  ok("retry keeps output contract in systemInstruction", retry.systemInstruction.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("retry keeps output contract in systemInstruction", retry.systemInstruction.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
   ok("retry contents has repair note", retry.contentsText.includes("retry"));
   ok("retry contents still has listing", retry.contentsText.includes("Honda HR-V"));
   ok("retry contents still has user message", retry.contentsText.includes(BUYER_MSG));
@@ -129,7 +130,7 @@ const selfSrc = readFileSync(
     { carCardCount: 2, recentCarCards: SAMPLE_CARDS },
     "too_short"
   );
-  ok("legacy retry combined still has contract", legacyRetry.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("legacy retry combined still has contract", legacyRetry.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
   ok("legacy retry combined still has listing", legacyRetry.includes("Toyota Vios"));
 }
 
@@ -149,7 +150,7 @@ const selfSrc = readFileSync(
       thoughtsTokenCount: 7,
     },
   });
-  ok("diag quality slice", diag.qualitySliceId === "v6.8E.8");
+  ok("diag quality slice", diag.qualitySliceId === "v6.8E.9");
   ok("diag finishReason", diag.finishReason === "STOP");
   ok("diag outputTokenCount", diag.outputTokenCount === 42);
   ok("diag thoughtsTokenCount", diag.thoughtsTokenCount === 7);
@@ -158,7 +159,7 @@ const selfSrc = readFileSync(
 
   const sparse = extractUserVisibleGeminiResponseDiagnostics({ candidates: [] });
   ok("sparse diag no finishReason", sparse.finishReason === undefined);
-  ok("sparse diag slice only", sparse.qualitySliceId === "v6.8E.8");
+  ok("sparse diag slice only", sparse.qualitySliceId === "v6.8E.9");
 
   const text = extractUserVisibleGeminiResponseText({
     candidates: [{ content: { parts: [{ text: `${USER_VISIBLE_FINAL_ANSWER_MARKER} ทดสอบครับ` }] } }],

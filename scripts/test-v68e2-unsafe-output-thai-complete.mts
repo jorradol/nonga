@@ -17,6 +17,7 @@ import {
 import { NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV } from "../src/services/ai/salesBrainUserVisibleGate.ts";
 import {
   buildUserVisibleGeminiCombinedPrompt,
+  buildUserVisibleStructuredOutputJson,
   evaluateRealProviderOutputSafety,
   hasExcessiveNonThaiContent,
   hasMetaInstructionLeak,
@@ -25,6 +26,7 @@ import {
   resetUserVisibleGeminiCallerForTests,
   setUserVisibleGeminiCallerForTests,
   USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+  USER_VISIBLE_STRUCTURED_OUTPUT_FIELD,
   USER_VISIBLE_FINAL_ANSWER_MARKER,
   USER_VISIBLE_THAI_ONLY_PROMPT_MARKERS,
   USER_VISIBLE_REAL_GEMINI_MODEL,
@@ -131,7 +133,7 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.8", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.8");
+  ok("quality slice v6.8E.9", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.9");
   ok("doc v6.8E.1 PARTIAL noted", /v6\.8E\.1.*PARTIAL|PARTIAL.*v6\.8E\.1/i.test(doc));
   ok("doc Thai only criteria", /ภาษาไทย|Thai only|Thai brand voice/i.test(doc));
   ok("doc no meta leak criteria", /meta|instruction leak/i.test(doc));
@@ -153,7 +155,7 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
     carCardCount: 2,
     recentCarCards: SAMPLE_CARDS,
   });
-  ok("prompt requires marker", prompt.includes(USER_VISIBLE_FINAL_ANSWER_MARKER));
+  ok("prompt requires finalAnswerTh", prompt.includes(USER_VISIBLE_STRUCTURED_OUTPUT_FIELD));
   ok("prompt no char count trap", !/อย่างน้อย \d+ ตัวอักษร/.test(prompt));
   ok("prompt final answer contract", prompt.includes("ตอบเฉพาะคำตอบสุดท้าย") || prompt.includes("คำตอบสุดท้าย"));
 }
@@ -223,7 +225,8 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
 {
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
-    redactedProviderOutput: V68E1_FINANCE_LEAK,
+    providerOutputFull: buildUserVisibleStructuredOutputJson(V68E1_FINANCE_LEAK),
+    redactedProviderOutput: "[redacted]",
     requestIdHash: "mockhashv68e2-unsafe",
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
   }));
@@ -268,7 +271,8 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
 {
   setUserVisibleGeminiCallerForTests(async () => ({
     providerNetworkUsed: true,
-    redactedProviderOutput: `${USER_VISIBLE_FINAL_ANSWER_MARKER} ${GOOD_BUDGET_THAI}`,
+    providerOutputFull: buildUserVisibleStructuredOutputJson(GOOD_BUDGET_THAI),
+    redactedProviderOutput: "[redacted]",
     requestIdHash: "mockhashv68e2-good",
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
   }));
