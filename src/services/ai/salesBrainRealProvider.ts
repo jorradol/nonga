@@ -150,7 +150,7 @@ export function validateProviderConfig(config: SalesBrainRealProviderConfig): vo
   }
   const networkRequested =
     config.networkEnabled === true || SALES_BRAIN_REAL_PROVIDER_NETWORK_ENABLED;
-  if (networkRequested && !config.adminShadowRouteOnly) {
+  if (networkRequested && !config.adminShadowRouteOnly && !config.userVisibleRouteOnly) {
     throw new SalesBrainRealProviderNetworkDisabledError(
       "Real provider network is not enabled in v6.0N"
     );

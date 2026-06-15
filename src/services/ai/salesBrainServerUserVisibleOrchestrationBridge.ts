@@ -28,6 +28,7 @@ import {
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
+import { maybeApplyUserVisibleRealProvider } from "./salesBrainUserVisibleRealProvider";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -58,6 +59,9 @@ export interface RedactedUserVisibleOrchestrationPayload {
   carCardCount: number;
   hasMoreCars?: boolean;
   isDraftPreview?: boolean;
+  /** v6.8D — redacted real-provider diagnostics (no secret values) */
+  realProviderNetwork?: boolean;
+  realProviderGateReason?: string;
 }
 
 export interface UserVisibleOrchestrationBridgeResult {
@@ -336,13 +340,33 @@ export async function handleChatUserVisibleOrchestratePost(
     }
     const { userMessage, attachedImageCount, pilotSessionContext } = parsed;
     const inventory = await deps.loadChatInventory();
-    const result = orchestrateUserVisibleChatForTrustedAuth({
+    const pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined =
+      pilotSessionContext?.recentCarCards?.length
+        ? {
+            carCardCount: pilotSessionContext.recentCarCards.length,
+            recentCarCards: pilotSessionContext.recentCarCards,
+            ...(pilotSessionContext.lastSearchBudgetMax != null
+              ? { lastSearchBudgetMax: pilotSessionContext.lastSearchBudgetMax }
+              : {}),
+          }
+        : undefined;
+
+    let result = orchestrateUserVisibleChatForTrustedAuth({
       auth,
       userMessage,
       attachedImageCount,
       inventory,
       env: process.env as Record<string, string | undefined>,
       pilotSessionContext,
+    });
+
+    result = await maybeApplyUserVisibleRealProvider({
+      bridgeResult: result,
+      userMessage,
+      firebaseUid: auth.uid,
+      userRole: mapAuthToSalesBrainRole(auth),
+      pilotOrchestration,
+      env: process.env as Record<string, string | undefined>,
     });
 
     res.json({
