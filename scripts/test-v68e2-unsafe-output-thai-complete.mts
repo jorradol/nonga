@@ -131,7 +131,7 @@ const selfSrc = readFileSync("scripts/test-v68e2-unsafe-output-thai-complete.mts
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.5", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.5");
+  ok("quality slice v6.8E.6", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.6");
   ok("doc v6.8E.1 PARTIAL noted", /v6\.8E\.1.*PARTIAL|PARTIAL.*v6\.8E\.1/i.test(doc));
   ok("doc Thai only criteria", /ภาษาไทย|Thai only|Thai brand voice/i.test(doc));
   ok("doc no meta leak criteria", /meta|instruction leak/i.test(doc));

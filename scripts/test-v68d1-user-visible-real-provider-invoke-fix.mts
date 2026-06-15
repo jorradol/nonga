@@ -95,10 +95,10 @@ const selfSrc = readFileSync("scripts/test-v68d1-user-visible-real-provider-invo
 
 // --- request shape aligned with admin shadow ---
 {
-  ok("user-visible request shape constant", USER_VISIBLE_GEMINI_REQUEST_SHAPE.includes("merged"));
+  ok("user-visible request shape constant", USER_VISIBLE_GEMINI_REQUEST_SHAPE.includes("system_instruction"));
   ok("same model as admin shadow", USER_VISIBLE_REAL_GEMINI_MODEL === ADMIN_SHADOW_GEMINI_MODEL);
-  ok("source no config.systemInstruction", !/config:\s*\{[^}]*systemInstruction/s.test(realProviderSrc));
-  ok("source merged prompt helper", realProviderSrc.includes("buildUserVisibleGeminiCombinedPrompt"));
+  ok("source uses config.systemInstruction", /systemInstruction:\s*requestShape\.systemInstruction/.test(realProviderSrc));
+  ok("source request shape builder", realProviderSrc.includes("buildUserVisibleGeminiRequestShape"));
   ok("admin shadow shape documented", ADMIN_SHADOW_GEMINI_REQUEST_SHAPE.includes("sdk_contents"));
 }
 

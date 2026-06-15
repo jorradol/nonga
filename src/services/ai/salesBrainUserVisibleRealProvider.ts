@@ -40,8 +40,8 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.5 — deterministic fallback fixes + final-answer prompt simplification */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.5";
+/** v6.8E.6 — systemInstruction split + real Gemini output diagnostics */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.6";
 
 /** Required prefix for Gemini final answer — stripped before user-visible delivery. */
 export const USER_VISIBLE_FINAL_ANSWER_MARKER = "คำตอบ:";
@@ -276,8 +276,8 @@ export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [
 ];
 
 export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
-/** Align with admin SS-01 — single contents text part; no config.systemInstruction (Gemini API SDK). */
-export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_contents_text_merged_instruction";
+/** v6.8E.6 — persona/contract in systemInstruction; listing + user message in contents. */
+export const USER_VISIBLE_GEMINI_REQUEST_SHAPE = "sdk_system_instruction_split";
 const MAX_USER_VISIBLE_OUTPUT_CHARS = 1200;
 
 export function detectUserVisibleBuyerScenario(
@@ -356,9 +356,14 @@ export function assertRealProviderOutputMinLength(
   return text.trim().length >= min;
 }
 
+type UserVisibleGeminiResponsePart = {
+  text?: string;
+  thought?: boolean;
+};
+
 export function extractUserVisibleGeminiResponseText(response: {
   text?: string;
-  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  candidates?: Array<{ content?: { parts?: UserVisibleGeminiResponsePart[] } }>;
 }): string {
   const direct = String(response.text ?? "").trim();
   if (direct) return direct;
@@ -369,6 +374,35 @@ export function extractUserVisibleGeminiResponseText(response: {
     }
   }
   return parts.join("").trim();
+}
+
+/** Redacted response metadata for unsafe-output diagnostics — no raw output or secrets. */
+export function extractUserVisibleGeminiResponseDiagnostics(response: {
+  candidates?: Array<{
+    finishReason?: string;
+    content?: { parts?: UserVisibleGeminiResponsePart[] };
+  }>;
+  usageMetadata?: {
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
+}): UserVisibleGeminiResponseDiagnostics {
+  const firstCandidate = response.candidates?.[0];
+  const parts = firstCandidate?.content?.parts ?? [];
+  const hasThoughtParts = parts.some((part) => part.thought === true);
+  const finishReason = firstCandidate?.finishReason;
+  const outputTokenCount = response.usageMetadata?.candidatesTokenCount;
+  const thoughtsTokenCount = response.usageMetadata?.thoughtsTokenCount;
+
+  const diagnostics: UserVisibleGeminiResponseDiagnostics = {
+    qualitySliceId: USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
+  };
+  if (finishReason) diagnostics.finishReason = finishReason;
+  if (typeof outputTokenCount === "number") diagnostics.outputTokenCount = outputTokenCount;
+  if (typeof thoughtsTokenCount === "number") diagnostics.thoughtsTokenCount = thoughtsTokenCount;
+  if (parts.length > 0) diagnostics.partCount = parts.length;
+  if (hasThoughtParts) diagnostics.hasThoughtParts = true;
+  return diagnostics;
 }
 
 export function extractUserVisibleFinalAnswer(raw: string): {
@@ -545,6 +579,15 @@ export interface UserVisibleOutputSafetyResult {
   outputLength: number;
 }
 
+export interface UserVisibleGeminiResponseDiagnostics {
+  qualitySliceId: typeof USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID;
+  finishReason?: string;
+  outputTokenCount?: number;
+  thoughtsTokenCount?: number;
+  partCount?: number;
+  hasThoughtParts?: boolean;
+}
+
 export interface UserVisibleOutputUnsafeDiagnostics {
   sliceId: typeof USER_VISIBLE_REAL_PROVIDER_SLICE_ID;
   qualitySliceId: typeof USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID;
@@ -556,6 +599,10 @@ export interface UserVisibleOutputUnsafeDiagnostics {
   gateReason: "real_provider_output_unsafe";
   outputSampleRedacted: string;
   retryAttempt?: boolean;
+  firstAttemptUnsafeReason?: UserVisibleOutputUnsafeReason;
+  retryUnsafeReason?: UserVisibleOutputUnsafeReason;
+  firstAttemptResponseDiagnostics?: UserVisibleGeminiResponseDiagnostics;
+  retryResponseDiagnostics?: UserVisibleGeminiResponseDiagnostics;
 }
 
 function redactOutputSampleForDiagnostics(text: string, max = 80): string {
@@ -689,6 +736,7 @@ export interface UserVisibleGeminiCallResult {
   redactedProviderOutput: string;
   requestIdHash: string;
   modelId: string;
+  responseDiagnostics?: UserVisibleGeminiResponseDiagnostics;
 }
 
 export type UserVisibleGeminiCaller = (
@@ -756,7 +804,6 @@ function buildUserVisibleBuyerSystemInstruction(
   pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
   userMessage: string
 ): string {
-  const listingBlock = formatListingContextForPrompt(pilotOrchestration);
   const cardCount =
     pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
   const scenario = detectUserVisibleBuyerScenario(userMessage);
@@ -777,12 +824,48 @@ function buildUserVisibleBuyerSystemInstruction(
     "ชวนฝากชื่อ/เบอร์ให้ทีมงานติดต่อกลับได้ครับ",
     "",
     `ตัวอย่าง: ${USER_VISIBLE_FINAL_ANSWER_MARKER} สวัสดีครับ น้องเอคัดรถ Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ... ถ้าสนใจฝากชื่อเบอร์ได้ครับ`,
-    "",
-    "ข้อมูล listing:",
-    listingBlock,
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+export function buildUserVisibleGeminiContents(
+  redactedUserMessage: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): string {
+  const listingBlock = formatListingContextForPrompt(pilotOrchestration);
+  return [
+    "ข้อมูล listing:",
+    listingBlock,
+    "",
+    `ข้อความผู้ใช้ (redacted): ${redactedUserMessage}`,
+  ].join("\n");
+}
+
+function buildUserVisibleGeminiRetryRepairNote(
+  priorUnsafeReason: UserVisibleOutputUnsafeReason
+): string {
+  if (priorUnsafeReason === "non_thai_output") {
+    return "คำตอบก่อนหน้ามีภาษาอังกฤษหรือ meta";
+  }
+  if (priorUnsafeReason === "missing_final_answer_marker") {
+    return "คำตอบก่อนหน้าไม่มีคำตอบ:";
+  }
+  return "คำตอบก่อนหน้าสั้นเกินไป";
+}
+
+export function buildUserVisibleGeminiRetryContents(
+  redactedUserMessage: string,
+  pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
+  priorUnsafeReason: UserVisibleOutputUnsafeReason
+): string {
+  const repairNote = buildUserVisibleGeminiRetryRepairNote(priorUnsafeReason);
+  const baseContents = buildUserVisibleGeminiContents(redactedUserMessage, pilotOrchestration);
+  return [
+    `${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID} retry — ${repairNote}.`,
+    "เขียนใหม่ภาษาไทยเท่านั้น ตามสัญญาคำตอบใน system instruction.",
+    baseContents,
+  ].join("\n");
 }
 
 export function buildUserVisibleGeminiRetryPrompt(
@@ -790,33 +873,18 @@ export function buildUserVisibleGeminiRetryPrompt(
   pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
   priorUnsafeReason: UserVisibleOutputUnsafeReason
 ): string {
-  const scenario = detectUserVisibleBuyerScenario(redactedUserMessage);
-  const listingBlock = formatListingContextForPrompt(pilotOrchestration);
-  const repairNote =
-    priorUnsafeReason === "non_thai_output"
-      ? "คำตอบก่อนหน้ามีภาษาอังกฤษหรือ meta"
-      : priorUnsafeReason === "missing_final_answer_marker"
-        ? "คำตอบก่อนหน้าไม่มีคำตอบ:"
-        : "คำตอบก่อนหน้าสั้นเกินไป";
-
   return [
-    `${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID} retry — ${repairNote}.`,
-    `เขียนใหม่ภาษาไทยเท่านั้น เริ่มด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" จบด้วย ครับ.`,
-    "ห้ามแสดงแผนหรือเหตุผลภายใน ชื่อรถภาษาอังกฤษได้.",
-    buildScenarioAnswerGuidance(
-      scenario,
-      pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0
+    buildUserVisibleBuyerSystemInstruction(pilotOrchestration, redactedUserMessage),
+    "",
+    buildUserVisibleGeminiRetryContents(
+      redactedUserMessage,
+      pilotOrchestration,
+      priorUnsafeReason
     ),
-    listingBlock,
-    `ข้อความ: ${redactedUserMessage}`,
   ].join("\n");
 }
 
-function buildUserVisibleBuyerPrompt(redactedUserMessage: string): string {
-  return `ข้อความผู้ใช้ (redacted): ${redactedUserMessage}`;
-}
-
-/** Merge system instruction into contents text — same SDK surface as admin shadow SS-01. */
+/** Offline quality tests — system instruction + contents (not merged into one API field). */
 export function buildUserVisibleGeminiCombinedPrompt(
   redactedUserMessage: string,
   pilotOrchestration?: UserVisiblePilotOrchestrationHint
@@ -824,8 +892,49 @@ export function buildUserVisibleGeminiCombinedPrompt(
   return [
     buildUserVisibleBuyerSystemInstruction(pilotOrchestration, redactedUserMessage),
     "",
-    buildUserVisibleBuyerPrompt(redactedUserMessage),
+    buildUserVisibleGeminiContents(redactedUserMessage, pilotOrchestration),
   ].join("\n");
+}
+
+export interface UserVisibleGeminiRequestShape {
+  model: string;
+  requestShape: typeof USER_VISIBLE_GEMINI_REQUEST_SHAPE;
+  systemInstruction: string;
+  contentsText: string;
+  maxOutputTokens: number;
+  temperature: number;
+}
+
+/** Exported for offline call-shape tests — no network. */
+export function buildUserVisibleGeminiRequestShape(input: {
+  redactedUserMessage: string;
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint;
+  retryContext?: {
+    priorUnsafeReason: UserVisibleOutputUnsafeReason;
+    redactedUserMessage: string;
+  };
+}): UserVisibleGeminiRequestShape {
+  const userMessage = input.retryContext?.redactedUserMessage ?? input.redactedUserMessage;
+  const systemInstruction = buildUserVisibleBuyerSystemInstruction(
+    input.pilotOrchestration,
+    userMessage
+  );
+  const contentsText = input.retryContext
+    ? buildUserVisibleGeminiRetryContents(
+        input.retryContext.redactedUserMessage,
+        input.pilotOrchestration,
+        input.retryContext.priorUnsafeReason
+      )
+    : buildUserVisibleGeminiContents(input.redactedUserMessage, input.pilotOrchestration);
+
+  return {
+    model: USER_VISIBLE_REAL_GEMINI_MODEL,
+    requestShape: USER_VISIBLE_GEMINI_REQUEST_SHAPE,
+    systemInstruction,
+    contentsText,
+    maxOutputTokens: USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
+    temperature: input.retryContext ? 0.35 : 0.5,
+  };
 }
 
 /** Satisfy v6.0N listing guard when pilot already has grounded cards/count. */
@@ -917,26 +1026,23 @@ async function defaultUserVisibleGeminiCaller(
   }
 
   const client = new GoogleGenAI({ apiKey });
-  const prompt = options.retryContext
-    ? buildUserVisibleGeminiRetryPrompt(
-        options.retryContext.redactedUserMessage,
-        options.pilotOrchestration,
-        options.retryContext.priorUnsafeReason
-      )
-    : buildUserVisibleGeminiCombinedPrompt(
-        request.redactedUserMessage,
-        options.pilotOrchestration
-      );
+  const requestShape = buildUserVisibleGeminiRequestShape({
+    redactedUserMessage: request.redactedUserMessage,
+    pilotOrchestration: options.pilotOrchestration,
+    retryContext: options.retryContext,
+  });
   const response = await client.models.generateContent({
-    model: USER_VISIBLE_REAL_GEMINI_MODEL,
-    contents: [{ text: prompt }],
+    model: requestShape.model,
+    contents: [{ text: requestShape.contentsText }],
     config: {
-      maxOutputTokens: USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS,
-      temperature: options.retryContext ? 0.35 : 0.5,
+      systemInstruction: requestShape.systemInstruction,
+      maxOutputTokens: requestShape.maxOutputTokens,
+      temperature: requestShape.temperature,
     },
   });
 
   const rawText = extractUserVisibleGeminiResponseText(response);
+  const responseDiagnostics = extractUserVisibleGeminiResponseDiagnostics(response);
   const redactedProviderOutput = redactPiiForSalesBrainLog(rawText).slice(
     0,
     MAX_USER_VISIBLE_OUTPUT_CHARS
@@ -947,6 +1053,7 @@ async function defaultUserVisibleGeminiCaller(
     redactedProviderOutput,
     requestIdHash: request.requestIdHash,
     modelId: USER_VISIBLE_REAL_GEMINI_MODEL,
+    responseDiagnostics,
   };
 }
 
@@ -1155,6 +1262,8 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     });
     let { text, safety } = processRawOutput(real.redactedProviderOutput);
     let usedModelId = real.modelId;
+    const firstAttemptUnsafeReason = safety.safe ? undefined : safety.unsafeReason;
+    const firstAttemptResponseDiagnostics = real.responseDiagnostics;
 
     if (
       !safety.safe &&
@@ -1188,6 +1297,10 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
           gateReason: "real_provider_output_unsafe",
           outputSampleRedacted: redactOutputSampleForDiagnostics(retryProcessed.text),
           retryAttempt: true,
+          firstAttemptUnsafeReason,
+          retryUnsafeReason: retryProcessed.safety.unsafeReason,
+          firstAttemptResponseDiagnostics,
+          retryResponseDiagnostics: retryReal.responseDiagnostics,
         });
         return {
           ...input.bridgeResult,
@@ -1211,6 +1324,8 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
         unsafeReason: safety.unsafeReason ?? "generic_safety_guard",
         gateReason: "real_provider_output_unsafe",
         outputSampleRedacted: redactOutputSampleForDiagnostics(text),
+        firstAttemptUnsafeReason,
+        firstAttemptResponseDiagnostics,
       });
       return {
         ...input.bridgeResult,

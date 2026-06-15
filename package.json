@@ -33,6 +33,7 @@
     "test:v68e4-final-answer-recovery-general-knowledge-ev-guard": "tsx scripts/test-v68e4-final-answer-recovery-general-knowledge-ev-guard.mts",
     "test:v68e5-deterministic-fallback-real-gemini-investigation": "tsx scripts/test-v68e5-deterministic-fallback-real-gemini-investigation.mts",
     "test:v68e5-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e5-manual-quality-smoke-partial-execution-record.mts",
+    "test:v68e6-gemini-call-shape-diagnostics-system-instruction": "tsx scripts/test-v68e6-gemini-call-shape-diagnostics-system-instruction.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
     "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",

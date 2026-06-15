@@ -90,7 +90,7 @@ const selfSrc = readFileSync("scripts/test-v68e1-real-output-length-followup-int
 
 // --- slice + doc ---
 {
-  ok("quality slice v6.8E.5", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.5");
+  ok("quality slice v6.8E.6", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.6");
   ok("doc v6.8E.1 rerun or v6.8E.5", /v6\.8E\.1|v6\.8E\.2|v6\.8E\.3|v6\.8E\.4|v6\.8E\.5|rerun smoke/i.test(doc));
 }
 

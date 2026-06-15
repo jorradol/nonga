@@ -193,9 +193,9 @@ const realProviderSrc = readFileSync(
 
 // --- code alignment (v6.8D.1 fix still present) ---
 {
-  ok("merged request shape constant", realProviderSrc.includes(USER_VISIBLE_GEMINI_REQUEST_SHAPE));
+  ok("split request shape constant", realProviderSrc.includes(USER_VISIBLE_GEMINI_REQUEST_SHAPE));
   ok("real model gemini-3.5-flash", realProviderSrc.includes(USER_VISIBLE_REAL_GEMINI_MODEL));
-  ok("no config systemInstruction in caller", !/config:\s*\{[^}]*systemInstruction/s.test(realProviderSrc));
+  ok("config systemInstruction in caller", /systemInstruction:\s*requestShape\.systemInstruction/.test(realProviderSrc));
   ok("redacted error logging", realProviderSrc.includes("redactUserVisibleRealProviderError"));
 }
 
