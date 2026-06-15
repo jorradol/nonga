@@ -13,6 +13,7 @@
     "test:import-sample": "tsx scripts/test-thor-sample-import.mts",
     "test:smart-import": "tsx scripts/test-smart-import.mts",
     "test:dealer-portal": "tsx scripts/test-dealer-portal.mts",
+    "test:sim-dealer-identity": "tsx scripts/test-sim-dealer-identity.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
     "test:dealer-profile-browser": "tsx scripts/test-dealer-profile-browser.mts",
     "test:dealer-deeplink": "tsx scripts/test-dealer-deeplink.mts",
