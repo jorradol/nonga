@@ -22,7 +22,10 @@ import {
   assertPilotCopySafe,
   assertPilotFollowUpCopySafe,
 } from "./salesBrainUserVisiblePilotBuyerCopy";
-import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
+import {
+  isPilotBuyerFinanceFollowUp,
+  isPilotBuyerFollowUpMessage,
+} from "./chat/chatPilotBuyerFollowUp";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 export type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
@@ -58,6 +61,25 @@ export interface ResolveUserVisibleChatResponseResult {
   pilotProviderError?: boolean;
 }
 
+function pilotSessionCardCount(
+  pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined
+): number {
+  const cards = pilotOrchestration?.recentCarCards?.length ?? 0;
+  if (cards > 0) return cards;
+  return pilotOrchestration?.carCardCount ?? 0;
+}
+
+/** v6.8E.5 — session cards ground finance fallback; mock askFollowUp must not win. */
+function shouldUseAskFollowUpInsteadOfPilotCopy(
+  userMessage: string,
+  pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined,
+  askFollowUp?: string
+): askFollowUp is string {
+  if (!askFollowUp) return false;
+  if (pilotSessionCardCount(pilotOrchestration) <= 0) return true;
+  return !isPilotBuyerFinanceFollowUp(userMessage);
+}
+
 function buildPilotUserVisibleText(
   legacy: string,
   intent: string,
@@ -67,7 +89,7 @@ function buildPilotUserVisibleText(
   fallback?: boolean,
   safetyDecision?: string
 ): { text: string; pilotPathActive: boolean } {
-  if (askFollowUp) {
+  if (shouldUseAskFollowUpInsteadOfPilotCopy(userMessage, pilotOrchestration, askFollowUp)) {
     return { text: askFollowUp, pilotPathActive: true };
   }
 

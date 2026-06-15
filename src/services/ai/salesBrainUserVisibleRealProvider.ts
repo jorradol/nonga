@@ -31,6 +31,7 @@ import {
 } from "./salesBrainUserVisiblePilotBuyerCopy";
 import {
   isPilotBuyerCardInsightFollowUp,
+  isPilotBuyerEvFollowUp,
   isPilotBuyerFinanceFollowUp,
   isPilotBuyerGeneralKnowledgeFollowUp,
   isPilotBuyerFollowUpMessage,
@@ -39,8 +40,8 @@ import {
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
-/** v6.8E.4 — final-answer marker recovery, general knowledge routing, EV-aware guard */
-export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.4";
+/** v6.8E.5 — deterministic fallback fixes + final-answer prompt simplification */
+export const USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID = "v6.8E.5";
 
 /** Required prefix for Gemini final answer — stripped before user-visible delivery. */
 export const USER_VISIBLE_FINAL_ANSWER_MARKER = "คำตอบ:";
@@ -65,6 +66,7 @@ export type UserVisibleBuyerAnswerScenario =
   | "summarize"
   | "fit"
   | "generalKnowledge"
+  | "ev"
   | "general";
 
 export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenario, number> = {
@@ -74,6 +76,7 @@ export const USER_VISIBLE_MIN_OUTPUT_CHARS: Record<UserVisibleBuyerAnswerScenari
   summarize: 100,
   fit: 120,
   generalKnowledge: 150,
+  ev: 150,
   general: 80,
 };
 
@@ -229,7 +232,7 @@ export const USER_VISIBLE_REAL_PROVIDER_MAX_OUTPUT_TOKENS = 768;
 /** Prompt rules exported for offline quality tests (no Gemini network). */
 export const USER_VISIBLE_BUYER_ANSWER_FORMAT_MARKERS = [
   "ตอบเฉพาะคำตอบสุดท้าย",
-  "3–6 ประโยค",
+  USER_VISIBLE_FINAL_ANSWER_MARKER,
   "รูปแบบคำตอบ",
 ] as const;
 export const USER_VISIBLE_BUYER_GROUNDING_RULE_MARKERS = [
@@ -281,6 +284,7 @@ export function detectUserVisibleBuyerScenario(
   message: string
 ): UserVisibleBuyerAnswerScenario {
   const t = message.trim();
+  if (isPilotBuyerEvFollowUp(t)) return "ev";
   if (isPilotBuyerGeneralKnowledgeFollowUp(t)) return "generalKnowledge";
   if (isPilotBuyerCardInsightFollowUp(t)) {
     if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(t)) {
@@ -321,6 +325,12 @@ function buildScenarioAnswerGuidance(
         "ใส่ disclaimer ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง",
         "ห้ามอ้างราคาตลาดล่าสุดหรือรีวิวภายนอก",
       ].join(" ");
+    case "ev":
+      return [
+        "ตอบเรื่องรถไฟฟ้า/EV/แบต/ชาร์จ จากข้อมูล listing ถ้ามี",
+        "ถ้า listing ไม่มี kWh ระยะวิ่ง หัวชาร์จ ประกันแบต — บอกว่ายังไม่มีในระบบ ห้ามเดา",
+        "แนะนำทั่วไปได้: ตรวจสุขภาพแบต ประวัติชาร์จ ทดลองขับ — ไม่ใช่การยืนยันสภาพรถคันนี้",
+      ].join(" ");
     default:
       return "ตอบครบประเด็น ไม่ยาวเกินจำเป็น";
   }
@@ -340,7 +350,7 @@ export function assertRealProviderOutputMinLength(
 ): boolean {
   const scenario = detectUserVisibleBuyerScenario(userMessage);
   const min = USER_VISIBLE_MIN_OUTPUT_CHARS[scenario];
-  if (carCardCount <= 0 && (scenario === "summarize" || scenario === "fit" || scenario === "generalKnowledge")) {
+  if (carCardCount <= 0 && (scenario === "summarize" || scenario === "fit" || scenario === "generalKnowledge" || scenario === "ev")) {
     return false;
   }
   return text.trim().length >= min;
@@ -756,7 +766,7 @@ function buildUserVisibleBuyerSystemInstruction(
     `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสอง Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
     "ตอบภาษาไทย สุภาพ อบอุ่น — เรียก คุณลูกค้า หรือไม่เรียกขาน ห้ามเดา ลุง/ป้า/เฮีย/เจ๊ ห้ามใช้ ปังปุริเย่.",
     "",
-    `[สัญญาคำตอบ] เริ่มบรรทัดแรกด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" แล้วตามด้วยคำตอบภาษาไทย 3–6 ประโยค จบด้วย ครับ.`,
+    `[สัญญาคำตอบ] เริ่มบรรทัดแรกด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" แล้วตามด้วยคำตอบภาษาไทย จบด้วย ครับ.`,
     "ตอบเฉพาะคำตอบสุดท้าย — ห้ามแสดงแผน เหตุผล หรือข้อความภาษาอังกฤษ (ยกเว้นชื่อรถ/เทคนิค เช่น Honda HR-V, Hybrid, CVT, EV).",
     scenarioGuidance,
     cardCount >= 2 ? "หลายคัน — อธิบายแต่ละคันต่างกัน ห้ามซ้ำแข็ง." : "",
@@ -791,7 +801,7 @@ export function buildUserVisibleGeminiRetryPrompt(
 
   return [
     `${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID} retry — ${repairNote}.`,
-    `เขียนใหม่ภาษาไทยเท่านั้น เริ่มด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" 3–6 ประโยค จบด้วย ครับ.`,
+    `เขียนใหม่ภาษาไทยเท่านั้น เริ่มด้วย "${USER_VISIBLE_FINAL_ANSWER_MARKER}" จบด้วย ครับ.`,
     "ห้ามแสดงแผนหรือเหตุผลภายใน ชื่อรถภาษาอังกฤษได้.",
     buildScenarioAnswerGuidance(
       scenario,

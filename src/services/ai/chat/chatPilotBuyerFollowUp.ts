@@ -79,12 +79,33 @@ export function isPilotBuyerGeneralKnowledgeFollowUp(message: string): boolean {
   return false;
 }
 
+/** v6.8E.5 — EV/battery/charging follow-up when session cards exist. */
+export function isPilotBuyerEvFollowUp(message: string): boolean {
+  const t = message.trim();
+  return /รถไฟฟ้า|(?:^|\s)EV(?:\s|$)|แบต(?:เตอรี่)?|ชาร์จ|หัวชาร์จ|ระยะวิ่ง|kWh|ประกันแบต|BEV|PHEV|HEV|Plug-in Hybrid|Wallbox|CCS2|Type\s*2/i.test(
+    t
+  );
+}
+
+/** v6.8E.5 — card-to-card compare; excludes general market knowledge questions with เทียบ. */
+export function isPilotBuyerDirectCompareFollowUp(message: string): boolean {
+  if (extractNumberedComparePair(message)) return true;
+  if (isPilotBuyerGeneralKnowledgeFollowUp(message)) return false;
+  if (/เทียบกับรถในตลาด|โดยทั่วไป.*เทียบ/i.test(message)) return false;
+  return (
+    isCompareIntent(message) ||
+    /ช่วยเทียบ|เทียบคันที่|เปรียบเทียบคันที่/i.test(message)
+  );
+}
+
 export function isPilotBuyerFollowUpMessage(message: string): boolean {
   if (extractNumberedComparePair(message)) return true;
   if (detectBuyerRefinement(message)) return true;
   if (isPilotBuyerCardInsightFollowUp(message)) return true;
   if (isPilotBuyerFinanceFollowUp(message)) return true;
+  if (isPilotBuyerEvFollowUp(message)) return true;
   if (isPilotBuyerGeneralKnowledgeFollowUp(message)) return true;
+  if (isPilotBuyerDirectCompareFollowUp(message)) return true;
   if (isCompareIntent(message) && /คันที่\s*\d+|คันแรก|2\s*คัน/i.test(message)) return true;
   if (/ช่วยเทียบ|เทียบคันที่|เปรียบเทียบคันที่/i.test(message)) return true;
   return false;

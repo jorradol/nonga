@@ -138,7 +138,7 @@ const pkg = readFileSync("package.json", "utf8");
 
 // --- slice + execution record ---
 {
-  ok("quality slice v6.8E.4", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.4");
+  ok("quality slice v6.8E.5", USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID === "v6.8E.5");
   ok("v6.8E.3 partial record exists", execRecord.includes("v6.8E.3") && execRecord.includes("0/6"));
   ok("package script v68e4", pkg.includes("test:v68e4-final-answer-recovery-general-knowledge-ev-guard"));
 }

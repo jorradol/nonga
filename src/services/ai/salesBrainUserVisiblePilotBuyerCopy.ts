@@ -8,6 +8,8 @@ import {
   detectBuyerRefinement,
   extractNumberedComparePair,
   isPilotBuyerCardInsightFollowUp,
+  isPilotBuyerDirectCompareFollowUp,
+  isPilotBuyerEvFollowUp,
   isPilotBuyerFinanceFollowUp,
   isPilotBuyerGeneralKnowledgeFollowUp,
   isPilotBuyerFollowUpMessage,
@@ -17,7 +19,6 @@ import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
 import { resolveCarCardsFromSessionContext } from "./chat/chatPilotSessionContext";
 import { buildListingComparisonInsight } from "./chat/chatSearchReplyCopy";
 import { buildPilotRefinementFollowUpReplyCopy } from "./chat/chatRefinementReplyCopy";
-import { isCompareIntent } from "../../utils/chatCarContext";
 
 export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2h";
 
@@ -263,6 +264,45 @@ export function buildBuyerGeneralKnowledgePilotCopy(
     .join("\n");
 }
 
+function cardListingHasEvBatteryFields(card: PilotGroundedCarCard): boolean {
+  const blob = `${card.description ?? ""} ${card.fuelType ?? ""}`;
+  return /\d+\s*kWh|ระยะวิ่ง\s*\d+|ประกันแบต|หัวชาร์จ|CCS2|Type\s*2|Wallbox/i.test(blob);
+}
+
+/** v6.8E.5 — EV follow-up fallback when real provider blocked; no unsourced kWh/range guesses. */
+export function buildBuyerEvPilotCopy(
+  cards: PilotGroundedCarCard[],
+  cardIndex = 1
+): string {
+  const selected = resolveCarCardsFromSessionContext(cards, [cardIndex]);
+  const card = selected[0] ?? cards[0];
+  if (!card) return buildPilotFollowUpNoContextCopy();
+
+  const hasEvFields = cardListingHasEvBatteryFields(card);
+  const lines = [
+    "จากข้อมูลในประกาศนี้",
+    "",
+    formatCarLine(card),
+    card.fuelType ? `เชื้อเพลิง/ระบบขับ: ${card.fuelType}` : "",
+  ];
+
+  if (!hasEvFields) {
+    lines.push(
+      "ระบบยังไม่มีข้อมูลแบตเตอรี่ ระยะวิ่ง หัวชาร์จ หรือประกันแบตของคันนี้ในรายละเอียดประกาศครับ — น้องเอจะไม่เดา kWh ระยะวิ่ง ค่าชาร์จ หรือเงื่อนไขประกันแบตให้"
+    );
+  }
+
+  lines.push(
+    "",
+    "จากความรู้ทั่วไปสำหรับรถไฟฟ้า/EV แนะนำตรวจสุขภาพแบต ประวัติการชาร์จ ระบบชาร์จ (AC/DC, CCS2, Type 2) และทดลองขับจริงครับ",
+    "ข้อมูลนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง ควรตรวจสภาพและทดลองขับจริงก่อนตัดสินใจครับ",
+    "",
+    LISTING_DISCLAIMER
+  );
+
+  return lines.filter(Boolean).join("\n");
+}
+
 export function buildBuyerRefinementPilotCopy(
   kind: BuyerRefinementKind,
   cards: PilotGroundedCarCard[]
@@ -306,16 +346,6 @@ export function buildPilotBuyerUserVisibleCopy(
     };
   }
 
-  if (
-    (isCompareIntent(input.userMessage) || /ช่วยเทียบ|เทียบคันที่/i.test(input.userMessage)) &&
-    sessionCount >= 2
-  ) {
-    return {
-      text: buildBuyerComparePilotCopy({ a: 1, b: 2 }, sessionCards),
-      pilotPathActive: true,
-    };
-  }
-
   if (refinement && sessionCount > 0) {
     return {
       text: buildBuyerRefinementPilotCopy(refinement, sessionCards),
@@ -333,6 +363,21 @@ export function buildPilotBuyerUserVisibleCopy(
   if (isPilotBuyerGeneralKnowledgeFollowUp(input.userMessage) && sessionCount > 0) {
     return {
       text: buildBuyerGeneralKnowledgePilotCopy(sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (isPilotBuyerEvFollowUp(input.userMessage) && sessionCount > 0) {
+    return {
+      text: buildBuyerEvPilotCopy(sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (isPilotBuyerDirectCompareFollowUp(input.userMessage) && sessionCount >= 2) {
+    const pair = comparePair ?? { a: 1, b: 2 };
+    return {
+      text: buildBuyerComparePilotCopy(pair, sessionCards),
       pilotPathActive: true,
     };
   }
@@ -376,13 +421,14 @@ export function buildPilotBuyerUserVisibleCopy(
     };
   }
 
-  if (followUp && sessionCount > 0) {
-    if (/เทียบ|เปรียบเทียบ|ช่วยเทียบ/i.test(input.userMessage)) {
-      return {
-        text: buildBuyerComparePilotCopy({ a: 1, b: Math.min(2, sessionCount) }, sessionCards),
-        pilotPathActive: true,
-      };
-    }
+  if (followUp && sessionCount > 0 && isPilotBuyerDirectCompareFollowUp(input.userMessage)) {
+    return {
+      text: buildBuyerComparePilotCopy(
+        comparePair ?? { a: 1, b: Math.min(2, sessionCount) },
+        sessionCards
+      ),
+      pilotPathActive: true,
+    };
   }
 
   return null;
