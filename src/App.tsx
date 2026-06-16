@@ -432,7 +432,7 @@ export default function App() {
                   A
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-display font-black text-white dark:text-white text-base leading-none tracking-tight">
+                  <span className="font-display font-black text-slate-900 dark:text-white text-base leading-none tracking-tight">
                     Nong <span className="text-orange-500">A</span>
                   </span>
                   <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
@@ -441,7 +441,7 @@ export default function App() {
                 </div>
               </div>
 
-              <p className="text-[11.5px] leading-relaxed dark:text-slate-400">
+              <p className="text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-400">
                 สุดยอดตลาดกลางซื้อขายรถยนต์ระดับนวัตกรรมที่ออกแบบมาเพื่อสตรีมมิ่งข้อมูลสเป็ก ตรวจวัดราคา และต่อรองอัจฉริยะเคียงข้าง AI เพื่อนแท้ผู้ช่วยดีลเลอร์และลูกค้ายุคใหม่
               </p>
 
@@ -549,7 +549,7 @@ export default function App() {
                 <CheckCircle className="w-3.5 h-3.5 text-orange-500" /> ความน่าเชื่อถือ
               </h5>
               <div className="space-y-2">
-                <div className="p-2.5 rounded-xl border border-orange-500/10 bg-orange-500/5 text-[10.5px] leading-relaxed dark:text-slate-350">
+                <div className="p-2.5 rounded-xl border border-orange-500/10 bg-orange-500/5 text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-350">
                   ⚡ <strong>NongBot Certified System</strong> ตรวจวัดสภาพคำนวณราคาด้วย AI ตรวจเช็คประวัติละเอียดผ่านฐานข้อมูลโชว์รูมหลัก มั่นใจทุกการจับจอง
                 </div>
               </div>

@@ -123,7 +123,7 @@ export default function OnboardingView() {
                           {isSelected && <Check className="w-3 h-3" />}
                         </div>
                         <div className="space-y-1">
-                          <p className="font-bold text-sm text-slate-100 dark:text-slate-100">{persona.name}</p>
+                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{persona.name}</p>
                           <p className="text-xs font-semibold text-orange-400">{persona.title}</p>
                           <p className="text-xs text-slate-400 leading-relaxed pt-0.5">{persona.desc}</p>
                         </div>
@@ -185,7 +185,7 @@ export default function OnboardingView() {
                         </div>
                         <div className="space-y-1 pr-14">
                           <div className="flex items-center gap-2">
-                            <p className="font-bold text-sm text-slate-100 dark:text-slate-100">{role.name}</p>
+                            <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{role.name}</p>
                           </div>
                           <p className="text-xs text-slate-400 leading-relaxed pt-1">{role.desc}</p>
                         </div>

@@ -625,7 +625,7 @@ export function CaptionEngineDashboard() {
                 >
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider">สรุปการตรวจสอบเนื้อหา</span>
-                    <h4 className="font-black text-sm text-white dark:text-white flex items-center gap-1.5">
+                    <h4 className="font-black text-sm flex items-center gap-1.5">
                       <span>คะแนน: {hookEvaluationResult.score} / 100</span>
                       <span className="text-xs py-0.5 px-1.5 rounded bg-black/40 text-orange-400 font-bold border border-orange-500/10">
                         {hookEvaluationResult.label}
@@ -725,7 +725,7 @@ export function CaptionEngineDashboard() {
                     🦄
                   </div>
                   <div className="space-y-1.5">
-                    <h4 className="font-black font-display text-sm text-white dark:text-white">พร้อมเริ่มปั้นคำโดนใจวัยรุ่นแล้วครับ</h4>
+                    <h4 className="font-black font-display text-sm text-slate-900 dark:text-white">พร้อมเริ่มปั้นคำโดนใจวัยรุ่นแล้วครับ</h4>
                     <p className="text-xs text-slate-500 max-w-xs leading-relaxed mx-auto">
                       กรอกรายละเอียดรถเกรดบ้านด้านซ้ายมือ เลือกช่องทางและสไตล์ จากนั้นระเบิดระนาบปุ่มสร้างได้ทันทีเลยคร้าบ!
                     </p>

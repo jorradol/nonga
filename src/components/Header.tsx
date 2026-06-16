@@ -501,7 +501,7 @@ export default function Header() {
                     <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-orange-600/20">
                       A
                     </div>
-                    <span className="font-display font-black text-white dark:text-white text-[15px]">
+                    <span className="font-display font-black text-slate-900 dark:text-white text-[15px]">
                       Nong <span className="text-orange-500">A</span>
                     </span>
                   </div>
