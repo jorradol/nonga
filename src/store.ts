@@ -126,11 +126,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleDarkMode: () => {
     const nextDark = !get().isDarkMode;
     set({ isDarkMode: nextDark });
-    // Apply Tailwind system class if desired
-    if (nextDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", nextDark);
     }
   },
 
@@ -583,3 +580,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   ]
 }));
+
+/** v6.9A Phase 1.5 — align initial `.dark` with default isDarkMode for class-only dark variant */
+if (typeof document !== "undefined" && useAppStore.getState().isDarkMode) {
+  document.documentElement.classList.add("dark");
+}
