@@ -562,7 +562,7 @@ export default function App() {
             <ShieldAlert className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-orange-500 block">AI DISCLAIMER & SAFETY NOTICE</span>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              <p className="text-[10px] text-slate-700 dark:text-slate-400 leading-relaxed">
                 ข้อมูลการวิเคราะห์สภาพรถยนต์ แบตเตอรี่รถไฟฟ้า ตารางดอกเบี้ย คำคะแนนเปรียบเทียบ และการสนทนาทั้งหมดบนแพลตฟอร์มนี้ ถูกคำนวณและคาดเดาโดยโมเดลปัญญาประดิษฐ์อัจฉริยะ (AI Sales Assistant) โดยกลุ่ม NongBot เพื่อสนับสนุนข้อมูลประกอบการรีวิวเท่านั้น บริษัทฯ จะไม่รับผิดชอบต่อความถูกต้องทางกายภาพหรือเรื่องกฎหมาย การเจรจาราคาและการตัดสินใจซื้อขายจริง จะต้องกระทำ ณ โชว์รูมดีลเลอร์โดยตรวจสอบรายละเอียดและเอกสารประจำรถยนต์จากเจ้าของอย่างรอบคอบเป็นสำคัญ
               </p>
             </div>
