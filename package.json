@@ -45,6 +45,7 @@
     "test:v69a-phase15-dark-variant-alignment-staging-smoke-execution-record": "tsx scripts/test-v69a-phase15-dark-variant-alignment-staging-smoke-execution-record.mts",
     "test:v69b-trust-panel-light-mode-contrast-guard": "tsx scripts/test-v69b-trust-panel-light-mode-contrast-guard.mts",
     "test:v69b-trust-panel-contrast-staging-smoke-execution-record": "tsx scripts/test-v69b-trust-panel-contrast-staging-smoke-execution-record.mts",
+    "test:v69c-onboarding-viral-captions-routing-guard": "tsx scripts/test-v69c-onboarding-viral-captions-routing-guard.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
