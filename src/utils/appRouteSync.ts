@@ -111,6 +111,9 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/login") return "login";
   if (path === "/onboarding") return "onboarding";
   if (path === "/viral-captions") return "viral-captions";
+  if (path === "/car-vision") return "car-vision";
+  if (path === "/car-post-generator") return "car-post-generator";
+  if (path === "/seo-landing") return "seo-landing";
   if (path === "/register") return "register";
   if (path === "/forgot-password") return "forgot-password";
   if (path === "/admin/inventory-import") return "inventory-import";
@@ -154,6 +157,12 @@ export function resolvePathnameForView(
       return "/onboarding";
     case "viral-captions":
       return "/viral-captions";
+    case "car-vision":
+      return "/car-vision";
+    case "car-post-generator":
+      return "/car-post-generator";
+    case "seo-landing":
+      return "/seo-landing";
     case "login":
       return "/login";
     case "register":
