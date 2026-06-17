@@ -44,6 +44,7 @@ function AccessDenied({
   action: "login" | "profile" | "home";
 }) {
   const setView = useAppStore((state) => state.setView);
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
   const button =
     action === "login"
       ? { label: "เข้าสู่ระบบ", view: "login" as const, icon: LogIn }
@@ -57,7 +58,11 @@ function AccessDenied({
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400">
         <AlertCircle className="h-6 w-6" />
       </div>
-      <p className="text-sm font-semibold text-slate-200">{message}</p>
+      <p
+        className={`text-sm font-semibold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}
+      >
+        {message}
+      </p>
       <button
         type="button"
         onClick={() => setView(button.view)}
