@@ -5,6 +5,7 @@ import {
   ShieldCheck, Menu, X, ArrowLeft
 } from "lucide-react";
 import { useAppStore } from "../../store";
+import { useAuth } from "../../hooks/auth/useAuth";
 
 export type DealerTab = 
   | "overview" 
@@ -25,11 +26,25 @@ interface DealerSidebarProps {
 export function DealerSidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: DealerSidebarProps) {
   const setView = useAppStore((state) => state.setView);
   const isDarkMode = useAppStore((state) => state.isDarkMode);
+  const { isSimulatedState } = useAuth();
+  const showSandboxNavigation =
+    isSimulatedState ||
+    Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
 
   const menuItems = [
     { id: "overview" as const, label: "แดชบอร์ดสรุปผล", desc: "ภาพรวมอภิมหาสถิติ", icon: LayoutDashboard },
     { id: "analytics" as const, label: "วิเคราะห์เชิงลึก AI", desc: "สถิติผู้เข้าชม & ฟันเนล", icon: TrendingUp },
-    { id: "leads" as const, label: "ลูกค้าติดต่อขอซื้อ CRM", desc: "ติดตามรายชื่อขอข้อมูลดีล", icon: Users, badge: "ใหม่" },
+    ...(showSandboxNavigation
+      ? [
+          {
+            id: "leads" as const,
+            label: "ลูกค้าติดต่อขอซื้อ CRM",
+            desc: "Demo CRM — ไม่ใช่ลีดจริง",
+            icon: Users,
+            badge: "Demo",
+          },
+        ]
+      : []),
     { id: "inventory" as const, label: "จัดการคลังรถยนต์", desc: "โพสต์รถ & อัปเดตราคา", icon: Car },
     { id: "chat" as const, label: "คุยอินบ็อกซ์ & บอทเอ", desc: "แชทลูกค้า & แนะนำคำถาม", icon: MessageSquare, badge: "แชท" },
     { id: "boost" as const, label: "ระบบลงบูสต์โฆษณา", desc: "เร่งคิวยอดวิวสิบเท่า", icon: Rocket },

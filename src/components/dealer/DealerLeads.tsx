@@ -7,9 +7,11 @@ import {
   Lock, Calendar, Send, Compass
 } from "lucide-react";
 import { useAnalytics } from "../../hooks/analytics/useAnalytics";
+import { useAppStore } from "../../store";
 import { LeadStatus, LeadEventType, ScoreTier } from "../../types/analytics";
 
 export function DealerLeads() {
+  const setView = useAppStore((state) => state.setView);
   const {
     leads,
     scores,
@@ -154,6 +156,41 @@ export function DealerLeads() {
 
   return (
     <div className="space-y-6 text-left selection:bg-orange-500/20">
+      <div
+        className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 space-y-3"
+        data-testid="dealer-leads-demo-crm-notice"
+      >
+        <p className="text-sm font-bold text-amber-200">
+          Demo CRM — ไม่ใช่ลีดจริง
+        </p>
+        <p className="text-[11px] text-amber-100/80 leading-relaxed">
+          หน้านี้เป็นข้อมูลจำลองสำหรับทดสอบเท่านั้น ไม่เชื่อมกับระบบ BuyerLead จริง
+          ลีดจากผู้ซื้อที่ยินยอมในแชทจะแสดงใต้แต่ละประกาศใน Dealer Portal → รถที่ลงขายแล้ว
+          หรือที่เมนูประกาศของฉัน
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.history.replaceState(null, "", "/dealer/inventory");
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }
+              setView("dealer-portal");
+            }}
+            className="px-3 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold"
+          >
+            ไปคิวลีดจริงใน Dealer Portal
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("my-listings")}
+            className="px-3 py-2 rounded-xl border border-amber-500/40 text-amber-100 text-xs font-semibold hover:bg-amber-500/10"
+          >
+            ไปประกาศของฉัน
+          </button>
+        </div>
+      </div>
       
       {/* Banner Actions Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-white/[0.06] bg-slate-905/60 backdrop-blur-md">

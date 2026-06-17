@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuthContext } from "../contexts/auth/AuthContext";
+import { useAuth } from "../hooks/auth/useAuth";
 import { useRole } from "../hooks/auth/useRole";
 import { useAppStore } from "../store";
 import { motion } from "motion/react";
@@ -20,13 +21,23 @@ import { DealerSubscription } from "./dealer/DealerSubscription";
 
 export default function DealerDashboardView() {
   const { user } = useAuthContext();
+  const { isSimulatedState } = useAuth();
   const { isDealer, isAdmin } = useRole();
   const isDarkMode = useAppStore((state) => state.isDarkMode);
   const toggleDarkMode = useAppStore((state) => state.toggleDarkMode);
   const setView = useAppStore((state) => state.setView);
+  const showSandboxNavigation =
+    isSimulatedState ||
+    Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
   
   const [activeTab, setActiveTab] = useState<DealerTab>("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showSandboxNavigation && activeTab === "leads") {
+      setActiveTab("overview");
+    }
+  }, [activeTab, showSandboxNavigation]);
 
   // Gating access checks
   if (!isDealer && !isAdmin) {

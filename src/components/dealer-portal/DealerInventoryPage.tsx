@@ -31,6 +31,7 @@ import {
   type DraftImageEditState,
 } from "./DealerDraftImageSection";
 import { ListingCoverImage } from "../listings/ListingCoverImage";
+import { ListingLeadQueueSection } from "../leads/ListingLeadQueueSection";
 
 interface Props {
   apiHeaders: DealerApiHeaders;
@@ -206,6 +207,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
       <h1 className="text-xl sm:text-2xl font-bold">รถที่ลงขายแล้ว</h1>
       <p className="text-xs text-slate-400">
         รายการที่แสดงในตลาดรถ — แก้ไขข้อมูลและรูปภาพได้จากหน้านี้
+        คิวลูกค้าสนใจจริงจากแชทจะแสดงใต้แต่ละประกาศที่เปิดอยู่ในตลาด
       </p>
 
       {saveSuccess && (
@@ -345,6 +347,15 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                   )}
                 </div>
               </div>
+
+              {c.listingStatus !== "hidden" ? (
+                <ListingLeadQueueSection
+                  listingId={c.id}
+                  isListingOwnerContext
+                  isDarkMode={isDarkMode}
+                  onRevenueRelevantChange={load}
+                />
+              ) : null}
 
               {editingId === c.id && imageEdit && (
                 <div className="mt-3 grid sm:grid-cols-2 gap-2 pt-3 border-t border-slate-800">
