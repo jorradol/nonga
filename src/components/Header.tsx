@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import ProfileAvatar from "./profile/ProfileAvatar";
 
 export default function Header() {
   const { 
@@ -214,11 +215,10 @@ export default function Header() {
                       isDarkMode ? "border-white/[0.08]" : "border-slate-200"
                     }`}
                   >
-                    <img
-                      src={user?.photoURL}
+                    <ProfileAvatar
+                      user={user}
                       alt="Avatar"
-                      className="w-8 h-8 rounded-xl border border-orange-500/20 p-0.5 bg-slate-900/60 animate-fade-in"
-                      referrerPolicy="no-referrer"
+                      className="w-8 h-8 rounded-xl border border-orange-500/20 p-0.5 bg-slate-900/60 animate-fade-in object-contain"
                     />
                     <div className="flex flex-col text-left">
                       <span className="text-[12px] font-semibold leading-none text-slate-700 dark:text-slate-100 max-w-[110px] truncate">
@@ -589,10 +589,10 @@ export default function Header() {
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/40">
-                      <img
-                        src={user?.photoURL}
+                      <ProfileAvatar
+                        user={user}
                         alt="User avatar"
-                        className="w-10 h-10 rounded-xl"
+                        className="w-10 h-10 rounded-xl object-contain"
                       />
                       <div className="text-left flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-200 truncate">{user?.displayName}</p>
