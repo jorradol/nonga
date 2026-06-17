@@ -61,6 +61,7 @@
     "test:v69j-c-staging-hosting-deploy-header-avatar-fallback-smoke-execution-record": "tsx scripts/test-v69j-c-staging-hosting-deploy-header-avatar-fallback-smoke-execution-record.mts",
     "test:v69k-safe-operator-authenticated-profile-avatar-smoke-closure-execution-record": "tsx scripts/test-v69k-safe-operator-authenticated-profile-avatar-smoke-closure-execution-record.mts",
     "test:v69l-c-public-listing-sensitive-field-redaction": "tsx scripts/test-v69l-c-public-listing-sensitive-field-redaction.mts",
+    "test:v69l-c-public-listing-sensitive-field-redaction-patch-execution-record": "tsx scripts/test-v69l-c-public-listing-sensitive-field-redaction-patch-execution-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
