@@ -221,7 +221,7 @@ export default function Header() {
                       referrerPolicy="no-referrer"
                     />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] font-semibold leading-none text-slate-250 dark:text-slate-100 max-w-[110px] truncate">
+                      <span className="text-[12px] font-semibold leading-none text-slate-700 dark:text-slate-100 max-w-[110px] truncate">
                         {user?.displayName}
                       </span>
                       <span className={`text-[9px] font-bold flex items-center gap-0.5 ${membershipDisplay?.textColor || "text-orange-500"}`}>
@@ -244,7 +244,7 @@ export default function Header() {
                           className={`absolute right-0 mt-3 w-56 rounded-xl border p-4.5 z-20 space-y-4 shadow-2xl text-left ${
                             isDarkMode 
                               ? "bg-[#0d0d0e] border-white/[0.08] text-slate-100" 
-                              : "bg-white border-slate-205 text-slate-800"
+                              : "bg-white border-slate-200 text-slate-800"
                           }`}
                         >
                           <div className="space-y-1 pb-3 border-b border-orange-500/10">
@@ -551,8 +551,8 @@ export default function Header() {
                           isActive
                             ? "bg-orange-600 text-white shadow-md shadow-orange-600/10"
                             : isDarkMode
-                            ? "text-slate-350 hover:bg-white/5"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-orange-500"
+                            ? "text-slate-300 hover:bg-white/5"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-orange-500"
                         }`}
                       >
                         <div className="flex items-center gap-3">

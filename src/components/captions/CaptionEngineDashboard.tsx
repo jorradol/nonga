@@ -230,7 +230,11 @@ export function CaptionEngineDashboard() {
             </p>
           </div>
 
-          <div className="bg-slate-900/60 dark:bg-black/40 border border-orange-500/15 p-4 rounded-xl shrink-0 min-w-[200px] text-right space-y-2.5">
+          <div
+            className={`border border-orange-500/15 p-4 rounded-xl shrink-0 min-w-[200px] text-right space-y-2.5 ${
+              isDarkMode ? "bg-black/40" : "bg-white shadow-sm border-slate-200"
+            }`}
+          >
             <UsageProgressBar featureId="caption-generator" label="โควต้าปั่นแคปชั่นของคุณ" />
             <div className="text-[10px] text-slate-400 dark:text-slate-500">
               * สมาชิกแบบพรีเมียมสามารถใช้งานได้ไม่จำกัดและปลดล็อกโหมดลึกสูงสุด
@@ -657,7 +661,7 @@ export function CaptionEngineDashboard() {
                       key={i}
                       onClick={() => setCustomHookCandidate(h.text)}
                       className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-orange-500 text-left transition select-none flex justify-between items-center ${
-                        isDarkMode ? "bg-slate-950 border-white/5 text-slate-320" : "bg-slate-100 border-slate-205 text-slate-650"
+                        isDarkMode ? "bg-slate-950 border-white/5 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700"
                       }`}
                     >
                       <span className="line-clamp-1 text-[11px]">{h.text}</span>

@@ -210,6 +210,15 @@ export default function UserProfileView() {
 
   const activeToneObj = AI_TONES.find(t => t.id === selectedAiTone) || AI_TONES[0];
 
+  const borderSubtle = isDarkMode ? "border-white/5" : "border-slate-200";
+  const surfaceMiniCard = isDarkMode
+    ? "border-white/[0.08] bg-black/40 backdrop-blur-md"
+    : "border-slate-200 bg-white shadow-sm";
+  const inputField = isDarkMode
+    ? "bg-slate-900/60 border-white/10 text-white"
+    : "bg-white border-slate-200 text-slate-900";
+  const textHeading = isDarkMode ? "text-white" : "text-slate-900";
+
   return (
     <div className={`py-10 px-4 max-w-6xl mx-auto space-y-8 min-h-[90vh] relative ${
       isDarkMode ? "text-slate-100" : "text-slate-800"
@@ -244,7 +253,7 @@ export default function UserProfileView() {
       </div>
 
       {/* Header and Greeting Segment */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b ${borderSubtle}`}>
         <div className="space-y-1.5 text-left">
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight flex items-center gap-2">
             <span>โปรไฟล์ของฉัน</span>
@@ -259,7 +268,11 @@ export default function UserProfileView() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setView("marketplace")}
-            className="px-5 py-3 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition cursor-pointer text-slate-350 active:scale-95 flex items-center gap-2"
+            className={`px-5 py-3 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-2 border ${
+              isDarkMode
+                ? "border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-slate-300"
+                : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+            }`}
           >
             <span>กลับสู่ตลาดรถหลัก</span>
             <ExternalLink className="w-3.5 h-3.5" />
@@ -274,7 +287,7 @@ export default function UserProfileView() {
         <div className="lg:col-span-1 space-y-6">
           
           {/* Quick Profile Summary Mini-Card */}
-          <div className="p-6 rounded-2xl border border-white/[0.08] bg-black/40 text-center relative overflow-hidden backdrop-blur-md">
+          <div className={`p-6 rounded-2xl text-center relative overflow-hidden ${surfaceMiniCard}`}>
             <div className="absolute top-2 right-2">
               <span className={`text-[8.5px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${
                 isSimulatedState
@@ -336,7 +349,9 @@ export default function UserProfileView() {
           )}
 
           {demoToolsEnabled && (
-          <div className="p-5 rounded-2xl border border-white/[0.06] bg-black/25 text-left space-y-3.5">
+          <div className={`p-5 rounded-2xl text-left space-y-3.5 border ${
+            isDarkMode ? "border-white/[0.06] bg-black/25" : "border-slate-200 bg-slate-50"
+          }`}>
             <div className="flex items-center gap-1.5 text-amber-500 font-bold text-xs">
               <Key className="w-4 h-4 text-amber-500 shrink-0" />
               <span>เครื่องมือจำลองสิทธิ์ความพรีเมียม (Role Switcher)</span>
@@ -374,7 +389,9 @@ export default function UserProfileView() {
                     className={`p-2 rounded-lg border text-center transition-all text-[11px] font-bold cursor-pointer active:scale-95 leading-none ${
                       isCurrent 
                         ? "border-amber-500 bg-amber-500/15 text-amber-400" 
-                        : "border-white/5 bg-white/[0.01] text-slate-400 hover:bg-white/[0.05]"
+                        : isDarkMode
+                        ? "border-white/5 bg-white/[0.01] text-slate-400 hover:bg-white/[0.05]"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
                     {b.name}
@@ -425,7 +442,7 @@ export default function UserProfileView() {
                         value={displayNameInput}
                         onChange={(e) => setDisplayNameInput(e.target.value)}
                         required
-                        className="w-full bg-slate-900/60 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:border-orange-500 text-white transition-all font-medium"
+                        className={`w-full rounded-xl p-3 text-xs focus:outline-none focus:border-orange-500 transition-all font-medium border ${inputField}`}
                         placeholder="ชื่อผู้ขาย เช่น คุณออโต้ บล็อกเกอร์"
                       />
                     </div>
@@ -436,13 +453,17 @@ export default function UserProfileView() {
                         type="text" 
                         value={user?.email || "guest.nong@gmail.com"}
                         disabled
-                        className="w-full bg-slate-950/80 border border-white/5 rounded-xl p-3 text-xs text-slate-500 cursor-not-allowed font-mono opacity-60"
+                        className={`w-full rounded-xl p-3 text-xs cursor-not-allowed font-mono opacity-60 border ${
+                          isDarkMode
+                            ? "bg-slate-950/80 border-white/5 text-slate-500"
+                            : "bg-slate-100 border-slate-200 text-slate-500"
+                        }`}
                       />
                     </div>
 
                   </div>
 
-                  <div className="pt-4 flex justify-between items-center border-t border-white/5">
+                  <div className={`pt-4 flex justify-between items-center border-t ${borderSubtle}`}>
                     <p className="text-[10.5px] text-slate-400 flex items-center gap-1 truncate max-w-xs">
                       <AlertCircle className="w-3.5 h-3.5 text-orange-500 shrink-0" />
                       <span>บันทึกชื่อเชื่อมโยงกับการแจ้งเตือนโพสต์ขายรถเสมอ</span>
@@ -493,9 +514,11 @@ export default function UserProfileView() {
                             showToast(`น้องเอเปลี่ยนโทนเสียงเป็น ${t.name.split(" (")[0]} เรียบร้อยฮะ! 🎙️`);
                           }}
                           className={`p-4 rounded-xl text-left transition border flex flex-col justify-between cursor-pointer group active:scale-98 duration-200 ${
-                            isSelected 
-                              ? "border-orange-500/50 bg-orange-600/10 text-white font-bold" 
-                              : "border-white/5 bg-slate-900/30 text-slate-350 hover:bg-slate-900/60"
+                            isSelected
+                              ? "border-orange-500/50 bg-orange-600/10 text-orange-600 font-bold"
+                              : isDarkMode
+                              ? "border-white/5 bg-slate-900/30 text-slate-300 hover:bg-slate-900/60"
+                              : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                           }`}
                         >
                           <div className="flex items-center justify-between w-full">
@@ -533,14 +556,18 @@ export default function UserProfileView() {
                         />
                       </div>
                       
-                      <div className="p-3 bg-white/[0.03] border border-white/5 rounded-2xl rounded-tl-none space-y-1.5 max-w-xl">
+                      <div className={`p-3 rounded-2xl rounded-tl-none space-y-1.5 max-w-xl border ${
+                        isDarkMode
+                          ? "bg-white/[0.03] border-white/5"
+                          : "bg-slate-50 border-slate-200"
+                      }`}>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9.5px] font-bold text-slate-400">น้องเอ แสตนด์บายพิกัดขายดี</span>
                           <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider ${activeToneObj.accent}`}>
                             {activeToneObj.id}
                           </span>
                         </div>
-                        <p className="text-[11.5px] text-slate-100 font-sans leading-relaxed">
+                        <p className={`text-[11.5px] font-sans leading-relaxed ${isDarkMode ? "text-slate-100" : "text-slate-700"}`}>
                           {activeToneObj.example}
                         </p>
                       </div>
@@ -567,7 +594,7 @@ export default function UserProfileView() {
                   <div className="py-12 text-center space-y-4">
                     <Heart className="w-12 h-12 text-slate-500 mx-auto opacity-30 stroke-dasharray animate-pulse" />
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white">ยังไม่มีรถที่ถูกใจเลยครับพี่ชาย</h4>
+                      <h4 className={`text-sm font-bold ${textHeading}`}>ยังไม่มีรถที่ถูกใจเลยครับพี่ชาย</h4>
                       <p className="text-[10.5px] text-slate-400 max-w-sm mx-auto leading-relaxed">
                         คุณสามารถบันทึกรถคันโปรดในแผงตลาดเพื่ออัปเดตสําเนาเทคนิคและติดตามราคากลางได้แบบเรียลไทม์เลยครับ!
                       </p>
@@ -584,9 +611,13 @@ export default function UserProfileView() {
                     {getFavoriteCars().map((car) => (
                       <div 
                         key={car.id}
-                        className="p-4 rounded-xl border border-white/5 bg-white/[0.01] flex gap-3 relative group overflow-hidden"
+                        className={`p-4 rounded-xl flex gap-3 relative group overflow-hidden border ${
+                          isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
+                        }`}
                       >
-                        <div className="w-20 h-20 rounded-lg bg-slate-900 overflow-hidden shrink-0 border border-white/5">
+                        <div className={`w-20 h-20 rounded-lg overflow-hidden shrink-0 border ${
+                          isDarkMode ? "bg-slate-900 border-white/5" : "bg-slate-100 border-slate-200"
+                        }`}>
                           <img 
                             src={getListingPrimaryImage(car)} 
                             alt={car.title} 
@@ -599,7 +630,7 @@ export default function UserProfileView() {
                             <span className="text-[8px] uppercase font-bold tracking-wider bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded">
                               {car.type.toUpperCase()}
                             </span>
-                            <h4 className="text-xs font-black truncate text-white mt-1">{car.title}</h4>
+                            <h4 className={`text-xs font-black truncate mt-1 ${textHeading}`}>{car.title}</h4>
                             <p className="text-[10px] font-mono text-orange-400 font-black mt-0.5">
                               {car.price.toLocaleString()} THB
                             </p>
@@ -642,7 +673,7 @@ export default function UserProfileView() {
                       <ShieldAlert className="w-6 h-6 animate-pulse" />
                     </div>
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white">โหมดสิทธิ์คุณยังไม่ได้ถูกเลื่อนระดับเป็นดีลเลอร์พาร์ตเนอร์ครับ 🔒</h4>
+                      <h4 className={`text-sm font-bold ${textHeading}`}>โหมดสิทธิ์คุณยังไม่ได้ถูกเลื่อนระดับเป็นดีลเลอร์พาร์ตเนอร์ครับ 🔒</h4>
                       <p className="text-[11px] text-slate-400 leading-relaxed">
                         แผงนี้ถูกสงวนไว้เฉพาะสำหรับผู้ขายที่ผ่านการยืนยันตัวตน มีสิทธิ์ <strong>Dealer Partner</strong> หรือผู้บริหารระบบเท่านั้น อย่างไรก็ตาม ในระบบ Sandbox เพื่อความพรีเมียม คุณสามารถทดสอบแก้ไขปรับจูนแบนเนอร์หรือตรวจเช็คสถิติแบบพรีเมียมจำลองได้ทันที!
                       </p>
@@ -669,27 +700,33 @@ export default function UserProfileView() {
                     </label>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-1">
+                      <div className={`p-4 rounded-xl text-left space-y-1 border ${
+                        isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
+                      }`}>
                         <span className="text-[10px] text-slate-400 flex items-center gap-1.5">
                           <Eye className="w-3.5 h-3.5 text-orange-400" /> วิวยอดส่องร้าน
                         </span>
-                        <p className="text-xl font-extrabold text-white">41,208 ครั้ง</p>
+                        <p className={`text-xl font-extrabold ${textHeading}`}>41,208 ครั้ง</p>
                         <p className="text-[9px] text-emerald-400 font-semibold">+18.5% จากสัปดาห์ก่อน</p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-1">
+                      <div className={`p-4 rounded-xl text-left space-y-1 border ${
+                        isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
+                      }`}>
                         <span className="text-[10px] text-slate-400 flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-teal-400" /> ลูกค้านัดสเปกคุย
                         </span>
-                        <p className="text-xl font-extrabold text-white">142 สาย</p>
+                        <p className={`text-xl font-extrabold ${textHeading}`}>142 สาย</p>
                         <p className="text-[9px] text-emerald-400 font-semibold">+4.2% นัดชิงแชมป์</p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-1">
+                      <div className={`p-4 rounded-xl text-left space-y-1 border ${
+                        isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
+                      }`}>
                         <span className="text-[10px] text-slate-400 flex items-center gap-1.5">
                           <FileCheck2 className="w-3.5 h-3.5 text-amber-400" /> ใบยืนยันขายรถยนต์
                         </span>
-                        <p className="text-xl font-extrabold text-white">28 คัน</p>
+                        <p className={`text-xl font-extrabold ${textHeading}`}>28 คัน</p>
                         <p className="text-[9px] text-amber-400 font-semibold">เฉลี่ยจบดีลภายใน 4 วัน</p>
                       </div>
                     </div>
@@ -704,7 +741,7 @@ export default function UserProfileView() {
                         value={showroomName}
                         onChange={(e) => setShowroomName(e.target.value)}
                         required
-                        className="w-full bg-slate-900/60 border border-white/10 rounded-xl p-3 text-xs text-white"
+                        className={`w-full rounded-xl p-3 text-xs border ${inputField}`}
                       />
                     </div>
 
@@ -715,7 +752,7 @@ export default function UserProfileView() {
                         value={showroomPhone}
                         onChange={(e) => setShowroomPhone(e.target.value)}
                         required
-                        className="w-full bg-slate-900/60 border border-white/10 rounded-xl p-3 text-xs text-white"
+                        className={`w-full rounded-xl p-3 text-xs border ${inputField}`}
                       />
                     </div>
 
@@ -726,7 +763,7 @@ export default function UserProfileView() {
                         value={showroomAddress}
                         onChange={(e) => setShowroomAddress(e.target.value)}
                         required
-                        className="w-full bg-slate-900/60 border border-white/10 rounded-xl p-3 text-xs text-white"
+                        className={`w-full rounded-xl p-3 text-xs border ${inputField}`}
                       />
                     </div>
                   </div>
@@ -753,10 +790,10 @@ export default function UserProfileView() {
                               showToast(`เปลี่ยนภาพปกเป็นธีม ${preset.name} แล้วคร้าบ 🎨`, "info");
                             }}
                             className={`p-1.5 rounded-xl border text-left cursor-pointer transition overflow-hidden relative ${
-                              isChosen ? "border-teal-500 bg-teal-500/10" : "border-white/5 bg-slate-900/45"
+                              isChosen ? "border-teal-500 bg-teal-500/10" : isDarkMode ? "border-white/5 bg-slate-900/45" : "border-slate-200 bg-slate-50"
                             }`}
                           >
-                            <div className="h-16 rounded-lg overflow-hidden border border-white/5">
+                            <div className={`h-16 rounded-lg overflow-hidden border ${isDarkMode ? "border-white/5" : "border-slate-200"}`}>
                               <img src={preset.bg} alt={preset.name} className="w-full h-full object-cover" />
                             </div>
                             <span className="text-[10px] font-bold text-slate-300 block text-center pt-2">{preset.name}</span>
@@ -766,7 +803,7 @@ export default function UserProfileView() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-white/5 flex justify-end">
+                  <div className={`pt-4 border-t flex justify-end ${borderSubtle}`}>
                     <button
                       type="submit"
                       className="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white text-xs font-black rounded-xl active:scale-95 transition-all text-center cursor-pointer"
@@ -790,9 +827,11 @@ export default function UserProfileView() {
                 <div className="space-y-6">
                   
                   {/* Dark Mode toggle row */}
-                  <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between">
+                  <div className={`p-4 rounded-xl flex items-center justify-between border ${
+                    isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
+                  }`}>
                     <div className="space-y-1 text-left">
-                      <span className="text-xs font-black text-white flex items-center gap-1.5">
+                      <span className={`text-xs font-black flex items-center gap-1.5 ${textHeading}`}>
                         <Sparkle className="w-4 h-4 text-orange-500" /> สลับโหมดสีแอมเบียนต์ (Dark Mode Theme)
                       </span>
                       <p className="text-[10px] text-slate-400">
@@ -819,9 +858,11 @@ export default function UserProfileView() {
                   </div>
 
                   {/* Language Selector row */}
-                  <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between">
+                  <div className={`p-4 rounded-xl flex items-center justify-between border ${
+                    isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
+                  }`}>
                     <div className="space-y-1 text-left">
-                      <span className="text-xs font-black text-white flex items-center gap-1.5">
+                      <span className={`text-xs font-black flex items-center gap-1.5 ${textHeading}`}>
                         <Languages className="w-4 h-4 text-orange-500" /> ภาษาการทำงานเบื้องหน้า (Language Dictionary)
                       </span>
                       <p className="text-[10px] text-slate-400">
@@ -843,7 +884,9 @@ export default function UserProfileView() {
                           className={`p-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                             settings.language === t.code 
                               ? "bg-orange-500/15 border border-orange-500/30 text-orange-400"
-                              : "border border-white/5 bg-transparent text-slate-400 hover:text-white"
+                              : isDarkMode
+                              ? "border border-white/5 bg-transparent text-slate-400 hover:text-white"
+                              : "border border-slate-200 bg-white text-slate-600 hover:text-slate-900"
                           }`}
                         >
                           {t.l}
@@ -869,10 +912,12 @@ export default function UserProfileView() {
                           type="checkbox"
                           checked={settings.emailNotifications}
                           onChange={(e) => saveSettings({ emailNotifications: e.target.checked })}
-                          className="w-4 h-4 rounded text-orange-500 bg-slate-900/50 border-white/10 accent-orange-500 focus:ring-0"
+                          className={`w-4 h-4 rounded text-orange-500 accent-orange-500 focus:ring-0 border ${
+                            isDarkMode ? "bg-slate-900/50 border-white/10" : "bg-white border-slate-300"
+                          }`}
                         />
                         <div className="text-left leading-none">
-                          <p className="text-xs font-bold text-white group-hover:text-orange-400 transition">
+                          <p className={`text-xs font-bold group-hover:text-orange-400 transition ${textHeading}`}>
                             รับแคมเปญโปรขายดีและสิทธิประโยชน์ทางอีเมล (Promotion Mailers)
                           </p>
                           <p className="text-[9.5px] text-slate-500 mt-1">คัดเลือกเฉพาะดีลพรีเมียมจากพาร์ตเนอร์ดีลเลอร์รายสัปดาห์</p>
@@ -884,10 +929,12 @@ export default function UserProfileView() {
                           type="checkbox"
                           checked={settings.pushNotifications}
                           onChange={(e) => saveSettings({ pushNotifications: e.target.checked })}
-                          className="w-4 h-4 rounded text-orange-500 bg-slate-900/50 border-white/10 accent-orange-500 focus:ring-0"
+                          className={`w-4 h-4 rounded text-orange-500 accent-orange-500 focus:ring-0 border ${
+                            isDarkMode ? "bg-slate-900/50 border-white/10" : "bg-white border-slate-300"
+                          }`}
                         />
                         <div className="text-left leading-none font-sans">
-                          <p className="text-xs font-bold text-white group-hover:text-orange-400 transition">
+                          <p className={`text-xs font-bold group-hover:text-orange-400 transition ${textHeading}`}>
                             ข้อความด่วนเรียลไทม์เมื่อลูกค้าติดต่อขอนัดตรวจเช็คคาร์ (Live Buyer Chat Alerts)
                           </p>
                           <p className="text-[9.5px] text-slate-500 mt-1">ไม่พลาดทุกดีลการเจรจาราคา ส่งใบสรุปทางหน้าจอทันที</p>
@@ -913,7 +960,7 @@ export default function UserProfileView() {
                   <div className="py-12 text-center space-y-4">
                     <MessageCircle className="w-12 h-12 text-slate-500 mx-auto opacity-30 animate-pulse" />
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white">ยังไม่มีประวัติการคุยเลยฮะ</h4>
+                      <h4 className={`text-sm font-bold ${textHeading}`}>ยังไม่มีประวัติการคุยเลยฮะ</h4>
                       <p className="text-[10.5px] text-slate-400 max-w-sm mx-auto leading-relaxed">
                         แนะนํากดเข้าห้องน้องเอเพื่อประชดราคา คุยเปรียบเทียบสเปก EV แล้วประวัติดีลเด็ดจะปรากฏที่บันทึกพอร์ทลนี้ด่วนคร้าบ
                       </p>
@@ -929,13 +976,17 @@ export default function UserProfileView() {
                       {chatSessionsInStore.map((s) => (
                         <div 
                           key={s.id}
-                          className="p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between hover:bg-white/[0.03] transition group text-left"
+                          className={`p-4 rounded-xl flex items-center justify-between transition group text-left border ${
+                            isDarkMode
+                              ? "border-white/5 bg-white/[0.01] hover:bg-white/[0.03]"
+                              : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                          }`}
                         >
                           <div className="space-y-1">
                             <span className="text-[8px] bg-orange-500/10 text-orange-400 font-bold px-1.5 py-0.5 rounded uppercase font-mono">
                               CHAT ID: {s.id.split("-")[1] || s.id}
                             </span>
-                            <h4 className="text-xs font-black text-white group-hover:text-orange-400 transition truncate max-w-md mt-1">
+                            <h4 className={`text-xs font-black group-hover:text-orange-400 transition truncate max-w-md mt-1 ${textHeading}`}>
                               {s.title}
                             </h4>
                             <p className="text-[9px] text-slate-500 font-mono">
