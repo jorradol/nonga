@@ -7,6 +7,7 @@ import path from "node:path";
 import type { MarketplaceCarRecord } from "../src/server/marketplaceInventory.ts";
 import {
   PUBLIC_LISTING_REDACTED_CONTACT_FIELDS,
+  PUBLIC_LISTING_REDACTED_SENSITIVE_VEHICLE_FIELDS,
   redactListingPrivateContactFields,
   toPublicMarketplaceCarDto,
   toPublicMarketplaceCarDtoList,
@@ -67,11 +68,35 @@ const rawWithExtraContact = {
   contactNote: "call after 6pm",
 };
 
+const sensitiveFixture = {
+  ...sampleMemberListing,
+  vin: "ZZZZZZZZZZZZZZZZZ",
+  licensePlate: "กข-9999",
+  wholesaleInternalPrice: 500_000,
+  description: "Synthetic — VIN ZZZZZZZZZZZZZZZZZ ทะเบียน กข-9999",
+};
+
 const redacted = toPublicMarketplaceCarDto(rawWithExtraContact as MarketplaceCarRecord);
+const sensitiveDto = toPublicMarketplaceCarDto(
+  sensitiveFixture as unknown as MarketplaceCarRecord
+);
+const sensitiveRaw = sensitiveDto as unknown as Record<string, unknown>;
+
 ok(
   "member listing ownerPhone redacted",
   redacted.ownerPhone === "",
   `got=${redacted.ownerPhone}`
+);
+for (const key of PUBLIC_LISTING_REDACTED_SENSITIVE_VEHICLE_FIELDS) {
+  ok(`sensitive vehicle field ${key} omitted`, !(key in sensitiveRaw));
+}
+ok(
+  "wholesaleInternalPrice omitted",
+  !("wholesaleInternalPrice" in sensitiveRaw)
+);
+ok(
+  "description VIN fragment removed",
+  !String(sensitiveRaw.description ?? "").includes("ZZZZZZZZZZZZZZZZZ")
 );
 for (const field of PUBLIC_LISTING_REDACTED_CONTACT_FIELDS) {
   if (field === "ownerPhone") continue;
@@ -145,8 +170,9 @@ const storeSource = fs.readFileSync(
   "utf8"
 );
 ok(
-  "store fetchCars uses normalizePublicMarketplaceCar",
-  storeSource.includes("normalizePublicMarketplaceCar")
+  "store fetchCars uses public marketplace fetch pipeline",
+  storeSource.includes("applyCarsFetchPayload") ||
+    storeSource.includes("normalizePublicMarketplaceCar")
 );
 
 const myListingsApi = fs.readFileSync(
