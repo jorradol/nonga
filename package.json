@@ -20,6 +20,7 @@
     "test:lead-multi-owner-isolation": "tsx scripts/test-lead-multi-owner-isolation.mts",
     "test:v67b-dealer-mutation-auth-guard": "tsx scripts/test-v67b-dealer-mutation-auth-guard.mts",
     "test:v67c1-dealer-inventory-real-buyerlead-queue-wiring-patch-execution-record": "tsx scripts/test-v67c1-dealer-inventory-real-buyerlead-queue-wiring-patch-execution-record.mts",
+    "test:v67c1d-staging-hosting-deploy-dealer-portal-inventory-smoke-execution-record": "tsx scripts/test-v67c1d-staging-hosting-deploy-dealer-portal-inventory-smoke-execution-record.mts",
     "test:v68b-gemini-safety-alignment": "tsx scripts/test-v68b-gemini-safety-alignment.mts",
     "test:v68c-staging-real-gemini-shadow-smoke-readiness": "tsx scripts/test-v68c-staging-real-gemini-shadow-smoke-readiness.mts",
     "test:v68c1-admin-shadow-kill-switch-patch": "tsx scripts/test-v68c1-admin-shadow-kill-switch-patch.mts",
