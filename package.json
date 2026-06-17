@@ -57,6 +57,7 @@
     "test:v69h-a-staging-hosting-deploy-header-drawer-contrast-resmoke-execution-record": "tsx scripts/test-v69h-a-staging-hosting-deploy-header-drawer-contrast-resmoke-execution-record.mts",
     "test:v69i-b-operator-manual-authenticated-profile-light-mode-smoke-execution-record": "tsx scripts/test-v69i-b-operator-manual-authenticated-profile-light-mode-smoke-execution-record.mts",
     "test:v69i-c-staging-hosting-deploy-guest-profile-routeguard-contrast-resmoke-execution-record": "tsx scripts/test-v69i-c-staging-hosting-deploy-guest-profile-routeguard-contrast-resmoke-execution-record.mts",
+    "test:v69j-b-header-avatar-fallback-patch-execution-record": "tsx scripts/test-v69j-b-header-avatar-fallback-patch-execution-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
