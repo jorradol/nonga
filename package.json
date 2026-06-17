@@ -67,6 +67,7 @@
     "test:v69l-c-public-listing-sensitive-field-redaction-patch-execution-record": "tsx scripts/test-v69l-c-public-listing-sensitive-field-redaction-patch-execution-record.mts",
     "test:v69l-d-staging-hosting-deploy-public-privacy-smoke-execution-record": "tsx scripts/test-v69l-d-staging-hosting-deploy-public-privacy-smoke-execution-record.mts",
     "test:v69m-thor-owner-gate-controlled-revenue-pilot-go-no-go-checklist": "tsx scripts/test-v69m-thor-owner-gate-controlled-revenue-pilot-go-no-go-checklist.mts",
+    "test:v67c1f-authenticated-dealer-portal-inventory-lead-queue-smoke-closure-execution-record": "tsx scripts/test-v67c1f-authenticated-dealer-portal-inventory-lead-queue-smoke-closure-execution-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
