@@ -70,6 +70,7 @@
     "test:v67c1f-authenticated-dealer-portal-inventory-lead-queue-smoke-closure-execution-record": "tsx scripts/test-v67c1f-authenticated-dealer-portal-inventory-lead-queue-smoke-closure-execution-record.mts",
     "test:v67c1g-operator-authenticated-dealer-smoke-result-record": "tsx scripts/test-v67c1g-operator-authenticated-dealer-smoke-result-record.mts",
     "test:v69n-controlled-revenue-pilot-ops-sop-lead-monitor-skeleton": "tsx scripts/test-v69n-controlled-revenue-pilot-ops-sop-lead-monitor-skeleton.mts",
+    "test:v69o-controlled-revenue-pilot-incident-no-go-response-playbook": "tsx scripts/test-v69o-controlled-revenue-pilot-incident-no-go-response-playbook.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
