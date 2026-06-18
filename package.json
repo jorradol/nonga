@@ -89,6 +89,7 @@
     "test:v70k-authenticated-dealer-smoke-owner-go-no-go-decision-packet": "tsx scripts/test-v70k-authenticated-dealer-smoke-owner-go-no-go-decision-packet.mts",
     "test:v70l-authenticated-dealer-smoke-owner-decision-closure": "tsx scripts/test-v70l-authenticated-dealer-smoke-owner-decision-closure.mts",
     "test:v70m-owner-decision-sync-to-v69q-authenticated-smoke-gate-alignment": "tsx scripts/test-v70m-owner-decision-sync-to-v69q-authenticated-smoke-gate-alignment.mts",
+    "test:v70n-v69q-owner-go-no-go-form-closure-m2-decision-record": "tsx scripts/test-v70n-v69q-owner-go-no-go-form-closure-m2-decision-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
