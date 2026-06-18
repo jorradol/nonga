@@ -1,0 +1,312 @@
+/**
+ * v7.0G — Owner Decision Packet Sync to v6.9Q
+ * (static validation only)
+ * npm run test:v70g-owner-decision-packet-sync-to-v69q
+ *
+ * No fetch, no deploy, no gcloud, no Firestore, no Thor import, no auth bypass,
+ * no credentials read, no operator login, no user-visible Gemini.
+ * Docs + static validation only.
+ */
+import { readFileSync } from "node:fs";
+
+const DOC_PATH = "docs/v7.0G-owner-decision-packet-sync-to-v69q.md";
+
+const SECRET_PATTERNS = [
+  /AIza[Sy][a-zA-Z0-9_-]{20,}/,
+  /Bearer\s+[A-Za-z0-9._-]{20,}/i,
+  /Authorization:\s*Bearer/i,
+  /sk-[a-zA-Z0-9]{20,}/,
+  /GEMINI_API_KEY\s*[=:]\s*['"][^'"]{8,}['"]/i,
+  /password\s*[=:]\s*['"][^'"]{3,}['"]/i,
+  /session(?:Id|Cookie|Token)\s*[=:]\s*['"][^'"]{6,}['"]/i,
+  /cookie\s*[=:]\s*['"][^'"]{6,}['"]/i,
+];
+
+/** Phone/email-like PII guard. */
+const PII_PATTERNS = [
+  /\b0[689]\d[-\s]?\d{3}[-\s]?\d{4}\b/,
+  /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/,
+];
+
+/** Thai license-plate-like token guard. */
+const PLATE_PATTERNS = [
+  /[ก-ฮ]{1,2}[-\s]?\d{3,4}\b/,
+  /\b\d[ก-ฮ]{2}\d{3,4}\b/,
+];
+
+/** 17-char VIN-like token guard. */
+const VIN_PATTERN = /\b[A-HJ-NPR-Z0-9]{17}\b/;
+
+/** Over-claim guard: only flagged when the line does NOT negate. */
+const OVERCLAIM_PATTERNS = [
+  /production-ready/i,
+  /pilot-ready/i,
+  /go\s+for\s+thor\s+runtime\s+import/i,
+  /thor.*runtime\s+import.*unblocked\s*[:=]?\s*yes/i,
+];
+
+function ok(name: string, pass: boolean, detail = "") {
+  console.log(pass ? "PASS" : "FAIL", name, detail);
+  if (!pass) process.exitCode = 1;
+}
+
+console.log("=== v7.0G Owner Decision Packet Sync to v6.9Q ===\n");
+
+const doc = readFileSync(DOC_PATH, "utf8");
+const pkg = readFileSync("package.json", "utf8");
+
+// --- doc structure / phase ---
+ok("doc exists", doc.length > 3000);
+ok("phase name v7.0G", /v7\.0G/i.test(doc));
+ok(
+  "phase title decision packet sync",
+  /Owner Decision Packet Sync to v6\.9Q/i.test(doc)
+);
+ok(
+  "branch feature/chat-image-attachment-v1",
+  doc.includes("feature/chat-image-attachment-v1")
+);
+ok("baseline c73857f", doc.includes("c73857f"));
+
+// --- verdict ---
+ok(
+  "verdict OWNER DECISION SYNC TO v6.9Q ONLY",
+  /PARTIAL — OWNER DECISION SYNC TO v6\.9Q ONLY|PARTIAL -- OWNER DECISION SYNC TO v6\.9Q ONLY/i.test(
+    doc
+  )
+);
+
+// --- references to dependent phases ---
+ok("references v7.0A", /v7\.0A/i.test(doc));
+ok("references v7.0B", /v7\.0B/i.test(doc));
+ok("references v7.0C", /v7\.0C/i.test(doc));
+ok("references v7.0D", /v7\.0D/i.test(doc));
+ok("references v7.0E", /v7\.0E/i.test(doc));
+ok("references v7.0F", /v7\.0F/i.test(doc));
+ok("references v6.9Q", /v6\.9Q/i.test(doc));
+ok("references v6.7C-1-G", /v6\.7C-1-G/i.test(doc));
+
+// --- required main sections ---
+ok("executive summary section", /Executive summary/i.test(doc));
+ok("baseline section", /##\s*\d+\.\s*Baseline/i.test(doc));
+ok("current gate status section", /Current gate status/i.test(doc));
+ok("why v6.9Q sync section", /Why v6\.9Q sync is needed/i.test(doc));
+ok("source decision section", /Source decision from v7\.0F/i.test(doc));
+ok("v6.9Q alignment table section", /v6\.9Q alignment table/i.test(doc));
+ok(
+  "decision scope carried forward section",
+  /Decision scope carried forward/i.test(doc)
+);
+ok(
+  "explicit non-approvals carried forward section",
+  /Explicit non-approvals carried forward/i.test(doc)
+);
+ok("what is now allowed section", /What is now allowed/i.test(doc));
+ok("what remains blocked section", /What remains blocked/i.test(doc));
+ok("relationship to v6.9Q section", /Relationship to v6\.9Q/i.test(doc));
+ok("relationship to v7.0F section", /Relationship to v7\.0F/i.test(doc));
+ok(
+  "relationship to v6.7C-1-G section",
+  /Relationship to v6\.7C-1-G/i.test(doc)
+);
+ok(
+  "missing items before operator safe session section",
+  /Missing items before operator safe session/i.test(doc)
+);
+ok(
+  "missing items before authenticated smoke section",
+  /Missing items before authenticated smoke execution/i.test(doc)
+);
+ok(
+  "missing items before thor import section",
+  /Missing items before Thor runtime import/i.test(doc)
+);
+ok(
+  "missing items before gemini pilot section",
+  /Missing items before Gemini user-visible pilot/i.test(doc)
+);
+ok("safety confirmations section", /Safety confirmations/i.test(doc));
+ok("next slices section", /Next slices/i.test(doc));
+
+// --- source decision OD-1 = YES, OD-2..OD-8 = PASS ---
+ok("source OD-1 = YES", /\| OD-1 \|[^\n]*\| \*\*YES\*\* \|/.test(doc));
+for (let i = 2; i <= 8; i++) {
+  const id = `OD-${i}`;
+  ok(`source decision ${id}`, doc.includes(id));
+  const rowRe = new RegExp(`\\| ${id} \\|[^\\n]*\\| \\*\\*PASS\\*\\* \\|`);
+  ok(`source decision ${id} = PASS`, rowRe.test(doc));
+}
+
+// --- YES = limited authenticated smoke prep only ---
+ok(
+  "yes limited prep only",
+  /YES — LIMITED AUTHENTICATED SMOKE PREP ONLY|YES \(limited prep\)/i.test(doc)
+);
+
+// --- v6.9Q alignment table content ---
+ok("alignment aligned status", /ALIGNED/i.test(doc));
+
+// --- scope / non-approval carried forward ---
+for (let i = 1; i <= 4; i++) {
+  ok(`scope carried forward AS-${i}`, doc.includes(`AS-${i}`));
+}
+for (let i = 1; i <= 7; i++) {
+  ok(`non-approval carried forward NA-${i}`, doc.includes(`NA-${i}`));
+}
+
+// --- non-PII status ---
+ok("status-only present", /status-only/i.test(doc));
+
+// --- v7.0G is sync/alignment record only ---
+ok(
+  "sync alignment record only",
+  /sync\/alignment record เท่านั้น|sync\/alignment record only|OWNER DECISION SYNC TO v6\.9Q ONLY/i.test(
+    doc
+  )
+);
+
+// --- v7.0G is NOT authenticated smoke execution ---
+ok(
+  "not authenticated smoke execution",
+  /ไม่ใช่.*authenticated smoke execution|v7\.0G \*\*ไม่ใช่\*\* authenticated smoke execution/i.test(
+    doc
+  )
+);
+
+// --- no authenticated smoke PASS yet ---
+ok(
+  "no authenticated smoke pass yet",
+  /ยังไม่มี.*authenticated smoke PASS|NO authenticated smoke PASS yet|no smoke PASS yet/i.test(
+    doc
+  )
+);
+
+// --- not owner GO for real revenue pilot ---
+ok(
+  "not owner go for revenue pilot",
+  /ไม่ใช่.*owner GO สำหรับ revenue pilot จริง|NOT owner GO for real revenue pilot|Owner GO for real revenue pilot.*NO/i.test(
+    doc
+  )
+);
+
+// --- still awaiting smoke result + owner approval recorded in v6.9Q ---
+ok(
+  "awaiting operator smoke result",
+  /รอ operator authenticated smoke result|AWAITING OPERATOR RESULT/i.test(doc)
+);
+ok(
+  "owner approval at v6.9Q",
+  /บันทึก.*v6\.9Q|owner approval.*v6\.9Q|รอ owner approval/i.test(doc)
+);
+
+// --- Thor / blocked invariants ---
+ok(
+  "thor runtime import remains blocked",
+  /Thor.*runtime import.*BLOCKED|Thor runtime import ยัง.*BLOCKED|remains blocked/i.test(
+    doc
+  )
+);
+ok("thor not unblocked", /Thor Auto runtime import unblocked.*NO/i.test(doc));
+ok(
+  "user-visible gemini remains blocked",
+  /User-visible AI \/ Gemini enabled.*BLOCKED|user-visible Gemini ยัง.*BLOCKED|user-visible Gemini remains BLOCKED/i.test(
+    doc
+  )
+);
+ok(
+  "public signup remains blocked",
+  /Public signup opened.*BLOCKED|public signup ยัง.*BLOCKED|public signup remains BLOCKED/i.test(
+    doc
+  )
+);
+ok(
+  "production deploy remains blocked",
+  /Production deploy readiness.*BLOCKED|production deploy ยัง.*BLOCKED/i.test(doc)
+);
+
+// --- not GO / not production-ready / not pilot-ready ---
+ok(
+  "not go for thor runtime import",
+  /Claims GO for Thor runtime import.*NO|ไม่ใช่.*GO FOR THOR RUNTIME IMPORT|This is NOT GO FOR THOR RUNTIME IMPORT/i.test(
+    doc
+  )
+);
+ok(
+  "claims production-ready no",
+  /Claims production-ready.*NO|production-ready.*NO/i.test(doc)
+);
+ok("claims pilot-ready no", /Claims pilot-ready.*NO|pilot-ready.*NO/i.test(doc));
+
+// --- no credential/session/password/token/cookie rule ---
+ok(
+  "no credential rule",
+  /Credential \/ session \/ cookie \/ token read.*NO|Agent login \/ credential read.*NO/i.test(
+    doc
+  )
+);
+ok("operator login this slice no", /Operator login in this slice.*NO/i.test(doc));
+ok(
+  "no credential rule text",
+  /ส่ง credential\/session\/cookie\/token|credential\/session\/cookie\/token\/password|Credential \/ session \/ cookie \/ token/i.test(
+    doc
+  )
+);
+
+// --- no PII / raw contact / plate / VIN rule ---
+ok(
+  "no PII raw contact rule",
+  /Buyer\/seller PII \/ VIN \/ plate \/ raw contact in doc.*NO/i.test(doc)
+);
+ok(
+  "no pii rule text",
+  /PII \/ phone \/ email \/ plate \/ VIN \/ raw contact|PII\/raw contact\/plate\/VIN|raw buyer data|PII \/ raw contact \/ plate \/ VIN/i.test(
+    doc
+  )
+);
+
+// --- no runtime/deploy/env/firestore/import rule ---
+ok("no runtime rule", /Runtime code changes.*NO/i.test(doc));
+ok("no deploy rule", /Deploy performed.*NO/i.test(doc));
+ok("no env rule", /Env \/ secrets \/ deploy config.*Unchanged/i.test(doc));
+ok(
+  "no firestore rule",
+  /Firestore write from agent.*Not touched|Real lead created\/edited in Firestore.*NO/i.test(
+    doc
+  )
+);
+ok("no thor import rule", /Thor data imported.*NO/i.test(doc));
+
+// --- over-claim guard (line-level, allow negated lines) ---
+const lines = doc.split(/\r?\n/);
+for (const pattern of OVERCLAIM_PATTERNS) {
+  const badLines = lines.filter(
+    (ln) =>
+      pattern.test(ln) &&
+      !/\b(no|not|never|blocked|NOT READY|remains|pending|missing|forbidden|until|only if|cannot|ยังไม่|ไม่อนุมัติ)\b/i.test(
+        ln
+      ) &&
+      !/ไม่|ยัง|ห้าม/.test(ln)
+  );
+  ok(`overclaim guarded ${pattern}`, badLines.length === 0, badLines[0] ?? "");
+}
+
+// --- no secret / PII / plate / VIN tokens in doc ---
+for (const pattern of SECRET_PATTERNS) {
+  ok(`no secret pattern ${pattern}`, !pattern.test(doc));
+}
+for (const pattern of PII_PATTERNS) {
+  ok(`no pii pattern ${pattern}`, !pattern.test(doc));
+}
+ok("no vin-like token", !VIN_PATTERN.test(doc));
+for (const pattern of PLATE_PATTERNS) {
+  ok(`no plate-like token ${pattern}`, !pattern.test(doc));
+}
+ok("no raw code/output dump", !/```[\s\S]{600,}```/.test(doc));
+
+// --- package script ---
+ok(
+  "package script registered",
+  pkg.includes("test:v70g-owner-decision-packet-sync-to-v69q")
+);
+
+console.log("\nDone v7.0G owner decision packet sync to v6.9Q tests.\n");
