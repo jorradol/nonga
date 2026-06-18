@@ -84,6 +84,7 @@
     "test:v70f-owner-decision-closure-for-authenticated-smoke": "tsx scripts/test-v70f-owner-decision-closure-for-authenticated-smoke.mts",
     "test:v70g-owner-decision-packet-sync-to-v69q": "tsx scripts/test-v70g-owner-decision-packet-sync-to-v69q.mts",
     "test:v70h-operator-safe-session-readiness-checklist-closure": "tsx scripts/test-v70h-operator-safe-session-readiness-checklist-closure.mts",
+    "test:v70i-authenticated-dealer-smoke-execution-template-operator-runbook": "tsx scripts/test-v70i-authenticated-dealer-smoke-execution-template-operator-runbook.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
