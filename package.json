@@ -78,6 +78,7 @@
     "test:v69t-operator-non-login-dry-run-result-shell": "tsx scripts/test-v69t-operator-non-login-dry-run-result-shell.mts",
     "test:v70a-operator-non-login-dry-run-execution-record": "tsx scripts/test-v70a-operator-non-login-dry-run-execution-record.mts",
     "test:v70b-operator-non-login-dry-run-result-closure-record": "tsx scripts/test-v70b-operator-non-login-dry-run-result-closure-record.mts",
+    "test:v70c-authenticated-dealer-smoke-safe-session-prep-packet": "tsx scripts/test-v70c-authenticated-dealer-smoke-safe-session-prep-packet.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
