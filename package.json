@@ -76,6 +76,7 @@
     "test:v69r-controlled-revenue-pilot-evidence-pack-index-audit-trail-map": "tsx scripts/test-v69r-controlled-revenue-pilot-evidence-pack-index-audit-trail-map.mts",
     "test:v69s-controlled-revenue-pilot-operator-dry-run-checklist-non-login-rehearsal": "tsx scripts/test-v69s-controlled-revenue-pilot-operator-dry-run-checklist-non-login-rehearsal.mts",
     "test:v69t-operator-non-login-dry-run-result-shell": "tsx scripts/test-v69t-operator-non-login-dry-run-result-shell.mts",
+    "test:v70a-operator-non-login-dry-run-execution-record": "tsx scripts/test-v70a-operator-non-login-dry-run-execution-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
