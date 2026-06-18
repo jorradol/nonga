@@ -73,6 +73,7 @@
     "test:v69o-controlled-revenue-pilot-incident-no-go-response-playbook": "tsx scripts/test-v69o-controlled-revenue-pilot-incident-no-go-response-playbook.mts",
     "test:v69p-controlled-revenue-pilot-readiness-index-gate-matrix": "tsx scripts/test-v69p-controlled-revenue-pilot-readiness-index-gate-matrix.mts",
     "test:v69q-owner-decision-packet-manual-approval-form": "tsx scripts/test-v69q-owner-decision-packet-manual-approval-form.mts",
+    "test:v69r-controlled-revenue-pilot-evidence-pack-index-audit-trail-map": "tsx scripts/test-v69r-controlled-revenue-pilot-evidence-pack-index-audit-trail-map.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
