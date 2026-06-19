@@ -479,11 +479,8 @@ function tryOrchestrateChatReplyCore(
         text = `${text}\n\n${marketNote}`;
       }
     }
-    // v7.5 — single safety nudge, only when the message has a payment/scam trigger
-    const safetyNudge = buildUsedCarSafetyNudge(message);
-    if (safetyNudge) {
-      text = `${text}\n\n${safetyNudge}`;
-    }
+    // v7.5.1 — safety nudge is woven centrally in tryOrchestrateChatReply so it
+    // also covers the no-results path; not appended here to avoid duplication.
 
     return {
       text,
@@ -528,6 +525,19 @@ export function tryOrchestrateChatReply(
   const reply = tryOrchestrateChatReplyCore(message, inventory, options);
   if (!reply) {
     return null;
+  }
+
+  // v7.5.1 — single safety nudge for ANY reply path (search results, no-results,
+  // follow-up) when the message has a payment/scam trigger. Skip if the reply
+  // already carries safety guidance (e.g. the paymentSafety advisor) so we never
+  // double up, and keep it to a single appended line.
+  const safetyNudge = buildUsedCarSafetyNudge(message);
+  if (
+    safetyNudge &&
+    !reply.text.includes(safetyNudge) &&
+    !/เห็นรถจริง|ดูรถจริง|ตรวจเล่มทะเบียน|ตรวจเอกสาร/.test(reply.text)
+  ) {
+    reply.text = `${reply.text}\n\n${safetyNudge}`;
   }
 
   wireShadowChatPath({

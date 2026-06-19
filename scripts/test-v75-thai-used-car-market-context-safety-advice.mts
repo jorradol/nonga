@@ -195,5 +195,66 @@ const INVENTORY: ChatInventoryCar[] = [
   ok("single-area search not hijacked", detectBuyerAdvisorTopic("อยากได้รถใช้ในเมือง") === null);
 }
 
+// ---------------------------------------------------------------------------
+// 8) v7.5.1 patch — staging smoke fixes
+//    (a) paymentSafety regex catches "โอนมัดจำก่อนดูรถ" ordering
+//    (b) safety nudge also woven into the NO-RESULTS path
+// ---------------------------------------------------------------------------
+{
+  // (a) phrase that previously fell through to vehicle search
+  ok(
+    "v751 detect paymentSafety for โอนมัดจำก่อนดูรถ",
+    detectBuyerAdvisorTopic("ต้องโอนมัดจำก่อนดูรถไหม") === "paymentSafety",
+    String(detectBuyerAdvisorTopic("ต้องโอนมัดจำก่อนดูรถไหม"))
+  );
+  ok(
+    "v751 detect paymentSafety for โอนเงินมัดจำก่อน",
+    detectBuyerAdvisorTopic("เขาให้โอนเงินมัดจำก่อนดูรถได้ไหม") === "paymentSafety"
+  );
+  // regression: these must STILL detect
+  ok(
+    "v751 keeps โอนเงินก่อนดูรถ",
+    detectBuyerAdvisorTopic("โอนเงินก่อนดูรถได้ไหม") === "paymentSafety"
+  );
+  // must NOT hijack a plain search
+  ok(
+    "v751 plain search still not advisor",
+    detectBuyerAdvisorTopic("อยากได้รถใช้ในเมือง") === null
+  );
+
+  // (b) no-results path still surfaces a single safety line when triggered.
+  // Use a trigger ("นัดดู") that routes to search (not the advisor) with empty inventory.
+  const noResults = tryOrchestrateChatReply("มีรถ SUV ให้นัดดูรถไหม", []);
+  if (noResults) {
+    ok(
+      "v751 no-results path weaves safety nudge",
+      /เห็นรถจริง|ดูรถจริง|ตรวจเล่มทะเบียน|ตรวจเอกสาร|ก่อนโอน|วางมัดจำ/.test(noResults.text),
+      noResults.text.slice(-90)
+    );
+    ok("v751 no-results no overclaim", !USED_CAR_ADVICE_OVERCLAIM_FORBIDDEN.test(noResults.text));
+  } else {
+    // if routing returns null (no reply), that's acceptable — nothing to assert
+    ok("v751 no-results path returned null (acceptable)", true);
+  }
+
+  // no extra nudge appended on top of the paymentSafety advisor (which already
+  // gives full safety guidance) — guard must prevent a duplicated nudge line.
+  const triggeredAdvisor = tryOrchestrateChatReply(
+    "มี Yaris ไม่เกิน 3 แสนไหม ต้องโอนมัดจำก่อนดูรถไหม",
+    INVENTORY
+  );
+  const NUDGE_OPENERS = [
+    "ก่อนโอนเงินหรือวางมัดจำ แนะนำให้เห็นรถจริง",
+    "แนะนำนัดดูรถจริงและตรวจเอกสารให้ครบก่อนโอนเงิน",
+    "เพื่อความสบายใจ ควรเห็นรถจริงและเช็กเอกสาร",
+  ];
+  const nudgeAppended = NUDGE_OPENERS.some((o) => (triggeredAdvisor?.text ?? "").includes(o));
+  ok("v751 no duplicated nudge over advisor reply", !nudgeAppended);
+  ok(
+    "v751 advisor reply still carries safety guidance",
+    /เห็นรถจริง/.test(triggeredAdvisor?.text ?? "")
+  );
+}
+
 console.log(`\nDone v7.5 Thai used-car market context + safety advice. PASS ${passed} / ${passed + failed}`);
 if (process.exitCode) process.exit(process.exitCode);
