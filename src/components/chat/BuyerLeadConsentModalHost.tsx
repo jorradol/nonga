@@ -6,6 +6,10 @@ import {
   resolveBuyerLeadTargetForFields,
 } from "../../services/leads/buyerLeadCaptureFlow";
 import { buildBuyerLeadModalPreview } from "../../services/leads/buyerLeadPreview";
+import {
+  buildLeadPreviewContextFromMemory,
+  getConversationalLeadMemory,
+} from "../../services/leads/conversationalLeadMemory";
 import { BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR } from "../../services/leads/buyerLeadConsentModalCopy";
 import { BuyerLeadConsentModal } from "./BuyerLeadConsentModal";
 
@@ -26,7 +30,12 @@ export function BuyerLeadConsentModalHost() {
     const ctx = getBuyerLeadCaptureContext(sessionId);
     if (!ctx || ctx.stage !== "ready_for_modal") return null;
     const target = resolveBuyerLeadTargetForFields(ctx.fields);
-    return buildBuyerLeadModalPreview(ctx.fields, target);
+    // v7.3 — DISPLAY-ONLY enrichment from v7.2 conversational memory.
+    // Never added to the submitted payload; never treated as consent.
+    const memoryContext = buildLeadPreviewContextFromMemory(
+      getConversationalLeadMemory(sessionId)
+    );
+    return buildBuyerLeadModalPreview(ctx.fields, target, memoryContext);
   }, [consentModalOpen, sessionId]);
 
   const handleConfirm = async (phone: string) => {

@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { fetchListingInterestQueueStats } from "../../services/leads/buyerLeadApi";
-import { buildPublicInterestLabel } from "../../services/leads/buyerLeadQueuePolicy";
+import React, { useMemo, useState } from "react";
 import { Car, ChevronDown, ChevronUp, ImageOff, PhoneCall, Quote, Sparkles, Volume2, VolumeX } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { saveLastSelectedCarId, addRecentlyViewedCarId } from "../../utils/chatCarContext";
@@ -233,22 +231,9 @@ function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
 
 export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [interestCount, setInterestCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetchListingInterestQueueStats(car.id).then((stats) => {
-      if (!cancelled && stats) setInterestCount(stats.interestCount);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [car.id]);
-
-  const interestLabel =
-    interestCount != null && interestCount > 0
-      ? buildPublicInterestLabel(interestCount)
-      : "";
+  // v7.3 — No Queue Count Display (buyer-facing): the buyer car card must not
+  // fetch or render the interest-queue count. Backend queue is unchanged.
 
   const brandModel = `${car.brand} ${car.model}`.trim();
   const priceLabel =
@@ -313,14 +298,6 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
               ? "รายละเอียดรถในช่องแชท — จากข้อมูลจริงในระบบ"
               : "แตะดูรายละเอียดในแชทได้โดยไม่ต้องออกจากหน้านี้"}
           </p>
-          {interestLabel ? (
-            <p
-              className="text-[10px] text-amber-400/90 mt-1 font-medium"
-              data-testid="chat-car-card-interest-queue"
-            >
-              {interestLabel}
-            </p>
-          ) : null}
         </div>
         {car.matchKind === "alternative" && (
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">

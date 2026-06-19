@@ -10,6 +10,7 @@ import {
 } from "./buyerLeadCaptureFlow";
 import type { PurchaseMethod } from "./leadTypes";
 import { buildBuyerLeadSummary } from "./buyerLeadValidation";
+import type { LeadPreviewMemoryContext } from "./conversationalLeadMemory";
 
 export interface BuyerLeadModalPreview {
   listingId: string;
@@ -21,6 +22,12 @@ export interface BuyerLeadModalPreview {
   offeredPriceLabel: string | null;
   preferredContactWindow: string;
   sellerSummary: string;
+  /**
+   * v7.3 — DISPLAY-ONLY natural context derived from v7.2 conversational memory.
+   * Helps the buyer recognize their own remembered interest. NEVER part of the
+   * submitted lead payload and NEVER implies consent.
+   */
+  memoryHighlights?: string[];
 }
 
 export function formatPurchaseMethodLabel(method: PurchaseMethod): string {
@@ -41,7 +48,8 @@ function formatBudgetLabel(fields: BuyerLeadDraftFields): string {
 
 export function buildBuyerLeadModalPreview(
   fields: BuyerLeadDraftFields,
-  target: BuyerLeadTargetCar | null
+  target: BuyerLeadTargetCar | null,
+  memoryContext?: LeadPreviewMemoryContext | null
 ): BuyerLeadModalPreview | null {
   if (!fields.listingId?.trim() || !fields.displayName?.trim()) return null;
   if (!fields.purchaseMethod || !fields.preferredContactWindow?.trim()) return null;
@@ -80,6 +88,9 @@ export function buildBuyerLeadModalPreview(
     offeredPriceLabel,
     preferredContactWindow: fields.preferredContactWindow,
     sellerSummary,
+    ...(memoryContext && memoryContext.highlights.length > 0
+      ? { memoryHighlights: memoryContext.highlights }
+      : {}),
   };
 }
 

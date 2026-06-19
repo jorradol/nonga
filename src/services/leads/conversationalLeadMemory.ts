@@ -388,6 +388,73 @@ export function conversationalLeadMemoryHasNoContactOrConsent(
   });
 }
 
+// ---------------------------------------------------------------------------
+// v7.3 — Natural lead preview context (DISPLAY-ONLY)
+// ---------------------------------------------------------------------------
+
+/**
+ * A read-only, human-readable summary of remembered interest, for enriching the
+ * lead *preview* shown to the same buyer. This NEVER becomes the submitted lead
+ * payload and NEVER implies consent — it only helps the conversation feel
+ * natural ("จากที่คุยกันไว้: ..."). Contains no phone/name/consent/plate/queue.
+ */
+export interface LeadPreviewMemoryContext {
+  /** Short bullet highlights for display (e.g. "รุ่นที่สนใจ: Yaris"). */
+  highlights: string[];
+  /** One-line natural summary for display. */
+  summary: string;
+}
+
+const PURCHASE_PREFERENCE_LABEL: Record<ConversationalPurchasePreference, string> = {
+  finance: "สนใจผ่อน/ไฟแนนซ์",
+  cash: "สนใจซื้อสด",
+  undecided: "ยังไม่แน่ใจผ่อนหรือสด",
+};
+
+/**
+ * Build display-only preview context from interest memory.
+ * Returns null when there is nothing useful to show. Pure function.
+ */
+export function buildLeadPreviewContextFromMemory(
+  mem: ConversationalLeadInterestMemory | null | undefined
+): LeadPreviewMemoryContext | null {
+  if (!mem) return null;
+  const highlights: string[] = [];
+
+  if (mem.models && mem.models.length > 0) {
+    highlights.push(`รุ่นที่สนใจ: ${mem.models.join(", ")}`);
+  } else if (mem.brands && mem.brands.length > 0) {
+    highlights.push(`ยี่ห้อที่สนใจ: ${mem.brands.join(", ")}`);
+  }
+  if (mem.budgetMax != null && mem.budgetMax > 0) {
+    highlights.push(`งบประมาณ: ไม่เกิน ${mem.budgetMax.toLocaleString("th-TH")} บาท`);
+  } else if (mem.budgetMin != null && mem.budgetMin > 0) {
+    highlights.push(`งบประมาณ: ประมาณ ${mem.budgetMin.toLocaleString("th-TH")} บาท`);
+  }
+  if (mem.areas && mem.areas.length > 0) {
+    highlights.push(`พื้นที่สะดวกดูรถ: ${mem.areas.join(", ")}`);
+  }
+  if (mem.transmission) {
+    highlights.push(`เกียร์: ${mem.transmission === "auto" ? "อัตโนมัติ" : "ธรรมดา"}`);
+  }
+  if (mem.fuelTypes && mem.fuelTypes.length > 0) {
+    highlights.push(`เชื้อเพลิง: ${mem.fuelTypes.join(", ")}`);
+  }
+  if (mem.purchasePreference) {
+    highlights.push(PURCHASE_PREFERENCE_LABEL[mem.purchasePreference]);
+  }
+  if (mem.unwantedConditions && mem.unwantedConditions.length > 0) {
+    highlights.push(`เงื่อนไขที่ไม่ต้องการ: ${mem.unwantedConditions.join(", ")}`);
+  }
+
+  if (highlights.length === 0) return null;
+
+  return {
+    highlights,
+    summary: `จากที่คุยกันไว้ — ${highlights.join(" · ")}`,
+  };
+}
+
 /** Test helper — seed a memory directly. */
 export function setConversationalLeadMemoryForTest(
   sessionId: string,

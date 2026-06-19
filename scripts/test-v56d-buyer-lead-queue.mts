@@ -76,7 +76,10 @@ let lead3Id = "";
     lead1Id = r1.lead.id;
     lead2Id = r2.lead.id;
     lead3Id = r3.lead.id;
-    ok("buyer message mentions queue", r2.buyerMessage.includes("ลำดับที่ 2"));
+    // v7.3 — buyer-facing message must confirm submission WITHOUT exposing the
+    // queue position number (backend queuePosition above is unchanged).
+    ok("buyer message confirms submission", r2.buyerMessage.includes("ส่งข้อมูลให้ผู้ขายแล้ว"));
+    ok("buyer message hides queue position (v7.3)", !/ลำดับที่\s*\d/.test(r2.buyerMessage));
   }
 }
 
@@ -85,7 +88,11 @@ let lead3Id = "";
   const stats = await getListingInterestStats(repo, listing.id);
   ok("interest count is 3", stats.interestCount === 3);
   ok("public payload has no PII", publicQueuePayloadHasNoOtherBuyerPii(stats));
-  ok("public label", buildBuyerJoinedQueueMessage(2).includes("ลำดับที่ 2"));
+  ok(
+    "joined-queue message hides position number (v7.3)",
+    buildBuyerJoinedQueueMessage(2).includes("ส่งข้อมูลให้ผู้ขายแล้ว") &&
+      !/ลำดับที่\s*\d/.test(buildBuyerJoinedQueueMessage(2))
+  );
 }
 
 // --- buyer sees only own queue fields ---

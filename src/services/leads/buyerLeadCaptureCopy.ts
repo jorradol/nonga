@@ -175,18 +175,19 @@ export function buildBuyerLeadEditProfileReply(missing: string[]): string {
   return lines.join("\n");
 }
 
-export function buildBuyerLeadSuccessReply(queuePosition?: number): string {
-  if (queuePosition != null && queuePosition > 0) {
-    return [
-      "ส่งข้อมูลให้ผู้ขายแล้วครับ",
-      `ตอนนี้คุณอยู่ในคิวผู้สนใจลำดับที่ ${queuePosition}`,
-      "ผู้ขายจะติดต่อกลับตามลำดับคิวครับ",
-      "น้องเอไม่เปิดเผยชื่อหรือเบอร์ของผู้สนใจรายอื่นให้คุณเห็นครับ",
-    ].join("\n");
-  }
+/**
+ * v7.3 — No Queue Count Display (buyer-facing): the success reply must NOT show
+ * any queue position / interest-queue count to the buyer. The backend still
+ * orders the queue, but the user-facing message never exposes the number.
+ * The `queuePosition` parameter is intentionally ignored (kept for caller
+ * compatibility) and must never be rendered.
+ */
+export function buildBuyerLeadSuccessReply(_queuePosition?: number): string {
   return [
-    "บันทึกแล้วครับ น้องเอส่งสรุปความสนใจให้ผู้ขายแล้ว",
+    "ส่งข้อมูลให้ผู้ขายแล้วครับ",
+    "ผู้ขายจะเห็นข้อมูลแบบคัดกรองและจะติดต่อกลับหาคุณครับ",
     "ผู้ขายจะเห็นข้อมูลแบบคัดกรองก่อน — **ยังไม่เปิดเบอร์เต็มในรอบนี้**",
+    "น้องเอไม่เปิดเผยชื่อหรือเบอร์ของผู้สนใจรายอื่นให้คุณเห็นครับ",
     "น้องเอไม่รับประกันว่าจะปิดการขาย — ช่วยสะดวกการติดต่อเท่านั้นครับ",
   ].join("\n");
 }

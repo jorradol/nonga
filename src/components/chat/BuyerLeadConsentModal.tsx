@@ -150,6 +150,22 @@ export function BuyerLeadConsentModal({
                   <PreviewRow label="เวลาที่สะดวก" value={preview.preferredContactWindow} />
                 </dl>
 
+                {preview.memoryHighlights && preview.memoryHighlights.length > 0 ? (
+                  <section
+                    className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
+                    data-testid="buyer-lead-preview-memory-context"
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+                      จากที่คุยกันไว้ (ช่วยน้องเอเตรียมข้อมูล — ยังไม่ส่งจนกว่าจะยืนยัน)
+                    </p>
+                    <ul className="text-xs text-slate-300 leading-relaxed list-disc pl-4 space-y-0.5">
+                      {preview.memoryHighlights.map((line, i) => (
+                        <li key={i}>{line}</li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
                 <section
                   className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
                   data-testid="buyer-lead-preview-summary"

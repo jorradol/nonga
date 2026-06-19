@@ -44,10 +44,14 @@ ok(
   mapBuyerLeadHttpError(400, "ประกาศนี้ไม่พร้อมรับลีดในขณะนี้ครับ").includes("ไม่พร้อมรับลีด")
 );
 
-// --- success copy ---
+// --- success copy (v7.3 — no buyer-facing queue count) ---
 ok(
-  "success reply mentions queue",
-  buildBuyerLeadSuccessReply(2).includes("2")
+  "success reply confirms submission",
+  buildBuyerLeadSuccessReply(2).includes("ส่งข้อมูลให้ผู้ขายแล้ว")
+);
+ok(
+  "success reply hides queue number/position (v7.3)",
+  !/ลำดับ|คิวผู้สนใจลำดับ|ลำดับที่\s*\d/.test(buildBuyerLeadSuccessReply(2))
 );
 
 // --- handler pre-submit errors (no API) ---

@@ -58,11 +58,17 @@ export function getListingInterestQueueStats(
   };
 }
 
-export function buildBuyerJoinedQueueMessage(queuePosition: number): string {
+/**
+ * v7.3 — No Queue Count Display (buyer-facing): the buyer success message must
+ * NOT expose the queue position / interest-queue count. The backend still
+ * computes and stores queue ordering (revenue logic unchanged); only this
+ * user-facing copy is sanitized. The `queuePosition` argument is intentionally
+ * ignored (kept for caller compatibility) and must never be rendered.
+ */
+export function buildBuyerJoinedQueueMessage(_queuePosition?: number): string {
   return [
     "ส่งข้อมูลให้ผู้ขายแล้วครับ",
-    `ตอนนี้คุณอยู่ในคิวผู้สนใจลำดับที่ ${queuePosition}`,
-    "ผู้ขายจะติดต่อกลับตามลำดับคิวครับ",
+    "ผู้ขายจะเห็นข้อมูลแบบคัดกรองและจะติดต่อกลับหาคุณครับ",
     "น้องเอไม่เปิดเผยชื่อหรือเบอร์ของผู้สนใจรายอื่นให้คุณเห็นครับ",
   ].join("\n");
 }
