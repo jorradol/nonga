@@ -46,6 +46,10 @@ import {
   getConversationalLeadMemory,
 } from "../../leads/conversationalLeadMemory";
 import {
+  buildMarketContextNote,
+  buildUsedCarSafetyNudge,
+} from "./chatUsedCarSafetyAdvice";
+import {
   detectBuyerRefinement,
   extractNumberedComparePair,
 } from "./chatPilotBuyerFollowUp";
@@ -466,6 +470,19 @@ function tryOrchestrateChatReplyCore(
       if (opener) {
         text = `${opener}\n\n${text}`;
       }
+      // v7.5 — light market-context note (only with a budget/finance signal)
+      const marketNote = buildMarketContextNote(
+        parseBuyerSearchIntent(message),
+        message
+      );
+      if (marketNote) {
+        text = `${text}\n\n${marketNote}`;
+      }
+    }
+    // v7.5 — single safety nudge, only when the message has a payment/scam trigger
+    const safetyNudge = buildUsedCarSafetyNudge(message);
+    if (safetyNudge) {
+      text = `${text}\n\n${safetyNudge}`;
     }
 
     return {
