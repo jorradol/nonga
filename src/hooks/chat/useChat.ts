@@ -24,7 +24,11 @@ import {
   handleBuyerLeadCaptureTurn,
   submitBuyerLeadFromModal,
 } from "../../services/leads/buyerLeadCaptureHandler";
-import { shouldRunBuyerLeadCaptureTurn } from "../../services/leads/buyerLeadCaptureFlow";
+import {
+  pauseBuyerLeadCapture,
+  shouldRunBuyerLeadCaptureTurn,
+} from "../../services/leads/buyerLeadCaptureFlow";
+import { resolveBuyerLeadFlowEscape } from "../../services/leads/buyerLeadFlowEscape";
 import type { ChatCarCardData } from "../../types";
 import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
@@ -913,7 +917,26 @@ export function useChat() {
       const historyAfterUser =
         useChatStore.getState().messages[sessionId] || [];
 
-      if (shouldRunBuyerLeadCaptureTurn(sessionId, memberConsumerSellerFlow)) {
+      // v7.1 — Lead Flow Escape + Intent Re-check: if a buyer lead capture is
+      // active but the latest message has a new intent, pause the lead (draft,
+      // never sent) and fall back to helping with the new intent.
+      const leadEscape = resolveBuyerLeadFlowEscape(sessionId, trimmed);
+      if (leadEscape.kind === "hold") {
+        pauseBuyerLeadCapture(sessionId);
+        await addMessage(sessionId, "ai", leadEscape.reply);
+        setGenerating(false);
+        return;
+      }
+      if (leadEscape.kind === "redirect") {
+        pauseBuyerLeadCapture(sessionId);
+        await addMessage(sessionId, "ai", leadEscape.ack);
+        // do not return — continue so the new intent is handled this turn
+      }
+
+      if (
+        leadEscape.kind === "none" &&
+        shouldRunBuyerLeadCaptureTurn(sessionId, memberConsumerSellerFlow)
+      ) {
         const buyerLeadCapture = await handleBuyerLeadCaptureTurn({
           sessionId,
           message: trimmed,

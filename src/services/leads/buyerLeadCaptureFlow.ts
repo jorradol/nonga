@@ -34,6 +34,7 @@ export type BuyerLeadCaptureStage =
   | "collecting"
   | "reuse_profile_choice"
   | "ready_for_modal"
+  | "paused"
   | "submitting"
   | "completed";
 
@@ -103,6 +104,34 @@ export function getBuyerLeadCaptureContext(
 
 export function clearBuyerLeadCaptureContext(sessionId: string): void {
   bySession.delete(sessionId);
+}
+
+/**
+ * v7.1 — Lead Flow Escape: pause an active capture session without sending.
+ * Keeps collected draft fields (so useful data is not lost) and marks the
+ * stage as "paused" so subsequent messages flow back to normal search/help.
+ * Never submits a lead. Returns null when there is nothing active to pause.
+ */
+export function pauseBuyerLeadCapture(
+  sessionId: string
+): BuyerLeadCaptureContext | null {
+  const ctx = bySession.get(sessionId);
+  if (!ctx) return null;
+  if (
+    ctx.stage === "completed" ||
+    ctx.stage === "submitting" ||
+    ctx.stage === "paused"
+  ) {
+    return ctx;
+  }
+  const paused: BuyerLeadCaptureContext = { ...ctx, stage: "paused" };
+  bySession.set(sessionId, paused);
+  return paused;
+}
+
+/** v7.1 — true when a session holds a paused (draft, unsent) lead context. */
+export function isPausedBuyerLeadCaptureSession(sessionId: string): boolean {
+  return bySession.get(sessionId)?.stage === "paused";
 }
 
 export function isBuyerLeadStartIntent(message: string): boolean {
@@ -350,7 +379,12 @@ export function processBuyerLeadCaptureTurn(params: {
     ctx = beginBuyerLeadCapture(params.sessionId);
   }
 
-  if (!ctx || ctx.stage === "completed" || ctx.stage === "submitting") {
+  if (
+    !ctx ||
+    ctx.stage === "completed" ||
+    ctx.stage === "submitting" ||
+    ctx.stage === "paused"
+  ) {
     return { handled: false };
   }
 
