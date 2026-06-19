@@ -98,6 +98,7 @@
     "test:v70t-operator-manual-smoke-instruction-sanitized-evidence-collection-guide": "tsx scripts/test-v70t-operator-manual-smoke-instruction-sanitized-evidence-collection-guide.mts",
     "test:v71-lead-flow-escape-intent-recheck": "tsx scripts/test-v71-lead-flow-escape-intent-recheck.mts",
     "test:v71a-lead-flow-escape-intent-recheck-closure-record": "tsx scripts/test-v71a-lead-flow-escape-intent-recheck-closure-record.mts",
+    "test:v72-conversational-lead-memory": "tsx scripts/test-v72-conversational-lead-memory.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",

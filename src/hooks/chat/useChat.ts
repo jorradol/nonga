@@ -29,6 +29,7 @@ import {
   shouldRunBuyerLeadCaptureTurn,
 } from "../../services/leads/buyerLeadCaptureFlow";
 import { resolveBuyerLeadFlowEscape } from "../../services/leads/buyerLeadFlowEscape";
+import { updateConversationalLeadMemory } from "../../services/leads/conversationalLeadMemory";
 import type { ChatCarCardData } from "../../types";
 import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
@@ -916,6 +917,12 @@ export function useChat() {
       try {
       const historyAfterUser =
         useChatStore.getState().messages[sessionId] || [];
+
+      // v7.2 — Conversational Lead Memory (record-only): remember buyer interest
+      // from this message (model/budget/area/conditions/intent) to help the
+      // conversation and prepare a smarter lead draft later. Never sends a lead,
+      // never implies consent, never stores phone/name. Does not change replies.
+      updateConversationalLeadMemory(sessionId, trimmed);
 
       // v7.1 — Lead Flow Escape + Intent Re-check: if a buyer lead capture is
       // active but the latest message has a new intent, pause the lead (draft,
