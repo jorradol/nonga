@@ -18,6 +18,7 @@ import {
 } from "./marketplaceChatSearch";
 import {
   assertBuyerPitchSafe,
+  buildAllCardFitReasons,
   buildAllScoredPitchLines,
   buildScoredCarPitchCopy,
 } from "./buyerCarPitchCopy";
@@ -34,6 +35,8 @@ export interface BuyerScoredMarketplaceReply {
   allCarCards: ChatCarCardData[];
   /** Warm pitch per ranked car (parallel to allCarCards) */
   pitchLines?: string[];
+  /** v7.4 — compact grounded fit reason per ranked car (parallel to allCarCards) */
+  fitReasons?: string[];
   hasMoreCars?: boolean;
 }
 
@@ -95,6 +98,9 @@ function buildScoredSearchIntro(
     hasMore,
     ctaLine,
     displayCount,
+    // v7.4 — per-car narrative is fused onto each card (fitReason), so keep the
+    // text bubble to a warm opener + closing + CTA instead of a wall of pitches.
+    omitPerCarPitch: true,
   });
   assertSafeReplyText(text);
   assertBuyerPitchSafe(text);
@@ -166,7 +172,14 @@ export function tryBuyerScoredMarketplaceReply(
   }
 
   const summaries = toSummaries(scoring);
-  const allCarCards = summariesToCarCards(summaries, []);
+  const baseCards = summariesToCarCards(summaries, []);
+  // v7.4 — narrative fusion: attach a grounded, guarded fit reason to each card.
+  // fitReasons are parallel to scoring.candidates → parallel to baseCards order.
+  const fitReasons = buildAllCardFitReasons(intent, scoring);
+  const allCarCards = baseCards.map((card, i) => ({
+    ...card,
+    fitReason: fitReasons[i] ?? undefined,
+  }));
   const initialCards = allCarCards.slice(0, 3);
   const hasMore = allCarCards.length > 3;
   const displayCount = initialCards.length;
@@ -184,6 +197,7 @@ export function tryBuyerScoredMarketplaceReply(
     carCards: initialCards,
     allCarCards,
     pitchLines,
+    fitReasons,
     hasMoreCars: hasMore,
   };
 }

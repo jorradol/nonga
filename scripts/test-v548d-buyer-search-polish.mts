@@ -112,6 +112,12 @@ function countPitchBlocks(text: string): number {
     .length;
 }
 
+// v7.4 — narrative fusion: per-car warm reason now lives on each card (fitReason),
+// not in the text wall. Count grounded fit reasons attached to shown cards.
+function countCardFitReasons(cards: ChatCarCardData[]): number {
+  return cards.filter((c) => (c.fitReason ?? "").trim().length > 0).length;
+}
+
 console.log("=== Nong A v5.4.8d buyer search polish ===\n");
 
 // --- persona & pitch every car (3) ---
@@ -119,22 +125,25 @@ const qFuel = "งบไม่เกิน 3 แสน อยากได้ร�
 const orchFuel = tryOrchestrateChatReply(qFuel, INVENTORY_BUDGET_FUEL)!;
 ok("fuel-uses-nong-a", /น้องเอ/.test(orchFuel.text), "");
 ok("fuel-no-hnu", !/หนู/.test(orchFuel.text), orchFuel.text.slice(0, 80));
-ok("fuel-three-pitches", countPitchBlocks(orchFuel.text) >= 3, String(countPitchBlocks(orchFuel.text)));
-ok("fuel-pitch-per-card", countPitchBlocks(orchFuel.text) >= (orchFuel.carCards.length ?? 0), "");
+// v7.4 — fused narrative: every shown card carries a grounded fit reason.
+ok("fuel-three-pitches", countCardFitReasons(orchFuel.carCards) >= 3, String(countCardFitReasons(orchFuel.carCards)));
+ok("fuel-pitch-per-card", countCardFitReasons(orchFuel.carCards) >= (orchFuel.carCards.length ?? 0), "");
+ok("fuel-text-no-pitch-wall", countPitchBlocks(orchFuel.text) === 0, orchFuel.text.slice(0, 80));
 assertNoForbidden(orchFuel.text, "fuel");
+for (const c of orchFuel.carCards) assertNoForbidden(c.fitReason ?? "", `fuel-fit-${c.id}`);
 
 // --- 1 car ---
 const qOne = "งบไม่เกิน 3 แสน รถประหยัดน้ำมัน";
 const orchOne = tryOrchestrateChatReply(qOne, INVENTORY_ONE)!;
 ok("one-card", orchOne.carCards.length === 1, "");
-ok("one-pitch", /คันแรก/.test(orchOne.text), orchOne.text.slice(0, 100));
-ok("one-no-second", !/คันที่สอง/.test(orchOne.text), "");
+ok("one-pitch", countCardFitReasons(orchOne.carCards) === 1, orchOne.carCards[0]?.fitReason ?? "");
+ok("one-no-second", orchOne.carCards.length === 1, "");
 
 // --- 2 cars ---
 const orchTwo = tryOrchestrateChatReply(qFuel, INVENTORY_TWO)!;
 ok("two-cards", orchTwo.carCards.length === 2, "");
-ok("two-pitches", /คันแรก/.test(orchTwo.text) && /คันที่สอง/.test(orchTwo.text), "");
-ok("two-no-third", !/คันที่สาม/.test(orchTwo.text), "");
+ok("two-pitches", countCardFitReasons(orchTwo.carCards) === 2, "");
+ok("two-no-third", orchTwo.carCards.length === 2, "");
 
 // --- advisor: ซื้อมือสองต้องดูอะไร (no Camry leak) ---
 ok(

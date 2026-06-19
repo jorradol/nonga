@@ -187,17 +187,25 @@ ok(
   /งบไม่เกิน|คัดจากรถ|ตลาด/.test(orchFuel?.text ?? ""),
   orchFuel?.text.slice(0, 80)
 );
+// v7.4 — narrative fusion: warm per-car reason now lives on each card (fitReason),
+// keeping the text bubble a short opener/closing instead of a wall of pitches.
+const fuelFitReasons = (orchFuel?.carCards ?? [])
+  .map((c) => c.fitReason ?? "")
+  .filter((r) => r.trim().length > 0);
 ok(
   "fuel-warm-pitch-tone",
-  /ฟีล|จังหวะ|คู่ใจ|น่าดูต่อ|ใช้งานจริง/.test(orchFuel?.text ?? ""),
-  orchFuel?.text.slice(0, 120)
+  /ฟีล|จังหวะ|คู่ใจ|น่าดูต่อ|ใช้งานจริง|เหมาะ|งบ/.test(fuelFitReasons.join(" ")),
+  fuelFitReasons.join(" ").slice(0, 120)
 );
 ok(
-  "fuel-three-pitch-labels",
-  /คันแรก/.test(orchFuel?.text ?? "") &&
-    /คันที่สอง/.test(orchFuel?.text ?? "") &&
-    /คันที่สาม/.test(orchFuel?.text ?? ""),
-  ""
+  "fuel-cards-have-fit-reason",
+  fuelFitReasons.length >= Math.min(3, orchFuel?.carCards.length ?? 0),
+  String(fuelFitReasons.length)
+);
+ok(
+  "fuel-text-no-pitch-wall",
+  !/คันแรก|คันที่สอง|คันที่สาม/.test(orchFuel?.text ?? ""),
+  orchFuel?.text.slice(0, 120)
 );
 ok(
   "fuel-not-old-numbered-block",

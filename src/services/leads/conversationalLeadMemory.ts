@@ -455,6 +455,57 @@ export function buildLeadPreviewContextFromMemory(
   };
 }
 
+// ---------------------------------------------------------------------------
+// v7.4 — Natural search opener (DISPLAY-ONLY, soft recall)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a short, natural opener that recalls the buyer's *stated* interest so a
+ * search reply feels continuous ("ตามที่คุยกันไว้ว่า ..."). DISPLAY-ONLY.
+ *
+ * Hard rules:
+ * - Recalls only the buyer's own stated preferences (model/brand/budget/area/
+ *   transmission/fuel/no-gas/purchase preference) — never claims a car HAS them.
+ * - Never includes phone/name/consent/plate/queue.
+ * - Never sends a lead and never implies consent. Returns null when nothing to recall.
+ */
+export function buildSearchOpenerFromMemory(
+  mem: ConversationalLeadInterestMemory | null | undefined
+): string | null {
+  if (!mem) return null;
+  const parts: string[] = [];
+
+  if (mem.models && mem.models.length > 0) {
+    parts.push(`สนใจ ${mem.models.join("/")}`);
+  } else if (mem.brands && mem.brands.length > 0) {
+    parts.push(`สนใจ ${mem.brands.join("/")}`);
+  }
+  if (mem.budgetMax != null && mem.budgetMax > 0) {
+    parts.push(`งบไม่เกิน ${mem.budgetMax.toLocaleString("th-TH")} บาท`);
+  }
+  if (mem.areas && mem.areas.length > 0) {
+    parts.push(`สะดวกดูรถแถว ${mem.areas.join("/")}`);
+  }
+  if (mem.transmission) {
+    parts.push(`เกียร์${mem.transmission === "auto" ? "ออโต้" : "ธรรมดา"}`);
+  }
+  if (mem.fuelTypes && mem.fuelTypes.length > 0) {
+    parts.push(`เชื้อเพลิง ${mem.fuelTypes.join("/")}`);
+  }
+  if (mem.excludeGas) {
+    parts.push("ไม่เอาติดแก๊ส");
+  }
+  if (mem.purchasePreference === "finance") {
+    parts.push("สนใจผ่อน");
+  } else if (mem.purchasePreference === "cash") {
+    parts.push("สนใจซื้อสด");
+  }
+
+  if (parts.length === 0) return null;
+
+  return `ตามที่คุยกันไว้ว่า${parts.join(" ")} — น้องเอคัดจากรถจริงในระบบให้นะครับ`;
+}
+
 /** Test helper — seed a memory directly. */
 export function setConversationalLeadMemoryForTest(
   sessionId: string,

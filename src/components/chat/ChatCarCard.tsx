@@ -319,6 +319,18 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
           <SpecGrid items={summarySpecs} compact />
         )}
 
+        {car.fitReason?.trim() ? (
+          <div
+            className="flex items-start gap-1.5 rounded-lg border border-orange-500/20 bg-orange-500/[0.05] px-2.5 py-2"
+            data-testid="chat-car-card-fit-reason"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] sm:text-xs text-slate-200 leading-relaxed break-words">
+              {car.fitReason.trim()}
+            </p>
+          </div>
+        ) : null}
+
         {expanded ? (
           <div className="border-t border-slate-800/80 pt-3 space-y-3">
             <ChatCarCuratedAnalysisPanel car={car} />

@@ -193,6 +193,12 @@ export interface ChatCarCardData {
   hasImage: boolean;
   detailPath: string;
   matchKind: "exact" | "alternative";
+  /**
+   * v7.4 — display-only grounded "why this car fits" line for narrative fusion.
+   * Built deterministically from real listing fields + buyer intent only.
+   * NOT persisted, NOT part of any lead payload, never implies consent.
+   */
+  fitReason?: string;
 }
 
 export interface DealerReview {

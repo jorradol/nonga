@@ -42,6 +42,10 @@ import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
 import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
 import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
 import {
+  buildSearchOpenerFromMemory,
+  getConversationalLeadMemory,
+} from "../../leads/conversationalLeadMemory";
+import {
   detectBuyerRefinement,
   extractNumberedComparePair,
 } from "./chatPilotBuyerFollowUp";
@@ -386,10 +390,6 @@ function tryOrchestrateChatReplyCore(
         const nextOffset = searchCtx.offset + 3;
         const nextCars = searchCtx.allCars.slice(searchCtx.offset, nextOffset);
         const hasMore = searchCtx.allCars.length > nextOffset;
-        const nextPitches = searchCtx.pitchLines?.slice(
-          searchCtx.offset,
-          nextOffset
-        );
 
         saveChatSearchContext(
           {
@@ -401,13 +401,9 @@ function tryOrchestrateChatReplyCore(
         );
         if (nextCars.length > 0) saveChatCarContext(nextCars, chatSessionId);
 
-        const pitchBlock =
-          nextPitches && nextPitches.length > 0
-            ? nextPitches.join("\n\n")
-            : "";
-        const text = pitchBlock
-          ? `ต่อด้วยอีก ${nextCars.length} คันที่น่าสนใจครับ\n\n${pitchBlock}`
-          : `ต่อด้วยอีก ${nextCars.length} คันที่น่าสนใจครับ`;
+        // v7.4 — narrative fusion: the per-car reason now lives on each card
+        // (fitReason), so the show-more text stays a short, natural connector.
+        const text = `ต่อด้วยอีก ${nextCars.length} คันที่น่าสนใจครับ ดูเหตุผลที่เข้ากับโจทย์ได้บนการ์ดแต่ละคันเลยครับ`;
 
         return {
           text,
@@ -459,8 +455,21 @@ function tryOrchestrateChatReplyCore(
       );
     }
 
+    // v7.4 — soft, display-only recall of remembered interest so the answer feels
+    // continuous. Never sends a lead, never implies consent, never claims a car
+    // HAS these traits — it only recalls the buyer's own stated preferences.
+    let text = buyerScored.text;
+    if (initialCards.length > 0) {
+      const opener = buildSearchOpenerFromMemory(
+        getConversationalLeadMemory(chatSessionId ?? "")
+      );
+      if (opener) {
+        text = `${opener}\n\n${text}`;
+      }
+    }
+
     return {
-      text: buyerScored.text,
+      text,
       carCards: initialCards,
       skipGemini: true,
       hasMoreCars: hasMore,

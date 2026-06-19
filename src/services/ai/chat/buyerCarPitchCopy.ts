@@ -168,6 +168,31 @@ export function buildBuyerCarPitchLine(
   return pitch.trim();
 }
 
+/**
+ * v7.4 — compact grounded "why this car fits" line for a single card.
+ * Deterministic, derived only from the scored candidate's real fields + intent
+ * (no mileage/fuel/history/finance/condition invented). Always safety-guarded.
+ */
+export function buildCardFitReason(
+  ranked: BuyerMarketplaceScoredCandidate,
+  index: number,
+  intent: BuyerSearchIntent
+): string {
+  const angle = buildWarmAngle(intent, ranked, index).trim();
+  assertBuyerPitchSafe(angle);
+  return angle;
+}
+
+/** v7.4 — fit reasons parallel to scoring.candidates (for card narrative fusion). */
+export function buildAllCardFitReasons(
+  intent: BuyerSearchIntent,
+  scoring: BuyerMarketplaceScoringResult
+): string[] {
+  return scoring.candidates.map((candidate, i) =>
+    buildCardFitReason(candidate, i, intent)
+  );
+}
+
 /** Pitch lines for every ranked candidate (compact style from index 3+). */
 export function buildAllScoredPitchLines(
   message: string,
@@ -253,7 +278,17 @@ export function buildScoredCarPitchCopy(
   message: string,
   intent: BuyerSearchIntent,
   scoring: BuyerMarketplaceScoringResult,
-  options: { hasMore: boolean; ctaLine: string; displayCount: number }
+  options: {
+    hasMore: boolean;
+    ctaLine: string;
+    displayCount: number;
+    /**
+     * v7.4 — when true, omit the per-car pitch lines from the text bubble because
+     * the grounded narrative is now fused onto each car card (fitReason). Keeps
+     * the answer connected to the cards instead of a separate wall of text.
+     */
+    omitPerCarPitch?: boolean;
+  }
 ): string {
   const displayCount = Math.min(
     options.displayCount,
@@ -263,9 +298,11 @@ export function buildScoredCarPitchCopy(
     buildPitchOpener(message, intent, displayCount, scoring.cautions),
   ];
 
-  const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
-  for (let i = 0; i < displayCount; i++) {
-    parts.push(pitchLines[i]);
+  if (!options.omitPerCarPitch) {
+    const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
+    for (let i = 0; i < displayCount; i++) {
+      parts.push(pitchLines[i]);
+    }
   }
 
   parts.push(
