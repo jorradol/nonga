@@ -108,6 +108,7 @@
     "test:v752b-owner-manual-ui-smoke-confirmation-record": "tsx scripts/test-v752b-owner-manual-ui-smoke-confirmation-record.mts",
     "test:v76-gemini-readiness-audit-user-visible-ai-go-no-go-plan": "tsx scripts/test-v76-gemini-readiness-audit-user-visible-ai-go-no-go-plan.mts",
     "test:v76a-gemini-readiness-audit-closure-record": "tsx scripts/test-v76a-gemini-readiness-audit-closure-record.mts",
+    "test:v77-admin-only-gemini-shadow-smoke-plan": "tsx scripts/test-v77-admin-only-gemini-shadow-smoke-plan.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
