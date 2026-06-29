@@ -110,6 +110,7 @@
     "test:v76a-gemini-readiness-audit-closure-record": "tsx scripts/test-v76a-gemini-readiness-audit-closure-record.mts",
     "test:v77-admin-only-gemini-shadow-smoke-plan": "tsx scripts/test-v77-admin-only-gemini-shadow-smoke-plan.mts",
     "test:v77a-admin-only-gemini-shadow-smoke-plan-closure-record": "tsx scripts/test-v77a-admin-only-gemini-shadow-smoke-plan-closure-record.mts",
+    "test:v78-admin-only-gemini-shadow-smoke-approval-packet": "tsx scripts/test-v78-admin-only-gemini-shadow-smoke-approval-packet.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
