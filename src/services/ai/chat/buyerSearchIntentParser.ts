@@ -89,7 +89,7 @@ export function parseBuyerSearchBudgetMax(message: string): number | undefined {
   let parsedPrice = 0;
 
   const priceUnder = processedText.match(
-    /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|งบ(?:ไม่)?(?:เกิน)?|ราคา|ต่ำกว่า)\s*([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
+    /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|งบ(?:ไม่)?(?:เกิน)?|ราคา|ต่ำกว่า|ถูกกว่า|ถูกลง|น้อยกว่า)\s*([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
   );
 
   if (priceUnder) {
@@ -108,7 +108,7 @@ export function parseBuyerSearchBudgetMax(message: string): number | undefined {
 
   if (parsedPrice === 0) {
     const implicitUnder = processedText.match(
-      /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|ต่ำกว่า)\s*([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
+      /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|ต่ำกว่า|ถูกกว่า|ถูกลง|น้อยกว่า)\s*([\d,]+(?:\.\d+)?)\s*(แสน|ล้าน|ล\.|million)?\s*(?:บาท|฿)?/i
     );
     if (implicitUnder) {
       parsedPrice = parseThaiNumber(implicitUnder[1]);
@@ -162,7 +162,7 @@ export function parseBuyerSearchBudgetMax(message: string): number | undefined {
 
   if (parsedPrice === 0) {
     const plainBaht = processedText.match(
-      /(?:ไม่เกิน|ไม่เกิ|งบ|ราคา|ต่ำกว่า)\s*([\d,]{6,})\s*(?:บาท|฿)?/i
+      /(?:ไม่เกิน|ไม่เกิ|งบ|ราคา|ต่ำกว่า|ถูกกว่า|ถูกลง|น้อยกว่า)\s*([\d,]{6,})\s*(?:บาท|฿)?/i
     );
     if (plainBaht) parsedPrice = parseThaiNumber(plainBaht[1]);
   }

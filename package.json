@@ -103,6 +103,7 @@
     "test:v74-ai-answer-naturalness-card-narrative-fusion": "tsx scripts/test-v74-ai-answer-naturalness-card-narrative-fusion.mts",
     "test:v75-thai-used-car-market-context-safety-advice": "tsx scripts/test-v75-thai-used-car-market-context-safety-advice.mts",
     "test:v751a-staging-deploy-closure-record": "tsx scripts/test-v751a-staging-deploy-closure-record.mts",
+    "test:v752-lead-capture-search-escape": "tsx scripts/test-v752-lead-capture-search-escape.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",

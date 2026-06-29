@@ -59,10 +59,27 @@ const REPLACE_SIGNAL =
   /แทน|เปลี่ยน(?:เป็น|ไป|มา)?|ขอเป็น|เอาเป็น|ขอใหม่|อันใหม่|คันใหม่/i;
 
 const SEARCH_VERB_SIGNAL =
-  /ขอดู|อยากดู|อยากได้|ขอ\s*รถ|หารถ|ค้นหา|ช่วยหา|ช่วยค้นหา|มีรถ|มี.{0,12}(?:ไหม|มั้ย)|แนะนำรถ|ดูรถ/i;
+  /ขอดู|อยากดู|อยากได้|ขอ\s*รถ|หารถ|หา\s|ค้นหา|ช่วยหา|ช่วยค้นหา|มีรถ|มี.{0,12}(?:ไหม|มั้ย)|แนะนำรถ|ดูรถ|นำเสนอ/i;
 
 const REJECT_CURRENT_SIGNAL =
   /ไม่เอาคันนี้|ไม่เอาแล้ว|ไม่เอาอันนี้|ไม่ชอบคันนี้|เปลี่ยนคัน/i;
+
+/**
+ * v7.5.2 — "find me a cheaper one" signal. The previous soft-search path only
+ * fired when parseBuyerSearchIntent() returned a structured vehicle search, but
+ * phrasings like "ราคาถูกกว่า 400,000" / "ถูกกว่านี้" were not recognised as a
+ * budget, so the lead loop kept re-prompting. This signal lets the escape gate
+ * catch a cheaper-price request directly.
+ */
+const CHEAPER_PRICE_SIGNAL =
+  /ถูกกว่า|ถูกลง|ราคาถูก|ราคาต่ำกว่า|น้อยกว่านี้|ถูก\s*ๆ|ประหยัดกว่า|งบ(?:น้อย|ลด)/i;
+
+/** v7.5.2 — request for a different model/variant/spec of car ("รุ่นอื่น"). */
+const OTHER_VARIANT_SIGNAL =
+  /รุ่นอื่น|รุ่นใหม่|แบบอื่น|ตัวอื่น|สีอื่น|เวอร์ชั่นอื่น|รุ่นถัดไป|คันอื่น/i;
+
+/** v7.5.2 — car-domain noun so a cheaper/variant request is clearly about cars. */
+const CAR_DOMAIN_NOUN_SIGNAL = /รถ|คัน|รุ่น|suv|กระบะ|เก๋ง|ออโต้|เกียร์/i;
 
 const CHANGE_CRITERIA_SIGNAL = /งบ|ราคา|แสน|ล้าน|รุ่น|ยี่ห้อ|รถ/i;
 
@@ -108,6 +125,23 @@ export function detectBuyerLeadFlowEscapeIntent(
     (REPLACE_SIGNAL.test(t) && CHANGE_CRITERIA_SIGNAL.test(t));
 
   if (strongRedirect) return "redirect";
+
+  // v7.5.2 — "find me a cheaper / different car" escape. Catches search-intent
+  // phrasings that do not parse into a structured BuyerSearchIntent (e.g.
+  // "ราคาถูกกว่า 400,000", "รุ่นอื่น") so the lead loop pauses instead of
+  // re-prompting. Guarded so a genuine lead-field answer never escapes.
+  const cheaperOrVariant =
+    CHEAPER_PRICE_SIGNAL.test(t) || OTHER_VARIANT_SIGNAL.test(t);
+  if (
+    cheaperOrVariant &&
+    !looksLikeLeadFieldContinuation(t) &&
+    (SEARCH_VERB_SIGNAL.test(t) ||
+      REPLACE_SIGNAL.test(t) ||
+      COMPARE_SIGNAL.test(t) ||
+      CAR_DOMAIN_NOUN_SIGNAL.test(t))
+  ) {
+    return "redirect";
+  }
 
   // Soft (budget-style) search — require an explicit search/replace verb and
   // make sure it is not just the user answering a lead field with a number.
