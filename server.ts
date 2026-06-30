@@ -38,6 +38,7 @@ import { registerDuplicateRoutes } from "./src/server/duplicateRoutes";
 import { dealerApiAuth, adminApiAuth } from "./src/server/apiAuth";
 import { registerSalesBrainAdminShadowSmokeRoutes } from "./src/services/ai/salesBrainServerShadowSmoke";
 import { registerSalesBrainChatShadowSinkRoutes } from "./src/services/ai/salesBrainServerChatShadowSink";
+import { registerSalesBrainAdminRuntimeProofSkeletonRoutes } from "./src/services/ai/salesBrainServerRuntimeProofSkeleton";
 import { registerSalesBrainUserVisibleOrchestrationBridgeRoutes } from "./src/services/ai/salesBrainServerUserVisibleOrchestrationBridge";
 import type { ChatInventoryCar } from "./src/services/ai/chat/marketplaceChatSearch";
 import { getListingImagesRoot } from "./src/server/listingImageStorage";
@@ -353,6 +354,7 @@ app.post("/api/cars", async (req, res) => {
 app.use("/api/dealer", dealerApiAuth);
 app.use("/api/admin", adminApiAuth);
 registerSalesBrainAdminShadowSmokeRoutes(app);
+registerSalesBrainAdminRuntimeProofSkeletonRoutes(app);
 registerSalesBrainChatShadowSinkRoutes(app);
 registerAdminPilotUserRoutes(app);
 
