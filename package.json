@@ -118,6 +118,7 @@
     "test:v80a-owner-sign-off-gate-b-c-evidence-packet-closure-record": "tsx scripts/test-v80a-owner-sign-off-gate-b-c-evidence-packet-closure-record.mts",
     "test:v81-gate-b-c-evidence-collection-dry-run-plan": "tsx scripts/test-v81-gate-b-c-evidence-collection-dry-run-plan.mts",
     "test:v81a-owner-sign-off-gate-b-c-evidence-collection-dry-run-plan-closure-record": "tsx scripts/test-v81a-owner-sign-off-gate-b-c-evidence-collection-dry-run-plan-closure-record.mts",
+    "test:v82-gate-b-c-evidence-collection-checklist-packet": "tsx scripts/test-v82-gate-b-c-evidence-collection-checklist-packet.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
