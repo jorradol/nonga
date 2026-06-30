@@ -114,6 +114,7 @@
     "test:v78a-admin-only-gemini-shadow-smoke-approval-packet-closure-record": "tsx scripts/test-v78a-admin-only-gemini-shadow-smoke-approval-packet-closure-record.mts",
     "test:v79-admin-only-shadow-dry-run-preparation": "tsx scripts/test-v79-admin-only-shadow-dry-run-preparation.mts",
     "test:v79a-admin-only-shadow-dry-run-preparation-closure-record": "tsx scripts/test-v79a-admin-only-shadow-dry-run-preparation-closure-record.mts",
+    "test:v80-owner-sign-off-gate-b-c-evidence-packet": "tsx scripts/test-v80-owner-sign-off-gate-b-c-evidence-packet.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
