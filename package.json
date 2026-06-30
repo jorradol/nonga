@@ -124,6 +124,7 @@
     "test:v84-admin-only-gemini-shadow-runtime-proof-planning-packet": "tsx scripts/test-v84-admin-only-gemini-shadow-runtime-proof-planning-packet.mts",
     "test:v85-owner-reviewed-admin-only-gemini-runtime-proof-execution-plan": "tsx scripts/test-v85-owner-reviewed-admin-only-gemini-runtime-proof-execution-plan.mts",
     "test:v86-owner-decision-gate-review-packet": "tsx scripts/test-v86-owner-decision-gate-review-packet.mts",
+    "test:v87-limited-admin-only-gemini-runtime-proof-preparation-packet": "tsx scripts/test-v87-limited-admin-only-gemini-runtime-proof-preparation-packet.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
