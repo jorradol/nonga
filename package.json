@@ -126,6 +126,7 @@
     "test:v86-owner-decision-gate-review-packet": "tsx scripts/test-v86-owner-decision-gate-review-packet.mts",
     "test:v87-limited-admin-only-gemini-runtime-proof-preparation-packet": "tsx scripts/test-v87-limited-admin-only-gemini-runtime-proof-preparation-packet.mts",
     "test:v88-owner-go-hold-decision-record": "tsx scripts/test-v88-owner-go-hold-decision-record.mts",
+    "test:v89-owner-pre-go-readiness-checkpoint": "tsx scripts/test-v89-owner-pre-go-readiness-checkpoint.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
