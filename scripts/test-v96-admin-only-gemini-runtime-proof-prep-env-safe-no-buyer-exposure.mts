@@ -308,6 +308,8 @@ ok(
     "src/services/ai/salesBrainServerRuntimeProofSkeleton.ts",
     "docs/v10.0-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.md",
     "scripts/test-v100-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.mts",
+    "docs/v10.1-admin-only-real-gemini-manual-smoke-operator-runbook-no-execution-yet.md",
+    "scripts/test-v101-admin-only-real-gemini-manual-smoke-operator-runbook-no-execution-yet.mts",
     "package.json",
   ]);
   const trackedChanged = shellOut("git diff --name-only")
