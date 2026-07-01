@@ -131,6 +131,7 @@
     "test:v91:runtime-preconditions": "tsx scripts/test-v91-admin-only-runtime-proof-technical-preconditions-packet.mts",
     "test:v92:runtime-proof-skeleton": "tsx scripts/test-v92-disabled-admin-only-runtime-proof-skeleton.mts",
     "test:v93:provider-wiring-off": "tsx scripts/test-v93-admin-only-gemini-provider-wiring-still-off-kill-switch-protected.mts",
+    "test:v94:runtime-proof-smoke": "tsx scripts/test-v94-admin-only-runtime-proof-smoke-harness-no-real-gemini-yet.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
