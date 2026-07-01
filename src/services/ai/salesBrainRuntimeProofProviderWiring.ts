@@ -11,6 +11,13 @@ export const AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV = "GEMINI_API_KEY";
 export const AI_RUNTIME_PROOF_DRY_RUN_ONLY_ENV = "AI_RUNTIME_PROOF_DRY_RUN_ONLY";
 export const AI_RUNTIME_PROOF_OWNER_APPROVED_MODE_ENV =
   "AI_RUNTIME_PROOF_OWNER_APPROVED_MODE";
+export const AI_RUNTIME_PROOF_OWNER_APPROVAL_FLAG_ENV =
+  AI_RUNTIME_PROOF_OWNER_APPROVED_MODE_ENV;
+export const AI_RUNTIME_PROOF_MANUAL_PROOF_MODE_ENV = "AI_RUNTIME_PROOF_MANUAL_PROOF_MODE";
+export const AI_RUNTIME_PROOF_REAL_PROVIDER_ACTIVATION_ENV =
+  "AI_RUNTIME_PROOF_REAL_PROVIDER_ACTIVATION";
+export const AI_RUNTIME_PROOF_REAL_PROVIDER_QUOTA_CAP_ENV =
+  "AI_RUNTIME_PROOF_REAL_PROVIDER_QUOTA_CAP";
 
 export type RuntimeProofProviderBlockedReason =
   | "kill_switch_forced_off"
@@ -68,12 +75,57 @@ export interface RuntimeProofDryRunGateState {
   blockedReasons: RuntimeProofDryRunBlockedReason[];
 }
 
+export type RuntimeProofRealProviderBlockedReason =
+  | "kill_switch_forced_off"
+  | "runtime_proof_disabled_default_off"
+  | "admin_only_boundary_required"
+  | "manual_proof_mode_required"
+  | "owner_approval_flag_required"
+  | "provider_secret_missing_or_placeholder"
+  | "quota_guard_missing"
+  | "cost_guard_missing"
+  | "logging_redaction_required"
+  | "dry_run_gate_not_ready"
+  | "real_provider_quota_cap_missing"
+  | "real_provider_activation_flag_required";
+
+export interface RuntimeProofRealProviderGuardState {
+  requestedRealProviderActivation: boolean;
+  manualProofMode: boolean;
+  ownerApprovalFlag: boolean;
+  dryRunGatePassed: boolean;
+  realProviderQuotaCapReady: boolean;
+  realProviderQuotaCap: number | null;
+  runtimeProofEnabled: boolean;
+  adminOnly: boolean;
+  killSwitchActive: boolean;
+  secretGuardReady: boolean;
+  quotaGuardReady: boolean;
+  costGuardReady: boolean;
+  logRedactionGuardReady: boolean;
+  effectiveProviderEnabled: boolean;
+  realProviderCallAllowed: boolean;
+  deterministicFallback: true;
+  networkAllowed: boolean;
+  blockedReasons: RuntimeProofRealProviderBlockedReason[];
+}
+
 export interface RuntimeProofProviderAdapter {
   providerName: "gemini-placeholder";
   invoke: (input: {
     message: string;
     state: RuntimeProofProviderWiringState;
   }) => Promise<RuntimeProofProviderInvocationResult>;
+}
+
+export interface ManualAdminRuntimeProofAdapterResult {
+  status: "blocked" | "fallback" | "success";
+  provider: "gemini-manual-proof";
+  blockedReasons: RuntimeProofRealProviderBlockedReason[];
+  deterministicFallbackUsed: boolean;
+  networkAttempted: boolean;
+  geminiRequestAttempted: boolean;
+  output: string;
 }
 
 function parseTruthy(raw: string | undefined): boolean {
@@ -232,6 +284,86 @@ export function resolveRuntimeProofDryRunGate(input: {
   };
 }
 
+export function resolveRuntimeProofRealProviderGuard(input: {
+  flags: SalesBrainRuntimeProofFlags;
+  wiring: RuntimeProofProviderWiringState;
+  dryRunGate: RuntimeProofDryRunGateState;
+  env?: Partial<NodeJS.ProcessEnv> | Record<string, string | undefined>;
+  readEnv?: (key: string) => string | undefined;
+}): RuntimeProofRealProviderGuardState {
+  const readEnv =
+    input.readEnv ??
+    ((key: string) => {
+      const env = input.env ?? (typeof process !== "undefined" ? process.env : {});
+      return env[key as keyof typeof env] as string | undefined;
+    });
+
+  const requestedRealProviderActivation = parseTruthy(
+    readEnv(AI_RUNTIME_PROOF_REAL_PROVIDER_ACTIVATION_ENV)
+  );
+  const manualProofMode = parseTruthy(readEnv(AI_RUNTIME_PROOF_MANUAL_PROOF_MODE_ENV));
+  const ownerApprovalFlag = parseTruthy(readEnv(AI_RUNTIME_PROOF_OWNER_APPROVAL_FLAG_ENV));
+  const realProviderQuotaCap = parsePositiveNumber(
+    readEnv(AI_RUNTIME_PROOF_REAL_PROVIDER_QUOTA_CAP_ENV)
+  );
+  const realProviderQuotaCapReady = realProviderQuotaCap !== null;
+  const dryRunGatePassed =
+    input.dryRunGate.dryRunOnlyEnforced &&
+    input.dryRunGate.requestedDryRunOnly &&
+    input.dryRunGate.readyForFutureRealProof;
+
+  const blockedReasons: RuntimeProofRealProviderBlockedReason[] = [];
+  if (input.wiring.killSwitchActive) blockedReasons.push("kill_switch_forced_off");
+  if (!input.flags.runtimeProofEnabled) blockedReasons.push("runtime_proof_disabled_default_off");
+  if (!input.flags.adminOnly) blockedReasons.push("admin_only_boundary_required");
+  if (!manualProofMode) blockedReasons.push("manual_proof_mode_required");
+  if (!ownerApprovalFlag) blockedReasons.push("owner_approval_flag_required");
+  if (!input.wiring.secretGuardReady) blockedReasons.push("provider_secret_missing_or_placeholder");
+  if (!input.wiring.quotaGuardReady) blockedReasons.push("quota_guard_missing");
+  if (!input.wiring.costGuardReady) blockedReasons.push("cost_guard_missing");
+  if (!input.wiring.logRedactionGuardReady) blockedReasons.push("logging_redaction_required");
+  if (!dryRunGatePassed) blockedReasons.push("dry_run_gate_not_ready");
+  if (!realProviderQuotaCapReady) blockedReasons.push("real_provider_quota_cap_missing");
+  if (!requestedRealProviderActivation) {
+    blockedReasons.push("real_provider_activation_flag_required");
+  }
+
+  const realProviderCallAllowed = blockedReasons.length === 0;
+
+  return {
+    requestedRealProviderActivation,
+    manualProofMode,
+    ownerApprovalFlag,
+    dryRunGatePassed,
+    realProviderQuotaCapReady,
+    realProviderQuotaCap,
+    runtimeProofEnabled: input.flags.runtimeProofEnabled,
+    adminOnly: input.flags.adminOnly,
+    killSwitchActive: input.wiring.killSwitchActive,
+    secretGuardReady: input.wiring.secretGuardReady,
+    quotaGuardReady: input.wiring.quotaGuardReady,
+    costGuardReady: input.wiring.costGuardReady,
+    logRedactionGuardReady: input.wiring.logRedactionGuardReady,
+    effectiveProviderEnabled: realProviderCallAllowed,
+    realProviderCallAllowed,
+    deterministicFallback: true,
+    networkAllowed: realProviderCallAllowed,
+    blockedReasons,
+  };
+}
+
+export function buildRuntimeProofDeterministicFallback(input: {
+  message: string;
+  reason: string;
+}): string {
+  const redactedMessage = redactRuntimeProofDiagnosticText(input.message);
+  return [
+    "runtime_proof_deterministic_fallback",
+    `reason=${input.reason}`,
+    `message=${redactedMessage}`,
+  ].join(" | ");
+}
+
 export function createDisabledRuntimeProofProviderAdapter(): RuntimeProofProviderAdapter {
   return {
     providerName: "gemini-placeholder",
@@ -243,6 +375,77 @@ export function createDisabledRuntimeProofProviderAdapter(): RuntimeProofProvide
         networkAttempted: false,
         geminiRequestAttempted: false,
       };
+    },
+  };
+}
+
+export function createManualAdminGeminiRuntimeProofAdapter(input: {
+  invokeGemini?: (message: string) => Promise<string>;
+} = {}): {
+  providerName: "gemini-manual-proof";
+  invoke: (args: {
+    message: string;
+    guard: RuntimeProofRealProviderGuardState;
+  }) => Promise<ManualAdminRuntimeProofAdapterResult>;
+} {
+  return {
+    providerName: "gemini-manual-proof",
+    async invoke(args) {
+      if (!args.guard.realProviderCallAllowed) {
+        return {
+          status: "blocked",
+          provider: "gemini-manual-proof",
+          blockedReasons: args.guard.blockedReasons,
+          deterministicFallbackUsed: true,
+          networkAttempted: false,
+          geminiRequestAttempted: false,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: args.guard.blockedReasons[0] ?? "guard_blocked",
+          }),
+        };
+      }
+
+      if (!input.invokeGemini) {
+        return {
+          status: "fallback",
+          provider: "gemini-manual-proof",
+          blockedReasons: [],
+          deterministicFallbackUsed: true,
+          networkAttempted: false,
+          geminiRequestAttempted: false,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: "provider_invoke_not_attached",
+          }),
+        };
+      }
+
+      try {
+        const output = await input.invokeGemini(args.message);
+        return {
+          status: "success",
+          provider: "gemini-manual-proof",
+          blockedReasons: [],
+          deterministicFallbackUsed: false,
+          networkAttempted: true,
+          geminiRequestAttempted: true,
+          output: redactRuntimeProofDiagnosticText(output),
+        };
+      } catch {
+        return {
+          status: "fallback",
+          provider: "gemini-manual-proof",
+          blockedReasons: [],
+          deterministicFallbackUsed: true,
+          networkAttempted: true,
+          geminiRequestAttempted: true,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: "provider_failure_fallback",
+          }),
+        };
+      }
     },
   };
 }

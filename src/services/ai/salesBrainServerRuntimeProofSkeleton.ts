@@ -10,6 +10,7 @@ import {
 import {
   createDisabledRuntimeProofProviderAdapter,
   resolveRuntimeProofDryRunGate,
+  resolveRuntimeProofRealProviderGuard,
   resolveRuntimeProofProviderWiring,
   type RuntimeProofProviderBlockedReason,
 } from "./salesBrainRuntimeProofProviderWiring";
@@ -48,6 +49,19 @@ export interface AdminRuntimeProofSkeletonPayload {
     networkAllowed: false;
     blockedReasons: string[];
   };
+  realProviderGuard: {
+    requestedRealProviderActivation: boolean;
+    manualProofMode: boolean;
+    ownerApprovalFlag: boolean;
+    dryRunGatePassed: boolean;
+    realProviderQuotaCapReady: boolean;
+    realProviderQuotaCap: number | null;
+    realProviderCallAllowed: boolean;
+    effectiveProviderEnabled: boolean;
+    networkAllowed: boolean;
+    blockedReasons: string[];
+    deterministicFallback: true;
+  };
 }
 
 export function buildAdminRuntimeProofSkeletonPayload(
@@ -59,6 +73,11 @@ export function buildAdminRuntimeProofSkeletonPayload(
   const dryRunGate = resolveRuntimeProofDryRunGate({
     flags,
     wiring: providerWiring,
+  });
+  const realProviderGuard = resolveRuntimeProofRealProviderGuard({
+    flags,
+    wiring: providerWiring,
+    dryRunGate,
   });
 
   return {
@@ -91,6 +110,19 @@ export function buildAdminRuntimeProofSkeletonPayload(
       deterministicFallback: dryRunGate.deterministicFallback,
       networkAllowed: dryRunGate.networkAllowed,
       blockedReasons: dryRunGate.blockedReasons,
+    },
+    realProviderGuard: {
+      requestedRealProviderActivation: realProviderGuard.requestedRealProviderActivation,
+      manualProofMode: realProviderGuard.manualProofMode,
+      ownerApprovalFlag: realProviderGuard.ownerApprovalFlag,
+      dryRunGatePassed: realProviderGuard.dryRunGatePassed,
+      realProviderQuotaCapReady: realProviderGuard.realProviderQuotaCapReady,
+      realProviderQuotaCap: realProviderGuard.realProviderQuotaCap,
+      realProviderCallAllowed: realProviderGuard.realProviderCallAllowed,
+      effectiveProviderEnabled: realProviderGuard.effectiveProviderEnabled,
+      networkAllowed: realProviderGuard.networkAllowed,
+      blockedReasons: realProviderGuard.blockedReasons,
+      deterministicFallback: realProviderGuard.deterministicFallback,
     },
   };
 }

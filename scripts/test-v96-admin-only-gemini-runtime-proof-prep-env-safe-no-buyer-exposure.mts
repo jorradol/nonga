@@ -299,6 +299,8 @@ ok(
     "scripts/test-v96-admin-only-gemini-runtime-proof-prep-env-safe-no-buyer-exposure.mts",
     "scripts/test-v97-admin-only-gemini-runtime-proof-dry-run-gate.mts",
     "scripts/test-v98-admin-only-real-gemini-proof-authorization-packet.mts",
+    "docs/v9.9-admin-only-real-gemini-proof-implementation-prep.md",
+    "scripts/test-v99-admin-only-real-gemini-proof-implementation-prep.mts",
     "scripts/test-v93-admin-only-gemini-provider-wiring-still-off-kill-switch-protected.mts",
     "scripts/test-v94-admin-only-runtime-proof-smoke-harness-no-real-gemini-yet.mts",
     "scripts/test-v95-owner-review-admin-only-runtime-proof-readiness-gate.mts",
