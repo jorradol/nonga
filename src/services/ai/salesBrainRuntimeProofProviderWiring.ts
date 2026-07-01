@@ -8,6 +8,9 @@ export const AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV = "AI_RUNTIME_PROOF_PROVIDER_
 export const AI_RUNTIME_PROOF_KILL_SWITCH_ENV = "AI_RUNTIME_PROOF_KILL_SWITCH";
 export const AI_RUNTIME_PROOF_MAX_COST_USD_ENV = "AI_RUNTIME_PROOF_MAX_COST_USD";
 export const AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV = "GEMINI_API_KEY";
+export const AI_RUNTIME_PROOF_DRY_RUN_ONLY_ENV = "AI_RUNTIME_PROOF_DRY_RUN_ONLY";
+export const AI_RUNTIME_PROOF_OWNER_APPROVED_MODE_ENV =
+  "AI_RUNTIME_PROOF_OWNER_APPROVED_MODE";
 
 export type RuntimeProofProviderBlockedReason =
   | "kill_switch_forced_off"
@@ -39,6 +42,30 @@ export interface RuntimeProofProviderInvocationResult {
   blockedReason: RuntimeProofProviderBlockedReason;
   networkAttempted: false;
   geminiRequestAttempted: false;
+}
+
+export type RuntimeProofDryRunBlockedReason =
+  | "dry_run_only_guard_active"
+  | "dry_run_only_required"
+  | "owner_approval_mode_required"
+  | "kill_switch_forced_off"
+  | "runtime_proof_disabled_default_off"
+  | "admin_only_boundary_required"
+  | "provider_secret_missing_or_placeholder"
+  | "quota_guard_missing"
+  | "cost_guard_missing"
+  | "logging_redaction_required";
+
+export interface RuntimeProofDryRunGateState {
+  dryRunOnlyEnforced: true;
+  requestedDryRunOnly: boolean;
+  ownerApprovedMode: boolean;
+  readyForFutureRealProof: boolean;
+  realProviderCallAllowed: false;
+  effectiveProviderEnabled: false;
+  deterministicFallback: true;
+  networkAllowed: false;
+  blockedReasons: RuntimeProofDryRunBlockedReason[];
 }
 
 export interface RuntimeProofProviderAdapter {
@@ -146,6 +173,62 @@ export function resolveRuntimeProofProviderWiring(input: {
     blockedReason,
     deterministicFallback: true,
     networkAllowed: false,
+  };
+}
+
+export function resolveRuntimeProofDryRunGate(input: {
+  flags: SalesBrainRuntimeProofFlags;
+  wiring: RuntimeProofProviderWiringState;
+  env?: Partial<NodeJS.ProcessEnv> | Record<string, string | undefined>;
+  readEnv?: (key: string) => string | undefined;
+}): RuntimeProofDryRunGateState {
+  const readEnv =
+    input.readEnv ??
+    ((key: string) => {
+      const env = input.env ?? (typeof process !== "undefined" ? process.env : {});
+      return env[key as keyof typeof env] as string | undefined;
+    });
+
+  const dryRunRaw = readEnv(AI_RUNTIME_PROOF_DRY_RUN_ONLY_ENV);
+  const requestedDryRunOnly =
+    dryRunRaw === undefined ? true : parseTruthy(readEnv(AI_RUNTIME_PROOF_DRY_RUN_ONLY_ENV));
+  const ownerApprovedMode = parseTruthy(readEnv(AI_RUNTIME_PROOF_OWNER_APPROVED_MODE_ENV));
+
+  const blockedReasons: RuntimeProofDryRunBlockedReason[] = [];
+  if (!requestedDryRunOnly) blockedReasons.push("dry_run_only_required");
+  if (input.wiring.killSwitchActive) blockedReasons.push("kill_switch_forced_off");
+  if (!input.flags.runtimeProofEnabled) {
+    blockedReasons.push("runtime_proof_disabled_default_off");
+  }
+  if (!input.flags.adminOnly) blockedReasons.push("admin_only_boundary_required");
+  if (!input.wiring.secretGuardReady) blockedReasons.push("provider_secret_missing_or_placeholder");
+  if (!input.wiring.quotaGuardReady) blockedReasons.push("quota_guard_missing");
+  if (!input.wiring.costGuardReady) blockedReasons.push("cost_guard_missing");
+  if (!input.wiring.logRedactionGuardReady) blockedReasons.push("logging_redaction_required");
+  if (!ownerApprovedMode) blockedReasons.push("owner_approval_mode_required");
+  blockedReasons.push("dry_run_only_guard_active");
+
+  const readyForFutureRealProof =
+    requestedDryRunOnly &&
+    ownerApprovedMode &&
+    !input.wiring.killSwitchActive &&
+    input.flags.runtimeProofEnabled &&
+    input.flags.adminOnly &&
+    input.wiring.secretGuardReady &&
+    input.wiring.quotaGuardReady &&
+    input.wiring.costGuardReady &&
+    input.wiring.logRedactionGuardReady;
+
+  return {
+    dryRunOnlyEnforced: true,
+    requestedDryRunOnly,
+    ownerApprovedMode,
+    readyForFutureRealProof,
+    realProviderCallAllowed: false,
+    effectiveProviderEnabled: false,
+    deterministicFallback: true,
+    networkAllowed: false,
+    blockedReasons,
   };
 }
 

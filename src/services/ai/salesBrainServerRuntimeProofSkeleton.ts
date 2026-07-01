@@ -9,6 +9,7 @@ import {
 } from "./salesBrainRuntimeProofFlags";
 import {
   createDisabledRuntimeProofProviderAdapter,
+  resolveRuntimeProofDryRunGate,
   resolveRuntimeProofProviderWiring,
   type RuntimeProofProviderBlockedReason,
 } from "./salesBrainRuntimeProofProviderWiring";
@@ -36,6 +37,17 @@ export interface AdminRuntimeProofSkeletonPayload {
     logRedactionGuardReady: boolean;
     blockedReason: RuntimeProofProviderBlockedReason;
   };
+  dryRunGate: {
+    dryRunOnlyEnforced: true;
+    requestedDryRunOnly: boolean;
+    ownerApprovedMode: boolean;
+    readyForFutureRealProof: boolean;
+    realProviderCallAllowed: false;
+    effectiveProviderEnabled: false;
+    deterministicFallback: true;
+    networkAllowed: false;
+    blockedReasons: string[];
+  };
 }
 
 export function buildAdminRuntimeProofSkeletonPayload(
@@ -44,6 +56,11 @@ export function buildAdminRuntimeProofSkeletonPayload(
     flags,
   })
 ): AdminRuntimeProofSkeletonPayload {
+  const dryRunGate = resolveRuntimeProofDryRunGate({
+    flags,
+    wiring: providerWiring,
+  });
+
   return {
     status: "disabled",
     readOnly: true,
@@ -63,6 +80,17 @@ export function buildAdminRuntimeProofSkeletonPayload(
       costGuardReady: providerWiring.costGuardReady,
       logRedactionGuardReady: providerWiring.logRedactionGuardReady,
       blockedReason: providerWiring.blockedReason,
+    },
+    dryRunGate: {
+      dryRunOnlyEnforced: dryRunGate.dryRunOnlyEnforced,
+      requestedDryRunOnly: dryRunGate.requestedDryRunOnly,
+      ownerApprovedMode: dryRunGate.ownerApprovedMode,
+      readyForFutureRealProof: dryRunGate.readyForFutureRealProof,
+      realProviderCallAllowed: dryRunGate.realProviderCallAllowed,
+      effectiveProviderEnabled: dryRunGate.effectiveProviderEnabled,
+      deterministicFallback: dryRunGate.deterministicFallback,
+      networkAllowed: dryRunGate.networkAllowed,
+      blockedReasons: dryRunGate.blockedReasons,
     },
   };
 }
