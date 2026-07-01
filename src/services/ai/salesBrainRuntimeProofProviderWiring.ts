@@ -7,12 +7,14 @@ import type { SalesBrainRuntimeProofFlags } from "./salesBrainRuntimeProofFlags"
 export const AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV = "AI_RUNTIME_PROOF_PROVIDER_ENABLED";
 export const AI_RUNTIME_PROOF_KILL_SWITCH_ENV = "AI_RUNTIME_PROOF_KILL_SWITCH";
 export const AI_RUNTIME_PROOF_MAX_COST_USD_ENV = "AI_RUNTIME_PROOF_MAX_COST_USD";
+export const AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV = "GEMINI_API_KEY";
 
 export type RuntimeProofProviderBlockedReason =
   | "kill_switch_forced_off"
   | "runtime_proof_disabled_default_off"
   | "admin_only_boundary_required"
   | "provider_flag_off"
+  | "provider_secret_missing_or_placeholder"
   | "quota_guard_missing"
   | "cost_guard_missing"
   | "logging_redaction_required"
@@ -23,6 +25,7 @@ export interface RuntimeProofProviderWiringState {
   effectiveProviderEnabled: false;
   providerName: "gemini-placeholder";
   killSwitchActive: boolean;
+  secretGuardReady: boolean;
   quotaGuardReady: boolean;
   costGuardReady: boolean;
   logRedactionGuardReady: boolean;
@@ -67,11 +70,24 @@ function parsePositiveNumber(raw: string | undefined): number | null {
  * Never log raw prompt/PII/secret tokens.
  */
 export function redactRuntimeProofDiagnosticText(raw: string): string {
-  const noBearer = raw.replace(/Bearer\s+[A-Za-z0-9._-]{8,}/gi, "[redacted-bearer]");
-  const noApiKey = noBearer.replace(/AIza[0-9A-Za-z\-_]{20,}/g, "[redacted-api-key]");
-  const noPhone = noApiKey.replace(/\b0[689]\d{8}\b/g, "[redacted-phone]");
+  const noPrompt = raw.replace(/\bprompt\s*:\s*[^,\n]{0,200}/gi, "[redacted-prompt]");
+  const noBearer = noPrompt.replace(/Bearer\s+[A-Za-z0-9._-]{8,}/gi, "[redacted-bearer]");
+  const noGoogleApiKey = noBearer.replace(/AIza[0-9A-Za-z\-_]{20,}/g, "[redacted-api-key]");
+  const noSkToken = noGoogleApiKey.replace(/\bsk-[A-Za-z0-9_-]{12,}\b/gi, "[redacted-token]");
+  const noSecretLike = noSkToken.replace(
+    /\b(?:api[_-]?key|secret|password|token)\b\s*[:=]\s*["']?[^"',\n]{6,}["']?/gi,
+    "[redacted-secret-like]"
+  );
+  const noPhone = noSecretLike.replace(/\b0[689]\d{8}\b/g, "[redacted-phone]");
   const noVin = noPhone.replace(/\b[A-HJ-NPR-Z0-9]{17}\b/g, "[redacted-vin]");
   return noVin.slice(0, 160);
+}
+
+function isNonPlaceholderSecret(raw: string | undefined): boolean {
+  const value = String(raw ?? "").trim();
+  if (!value) return false;
+  if (/placeholder|fake|your[_-]?api|example|dummy/i.test(value)) return false;
+  return value.length >= 20;
 }
 
 export function resolveRuntimeProofProviderWiring(input: {
@@ -91,6 +107,7 @@ export function resolveRuntimeProofProviderWiring(input: {
   );
   const killSwitchActive = parseTruthy(readEnv(AI_RUNTIME_PROOF_KILL_SWITCH_ENV));
   const maxCostUsd = parsePositiveNumber(readEnv(AI_RUNTIME_PROOF_MAX_COST_USD_ENV));
+  const secretGuardReady = isNonPlaceholderSecret(readEnv(AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV));
   const quotaGuardReady = input.flags.quotaLimit !== null && input.flags.quotaLimit > 0;
   const costGuardReady = maxCostUsd !== null;
   const logRedactionGuardReady = input.flags.logRedactionEnabled;
@@ -104,6 +121,8 @@ export function resolveRuntimeProofProviderWiring(input: {
     blockedReason = "admin_only_boundary_required";
   } else if (!requestedProviderEnabled) {
     blockedReason = "provider_flag_off";
+  } else if (!secretGuardReady) {
+    blockedReason = "provider_secret_missing_or_placeholder";
   } else if (!quotaGuardReady) {
     blockedReason = "quota_guard_missing";
   } else if (!costGuardReady) {
@@ -120,6 +139,7 @@ export function resolveRuntimeProofProviderWiring(input: {
     effectiveProviderEnabled: false,
     providerName: "gemini-placeholder",
     killSwitchActive,
+    secretGuardReady,
     quotaGuardReady,
     costGuardReady,
     logRedactionGuardReady,

@@ -17,6 +17,7 @@ import {
   AI_RUNTIME_PROOF_KILL_SWITCH_ENV,
   AI_RUNTIME_PROOF_MAX_COST_USD_ENV,
   AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV,
+  AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV,
   createDisabledRuntimeProofProviderAdapter,
   redactRuntimeProofDiagnosticText,
   resolveRuntimeProofProviderWiring,
@@ -195,18 +196,23 @@ for (const [name, re] of REQUIRED_DOC_PHRASES) {
 
 // --- logging redaction guard ---
 {
-  const raw = "Bearer abcd123456789 token, phone 0891234567, VIN ABCDEFGHJKLMN1234";
+  const raw =
+    "prompt: ขอคำตอบดิบ Bearer abcd123456789 token=sk-1234567890abcdefghijk, phone 0891234567, VIN ABCDEFGHJKLMN1234";
   const redacted = redactRuntimeProofDiagnosticText(raw);
   ok("redaction removes bearer token", !/Bearer\s+/i.test(redacted));
   ok("redaction removes phone", !/\b0[689]\d{8}\b/.test(redacted));
   ok("redaction removes VIN-like value", !/\b[A-HJ-NPR-Z0-9]{17}\b/.test(redacted));
+  ok("redaction removes raw prompt field", !/prompt\s*:/i.test(redacted));
+  ok("redaction removes secret-like token", !/\bsk-[A-Za-z0-9_-]{12,}\b/i.test(redacted));
 }
 
 // --- quota/cost guard presence and unsafe blocking ---
 {
   ok("wiring defines quotaGuardReady", /quotaGuardReady/.test(wiringSrc));
   ok("wiring defines costGuardReady", /costGuardReady/.test(wiringSrc));
+  ok("wiring defines secretGuardReady", /secretGuardReady/.test(wiringSrc));
   ok("wiring defines max cost env", wiringSrc.includes(AI_RUNTIME_PROOF_MAX_COST_USD_ENV));
+  ok("wiring defines provider secret env", wiringSrc.includes(AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV));
 
   const flagsMissingQuota = resolveSalesBrainRuntimeProofFlags({
     env: {
@@ -221,6 +227,7 @@ for (const [name, re] of REQUIRED_DOC_PHRASES) {
       [AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV]: "true",
       [AI_RUNTIME_PROOF_KILL_SWITCH_ENV]: "false",
       [AI_RUNTIME_PROOF_MAX_COST_USD_ENV]: "10",
+      [AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV]: "env-only-safe-key-12345678901234567890",
     },
   });
   ok(

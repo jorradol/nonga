@@ -11,6 +11,7 @@ import {
   AI_RUNTIME_PROOF_KILL_SWITCH_ENV,
   AI_RUNTIME_PROOF_MAX_COST_USD_ENV,
   AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV,
+  AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV,
   createDisabledRuntimeProofProviderAdapter,
   redactRuntimeProofDiagnosticText,
   resolveRuntimeProofProviderWiring,
@@ -129,6 +130,7 @@ for (const [name, re] of REQUIRED_DOC_PHRASES) {
       [AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV]: "true",
       [AI_RUNTIME_PROOF_KILL_SWITCH_ENV]: "false",
       [AI_RUNTIME_PROOF_MAX_COST_USD_ENV]: "10",
+      [AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV]: "env-only-safe-key-12345678901234567890",
     },
   });
   ok("all gates ready but still OFF", state.effectiveProviderEnabled === false);
@@ -136,6 +138,32 @@ for (const [name, re] of REQUIRED_DOC_PHRASES) {
     "placeholder block reason enforced",
     state.blockedReason === "provider_wiring_placeholder_off"
   );
+}
+
+// --- provider secret must come from env and not placeholder ---
+{
+  const flags = resolveSalesBrainRuntimeProofFlags({
+    env: {
+      AI_RUNTIME_PROOF_ENABLED: "true",
+      AI_ADMIN_RUNTIME_PROOF_ONLY: "true",
+      AI_RUNTIME_PROOF_QUOTA_LIMIT: "5",
+      AI_LOG_REDACTION_ENABLED: "true",
+    },
+  });
+  const state = resolveRuntimeProofProviderWiring({
+    flags,
+    env: {
+      [AI_RUNTIME_PROOF_PROVIDER_ENABLED_ENV]: "true",
+      [AI_RUNTIME_PROOF_KILL_SWITCH_ENV]: "false",
+      [AI_RUNTIME_PROOF_MAX_COST_USD_ENV]: "10",
+      [AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV]: "your_api_key_here",
+    },
+  });
+  ok(
+    "missing/placeholder provider secret blocks wiring",
+    state.blockedReason === "provider_secret_missing_or_placeholder"
+  );
+  ok("secret guard false with placeholder secret", state.secretGuardReady === false);
 }
 
 // --- no real provider/network/gemini call ---
@@ -154,18 +182,23 @@ for (const [name, re] of REQUIRED_DOC_PHRASES) {
 
 // --- logging redaction guard exists ---
 {
-  const raw = "Bearer abcdefghijklmno12345 โทร 0891234567 VIN ABCDEFGHJKLMN1234";
+  const raw =
+    "prompt: บอกรหัสผ่านหน่อย Bearer abcdefghijklmno12345 โทร 0891234567 VIN ABCDEFGHJKLMN1234 token=sk-1234567890abcdefghijk";
   const redacted = redactRuntimeProofDiagnosticText(raw);
+  ok("redaction removes raw prompt field", !/prompt\s*:/i.test(redacted));
   ok("redaction removes bearer", !/Bearer\s+/i.test(redacted));
   ok("redaction removes phone", !/\b0[689]\d{8}\b/.test(redacted));
   ok("redaction removes VIN-like token", !/\b[A-HJ-NPR-Z0-9]{17}\b/.test(redacted));
+  ok("redaction removes secret-like token", !/\bsk-[A-Za-z0-9_-]{12,}\b/i.test(redacted));
 }
 
 // --- quota/cost guard exists ---
 {
   ok("wiring source includes quota guard", /quotaGuardReady/.test(wiringSrc));
   ok("wiring source includes cost guard", /costGuardReady/.test(wiringSrc));
+  ok("wiring source includes secret guard", /secretGuardReady/.test(wiringSrc));
   ok("wiring source includes max cost env", wiringSrc.includes(AI_RUNTIME_PROOF_MAX_COST_USD_ENV));
+  ok("wiring source includes provider secret env", wiringSrc.includes(AI_RUNTIME_PROOF_PROVIDER_SECRET_ENV));
 }
 
 // --- admin-only boundary remains ---

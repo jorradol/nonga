@@ -133,6 +133,7 @@
     "test:v93:provider-wiring-off": "tsx scripts/test-v93-admin-only-gemini-provider-wiring-still-off-kill-switch-protected.mts",
     "test:v94:runtime-proof-smoke": "tsx scripts/test-v94-admin-only-runtime-proof-smoke-harness-no-real-gemini-yet.mts",
     "test:v95:owner-readiness-gate": "tsx scripts/test-v95-owner-review-admin-only-runtime-proof-readiness-gate.mts",
+    "test:v96:runtime-proof-prep": "tsx scripts/test-v96-admin-only-gemini-runtime-proof-prep-env-safe-no-buyer-exposure.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",

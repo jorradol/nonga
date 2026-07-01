@@ -30,6 +30,7 @@ export interface AdminRuntimeProofSkeletonPayload {
     requestedProviderEnabled: boolean;
     effectiveProviderEnabled: false;
     killSwitchActive: boolean;
+    secretGuardReady: boolean;
     quotaGuardReady: boolean;
     costGuardReady: boolean;
     logRedactionGuardReady: boolean;
@@ -57,6 +58,7 @@ export function buildAdminRuntimeProofSkeletonPayload(
       requestedProviderEnabled: providerWiring.requestedProviderEnabled,
       effectiveProviderEnabled: providerWiring.effectiveProviderEnabled,
       killSwitchActive: providerWiring.killSwitchActive,
+      secretGuardReady: providerWiring.secretGuardReady,
       quotaGuardReady: providerWiring.quotaGuardReady,
       costGuardReady: providerWiring.costGuardReady,
       logRedactionGuardReady: providerWiring.logRedactionGuardReady,
