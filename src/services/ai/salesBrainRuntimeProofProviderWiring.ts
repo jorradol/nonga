@@ -18,6 +18,8 @@ export const AI_RUNTIME_PROOF_REAL_PROVIDER_ACTIVATION_ENV =
   "AI_RUNTIME_PROOF_REAL_PROVIDER_ACTIVATION";
 export const AI_RUNTIME_PROOF_REAL_PROVIDER_QUOTA_CAP_ENV =
   "AI_RUNTIME_PROOF_REAL_PROVIDER_QUOTA_CAP";
+export const AI_RUNTIME_PROOF_MANUAL_SMOKE_EXECUTION_ENV =
+  "AI_RUNTIME_PROOF_MANUAL_SMOKE_EXECUTION";
 
 export type RuntimeProofProviderBlockedReason =
   | "kill_switch_forced_off"
@@ -89,6 +91,11 @@ export type RuntimeProofRealProviderBlockedReason =
   | "real_provider_quota_cap_missing"
   | "real_provider_activation_flag_required";
 
+export type RuntimeProofManualSmokeReadinessBlockedReason =
+  | RuntimeProofRealProviderBlockedReason
+  | "manual_smoke_execution_flag_required"
+  | "real_provider_call_must_remain_manual_admin_only";
+
 export interface RuntimeProofRealProviderGuardState {
   requestedRealProviderActivation: boolean;
   manualProofMode: boolean;
@@ -110,6 +117,27 @@ export interface RuntimeProofRealProviderGuardState {
   blockedReasons: RuntimeProofRealProviderBlockedReason[];
 }
 
+export interface RuntimeProofManualSmokeReadinessState {
+  manualSmokeExecutionRequested: boolean;
+  adminOnly: boolean;
+  manualProofMode: boolean;
+  ownerApprovalFlag: boolean;
+  dryRunGatePassed: boolean;
+  requestedRealProviderActivation: boolean;
+  realProviderQuotaCapReady: boolean;
+  runtimeProofEnabled: boolean;
+  killSwitchActive: boolean;
+  secretGuardReady: boolean;
+  quotaGuardReady: boolean;
+  costGuardReady: boolean;
+  logRedactionGuardReady: boolean;
+  manualSmokeReady: boolean;
+  realProviderExecutionAllowed: false;
+  deterministicFallback: true;
+  networkAllowed: false;
+  blockedReasons: RuntimeProofManualSmokeReadinessBlockedReason[];
+}
+
 export interface RuntimeProofProviderAdapter {
   providerName: "gemini-placeholder";
   invoke: (input: {
@@ -122,6 +150,16 @@ export interface ManualAdminRuntimeProofAdapterResult {
   status: "blocked" | "fallback" | "success";
   provider: "gemini-manual-proof";
   blockedReasons: RuntimeProofRealProviderBlockedReason[];
+  deterministicFallbackUsed: boolean;
+  networkAttempted: boolean;
+  geminiRequestAttempted: boolean;
+  output: string;
+}
+
+export interface ManualAdminRuntimeProofSmokeAdapterResult {
+  status: "blocked" | "fallback" | "success";
+  provider: "gemini-manual-proof";
+  blockedReasons: RuntimeProofManualSmokeReadinessBlockedReason[];
   deterministicFallbackUsed: boolean;
   networkAttempted: boolean;
   geminiRequestAttempted: boolean;
@@ -352,6 +390,71 @@ export function resolveRuntimeProofRealProviderGuard(input: {
   };
 }
 
+export function resolveRuntimeProofManualSmokeReadiness(input: {
+  flags: SalesBrainRuntimeProofFlags;
+  wiring: RuntimeProofProviderWiringState;
+  dryRunGate: RuntimeProofDryRunGateState;
+  env?: Partial<NodeJS.ProcessEnv> | Record<string, string | undefined>;
+  readEnv?: (key: string) => string | undefined;
+}): RuntimeProofManualSmokeReadinessState {
+  const readEnv =
+    input.readEnv ??
+    ((key: string) => {
+      const env = input.env ?? (typeof process !== "undefined" ? process.env : {});
+      return env[key as keyof typeof env] as string | undefined;
+    });
+
+  const manualSmokeExecutionRequested = parseTruthy(
+    readEnv(AI_RUNTIME_PROOF_MANUAL_SMOKE_EXECUTION_ENV)
+  );
+  const realProviderGuard = resolveRuntimeProofRealProviderGuard({
+    flags: input.flags,
+    wiring: input.wiring,
+    dryRunGate: input.dryRunGate,
+    readEnv,
+  });
+
+  const blockedReasons: RuntimeProofManualSmokeReadinessBlockedReason[] = [
+    ...realProviderGuard.blockedReasons,
+  ];
+  if (!manualSmokeExecutionRequested) {
+    blockedReasons.push("manual_smoke_execution_flag_required");
+  }
+  blockedReasons.push("real_provider_call_must_remain_manual_admin_only");
+
+  const manualSmokeReady =
+    manualSmokeExecutionRequested &&
+    realProviderGuard.realProviderCallAllowed &&
+    !input.wiring.killSwitchActive &&
+    input.flags.adminOnly &&
+    input.flags.runtimeProofEnabled &&
+    input.wiring.secretGuardReady &&
+    input.wiring.quotaGuardReady &&
+    input.wiring.costGuardReady &&
+    input.wiring.logRedactionGuardReady;
+
+  return {
+    manualSmokeExecutionRequested,
+    adminOnly: input.flags.adminOnly,
+    manualProofMode: realProviderGuard.manualProofMode,
+    ownerApprovalFlag: realProviderGuard.ownerApprovalFlag,
+    dryRunGatePassed: realProviderGuard.dryRunGatePassed,
+    requestedRealProviderActivation: realProviderGuard.requestedRealProviderActivation,
+    realProviderQuotaCapReady: realProviderGuard.realProviderQuotaCapReady,
+    runtimeProofEnabled: input.flags.runtimeProofEnabled,
+    killSwitchActive: input.wiring.killSwitchActive,
+    secretGuardReady: input.wiring.secretGuardReady,
+    quotaGuardReady: input.wiring.quotaGuardReady,
+    costGuardReady: input.wiring.costGuardReady,
+    logRedactionGuardReady: input.wiring.logRedactionGuardReady,
+    manualSmokeReady,
+    realProviderExecutionAllowed: false,
+    deterministicFallback: true,
+    networkAllowed: false,
+    blockedReasons,
+  };
+}
+
 export function buildRuntimeProofDeterministicFallback(input: {
   message: string;
   reason: string;
@@ -443,6 +546,93 @@ export function createManualAdminGeminiRuntimeProofAdapter(input: {
           output: buildRuntimeProofDeterministicFallback({
             message: args.message,
             reason: "provider_failure_fallback",
+          }),
+        };
+      }
+    },
+  };
+}
+
+export function createManualAdminGeminiRuntimeProofSmokeAdapter(input: {
+  invokeGemini?: (message: string) => Promise<string>;
+  enableRealCallInThisProcess?: boolean;
+} = {}): {
+  providerName: "gemini-manual-proof";
+  invoke: (args: {
+    message: string;
+    readiness: RuntimeProofManualSmokeReadinessState;
+  }) => Promise<ManualAdminRuntimeProofSmokeAdapterResult>;
+} {
+  return {
+    providerName: "gemini-manual-proof",
+    async invoke(args) {
+      if (!args.readiness.manualSmokeReady) {
+        return {
+          status: "blocked",
+          provider: "gemini-manual-proof",
+          blockedReasons: args.readiness.blockedReasons,
+          deterministicFallbackUsed: true,
+          networkAttempted: false,
+          geminiRequestAttempted: false,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: args.readiness.blockedReasons[0] ?? "manual_smoke_readiness_blocked",
+          }),
+        };
+      }
+
+      if (!input.enableRealCallInThisProcess) {
+        return {
+          status: "fallback",
+          provider: "gemini-manual-proof",
+          blockedReasons: args.readiness.blockedReasons,
+          deterministicFallbackUsed: true,
+          networkAttempted: false,
+          geminiRequestAttempted: false,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: "manual_smoke_execution_not_enabled_in_process",
+          }),
+        };
+      }
+
+      if (!input.invokeGemini) {
+        return {
+          status: "fallback",
+          provider: "gemini-manual-proof",
+          blockedReasons: args.readiness.blockedReasons,
+          deterministicFallbackUsed: true,
+          networkAttempted: false,
+          geminiRequestAttempted: false,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: "manual_smoke_invoke_not_attached",
+          }),
+        };
+      }
+
+      try {
+        const output = await input.invokeGemini(args.message);
+        return {
+          status: "success",
+          provider: "gemini-manual-proof",
+          blockedReasons: args.readiness.blockedReasons,
+          deterministicFallbackUsed: false,
+          networkAttempted: true,
+          geminiRequestAttempted: true,
+          output: redactRuntimeProofDiagnosticText(output),
+        };
+      } catch {
+        return {
+          status: "fallback",
+          provider: "gemini-manual-proof",
+          blockedReasons: args.readiness.blockedReasons,
+          deterministicFallbackUsed: true,
+          networkAttempted: true,
+          geminiRequestAttempted: true,
+          output: buildRuntimeProofDeterministicFallback({
+            message: args.message,
+            reason: "manual_smoke_provider_failure_fallback",
           }),
         };
       }

@@ -306,6 +306,8 @@ ok(
     "scripts/test-v95-owner-review-admin-only-runtime-proof-readiness-gate.mts",
     "src/services/ai/salesBrainRuntimeProofProviderWiring.ts",
     "src/services/ai/salesBrainServerRuntimeProofSkeleton.ts",
+    "docs/v10.0-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.md",
+    "scripts/test-v100-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.mts",
     "package.json",
   ]);
   const trackedChanged = shellOut("git diff --name-only")

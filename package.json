@@ -137,6 +137,7 @@
     "test:v97:dry-run-gate": "tsx scripts/test-v97-admin-only-gemini-runtime-proof-dry-run-gate.mts",
     "test:v98:authorization-packet": "tsx scripts/test-v98-admin-only-real-gemini-proof-authorization-packet.mts",
     "test:v99:implementation-prep": "tsx scripts/test-v99-admin-only-real-gemini-proof-implementation-prep.mts",
+    "test:v100:manual-smoke-prep": "tsx scripts/test-v100-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",

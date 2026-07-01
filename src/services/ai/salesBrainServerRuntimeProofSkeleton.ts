@@ -10,6 +10,7 @@ import {
 import {
   createDisabledRuntimeProofProviderAdapter,
   resolveRuntimeProofDryRunGate,
+  resolveRuntimeProofManualSmokeReadiness,
   resolveRuntimeProofRealProviderGuard,
   resolveRuntimeProofProviderWiring,
   type RuntimeProofProviderBlockedReason,
@@ -62,6 +63,14 @@ export interface AdminRuntimeProofSkeletonPayload {
     blockedReasons: string[];
     deterministicFallback: true;
   };
+  manualSmokeReadiness: {
+    manualSmokeExecutionRequested: boolean;
+    manualSmokeReady: boolean;
+    realProviderExecutionAllowed: false;
+    deterministicFallback: true;
+    networkAllowed: false;
+    blockedReasons: string[];
+  };
 }
 
 export function buildAdminRuntimeProofSkeletonPayload(
@@ -75,6 +84,11 @@ export function buildAdminRuntimeProofSkeletonPayload(
     wiring: providerWiring,
   });
   const realProviderGuard = resolveRuntimeProofRealProviderGuard({
+    flags,
+    wiring: providerWiring,
+    dryRunGate,
+  });
+  const manualSmokeReadiness = resolveRuntimeProofManualSmokeReadiness({
     flags,
     wiring: providerWiring,
     dryRunGate,
@@ -123,6 +137,14 @@ export function buildAdminRuntimeProofSkeletonPayload(
       networkAllowed: realProviderGuard.networkAllowed,
       blockedReasons: realProviderGuard.blockedReasons,
       deterministicFallback: realProviderGuard.deterministicFallback,
+    },
+    manualSmokeReadiness: {
+      manualSmokeExecutionRequested: manualSmokeReadiness.manualSmokeExecutionRequested,
+      manualSmokeReady: manualSmokeReadiness.manualSmokeReady,
+      realProviderExecutionAllowed: manualSmokeReadiness.realProviderExecutionAllowed,
+      deterministicFallback: manualSmokeReadiness.deterministicFallback,
+      networkAllowed: manualSmokeReadiness.networkAllowed,
+      blockedReasons: manualSmokeReadiness.blockedReasons,
     },
   };
 }
