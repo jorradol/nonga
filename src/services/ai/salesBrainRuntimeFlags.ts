@@ -11,9 +11,18 @@ export const NONGA_AI_USER_VISIBLE_ENABLED_ENV = "NONGA_AI_USER_VISIBLE_ENABLED"
 export const NONGA_AI_EMERGENCY_KILL_SWITCH_ENV = "NONGA_AI_EMERGENCY_KILL_SWITCH";
 export const NONGA_AI_BUDGET_DAILY_LIMIT_ENV = "NONGA_AI_BUDGET_DAILY_LIMIT";
 export const NONGA_AI_BUDGET_MONTHLY_LIMIT_ENV = "NONGA_AI_BUDGET_MONTHLY_LIMIT";
+/** v11.1 — legacy/public Gemini routes must stay fail-closed by default */
+export const NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV =
+  "NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED";
 /** v6.1H — admin-only shadow smoke real Gemini (default off) */
 export const NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV =
   "NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED";
+/** v11.1 — explicit manual smoke gate for admin shadow real provider */
+export const NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV =
+  "NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED";
+/** v11.1 — explicit case binding for admin shadow manual smoke */
+export const NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV =
+  "NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID";
 /** v6.1K — chat-path shadow sink real Gemini (default off; CP-02 only) */
 export const NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV =
   "NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED";

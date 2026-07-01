@@ -29,9 +29,12 @@ import {
   isGlobalChatShadowEmergencyKillSwitchActive,
 } from "../src/services/ai/salesBrainChatShadowRealProvider.ts";
 import {
+  NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV,
+  NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV,
   NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV,
   NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV,
   NONGA_AI_EMERGENCY_KILL_SWITCH_ENV,
+  NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV,
   NONGA_AI_USER_VISIBLE_ENABLED_ENV,
 } from "../src/services/ai/salesBrainRuntimeFlags.ts";
 import {
@@ -116,6 +119,8 @@ ok(
         {
           ...STAGING_ENV,
           [NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV]: "SS-01",
         },
         k
       ),
@@ -131,6 +136,8 @@ ok(
         {
           ...STAGING_ENV,
           [NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV]: "SS-01",
         },
         k
       ),
@@ -161,6 +168,8 @@ ok(
         {
           ...STAGING_ENV,
           [NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV]: "SS-01",
         },
         k
       ),
@@ -199,6 +208,40 @@ ok(
 );
 
 ok(
+  "SS-01 blocked when manual smoke disabled",
+  !canAttemptAdminShadowRealProvider({
+    caseId: "SS-01",
+    environment: "staging",
+    readEnv: (k) =>
+      readEnvFrom(
+        {
+          ...STAGING_ENV,
+          [NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV]: "false",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV]: "SS-01",
+        },
+        k
+      ),
+  })
+);
+ok(
+  "SS-01 blocked when manual smoke case mismatch",
+  !canAttemptAdminShadowRealProvider({
+    caseId: "SS-01",
+    environment: "staging",
+    readEnv: (k) =>
+      readEnvFrom(
+        {
+          ...STAGING_ENV,
+          [NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV]: "SS-02",
+        },
+        k
+      ),
+  })
+);
+ok(
   "kill switch blocks SS-01 attempt",
   !canAttemptAdminShadowRealProvider({
     caseId: "SS-01",
@@ -208,6 +251,8 @@ ok(
         {
           ...STAGING_ENV,
           [NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV]: "true",
+          [NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV]: "SS-01",
           [NONGA_AI_EMERGENCY_KILL_SWITCH_ENV]: "true",
         },
         k
@@ -225,9 +270,11 @@ ok(
 );
 ok(
   "legacy gemini blocked when kill switch on",
-  !canInvokeLegacyGeminiProvider(true, (k) =>
-    k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV ? "true" : undefined
-  )
+  !canInvokeLegacyGeminiProvider(true, (k) => {
+    if (k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV) return "true";
+    if (k === NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV) return "true";
+    return undefined;
+  })
 );
 
 ok("staging env user visible false", STAGING_ENV[NONGA_AI_USER_VISIBLE_ENABLED_ENV] === "false");

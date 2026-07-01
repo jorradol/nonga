@@ -11,6 +11,8 @@ import {
 } from "./salesBrainRealProvider";
 import { redactPiiForSalesBrainLog } from "./salesBrainMock";
 import {
+  NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV,
+  NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV,
   NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV,
 } from "./salesBrainRuntimeFlags";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
@@ -19,6 +21,13 @@ export const ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS = ["SS-01"] as const;
 
 export type AdminShadowRealProviderAllowedCaseId =
   (typeof ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS)[number];
+
+export type AdminShadowRealProviderAttemptBlockedReason =
+  | "production_environment"
+  | "case_not_allowed_for_real_provider"
+  | "admin_shadow_real_provider_flag_off"
+  | "admin_shadow_manual_smoke_disabled"
+  | "admin_shadow_manual_smoke_case_mismatch";
 
 /** Align with server.ts Gemini routes (e.g. analyze-memory); gemini-2.0-flash returns 404 NOT_FOUND */
 export const ADMIN_SHADOW_GEMINI_MODEL = "gemini-3.5-flash";
@@ -60,10 +69,64 @@ export function isAdminShadowRealProviderEnabled(
   return parseTruthy(readEnv(NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV));
 }
 
+export function isAdminShadowManualSmokeEnabled(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): boolean {
+  return parseTruthy(readEnv(NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV));
+}
+
+export function getAdminShadowManualSmokeCaseId(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): string {
+  return String(readEnv(NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV) ?? "").trim();
+}
+
 export function isAdminShadowRealProviderCaseAllowed(
   caseId: string
 ): caseId is AdminShadowRealProviderAllowedCaseId {
   return (ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS as readonly string[]).includes(caseId);
+}
+
+export function resolveAdminShadowRealProviderAttempt(input: {
+  caseId: string;
+  environment: "production" | "staging" | "local";
+  readEnv?: SalesBrainEnvReader;
+}):
+  | { allowed: true }
+  | {
+      allowed: false;
+      blockedReason: AdminShadowRealProviderAttemptBlockedReason;
+    } {
+  const readEnv = input.readEnv ?? defaultEnvReader;
+  if (input.environment === "production") {
+    return { allowed: false, blockedReason: "production_environment" };
+  }
+  if (!isAdminShadowRealProviderCaseAllowed(input.caseId)) {
+    return {
+      allowed: false,
+      blockedReason: "case_not_allowed_for_real_provider",
+    };
+  }
+  if (!isAdminShadowRealProviderEnabled(readEnv)) {
+    return {
+      allowed: false,
+      blockedReason: "admin_shadow_real_provider_flag_off",
+    };
+  }
+  if (!isAdminShadowManualSmokeEnabled(readEnv)) {
+    return {
+      allowed: false,
+      blockedReason: "admin_shadow_manual_smoke_disabled",
+    };
+  }
+  const manualCaseId = getAdminShadowManualSmokeCaseId(readEnv);
+  if (manualCaseId !== input.caseId) {
+    return {
+      allowed: false,
+      blockedReason: "admin_shadow_manual_smoke_case_mismatch",
+    };
+  }
+  return { allowed: true };
 }
 
 export function canAttemptAdminShadowRealProvider(input: {
@@ -71,13 +134,7 @@ export function canAttemptAdminShadowRealProvider(input: {
   environment: "production" | "staging" | "local";
   readEnv?: SalesBrainEnvReader;
 }): boolean {
-  if (input.environment === "production") {
-    return false;
-  }
-  if (!isAdminShadowRealProviderEnabled(input.readEnv)) {
-    return false;
-  }
-  return isAdminShadowRealProviderCaseAllowed(input.caseId);
+  return resolveAdminShadowRealProviderAttempt(input).allowed;
 }
 
 function parseBudget(raw: string | undefined): number | null {

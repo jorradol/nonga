@@ -11,6 +11,7 @@ import {
 } from "../src/server/security/legacyGeminiSafety.ts";
 import {
   NONGA_AI_EMERGENCY_KILL_SWITCH_ENV,
+  NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV,
 } from "../src/services/ai/salesBrainRuntimeFlags.ts";
 import {
   evaluateUserVisibleGate,
@@ -39,16 +40,33 @@ function ok(name: string, pass: boolean, detail = "") {
 console.log("=== v6.8B Gemini Safety Alignment ===\n");
 
 ok(
-  "kill switch off allows provider when client present",
+  "legacy public gemini default-off blocks provider",
   canInvokeLegacyGeminiProvider(true, (k) =>
     k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV ? "false" : undefined
+  ) === false
+);
+ok(
+  "legacy public gate on + kill switch off allows provider",
+  canInvokeLegacyGeminiProvider(true, (k) => {
+    if (k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV) return "false";
+    if (k === NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV) return "true";
+    return undefined;
+  })
+);
+ok(
+  "legacy public disabled block reason",
+  getLegacyGeminiBlockReason(true, (k) =>
+    k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV ? "false" : undefined
   )
+    === "legacy_public_disabled"
 );
 ok(
   "kill switch on blocks provider even when client present",
-  !canInvokeLegacyGeminiProvider(true, (k) =>
-    k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV ? "true" : undefined
-  )
+  !canInvokeLegacyGeminiProvider(true, (k) => {
+    if (k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV) return "true";
+    if (k === NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV) return "true";
+    return undefined;
+  })
 );
 ok(
   "missing client blocks provider",
@@ -58,9 +76,11 @@ ok(
 );
 ok(
   "kill switch block reason",
-  getLegacyGeminiBlockReason(true, (k) =>
-    k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV ? "true" : undefined
-  ) === "kill_switch"
+  getLegacyGeminiBlockReason(true, (k) => {
+    if (k === NONGA_AI_EMERGENCY_KILL_SWITCH_ENV) return "true";
+    if (k === NONGA_AI_LEGACY_PUBLIC_GEMINI_ENABLED_ENV) return "true";
+    return undefined;
+  }) === "kill_switch"
 );
 ok(
   "missing provider block reason",

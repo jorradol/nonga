@@ -23,6 +23,8 @@ import {
   stagingStyleShadowEnv,
 } from "../src/services/ai/salesBrainServerShadowSmoke.ts";
 import {
+  NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV,
+  NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV,
   NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV,
   NONGA_AI_USER_VISIBLE_ENABLED_ENV,
   SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED,
@@ -137,6 +139,12 @@ function readEnvOn(key: string): string | undefined {
   if (key === NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV) {
     return "true";
   }
+  if (key === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV) {
+    return "true";
+  }
+  if (key === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV) {
+    return "SS-01";
+  }
   if (key === "GEMINI_API_KEY") {
     return "sm-configured-via-secret-ref";
   }
@@ -208,6 +216,26 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
     environment: "staging",
     readEnv: readEnvOn,
   }));
+  ok("manual smoke enabled required", !canAttemptAdminShadowRealProvider({
+    caseId: "SS-01",
+    environment: "staging",
+    readEnv: (k) => {
+      if (k === NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV) return "true";
+      if (k === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV) return "false";
+      if (k === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV) return "SS-01";
+      return readEnvOn(k);
+    },
+  }));
+  ok("manual smoke case-id must match", !canAttemptAdminShadowRealProvider({
+    caseId: "SS-01",
+    environment: "staging",
+    readEnv: (k) => {
+      if (k === NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV) return "true";
+      if (k === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV) return "true";
+      if (k === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV) return "SS-02";
+      return readEnvOn(k);
+    },
+  }));
   ok("only SS-01 in allowlist", ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS.length === 1);
 
   const evaluation = runSalesBrainAdminShadowSmoke({ caseId: "SS-01" });
@@ -233,6 +261,12 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const readEnvRuntimeKey = (key: string): string | undefined => {
     if (key === NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV) {
       return "true";
+    }
+    if (key === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV) {
+      return "true";
+    }
+    if (key === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV) {
+      return "SS-01";
     }
     if (key === "GEMINI_API_KEY") {
       return runtimeKey;
@@ -283,6 +317,20 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   ok("flag off gate reason present", payload.realProviderGateReason === "admin_shadow_real_provider_flag_off");
   ok("classify missing api key", classifyAdminShadowProviderError(new SalesBrainRealProviderMissingApiKeyError()) === "missing_api_key");
   ok("slice id exported", ADMIN_SHADOW_SMOKE_SLICE_ID === "v6.1J");
+  const blockedManual = await resolveAdminShadowSmokeHandlerContext({
+    caseId: "SS-01",
+    evaluation,
+    readEnv: (k) => {
+      if (k === NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV) return "true";
+      if (k === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV) return "false";
+      if (k === NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV) return "SS-01";
+      return readEnvOn(k);
+    },
+  });
+  ok(
+    "manual smoke disabled gate reason",
+    blockedManual.realProviderGateReason === "admin_shadow_manual_smoke_disabled"
+  );
 
   ok("map 403 permission", mapGeminiHttpStatusToFallbackReason({ httpStatus: 403, grpcStatus: "PERMISSION_DENIED" }) === "gemini_http_403");
   ok("map 401 auth", mapGeminiHttpStatusToFallbackReason({ httpStatus: 401, grpcStatus: "UNAUTHENTICATED" }) === "gemini_auth_error");

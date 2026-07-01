@@ -11,7 +11,7 @@ import {
 import {
   ADMIN_SHADOW_GEMINI_MODEL,
   ADMIN_SHADOW_GEMINI_REQUEST_SHAPE,
-  canAttemptAdminShadowRealProvider,
+  resolveAdminShadowRealProviderAttempt,
   invokeAdminShadowRealProvider,
   isAdminShadowRealProviderCaseAllowed,
   type AdminShadowGeminiCallResult,
@@ -332,14 +332,15 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     };
   }
 
-  if (!canAttemptAdminShadowRealProvider({
+  const attempt = resolveAdminShadowRealProviderAttempt({
     caseId: input.caseId,
     environment,
     readEnv,
-  })) {
+  });
+  if (!attempt.allowed) {
     return {
       providerNetwork: false,
-      realProviderGateReason: "admin_shadow_real_provider_flag_off",
+      realProviderGateReason: attempt.blockedReason,
     };
   }
 
