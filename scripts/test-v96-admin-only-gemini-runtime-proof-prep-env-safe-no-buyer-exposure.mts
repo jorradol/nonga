@@ -310,6 +310,8 @@ ok(
     "scripts/test-v100-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.mts",
     "docs/v10.1-admin-only-real-gemini-manual-smoke-operator-runbook-no-execution-yet.md",
     "scripts/test-v101-admin-only-real-gemini-manual-smoke-operator-runbook-no-execution-yet.mts",
+    "docs/v10.2-admin-only-real-gemini-manual-smoke-preflight-no-buyer-exposure.md",
+    "scripts/test-v102-admin-only-real-gemini-manual-smoke-preflight-no-buyer-exposure.mts",
     "package.json",
   ]);
   const trackedChanged = shellOut("git diff --name-only")

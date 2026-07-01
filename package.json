@@ -139,6 +139,7 @@
     "test:v99:implementation-prep": "tsx scripts/test-v99-admin-only-real-gemini-proof-implementation-prep.mts",
     "test:v100:manual-smoke-prep": "tsx scripts/test-v100-admin-only-real-gemini-smoke-path-prep-env-secret-manual-proof-only.mts",
     "test:v101:operator-runbook": "tsx scripts/test-v101-admin-only-real-gemini-manual-smoke-operator-runbook-no-execution-yet.mts",
+    "test:v102:manual-smoke-preflight": "tsx scripts/test-v102-admin-only-real-gemini-manual-smoke-preflight-no-buyer-exposure.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
