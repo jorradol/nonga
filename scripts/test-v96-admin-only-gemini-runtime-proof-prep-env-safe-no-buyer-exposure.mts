@@ -295,8 +295,10 @@ ok(
   const allowed = new Set([
     "docs/v9.6-admin-only-gemini-runtime-proof-prep-env-safe-no-buyer-exposure.md",
     "docs/v9.7-admin-only-gemini-runtime-proof-dry-run-gate.md",
+    "docs/v9.8-admin-only-real-gemini-proof-authorization-packet.md",
     "scripts/test-v96-admin-only-gemini-runtime-proof-prep-env-safe-no-buyer-exposure.mts",
     "scripts/test-v97-admin-only-gemini-runtime-proof-dry-run-gate.mts",
+    "scripts/test-v98-admin-only-real-gemini-proof-authorization-packet.mts",
     "scripts/test-v93-admin-only-gemini-provider-wiring-still-off-kill-switch-protected.mts",
     "scripts/test-v94-admin-only-runtime-proof-smoke-harness-no-real-gemini-yet.mts",
     "scripts/test-v95-owner-review-admin-only-runtime-proof-readiness-gate.mts",
