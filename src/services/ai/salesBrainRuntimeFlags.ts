@@ -23,6 +23,9 @@ export const NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV =
 /** v11.1 — explicit case binding for admin shadow manual smoke */
 export const NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV =
   "NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID";
+/** v11.12 — bounded timeout for admin-only shadow real provider call */
+export const NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV =
+  "NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS";
 /** v6.1K — chat-path shadow sink real Gemini (default off; CP-02 only) */
 export const NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV =
   "NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED";

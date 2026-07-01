@@ -10,7 +10,9 @@ import {
   ADMIN_SHADOW_REAL_PROVIDER_ALLOWED_CASE_IDS,
   canAttemptAdminShadowRealProvider,
   isAdminShadowRealProviderEnabled,
+  invokeAdminShadowRealProvider,
   resetAdminShadowGeminiCallerForTests,
+  resolveAdminShadowProviderTimeoutMs,
   setAdminShadowGeminiCallerForTests,
 } from "../src/services/ai/salesBrainAdminShadowRealProvider.ts";
 import {
@@ -25,6 +27,7 @@ import {
 import {
   NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV,
   NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV,
+  NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV,
   NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV,
   NONGA_AI_USER_VISIBLE_ENABLED_ENV,
   SALES_BRAIN_V60R_USER_VISIBLE_BLOCKED,
@@ -353,6 +356,48 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const redacted404 = extractRedactedGeminiApiError(modelErr);
   ok("extract 404 model not found", redacted404.fallbackReason === "gemini_model_not_found");
   ok("admin shadow model constant", ADMIN_SHADOW_GEMINI_MODEL === "gemini-3.5-flash");
+  ok("timeout env key exported", runtimeFlags.includes(NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV));
+  ok("timeout default 15000", resolveAdminShadowProviderTimeoutMs(() => undefined) === 15000);
+  ok(
+    "timeout clamps min 1000",
+    resolveAdminShadowProviderTimeoutMs((k) =>
+      k === NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV ? "10" : undefined
+    ) === 1000
+  );
+  ok(
+    "timeout clamps max 20000",
+    resolveAdminShadowProviderTimeoutMs((k) =>
+      k === NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV ? "45000" : undefined
+    ) === 20000
+  );
+  ok(
+    "timeout invalid uses default",
+    resolveAdminShadowProviderTimeoutMs((k) =>
+      k === NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV ? "not-a-number" : undefined
+    ) === 15000
+  );
+
+  setAdminShadowGeminiCallerForTests(async () => {
+    return await new Promise<never>(() => {});
+  });
+  try {
+    await invokeAdminShadowRealProvider({
+      userMessage: "synthetic timeout probe",
+      userRole: "buyer",
+      readEnv: (k) => {
+        if (k === NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV) return "1000";
+        if (k === "GEMINI_API_KEY") return "sm-configured-via-secret-ref";
+        return readEnvOn(k);
+      },
+    });
+    ok("timeout error thrown", false);
+  } catch (err) {
+    const redactedTimeout = extractRedactedGeminiApiError(err);
+    ok("timeout error thrown", true);
+    ok("timeout fallback reason", redactedTimeout.fallbackReason === "provider_timeout");
+  } finally {
+    resetAdminShadowGeminiCallerForTests();
+  }
 
   const okCase = mockRes();
   await handleAdminSalesBrainShadowSmokePost(reqWith({}, { caseId: "SS-01" }), okCase.res);
@@ -372,6 +417,18 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1J");
   ok("handler diag gemini model", body.adminShadowDiag?.geminiModel === "gemini-3.5-flash");
   ok("handler diag request shape", body.adminShadowDiag?.geminiRequestShape === "sdk_contents_text_part");
+  ok(
+    "handler source has provider stage start",
+    serverModule.includes("admin_shadow_provider_call_start")
+  );
+  ok(
+    "handler source has provider stage timeout",
+    serverModule.includes("admin_shadow_provider_call_timeout")
+  );
+  ok(
+    "handler source has provider stage fallback",
+    serverModule.includes("admin_shadow_fallback_returned")
+  );
 }
 
 // --- auth matrix ---

@@ -7,6 +7,7 @@ import {
   buildAdminShadowSmokeDiag,
   extractRedactedGeminiApiError,
   logAdminShadowSmokeGate,
+  logAdminShadowSmokeStage,
 } from "./salesBrainAdminShadowDiagnostics";
 import {
   ADMIN_SHADOW_GEMINI_MODEL,
@@ -319,6 +320,16 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
   const environment = definition.environment ?? "staging";
 
   if (environment === "production") {
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_gate_checked",
+      gate: "production_environment",
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_fallback_returned",
+      gate: "production_environment",
+    });
     return {
       providerNetwork: false,
       realProviderGateReason: "production_environment",
@@ -326,6 +337,16 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
   }
 
   if (!isAdminShadowRealProviderCaseAllowed(input.caseId)) {
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_gate_checked",
+      gate: "case_not_allowed_for_real_provider",
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_fallback_returned",
+      gate: "case_not_allowed_for_real_provider",
+    });
     return {
       providerNetwork: false,
       realProviderGateReason: "case_not_allowed_for_real_provider",
@@ -338,6 +359,16 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     readEnv,
   });
   if (!attempt.allowed) {
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_gate_checked",
+      gate: attempt.blockedReason,
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_fallback_returned",
+      gate: attempt.blockedReason,
+    });
     return {
       providerNetwork: false,
       realProviderGateReason: attempt.blockedReason,
@@ -345,6 +376,17 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
   }
 
   if (isGlobalChatShadowEmergencyKillSwitchActive(readEnv)) {
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_gate_checked",
+      gate: "emergency_kill_switch",
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_fallback_returned",
+      gate: "emergency_kill_switch",
+      fallback: "emergency_kill_switch",
+    });
     return {
       providerNetwork: false,
       realProviderGateReason: "emergency_kill_switch",
@@ -353,6 +395,17 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
   }
 
   if (!input.evaluation.runtimeFlags.shadowEvaluationAllowed) {
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_gate_checked",
+      gate: "shadow_evaluation_not_allowed",
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_fallback_returned",
+      gate: "shadow_evaluation_not_allowed",
+      fallback: "shadow_evaluation_not_allowed",
+    });
     return {
       providerNetwork: false,
       realProviderGateReason: "shadow_evaluation_not_allowed",
@@ -360,11 +413,27 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     };
   }
 
+  logAdminShadowSmokeStage({
+    caseId: input.caseId,
+    stage: "admin_shadow_gate_checked",
+    gate: "ready",
+  });
+  logAdminShadowSmokeStage({
+    caseId: input.caseId,
+    stage: "admin_shadow_provider_call_start",
+    gate: "real_provider_attempt",
+  });
+
   try {
     const realProviderResult = await invokeAdminShadowRealProvider({
       userMessage: definition.userMessage,
       userRole: definition.userRole,
       readEnv,
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_provider_call_success",
+      gate: "real_provider_call_ok",
     });
     return {
       providerNetwork: true,
@@ -373,6 +442,21 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     };
   } catch (error) {
     const redacted = extractRedactedGeminiApiError(error);
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage:
+        redacted.fallbackReason === "provider_timeout"
+          ? "admin_shadow_provider_call_timeout"
+          : "admin_shadow_provider_call_error",
+      gate: "real_provider_call_failed",
+      fallback: redacted.fallbackReason,
+    });
+    logAdminShadowSmokeStage({
+      caseId: input.caseId,
+      stage: "admin_shadow_fallback_returned",
+      gate: "real_provider_call_failed",
+      fallback: redacted.fallbackReason,
+    });
     return {
       providerNetwork: false,
       realProviderGateReason: "real_provider_call_failed",

@@ -33,6 +33,14 @@ export interface RedactedGeminiApiError {
   geminiErrorCode?: string;
 }
 
+export type AdminShadowSmokeStage =
+  | "admin_shadow_gate_checked"
+  | "admin_shadow_provider_call_start"
+  | "admin_shadow_provider_call_timeout"
+  | "admin_shadow_provider_call_success"
+  | "admin_shadow_provider_call_error"
+  | "admin_shadow_fallback_returned";
+
 type ApiErrorLike = Error & { status?: number };
 
 function parseGeminiApiErrorEnvelope(
@@ -98,6 +106,9 @@ export function extractRedactedGeminiApiError(error: unknown): RedactedGeminiApi
     return { fallbackReason: "provider_network_disabled" };
   }
   if (error instanceof Error) {
+    if (error.name === "AdminShadowRealProviderTimeoutError") {
+      return { fallbackReason: "provider_timeout" };
+    }
     if (/GEMINI_API_KEY|api.?key/i.test(error.message)) {
       return { fallbackReason: "missing_api_key" };
     }
@@ -181,6 +192,24 @@ export function logAdminShadowSmokeGate(input: {
       geminiRequestShape: input.diag.geminiRequestShape ?? null,
       geminiHttpStatus: input.diag.geminiHttpStatus ?? null,
       geminiErrorCode: input.diag.geminiErrorCode ?? null,
+    })
+  );
+}
+
+/** Safe stage log — checkpoints only, no prompt/output/secret values */
+export function logAdminShadowSmokeStage(input: {
+  caseId: string;
+  stage: AdminShadowSmokeStage;
+  gate?: string;
+  fallback?: string;
+}): void {
+  console.log(
+    "[admin-shadow-smoke-stage]",
+    JSON.stringify({
+      caseId: input.caseId,
+      stage: input.stage,
+      gate: input.gate ?? null,
+      fallback: input.fallback ?? null,
     })
   );
 }

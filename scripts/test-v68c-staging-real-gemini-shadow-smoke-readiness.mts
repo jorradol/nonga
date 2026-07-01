@@ -31,6 +31,7 @@ import {
 import {
   NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV,
   NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV,
+  NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV,
   NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV,
   NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV,
   NONGA_AI_EMERGENCY_KILL_SWITCH_ENV,
@@ -76,8 +77,10 @@ const docLower = doc.toLowerCase();
 const selfSrc = readFileSync("scripts/test-v68c-staging-real-gemini-shadow-smoke-readiness.mts", "utf8");
 const pkg = readFileSync("package.json", "utf8");
 const shadowSmokeSrc = readFileSync("src/services/ai/salesBrainServerShadowSmoke.ts", "utf8");
+const adminProviderSrc = readFileSync("src/services/ai/salesBrainAdminShadowRealProvider.ts", "utf8");
 const chatSinkSrc = readFileSync("src/services/ai/salesBrainServerChatShadowSink.ts", "utf8");
 const userVisiblePathSrc = readFileSync("src/services/ai/salesBrainUserVisibleChatPath.ts", "utf8");
+const runtimeFlagsSrc = readFileSync("src/services/ai/salesBrainRuntimeFlags.ts", "utf8");
 
 ok("doc exists", doc.length > 0);
 ok("doc v6.8C label", doc.includes("v6.8C"));
@@ -308,6 +311,26 @@ ok("secret mapping sm resource", mapping.smResource === SALES_BRAIN_GEMINI_SM_RE
 ok("shadow smoke handler userVisibleOff true", shadowSmokeSrc.includes("userVisibleOff: true"));
 ok("chat sink handler userVisibleOff true", chatSinkSrc.includes("userVisibleOff: true"));
 ok("chat sink handler sinkOnly true", chatSinkSrc.includes("sinkOnly: true"));
+ok(
+  "admin provider timeout env key wired",
+  adminProviderSrc.includes(NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV)
+);
+ok(
+  "runtime flags timeout env key exported",
+  runtimeFlagsSrc.includes(NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV)
+);
+ok(
+  "admin provider timeout bounds present",
+  adminProviderSrc.includes("ADMIN_SHADOW_PROVIDER_TIMEOUT_DEFAULT_MS") &&
+    adminProviderSrc.includes("ADMIN_SHADOW_PROVIDER_TIMEOUT_MIN_MS") &&
+    adminProviderSrc.includes("ADMIN_SHADOW_PROVIDER_TIMEOUT_MAX_MS")
+);
+ok(
+  "shadow smoke stage diagnostics present",
+  shadowSmokeSrc.includes("admin_shadow_provider_call_start") &&
+    shadowSmokeSrc.includes("admin_shadow_provider_call_timeout") &&
+    shadowSmokeSrc.includes("admin_shadow_fallback_returned")
+);
 
 ok("SS-05 kill switch case exists", "SS-05" in SALES_BRAIN_ADMIN_SHADOW_SMOKE_CASES);
 ok("CP-03 kill switch scenario exists", "CP-03" in SALES_BRAIN_CHAT_SHADOW_SINK_SCENARIOS);

@@ -13,6 +13,7 @@ import { redactPiiForSalesBrainLog } from "./salesBrainMock";
 import {
   NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_CASE_ID_ENV,
   NONGA_AI_ADMIN_SHADOW_MANUAL_SMOKE_ENABLED_ENV,
+  NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV,
   NONGA_AI_ADMIN_SHADOW_REAL_PROVIDER_ENABLED_ENV,
 } from "./salesBrainRuntimeFlags";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
@@ -33,6 +34,9 @@ export type AdminShadowRealProviderAttemptBlockedReason =
 export const ADMIN_SHADOW_GEMINI_MODEL = "gemini-3.5-flash";
 export const ADMIN_SHADOW_GEMINI_REQUEST_SHAPE = "sdk_contents_text_part";
 const MAX_PROVIDER_OUTPUT_CHARS = 500;
+const ADMIN_SHADOW_PROVIDER_TIMEOUT_DEFAULT_MS = 15000;
+const ADMIN_SHADOW_PROVIDER_TIMEOUT_MIN_MS = 1000;
+const ADMIN_SHADOW_PROVIDER_TIMEOUT_MAX_MS = 20000;
 
 export interface AdminShadowGeminiCallResult {
   providerNetworkUsed: true;
@@ -137,6 +141,36 @@ export function canAttemptAdminShadowRealProvider(input: {
   return resolveAdminShadowRealProviderAttempt(input).allowed;
 }
 
+export class AdminShadowRealProviderTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Admin shadow provider timed out after ${timeoutMs}ms`);
+    this.name = "AdminShadowRealProviderTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+export function resolveAdminShadowProviderTimeoutMs(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): number {
+  const raw = String(
+    readEnv(NONGA_AI_ADMIN_SHADOW_PROVIDER_TIMEOUT_MS_ENV) ?? ""
+  ).trim();
+  if (!raw) {
+    return ADMIN_SHADOW_PROVIDER_TIMEOUT_DEFAULT_MS;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return ADMIN_SHADOW_PROVIDER_TIMEOUT_DEFAULT_MS;
+  }
+  const rounded = Math.round(parsed);
+  return Math.min(
+    ADMIN_SHADOW_PROVIDER_TIMEOUT_MAX_MS,
+    Math.max(ADMIN_SHADOW_PROVIDER_TIMEOUT_MIN_MS, rounded)
+  );
+}
+
 function parseBudget(raw: string | undefined): number | null {
   if (raw === undefined || raw.trim() === "") {
     return null;
@@ -213,12 +247,26 @@ export async function invokeAdminShadowRealProvider(input: {
   };
 
   const caller = testGeminiCaller ?? defaultAdminShadowGeminiCaller;
+  const timeoutMs = resolveAdminShadowProviderTimeoutMs(readEnv);
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<AdminShadowGeminiCallResult>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new AdminShadowRealProviderTimeoutError(timeoutMs));
+    }, timeoutMs);
+  });
   try {
-    return await caller(adapterInput, { readEnv });
+    return await Promise.race([
+      caller(adapterInput, { readEnv }),
+      timeoutPromise,
+    ]);
   } catch (error) {
     if (shouldFallbackOnRealProviderError(error)) {
       throw error;
     }
     throw error;
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
   }
 }
