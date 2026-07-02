@@ -156,6 +156,7 @@
     "test:v120:post-run-stall-evidence-review": "tsx scripts/test-v120-post-run-stall-evidence-review.mts",
     "test:v121:no-gemini-runtime-diagnostics-capture-patch": "tsx scripts/test-v121-no-gemini-runtime-diagnostics-capture-patch.mts",
     "test:v122:static-safety-review-for-diagnostics-patch": "tsx scripts/test-v122-static-safety-review-for-diagnostics-patch.mts",
+    "test:v123:new-authorized-one-run-plan-prepare-only": "tsx scripts/test-v123-new-authorized-one-run-plan-prepare-only.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
