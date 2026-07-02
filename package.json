@@ -161,6 +161,7 @@
     "test:v126:client-command-template-patch-no-gemini-execution": "tsx scripts/test-v126-client-command-template-patch-no-gemini-execution.mts",
     "test:v127:fresh-authorized-one-run-plan-prepare-only": "tsx scripts/test-v127-fresh-authorized-one-run-plan-prepare-only.mts",
     "test:v129:admin-auth-runtime-env-gate-review-no-retry": "tsx scripts/test-v129-admin-auth-runtime-env-gate-review-no-retry.mts",
+    "test:v1210:admin-auth-env-alignment-patch-no-gemini-execution": "tsx scripts/test-v1210-admin-auth-env-alignment-patch-no-gemini-execution.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",

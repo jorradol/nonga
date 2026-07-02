@@ -249,7 +249,10 @@ export async function runAdminShadowSmokeCase(
     >(ADMIN_SHADOW_SMOKE_ROUTE, {
       method: "POST",
       headers: {
-        ...(await adminAuthHeadersAsync()),
+        ...(await adminAuthHeadersAsync("admin", {
+          mode: "admin_api_token",
+          allowViteAdminTokenFallback: true,
+        })),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ caseId }),
