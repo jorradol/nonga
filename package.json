@@ -174,6 +174,7 @@
     "test:v135:gemini-shadow-runtime-config-readiness-approval-packet-no-runtime-change": "tsx scripts/test-v135-gemini-shadow-runtime-config-readiness-approval-packet-no-runtime-change.mts",
     "test:v136:controlled-staging-gemini-shadow-runtime-config-setup-record": "tsx scripts/test-v136-controlled-staging-gemini-shadow-runtime-config-setup-record.mts",
     "test:v137:one-run-admin-only-real-gemini-proof-approval-packet": "tsx scripts/test-v137-one-run-admin-only-real-gemini-proof-approval-packet.mts",
+    "test:v137r:session-admin-token-rearm-one-run-admin-only-real-gemini-proof-execution-record": "tsx scripts/test-v137r-session-admin-token-rearm-one-run-admin-only-real-gemini-proof-execution-record.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
