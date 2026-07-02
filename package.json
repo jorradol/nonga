@@ -150,6 +150,7 @@
     "test:v108:manual-smoke-final-authorization-record": "tsx scripts/test-v108-admin-only-real-gemini-manual-smoke-final-authorization-record.mts",
     "test:v109:manual-smoke-execution-gate-record": "tsx scripts/test-v109-admin-only-real-gemini-manual-smoke-execution-gate-record.mts",
     "test:v1116:admin-shadow-ss01-provider-stall-abort-record": "tsx scripts/test-v1116-admin-shadow-ss01-provider-stall-abort-record.mts",
+    "test:v1117:admin-shadow-provider-stall-review": "tsx scripts/test-v1117-admin-shadow-provider-stall-review.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
