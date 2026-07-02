@@ -152,6 +152,7 @@
     "test:v1116:admin-shadow-ss01-provider-stall-abort-record": "tsx scripts/test-v1116-admin-shadow-ss01-provider-stall-abort-record.mts",
     "test:v1117:admin-shadow-provider-stall-review": "tsx scripts/test-v1117-admin-shadow-provider-stall-review.mts",
     "test:v1118:no-gemini-admin-shadow-instrumentation-patch": "tsx scripts/test-v1118-no-gemini-admin-shadow-instrumentation-patch.mts",
+    "test:v1119a:final-pre-execution-readiness-health-recovery-record": "tsx scripts/test-v1119a-final-pre-execution-readiness-health-recovery-record.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
     "test:dealer-profile": "tsx scripts/test-dealer-profile.mts",
