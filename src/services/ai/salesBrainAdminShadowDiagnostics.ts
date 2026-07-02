@@ -34,12 +34,18 @@ export interface RedactedGeminiApiError {
 }
 
 export type AdminShadowSmokeStage =
+  | "admin_shadow_request_handler_start"
+  | "admin_shadow_request_handler_return"
   | "admin_shadow_gate_checked"
   | "admin_shadow_provider_call_start"
   | "admin_shadow_provider_call_timeout"
   | "admin_shadow_provider_call_success"
   | "admin_shadow_provider_call_error"
-  | "admin_shadow_fallback_returned";
+  | "admin_shadow_fallback_returned"
+  | "admin_shadow_manual_caller_start"
+  | "admin_shadow_manual_caller_timeout"
+  | "admin_shadow_manual_caller_completed"
+  | "admin_shadow_manual_caller_aborted";
 
 type ApiErrorLike = Error & { status?: number };
 

@@ -472,7 +472,18 @@ export async function handleAdminSalesBrainShadowSmokePost(
   res: Response
 ): Promise<void> {
   const caseId = String(req.body?.caseId ?? "").trim();
+  logAdminShadowSmokeStage({
+    caseId: caseId || "missing_case_id",
+    stage: "admin_shadow_request_handler_start",
+    gate: "request_received",
+  });
   if (!caseId) {
+    logAdminShadowSmokeStage({
+      caseId: "missing_case_id",
+      stage: "admin_shadow_request_handler_return",
+      gate: "missing_case_id",
+      fallback: "validation_error",
+    });
     res.status(400).json({
       success: false,
       message: "caseId is required — synthetic SS-01..SS-08 only",
@@ -481,6 +492,12 @@ export async function handleAdminSalesBrainShadowSmokePost(
   }
 
   if (!isSalesBrainAdminShadowSmokeCaseId(caseId)) {
+    logAdminShadowSmokeStage({
+      caseId,
+      stage: "admin_shadow_request_handler_return",
+      gate: "unknown_case_id",
+      fallback: "validation_error",
+    });
     res.status(400).json({
       success: false,
       message: "unknown caseId — use synthetic SS-01..SS-08 only",
@@ -515,6 +532,12 @@ export async function handleAdminSalesBrainShadowSmokePost(
     realProviderGateReason,
     adminShadowRealProviderFallbackReason: handlerContext.realProviderFallbackReason,
     diag: adminShadowDiag,
+  });
+  logAdminShadowSmokeStage({
+    caseId,
+    stage: "admin_shadow_request_handler_return",
+    gate: realProviderGateReason,
+    fallback: handlerContext.realProviderFallbackReason,
   });
 
   res.json({

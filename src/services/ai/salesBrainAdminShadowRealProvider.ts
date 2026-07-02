@@ -49,7 +49,7 @@ export interface AdminShadowGeminiCallResult {
 
 export type AdminShadowGeminiCaller = (
   input: SalesBrainAdapterInput,
-  options: { readEnv: SalesBrainEnvReader }
+  options: { readEnv: SalesBrainEnvReader; signal: AbortSignal; timeoutMs: number }
 ) => Promise<AdminShadowGeminiCallResult>;
 
 let testGeminiCaller: AdminShadowGeminiCaller | null = null;
@@ -196,9 +196,12 @@ function buildSyntheticAdminShadowPrompt(
 
 async function defaultAdminShadowGeminiCaller(
   input: SalesBrainAdapterInput,
-  options: { readEnv: SalesBrainEnvReader }
+  options: { readEnv: SalesBrainEnvReader; signal: AbortSignal; timeoutMs: number }
 ): Promise<AdminShadowGeminiCallResult> {
   const readEnv = options.readEnv;
+  if (options.signal.aborted) {
+    throw new AdminShadowRealProviderTimeoutError(options.timeoutMs);
+  }
   const request = buildAdminShadowProviderRequest(input, readEnv);
   const apiKey = readEnv("GEMINI_API_KEY")?.trim();
   if (!apiKey) {
@@ -210,11 +213,23 @@ async function defaultAdminShadowGeminiCaller(
     request.userRole,
     request.redactedUserMessage
   );
-  const response = await client.models.generateContent({
-    model: ADMIN_SHADOW_GEMINI_MODEL,
-    contents: [{ text: prompt }],
-    config: { maxOutputTokens: 256 },
-  });
+  const response = await (
+    client.models.generateContent as unknown as (
+      request: {
+        model: string;
+        contents: Array<{ text: string }>;
+        config: { maxOutputTokens: number };
+      },
+      options?: { signal?: AbortSignal }
+    ) => Promise<{ text?: string }>
+  )(
+    {
+      model: ADMIN_SHADOW_GEMINI_MODEL,
+      contents: [{ text: prompt }],
+      config: { maxOutputTokens: 256 },
+    },
+    { signal: options.signal }
+  );
 
   const rawText = String(response.text ?? "").trim();
   const redactedProviderOutput = redactPiiForSalesBrainLog(rawText).slice(
@@ -248,15 +263,21 @@ export async function invokeAdminShadowRealProvider(input: {
 
   const caller = testGeminiCaller ?? defaultAdminShadowGeminiCaller;
   const timeoutMs = resolveAdminShadowProviderTimeoutMs(readEnv);
+  const timeoutController = new AbortController();
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<AdminShadowGeminiCallResult>((_, reject) => {
     timeoutHandle = setTimeout(() => {
+      timeoutController.abort("admin_shadow_provider_timeout");
       reject(new AdminShadowRealProviderTimeoutError(timeoutMs));
     }, timeoutMs);
   });
   try {
     return await Promise.race([
-      caller(adapterInput, { readEnv }),
+      caller(adapterInput, {
+        readEnv,
+        signal: timeoutController.signal,
+        timeoutMs,
+      }),
       timeoutPromise,
     ]);
   } catch (error) {
