@@ -4,10 +4,14 @@
  */
 import type { Express, Request, Response } from "express";
 import {
+  buildAdminShadowRuntimeDiagnosticSnapshot,
   buildAdminShadowSmokeDiag,
   extractRedactedGeminiApiError,
   logAdminShadowSmokeGate,
+  logAdminShadowRuntimeDiagnosticSnapshot,
   logAdminShadowSmokeStage,
+  type AdminShadowProviderStatus,
+  type AdminShadowSmokeStage,
 } from "./salesBrainAdminShadowDiagnostics";
 import {
   ADMIN_SHADOW_GEMINI_MODEL,
@@ -242,6 +246,8 @@ export interface AdminShadowSmokeHandlerContext {
   realProviderGateReason?: string;
   geminiHttpStatus?: number;
   geminiErrorCode?: string;
+  providerStatus?: AdminShadowProviderStatus;
+  fallbackObserved?: boolean;
 }
 
 /** Admin/debug payload — redacted, no env/secret values */
@@ -314,18 +320,28 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
   caseId: SalesBrainAdminShadowSmokeCaseId;
   evaluation: SalesBrainShadowRuntimeResult & { caseId: SalesBrainAdminShadowSmokeCaseId };
   readEnv?: (key: string) => string | undefined;
+  onStageObserved?: (stage: AdminShadowSmokeStage) => void;
 }): Promise<AdminShadowSmokeHandlerContext> {
   const readEnv = input.readEnv ?? defaultEnvReader;
   const definition = SALES_BRAIN_ADMIN_SHADOW_SMOKE_CASES[input.caseId];
   const environment = definition.environment ?? "staging";
+  const emitStage = (entry: {
+    caseId: string;
+    stage: AdminShadowSmokeStage;
+    gate?: string;
+    fallback?: string;
+  }) => {
+    input.onStageObserved?.(entry.stage);
+    logAdminShadowSmokeStage(entry);
+  };
 
   if (environment === "production") {
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_gate_checked",
       gate: "production_environment",
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_fallback_returned",
       gate: "production_environment",
@@ -333,16 +349,18 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     return {
       providerNetwork: false,
       realProviderGateReason: "production_environment",
+      providerStatus: "not_started",
+      fallbackObserved: true,
     };
   }
 
   if (!isAdminShadowRealProviderCaseAllowed(input.caseId)) {
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_gate_checked",
       gate: "case_not_allowed_for_real_provider",
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_fallback_returned",
       gate: "case_not_allowed_for_real_provider",
@@ -350,6 +368,8 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     return {
       providerNetwork: false,
       realProviderGateReason: "case_not_allowed_for_real_provider",
+      providerStatus: "not_started",
+      fallbackObserved: true,
     };
   }
 
@@ -359,12 +379,12 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     readEnv,
   });
   if (!attempt.allowed) {
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_gate_checked",
       gate: attempt.blockedReason,
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_fallback_returned",
       gate: attempt.blockedReason,
@@ -372,16 +392,18 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     return {
       providerNetwork: false,
       realProviderGateReason: attempt.blockedReason,
+      providerStatus: "not_started",
+      fallbackObserved: true,
     };
   }
 
   if (isGlobalChatShadowEmergencyKillSwitchActive(readEnv)) {
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_gate_checked",
       gate: "emergency_kill_switch",
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_fallback_returned",
       gate: "emergency_kill_switch",
@@ -391,16 +413,18 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       providerNetwork: false,
       realProviderGateReason: "emergency_kill_switch",
       realProviderFallbackReason: "emergency_kill_switch",
+      providerStatus: "not_started",
+      fallbackObserved: true,
     };
   }
 
   if (!input.evaluation.runtimeFlags.shadowEvaluationAllowed) {
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_gate_checked",
       gate: "shadow_evaluation_not_allowed",
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_fallback_returned",
       gate: "shadow_evaluation_not_allowed",
@@ -410,15 +434,17 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       providerNetwork: false,
       realProviderGateReason: "shadow_evaluation_not_allowed",
       realProviderFallbackReason: "shadow_evaluation_not_allowed",
+      providerStatus: "not_started",
+      fallbackObserved: true,
     };
   }
 
-  logAdminShadowSmokeStage({
+  emitStage({
     caseId: input.caseId,
     stage: "admin_shadow_gate_checked",
     gate: "ready",
   });
-  logAdminShadowSmokeStage({
+  emitStage({
     caseId: input.caseId,
     stage: "admin_shadow_provider_call_start",
     gate: "real_provider_attempt",
@@ -430,7 +456,7 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       userRole: definition.userRole,
       readEnv,
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_provider_call_success",
       gate: "real_provider_call_ok",
@@ -439,19 +465,22 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       providerNetwork: true,
       realProviderResult,
       realProviderGateReason: "real_provider_call_ok",
+      providerStatus: "success",
+      fallbackObserved: false,
     };
   } catch (error) {
     const redacted = extractRedactedGeminiApiError(error);
-    logAdminShadowSmokeStage({
+    const providerStage: AdminShadowSmokeStage =
+      redacted.fallbackReason === "provider_timeout"
+        ? "admin_shadow_provider_call_timeout"
+        : "admin_shadow_provider_call_error";
+    emitStage({
       caseId: input.caseId,
-      stage:
-        redacted.fallbackReason === "provider_timeout"
-          ? "admin_shadow_provider_call_timeout"
-          : "admin_shadow_provider_call_error",
+      stage: providerStage,
       gate: "real_provider_call_failed",
       fallback: redacted.fallbackReason,
     });
-    logAdminShadowSmokeStage({
+    emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_fallback_returned",
       gate: "real_provider_call_failed",
@@ -463,6 +492,9 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
       realProviderFallbackReason: redacted.fallbackReason,
       geminiHttpStatus: redacted.geminiHttpStatus,
       geminiErrorCode: redacted.geminiErrorCode,
+      providerStatus:
+        redacted.fallbackReason === "provider_timeout" ? "timeout" : "error",
+      fallbackObserved: true,
     };
   }
 }
@@ -472,12 +504,18 @@ export async function handleAdminSalesBrainShadowSmokePost(
   res: Response
 ): Promise<void> {
   const caseId = String(req.body?.caseId ?? "").trim();
+  const runtimeObservedStageSet = new Set<AdminShadowSmokeStage>();
+  const observe = (stage: AdminShadowSmokeStage) => {
+    runtimeObservedStageSet.add(stage);
+  };
+  observe("admin_shadow_request_handler_start");
   logAdminShadowSmokeStage({
     caseId: caseId || "missing_case_id",
     stage: "admin_shadow_request_handler_start",
     gate: "request_received",
   });
   if (!caseId) {
+    observe("admin_shadow_request_handler_return");
     logAdminShadowSmokeStage({
       caseId: "missing_case_id",
       stage: "admin_shadow_request_handler_return",
@@ -487,11 +525,24 @@ export async function handleAdminSalesBrainShadowSmokePost(
     res.status(400).json({
       success: false,
       message: "caseId is required — synthetic SS-01..SS-08 only",
+      adminShadowRuntimeDiagnosticSnapshot: buildAdminShadowRuntimeDiagnosticSnapshot({
+        caseId: "missing_case_id",
+        runtimeObservedStages: runtimeObservedStageSet,
+        callerStatus: "unknown",
+        handlerStatus: "returned",
+        providerStatus: "not_started",
+        requestDispatched: true,
+        responseCaptured: true,
+        httpStatus: 400,
+        timeout: false,
+        fallback: true,
+      }),
     });
     return;
   }
 
   if (!isSalesBrainAdminShadowSmokeCaseId(caseId)) {
+    observe("admin_shadow_request_handler_return");
     logAdminShadowSmokeStage({
       caseId,
       stage: "admin_shadow_request_handler_return",
@@ -501,6 +552,18 @@ export async function handleAdminSalesBrainShadowSmokePost(
     res.status(400).json({
       success: false,
       message: "unknown caseId — use synthetic SS-01..SS-08 only",
+      adminShadowRuntimeDiagnosticSnapshot: buildAdminShadowRuntimeDiagnosticSnapshot({
+        caseId,
+        runtimeObservedStages: runtimeObservedStageSet,
+        callerStatus: "unknown",
+        handlerStatus: "returned",
+        providerStatus: "not_started",
+        requestDispatched: true,
+        responseCaptured: true,
+        httpStatus: 400,
+        timeout: false,
+        fallback: true,
+      }),
     });
     return;
   }
@@ -511,6 +574,7 @@ export async function handleAdminSalesBrainShadowSmokePost(
   const handlerContext = await resolveAdminShadowSmokeHandlerContext({
     caseId,
     evaluation,
+    onStageObserved: observe,
   });
   const data = buildRedactedAdminShadowSmokePayload(evaluation, handlerContext);
   const realProviderGateReason =
@@ -533,13 +597,26 @@ export async function handleAdminSalesBrainShadowSmokePost(
     adminShadowRealProviderFallbackReason: handlerContext.realProviderFallbackReason,
     diag: adminShadowDiag,
   });
+  observe("admin_shadow_request_handler_return");
   logAdminShadowSmokeStage({
     caseId,
     stage: "admin_shadow_request_handler_return",
     gate: realProviderGateReason,
     fallback: handlerContext.realProviderFallbackReason,
   });
-
+  const runtimeSnapshot = buildAdminShadowRuntimeDiagnosticSnapshot({
+    caseId,
+    runtimeObservedStages: runtimeObservedStageSet,
+    callerStatus: "unknown",
+    handlerStatus: "returned",
+    providerStatus: handlerContext.providerStatus ?? "unknown",
+    requestDispatched: true,
+    responseCaptured: true,
+    httpStatus: 200,
+    timeout: handlerContext.providerStatus === "timeout",
+    fallback: handlerContext.fallbackObserved,
+  });
+  logAdminShadowRuntimeDiagnosticSnapshot(runtimeSnapshot);
   res.json({
     success: true,
     readOnly: true,
@@ -549,6 +626,7 @@ export async function handleAdminSalesBrainShadowSmokePost(
     realProviderGateReason,
     adminShadowRealProviderFallbackReason: handlerContext.realProviderFallbackReason,
     adminShadowDiag,
+    adminShadowRuntimeDiagnosticSnapshot: runtimeSnapshot,
     data,
   });
 }

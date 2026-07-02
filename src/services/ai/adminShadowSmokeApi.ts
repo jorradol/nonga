@@ -4,6 +4,15 @@ import {
   type ApiJsonEnvelope,
 } from "../../utils/safeApiFetch";
 import { adminAuthHeadersAsync } from "../../utils/apiAuthHeaders";
+import {
+  buildAdminShadowRuntimeDiagnosticSnapshot,
+  logAdminShadowRuntimeDiagnosticSnapshot,
+  type AdminShadowCallerStatus,
+  type AdminShadowHandlerStatus,
+  type AdminShadowProviderStatus,
+  type AdminShadowRuntimeDiagnosticSnapshot,
+  type AdminShadowSmokeStage,
+} from "./salesBrainAdminShadowDiagnostics";
 
 /** Must match server `SALES_BRAIN_ADMIN_SHADOW_SMOKE_ROUTE` — synthetic cases only. */
 export const ADMIN_SHADOW_SMOKE_ROUTE = "/api/admin/sales-brain-shadow-smoke";
@@ -81,6 +90,7 @@ export interface AdminShadowSmokeApiResponse {
   realProviderGateReason?: string;
   adminShadowRealProviderFallbackReason?: string;
   adminShadowDiag?: AdminShadowSmokeDiag;
+  adminShadowRuntimeDiagnosticSnapshot?: AdminShadowRuntimeDiagnosticSnapshot;
   data: AdminShadowSmokeRedactedData;
 }
 
@@ -102,6 +112,7 @@ export interface RunAdminShadowSmokeCaseOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
   onLifecycleEvent?: (event: AdminShadowManualCallerLifecycleEvent) => void;
+  onDiagnosticSnapshot?: (snapshot: AdminShadowRuntimeDiagnosticSnapshot) => void;
 }
 
 const ADMIN_SHADOW_MANUAL_CALLER_TIMEOUT_DEFAULT_MS = 8000;
@@ -130,12 +141,72 @@ function emitManualCallerLifecycle(
   options?.onLifecycleEvent?.(event);
 }
 
+export type AdminShadowRunError = Error & {
+  adminShadowRuntimeDiagnosticSnapshot?: AdminShadowRuntimeDiagnosticSnapshot;
+};
+
+function attachSnapshotToError(
+  error: unknown,
+  snapshot: AdminShadowRuntimeDiagnosticSnapshot
+): unknown {
+  if (error instanceof Error) {
+    const withSnapshot = error as AdminShadowRunError;
+    withSnapshot.adminShadowRuntimeDiagnosticSnapshot = snapshot;
+    return withSnapshot;
+  }
+  return error;
+}
+
+function toProviderStatus(input: {
+  providerNetwork?: boolean;
+  realProviderGateReason?: string;
+  adminShadowRealProviderFallbackReason?: string;
+}): AdminShadowProviderStatus {
+  if (input.providerNetwork) return "success";
+  if (input.realProviderGateReason === "real_provider_call_failed") {
+    return input.adminShadowRealProviderFallbackReason === "provider_timeout"
+      ? "timeout"
+      : "error";
+  }
+  if (input.realProviderGateReason === "real_provider_attempt") {
+    return "started";
+  }
+  if (typeof input.realProviderGateReason === "string") {
+    return "not_started";
+  }
+  return "unknown";
+}
+
+function toHandlerStatus(stages: Set<AdminShadowSmokeStage>): AdminShadowHandlerStatus {
+  if (stages.has("admin_shadow_request_handler_return")) return "returned";
+  if (stages.has("admin_shadow_request_handler_start")) return "started";
+  return "unknown";
+}
+
+function emitSnapshot(
+  options: RunAdminShadowSmokeCaseOptions | undefined,
+  snapshot: AdminShadowRuntimeDiagnosticSnapshot
+): void {
+  options?.onDiagnosticSnapshot?.(snapshot);
+  logAdminShadowRuntimeDiagnosticSnapshot(snapshot);
+}
+
 export async function runAdminShadowSmokeCase(
   caseId: AdminShadowSmokeCaseId,
   options?: RunAdminShadowSmokeCaseOptions
 ): Promise<AdminShadowSmokeApiResponse> {
   const timeoutMs = resolveManualCallerTimeoutMs(options?.timeoutMs);
   const startedAt = Date.now();
+  const runtimeObservedStages = new Set<AdminShadowSmokeStage>([
+    "admin_shadow_manual_caller_start",
+  ]);
+  let callerStatus: AdminShadowCallerStatus = "started";
+  let providerStatus: AdminShadowProviderStatus = "unknown";
+  let requestDispatched = false;
+  let responseCaptured = false;
+  let httpStatus: number | undefined;
+  let timeoutObserved = false;
+  let fallbackObserved = false;
   emitManualCallerLifecycle(options, {
     stage: "admin_shadow_manual_caller_start",
     caseId,
@@ -147,6 +218,9 @@ export async function runAdminShadowSmokeCase(
   let timeoutTriggered = false;
   const timeoutHandle = setTimeout(() => {
     timeoutTriggered = true;
+    timeoutObserved = true;
+    callerStatus = "timeout";
+    runtimeObservedStages.add("admin_shadow_manual_caller_timeout");
     emitManualCallerLifecycle(options, {
       stage: "admin_shadow_manual_caller_timeout",
       caseId,
@@ -169,6 +243,7 @@ export async function runAdminShadowSmokeCase(
   }
 
   try {
+    requestDispatched = true;
     const json = await safeApiFetch<
       ApiJsonEnvelope & Partial<AdminShadowSmokeApiResponse>
     >(ADMIN_SHADOW_SMOKE_ROUTE, {
@@ -180,17 +255,59 @@ export async function runAdminShadowSmokeCase(
       body: JSON.stringify({ caseId }),
       cache: "no-store",
       signal: timeoutController.signal,
+      onResponseMeta(meta) {
+        responseCaptured = true;
+        httpStatus = meta.status;
+      },
     });
     assertApiSuccess(json, ADMIN_SHADOW_SMOKE_ROUTE);
+    runtimeObservedStages.add("admin_shadow_manual_caller_completed");
+    callerStatus = "completed";
+    const serverSnapshot = json.adminShadowRuntimeDiagnosticSnapshot;
+    if (serverSnapshot?.runtimeObservedStages?.length) {
+      for (const stage of serverSnapshot.runtimeObservedStages) {
+        runtimeObservedStages.add(stage);
+      }
+    }
+    providerStatus = toProviderStatus({
+      providerNetwork: Boolean(json.providerNetwork),
+      realProviderGateReason:
+        typeof json.realProviderGateReason === "string"
+          ? json.realProviderGateReason
+          : undefined,
+      adminShadowRealProviderFallbackReason:
+        typeof json.adminShadowRealProviderFallbackReason === "string"
+          ? json.adminShadowRealProviderFallbackReason
+          : undefined,
+    });
+    fallbackObserved = typeof json.adminShadowRealProviderFallbackReason === "string";
+    const snapshot = buildAdminShadowRuntimeDiagnosticSnapshot({
+      caseId,
+      runtimeObservedStages,
+      callerStatus,
+      handlerStatus: toHandlerStatus(runtimeObservedStages),
+      providerStatus,
+      requestDispatched,
+      responseCaptured,
+      httpStatus,
+      timeout: timeoutObserved,
+      fallback: fallbackObserved,
+    });
     emitManualCallerLifecycle(options, {
       stage: "admin_shadow_manual_caller_completed",
       caseId,
       timeoutMs,
       elapsedMs: Date.now() - startedAt,
     });
-    return json as AdminShadowSmokeApiResponse;
+    emitSnapshot(options, snapshot);
+    return {
+      ...(json as AdminShadowSmokeApiResponse),
+      adminShadowRuntimeDiagnosticSnapshot: snapshot,
+    };
   } catch (error) {
     if (timeoutTriggered || isAbortError(error)) {
+      runtimeObservedStages.add("admin_shadow_manual_caller_aborted");
+      callerStatus = timeoutTriggered ? "timeout" : "aborted";
       emitManualCallerLifecycle(options, {
         stage: "admin_shadow_manual_caller_aborted",
         caseId,
@@ -199,7 +316,20 @@ export async function runAdminShadowSmokeCase(
         reason: timeoutTriggered ? "manual_caller_timeout" : "manual_caller_aborted",
       });
     }
-    throw error;
+    const snapshot = buildAdminShadowRuntimeDiagnosticSnapshot({
+      caseId,
+      runtimeObservedStages,
+      callerStatus,
+      handlerStatus: toHandlerStatus(runtimeObservedStages),
+      providerStatus,
+      requestDispatched,
+      responseCaptured,
+      httpStatus,
+      timeout: timeoutObserved || timeoutTriggered,
+      fallback: fallbackObserved,
+    });
+    emitSnapshot(options, snapshot);
+    throw attachSnapshotToError(error, snapshot);
   } finally {
     clearTimeout(timeoutHandle);
     if (externalSignal) {

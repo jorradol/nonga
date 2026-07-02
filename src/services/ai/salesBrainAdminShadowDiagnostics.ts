@@ -47,7 +47,105 @@ export type AdminShadowSmokeStage =
   | "admin_shadow_manual_caller_completed"
   | "admin_shadow_manual_caller_aborted";
 
+export const ADMIN_SHADOW_CODE_PATH_AVAILABLE_STAGES: readonly AdminShadowSmokeStage[] = [
+  "admin_shadow_manual_caller_start",
+  "admin_shadow_manual_caller_timeout",
+  "admin_shadow_manual_caller_completed",
+  "admin_shadow_manual_caller_aborted",
+  "admin_shadow_request_handler_start",
+  "admin_shadow_request_handler_return",
+  "admin_shadow_gate_checked",
+  "admin_shadow_provider_call_start",
+  "admin_shadow_provider_call_success",
+  "admin_shadow_provider_call_timeout",
+  "admin_shadow_provider_call_error",
+  "admin_shadow_fallback_returned",
+];
+
+export type AdminShadowCallerStatus =
+  | "started"
+  | "timeout"
+  | "completed"
+  | "aborted"
+  | "unknown";
+export type AdminShadowHandlerStatus = "started" | "returned" | "unknown";
+export type AdminShadowProviderStatus =
+  | "not_started"
+  | "started"
+  | "timeout"
+  | "error"
+  | "success"
+  | "unknown";
+
+export interface AdminShadowRuntimeDiagnosticSnapshot {
+  caseId: string;
+  runMode: "admin_shadow_manual_smoke";
+  diagnosticSnapshotVersion: "v12.1";
+  runtimeObservedStages: AdminShadowSmokeStage[];
+  codePathAvailableStages: AdminShadowSmokeStage[];
+  missingOrUnknownStages: AdminShadowSmokeStage[];
+  callerStatus: AdminShadowCallerStatus;
+  handlerStatus: AdminShadowHandlerStatus;
+  providerStatus: AdminShadowProviderStatus;
+  requestDispatched: boolean;
+  responseCaptured: boolean;
+  httpStatus?: number;
+  timeout?: boolean;
+  fallback?: boolean;
+  sanitized: true;
+}
+
 type ApiErrorLike = Error & { status?: number };
+
+function sortStages(stages: Iterable<AdminShadowSmokeStage>): AdminShadowSmokeStage[] {
+  const order = new Map<AdminShadowSmokeStage, number>(
+    ADMIN_SHADOW_CODE_PATH_AVAILABLE_STAGES.map((stage, index) => [stage, index])
+  );
+  return [...new Set(stages)].sort((a, b) => (order.get(a) ?? 999) - (order.get(b) ?? 999));
+}
+
+export function buildAdminShadowRuntimeDiagnosticSnapshot(input: {
+  caseId: string;
+  runtimeObservedStages: Iterable<AdminShadowSmokeStage>;
+  callerStatus: AdminShadowCallerStatus;
+  handlerStatus: AdminShadowHandlerStatus;
+  providerStatus: AdminShadowProviderStatus;
+  requestDispatched: boolean;
+  responseCaptured: boolean;
+  httpStatus?: number;
+  timeout?: boolean;
+  fallback?: boolean;
+}): AdminShadowRuntimeDiagnosticSnapshot {
+  const runtimeObservedStages = sortStages(input.runtimeObservedStages);
+  const codePathAvailableStages = [...ADMIN_SHADOW_CODE_PATH_AVAILABLE_STAGES];
+  const runtimeObservedSet = new Set(runtimeObservedStages);
+  const missingOrUnknownStages = codePathAvailableStages.filter(
+    (stage) => !runtimeObservedSet.has(stage)
+  );
+  return {
+    caseId: input.caseId,
+    runMode: "admin_shadow_manual_smoke",
+    diagnosticSnapshotVersion: "v12.1",
+    runtimeObservedStages,
+    codePathAvailableStages,
+    missingOrUnknownStages,
+    callerStatus: input.callerStatus,
+    handlerStatus: input.handlerStatus,
+    providerStatus: input.providerStatus,
+    requestDispatched: input.requestDispatched,
+    responseCaptured: input.responseCaptured,
+    httpStatus: input.httpStatus,
+    timeout: input.timeout,
+    fallback: input.fallback,
+    sanitized: true,
+  };
+}
+
+export function logAdminShadowRuntimeDiagnosticSnapshot(
+  snapshot: AdminShadowRuntimeDiagnosticSnapshot
+): void {
+  console.log("[admin-shadow-smoke-runtime-snapshot]", JSON.stringify(snapshot));
+}
 
 function parseGeminiApiErrorEnvelope(
   message: string

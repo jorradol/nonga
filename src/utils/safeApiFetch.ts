@@ -12,6 +12,16 @@ export interface ApiJsonEnvelope {
   [key: string]: unknown;
 }
 
+export interface SafeApiFetchResponseMeta {
+  status: number;
+  ok: boolean;
+  contentType: string | null;
+}
+
+export interface SafeApiFetchOptions extends RequestInit {
+  onResponseMeta?: (meta: SafeApiFetchResponseMeta) => void;
+}
+
 function isJsonContentType(ct: string | null): boolean {
   if (!ct) return false;
   return ct.includes("application/json") || ct.includes("+json");
@@ -66,10 +76,15 @@ export async function parseApiJsonResponse<T extends ApiJsonEnvelope>(
 
 export async function safeApiFetch<T extends ApiJsonEnvelope>(
   url: string,
-  init?: RequestInit
+  init?: SafeApiFetchOptions
 ): Promise<T> {
   try {
     const res = await fetch(url, init);
+    init?.onResponseMeta?.({
+      status: res.status,
+      ok: res.ok,
+      contentType: res.headers.get("content-type"),
+    });
     return await parseApiJsonResponse<T>(res, url);
   } catch (err) {
     if (err instanceof AppFriendlyError) throw err;

@@ -410,6 +410,15 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
       geminiModel?: string;
       geminiRequestShape?: string;
     };
+    adminShadowRuntimeDiagnosticSnapshot?: {
+      diagnosticSnapshotVersion?: string;
+      runtimeObservedStages?: string[];
+      codePathAvailableStages?: string[];
+      missingOrUnknownStages?: string[];
+      handlerStatus?: string;
+      providerStatus?: string;
+      sanitized?: boolean;
+    };
     data?: { realProviderGateReason?: string };
   };
   ok("handler top-level gate reason", typeof body.realProviderGateReason === "string");
@@ -417,6 +426,26 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   ok("handler adminShadowDiag slice", body.adminShadowDiag?.sliceId === "v6.1J");
   ok("handler diag gemini model", body.adminShadowDiag?.geminiModel === "gemini-3.5-flash");
   ok("handler diag request shape", body.adminShadowDiag?.geminiRequestShape === "sdk_contents_text_part");
+  ok(
+    "handler runtime snapshot version",
+    body.adminShadowRuntimeDiagnosticSnapshot?.diagnosticSnapshotVersion === "v12.1"
+  );
+  ok(
+    "handler runtime snapshot has runtimeObservedStages",
+    Array.isArray(body.adminShadowRuntimeDiagnosticSnapshot?.runtimeObservedStages)
+  );
+  ok(
+    "handler runtime snapshot has codePathAvailableStages",
+    Array.isArray(body.adminShadowRuntimeDiagnosticSnapshot?.codePathAvailableStages)
+  );
+  ok(
+    "handler runtime snapshot has missingOrUnknownStages",
+    Array.isArray(body.adminShadowRuntimeDiagnosticSnapshot?.missingOrUnknownStages)
+  );
+  ok(
+    "handler runtime snapshot sanitized true",
+    body.adminShadowRuntimeDiagnosticSnapshot?.sanitized === true
+  );
   ok(
     "handler source has provider stage start",
     serverModule.includes("admin_shadow_provider_call_start")
@@ -456,10 +485,15 @@ const chatPath = readFileSync("src/services/ai/salesBrainShadowChatPath.ts", "ut
   const body = okCase.out.body as {
     userVisibleOff?: boolean;
     providerNetwork?: boolean;
+    adminShadowRuntimeDiagnosticSnapshot?: { diagnosticSnapshotVersion?: string };
     data?: { userVisibleResponse?: string };
   };
   ok("handler userVisibleOff true", body.userVisibleOff === true);
   ok("handler default providerNetwork false", body.providerNetwork === false);
+  ok(
+    "handler includes v12.1 runtime snapshot",
+    body.adminShadowRuntimeDiagnosticSnapshot?.diagnosticSnapshotVersion === "v12.1"
+  );
 }
 
 // --- user visible blocked ---
