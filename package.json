@@ -165,6 +165,7 @@
     "test:v1211:admin-auth-non-gemini-gate-recheck-plan": "tsx scripts/test-v1211-admin-auth-non-gemini-gate-recheck-plan.mts",
     "test:v1213:admin-token-session-env-setup-check-no-gemini-execution": "tsx scripts/test-v1213-admin-token-session-env-setup-check-no-gemini-execution.mts",
     "test:v1214:admin-token-session-presence-confirmation-no-live-auth-recheck": "tsx scripts/test-v1214-admin-token-session-presence-confirmation-no-live-auth-recheck.mts",
+    "test:v1215:admin-token-source-inventory-access-handoff-no-secret-exposure": "tsx scripts/test-v1215-admin-token-source-inventory-access-handoff-no-secret-exposure.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
