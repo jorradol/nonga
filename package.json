@@ -176,6 +176,7 @@
     "test:v137:one-run-admin-only-real-gemini-proof-approval-packet": "tsx scripts/test-v137-one-run-admin-only-real-gemini-proof-approval-packet.mts",
     "test:v137r:session-admin-token-rearm-one-run-admin-only-real-gemini-proof-execution-record": "tsx scripts/test-v137r-session-admin-token-rearm-one-run-admin-only-real-gemini-proof-execution-record.mts",
     "test:v137s:off-topic-boundary-role-recovery-patch": "tsx scripts/test-v137s-off-topic-boundary-role-recovery-patch.mts",
+    "test:v137t:off-topic-service-explanation-car-handoff-quality-patch": "tsx scripts/test-v137t-off-topic-service-explanation-car-handoff-quality-patch.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

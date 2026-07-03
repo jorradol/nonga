@@ -436,8 +436,27 @@ export function buildDraftPreviewCopy(
 
   reply += "\n";
 
+  const hasBaseListingIdentity = Boolean(fields.brand && fields.model && fields.year);
+
   if (missingFields.length > 0) {
     reply += `ยังขาดข้อมูล ${missingFields.join(", ")} ครับ ช่วยพิมพ์บอกน้องเอเพิ่มหน่อยนะครับ\n`;
+    if (hasBaseListingIdentity) {
+      const title = `ขาย ${fields.brand} ${fields.model} ปี ${fields.year}`;
+      reply += "\n";
+      reply += "น้องเอช่วยร่างประกาศเบื้องต้นให้ก่อนได้ครับ (ยังไม่ใส่ข้อมูลที่ยังไม่ได้รับเพื่อไม่ให้เกินจริง):\n";
+      reply += `${title} รถมือสองใช้งานคล่องตัว เหมาะกับการใช้งานประจำวัน\n`;
+      reply += "จุดเด่น: ดูแลง่าย ประหยัด และเหมาะกับผู้ที่มองหารถงบคุ้มค่า\n";
+      reply += "สนใจนัดดูรถ/ทดลองขับได้ตามสะดวก (โปรดเติมข้อมูลจริงก่อนลงประกาศ)\n";
+      reply += "\n";
+      reply += "ข้อมูลที่ควรเติมก่อนลงประกาศ:\n";
+      reply += "• รุ่นย่อย\n";
+      reply += "• เลขไมล์\n";
+      reply += "• ราคา\n";
+      reply += "• สี\n";
+      reply += "• สภาพรถและประวัติการใช้งาน\n";
+      reply += "• จุดเด่น/รายการซ่อมบำรุงที่ยืนยันได้\n";
+      reply += "• พื้นที่นัดดูรถ\n";
+    }
   } else if (attachedImageCount > 0) {
     reply += `ข้อมูลและรูปภาพพร้อมสำหรับบันทึกประกาศแล้วครับ กด ‘บันทึกประกาศ’ ได้เลย ปังปุริเย่!`;
     return reply;
