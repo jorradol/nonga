@@ -194,6 +194,7 @@
     "test:v13.15B": "tsx scripts/test-v1315b-owner-only-gemini-ux-one-run-dispatch-retry-record.mts",
     "test:v13.15C": "tsx scripts/test-v1315c-push-recovery-pilot-path-gate-diagnosis.mts",
     "test:v13.15D": "tsx scripts/test-v1315d-owner-only-gemini-ux-one-run-pilot-path-retry-record.mts",
+    "test:v13.15E": "tsx scripts/test-v1315e-pilot-path-runtime-diagnosis.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
