@@ -182,6 +182,7 @@
     "test:v137w:staging-hosting-build-failure-diagnostic-fix-no-deploy": "tsx scripts/test-v137w-staging-hosting-build-failure-diagnostic-fix-no-deploy.mts",
     "test:v137x:controlled-staging-deploy-owner-retest-surface-refresh": "tsx scripts/test-v137x-controlled-staging-deploy-owner-retest-surface-refresh.mts",
     "test:v13.8": "tsx scripts/test-v138-owner-only-staging-trial-plan.mts",
+    "test:v13.9": "tsx scripts/test-v139-owner-only-staging-trial-execution-pack.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
