@@ -20,6 +20,7 @@ import {
 } from "./salesBrainUserVisibleGate";
 import {
   NONGA_AI_USER_VISIBLE_REAL_PROVIDER_ENABLED_ENV,
+  NONGA_AI_OWNER_ONLY_CONTROLLED_UX_ENABLED_ENV,
   resolveSalesBrainRuntimeFlags,
   type SalesBrainRuntimeEnvironment,
 } from "./salesBrainRuntimeFlags";
@@ -788,6 +789,10 @@ export type UserVisibleRealProviderGateReason =
   | "pilot_path_inactive"
   | "real_provider_call_failed"
   | "real_provider_output_unsafe"
+  | "owner_only_controlled_ux_flag_off"
+  | "owner_role_required"
+  | "deterministic_boundary_blocked"
+  | "owner_controlled_zone_not_allowed"
   | "guest_uid_missing"
   | "uid_not_allowlisted"
   | "allowlist_empty"
@@ -801,6 +806,74 @@ export type UserVisibleRealProviderGateReason =
 export interface UserVisibleRealProviderEligibility {
   eligible: boolean;
   gateReason: UserVisibleRealProviderGateReason;
+}
+
+export type OwnerControlledGeminiUxZone =
+  | "natural_search_explanation"
+  | "car_fit_reason"
+  | "budget_location_explanation"
+  | "compare_car_types"
+  | "seller_listing_tone_polish"
+  | "safe_market_context_wording"
+  | "friendly_followup_question"
+  | "lucky_color_fun_match_disclaimer"
+  | "same_chat_context_switching_wording";
+
+const OWNER_ONLY_ALLOWED_ROLES: ReadonlySet<SalesBrainUserRole> = new Set([
+  "admin",
+  "superadmin",
+]);
+
+const DETERMINISTIC_BOUNDARY_PATTERNS: RegExp[] = [
+  /ยืนยัน(?:ให้)?ส่งข้อมูล|ส่งข้อมูลให้ผู้ขาย|consent|lead/i,
+  /เบอร์|เบอร์ติดต่อ|contact|phone|โทรศัพท์|line id/i,
+  /vin|เลขตัวถัง|plate|ทะเบียน/i,
+  /api\s*key|token|secret|credential|password/i,
+  /เปิด\s*(?:production|public)|production|public route|buyer-facing/i,
+  /มัดจำ|โอนเงิน|โอนก่อนดูรถ|deposit|transfer/i,
+  /การันตี|อนุมัติแน่นอน|รับประกันอนุมัติ/i,
+  /admin action|superadmin|revenue|settlement/i,
+  /แต่งกลอน|แต่งเพลง|ดูดวง|ค้นเว็บ|off-topic/i,
+];
+
+export function isOwnerOnlyControlledUxEnabled(
+  readEnv: SalesBrainEnvReader = defaultEnvReader
+): boolean {
+  return parseTruthy(readEnv(NONGA_AI_OWNER_ONLY_CONTROLLED_UX_ENABLED_ENV));
+}
+
+export function hasDeterministicBoundaryBlock(message: string): boolean {
+  const text = message.trim();
+  if (!text) return true;
+  for (const pattern of DETERMINISTIC_BOUNDARY_PATTERNS) {
+    if (pattern.test(text)) return true;
+  }
+  return false;
+}
+
+export function detectOwnerControlledGeminiUxZone(
+  message: string
+): OwnerControlledGeminiUxZone | null {
+  const text = message.trim();
+  if (!text) return null;
+  if (/เทียบ|เปรียบเทียบ|ต่างกันยังไง/i.test(text)) return "compare_car_types";
+  if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(text)) return "car_fit_reason";
+  if (/งบ|พื้นที่|โซน|ทำเล|ในเมือง|ต่างจังหวัด/i.test(text)) {
+    return "budget_location_explanation";
+  }
+  if (/ลงขาย|ร่างประกาศ|seller|listing/i.test(text)) return "seller_listing_tone_polish";
+  if (/ตลาด|ความเสี่ยง|ปลอดภัย|ระวัง/i.test(text)) return "safe_market_context_wording";
+  if (/ต่อยังไง|ถามต่อ|ช่วยต่อคำถาม|follow-up/i.test(text)) {
+    return "friendly_followup_question";
+  }
+  if (/สีมงคล|lucky|ดวง|fun match/i.test(text)) {
+    return "lucky_color_fun_match_disclaimer";
+  }
+  if (/คันนี้|คันนั้น|บริบท|ต่อเนื่อง|context/i.test(text)) {
+    return "same_chat_context_switching_wording";
+  }
+  if (/มีรถอะไร|หารถ|search|ค้นหา/i.test(text)) return "natural_search_explanation";
+  return null;
 }
 
 export interface UserVisibleRealProviderBridgePayload {
@@ -1204,6 +1277,14 @@ export function evaluateUserVisibleRealProviderEligibility(input: {
     return { eligible: false, gateReason: "production_environment" };
   }
 
+  if (!isOwnerOnlyControlledUxEnabled(readEnv)) {
+    return { eligible: false, gateReason: "owner_only_controlled_ux_flag_off" };
+  }
+
+  if (!OWNER_ONLY_ALLOWED_ROLES.has(input.userRole)) {
+    return { eligible: false, gateReason: "owner_role_required" };
+  }
+
   if (!isUserVisibleRealProviderFlagEnabled(readEnv)) {
     return { eligible: false, gateReason: "real_provider_flag_off" };
   }
@@ -1244,10 +1325,6 @@ export function evaluateUserVisibleRealProviderEligibility(input: {
           ? reason
           : "user_visible_gate_blocked";
     return { eligible: false, gateReason: mapped };
-  }
-
-  if (input.userRole !== "buyer") {
-    return { eligible: false, gateReason: "user_role_not_buyer" };
   }
 
   if (!isGeminiApiKeyPresent(readEnv)) {
@@ -1352,6 +1429,29 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     } as T;
   }
 
+  if (hasDeterministicBoundaryBlock(input.userMessage)) {
+    return {
+      ...input.bridgeResult,
+      payload: {
+        ...input.bridgeResult.payload,
+        realProviderNetwork: false,
+        realProviderGateReason: "deterministic_boundary_blocked",
+      },
+    } as T;
+  }
+
+  const ownerControlledZone = detectOwnerControlledGeminiUxZone(input.userMessage);
+  if (!ownerControlledZone) {
+    return {
+      ...input.bridgeResult,
+      payload: {
+        ...input.bridgeResult.payload,
+        realProviderNetwork: false,
+        realProviderGateReason: "owner_controlled_zone_not_allowed",
+      },
+    } as T;
+  }
+
   try {
     const vehicleTerms = extractVehicleEnglishAllowlistFromPilotOrchestration(
       input.pilotOrchestration
@@ -1381,14 +1481,6 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     const resolveProviderRawOutput = (result: UserVisibleGeminiCallResult) =>
       result.providerOutputFull ?? result.redactedProviderOutput;
 
-    const { redactedUserMessage } = prepareProviderPayload({
-      userMessage: input.userMessage,
-      userRole: input.userRole,
-      aiMode: "high",
-      provider: "real",
-      paidProvider: "gemini",
-    });
-
     const real = await invokeUserVisibleRealProvider({
       userMessage: input.userMessage,
       userRole: input.userRole,
@@ -1397,56 +1489,6 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     });
     let { text, safety } = processRawOutput(resolveProviderRawOutput(real));
     let usedModelId = real.modelId;
-    const firstAttemptUnsafeReason = safety.safe ? undefined : safety.unsafeReason;
-    const firstAttemptResponseDiagnostics = real.responseDiagnostics;
-
-    if (
-      !safety.safe &&
-      safety.unsafeReason &&
-      USER_VISIBLE_RETRY_UNSAFE_REASONS.has(safety.unsafeReason)
-    ) {
-      const retryReal = await invokeUserVisibleRealProvider({
-        userMessage: input.userMessage,
-        userRole: input.userRole,
-        pilotOrchestration: input.pilotOrchestration,
-        readEnv,
-        retryContext: {
-          priorUnsafeReason: safety.unsafeReason,
-          redactedUserMessage,
-        },
-      });
-      const retryProcessed = processRawOutput(resolveProviderRawOutput(retryReal));
-      if (retryProcessed.safety.safe) {
-        text = retryProcessed.text;
-        safety = retryProcessed.safety;
-        usedModelId = retryReal.modelId;
-      } else {
-        logUserVisibleOutputUnsafeDiagnostics({
-          sliceId: USER_VISIBLE_REAL_PROVIDER_SLICE_ID,
-          qualitySliceId: USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID,
-          route: "user-visible",
-          modelId: retryReal.modelId,
-          scenario: retryProcessed.safety.scenario,
-          outputLength: retryProcessed.safety.outputLength,
-          unsafeReason: retryProcessed.safety.unsafeReason ?? "generic_safety_guard",
-          gateReason: "real_provider_output_unsafe",
-          outputSampleRedacted: redactOutputSampleForDiagnostics(retryProcessed.text),
-          retryAttempt: true,
-          firstAttemptUnsafeReason,
-          retryUnsafeReason: retryProcessed.safety.unsafeReason,
-          firstAttemptResponseDiagnostics,
-          retryResponseDiagnostics: retryReal.responseDiagnostics,
-        });
-        return {
-          ...input.bridgeResult,
-          payload: {
-            ...input.bridgeResult.payload,
-            realProviderNetwork: false,
-            realProviderGateReason: "real_provider_output_unsafe",
-          },
-        } as T;
-      }
-    }
 
     if (!safety.safe) {
       logUserVisibleOutputUnsafeDiagnostics({
@@ -1459,8 +1501,8 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
         unsafeReason: safety.unsafeReason ?? "generic_safety_guard",
         gateReason: "real_provider_output_unsafe",
         outputSampleRedacted: redactOutputSampleForDiagnostics(text),
-        firstAttemptUnsafeReason,
-        firstAttemptResponseDiagnostics,
+        firstAttemptUnsafeReason: safety.unsafeReason,
+        firstAttemptResponseDiagnostics: real.responseDiagnostics,
       });
       return {
         ...input.bridgeResult,

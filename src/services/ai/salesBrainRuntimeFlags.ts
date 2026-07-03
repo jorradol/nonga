@@ -32,6 +32,9 @@ export const NONGA_AI_CHAT_SHADOW_REAL_PROVIDER_ENABLED_ENV =
 /** v6.8D — real Gemini on allowlisted user-visible orchestrate path (default off) */
 export const NONGA_AI_USER_VISIBLE_REAL_PROVIDER_ENABLED_ENV =
   "NONGA_AI_USER_VISIBLE_REAL_PROVIDER_ENABLED";
+/** v13.12 — owner-only controlled Gemini UX wording layer (default off) */
+export const NONGA_AI_OWNER_ONLY_CONTROLLED_UX_ENABLED_ENV =
+  "NONGA_AI_OWNER_ONLY_CONTROLLED_UX_ENABLED";
 /** v6.1L.1 — comma-separated Firebase UIDs for controlled user-visible pilot (server env only) */
 export const NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV =
   "NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS";
@@ -70,6 +73,8 @@ export interface SalesBrainRuntimeFlags {
   enablementBlockedReason?: string;
   fallbackToDeterministic: boolean;
   environment: SalesBrainRuntimeEnvironment;
+  /** v13.12 owner-only controlled wording layer gate (default false) */
+  ownerOnlyControlledUxEnabled: boolean;
 }
 
 function parseTruthy(raw: string | undefined): boolean {
@@ -127,6 +132,7 @@ function offFlags(
     enablementBlockedReason: partial.enablementBlockedReason,
     fallbackToDeterministic: true,
     environment,
+    ownerOnlyControlledUxEnabled: false,
   };
 }
 
@@ -154,6 +160,9 @@ export function resolveSalesBrainRuntimeFlags(input: {
   const userVisibleRequested = parseTruthy(readEnv(NONGA_AI_USER_VISIBLE_ENABLED_ENV));
   const budgetDailyLimit = parseBudget(readEnv(NONGA_AI_BUDGET_DAILY_LIMIT_ENV));
   const budgetMonthlyLimit = parseBudget(readEnv(NONGA_AI_BUDGET_MONTHLY_LIMIT_ENV));
+  const ownerOnlyControlledUxEnabled = parseTruthy(
+    readEnv(NONGA_AI_OWNER_ONLY_CONTROLLED_UX_ENABLED_ENV)
+  );
 
   if (environment === "production") {
     return offFlags(environment, {
@@ -227,5 +236,6 @@ export function resolveSalesBrainRuntimeFlags(input: {
     enablementBlockedReason,
     fallbackToDeterministic: !shadowEvaluationAllowed,
     environment,
+    ownerOnlyControlledUxEnabled,
   };
 }
