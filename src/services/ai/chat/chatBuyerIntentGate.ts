@@ -44,6 +44,60 @@ const EXPLICIT_SEARCH_REQUEST =
 const SOFT_SEARCH_HINT =
   /(?:มี|หา|ค้นหา|แนะนำ|งบ|ราคา|แสน|ล้าน|น่าสนใจ)/i;
 
+type OffTopicRecoveryKind = "poem" | "song" | "horoscope" | "general";
+
+const OFF_TOPIC_POEM_RE = /แต่งกลอน|กลอนให้|เขียนกลอน/i;
+const OFF_TOPIC_SONG_RE = /แต่งเพลง|เขียนเพลง|เพลงให้/i;
+const OFF_TOPIC_HOROSCOPE_RE = /ดูดวง|ดวง|สีมงคล|ฤกษ์/i;
+const OFF_TOPIC_GENERAL_RE =
+  /ทำการบ้าน|การบ้าน|สรุปบทเรียน|เขียนเรียงความ|แต่งนิยาย|ช่วยคิดชื่อเกม/i;
+
+const ROLE_BOUNDARY_LINE =
+  "น้องเอขอเน้นช่วยเรื่องซื้อขายรถยนต์มือสองเป็นหลักครับ";
+
+function buildRoleRecoveryPrompt(): string {
+  return "ถ้าคุณพี่บอกงบ พื้นที่ใช้งาน และประเภทรถที่มองหา น้องเอช่วยแนะนำแนวรถที่เหมาะให้ต่อได้ทันทีครับ";
+}
+
+function detectOffTopicRecoveryKind(message: string): OffTopicRecoveryKind | null {
+  if (OFF_TOPIC_POEM_RE.test(message)) return "poem";
+  if (OFF_TOPIC_SONG_RE.test(message)) return "song";
+  if (OFF_TOPIC_HOROSCOPE_RE.test(message)) return "horoscope";
+  if (OFF_TOPIC_GENERAL_RE.test(message)) return "general";
+  return null;
+}
+
+function buildOffTopicRecoveryReply(kind: OffTopicRecoveryKind): string {
+  if (kind === "poem") {
+    return [
+      `${ROLE_BOUNDARY_LINE} แต่ถ้าอยากได้กลอนสั้น ๆ น้องเอช่วยได้ครับ`,
+      "รถดีต้องดูให้ครบ",
+      "เอกสารจบค่อยตกลง",
+      "งบพอดีใจมั่นคง",
+      "น้องเอช่วยคัดทางให้ครับ",
+      buildRoleRecoveryPrompt(),
+    ].join("\n");
+  }
+  if (kind === "song") {
+    return [
+      `${ROLE_BOUNDARY_LINE} ถ้าเป็นคำขอเล่น ๆ น้องเอช่วยได้สั้น ๆ ครับ`,
+      "ท่อนสั้น: รถเหมาะ งบพอ เอกสารชัวร์ ขับสบายใจครับ",
+      buildRoleRecoveryPrompt(),
+    ].join("\n");
+  }
+  if (kind === "horoscope") {
+    return [
+      `${ROLE_BOUNDARY_LINE} ถ้าเป็นเรื่องสีรถตามดวง น้องเอมองได้ในเชิงความเชื่อเพื่อความสบายใจครับ`,
+      "แต่การเลือกซื้อจริงควรดูงบ การใช้งาน สภาพรถ เอกสาร และความปลอดภัยเป็นหลักครับ",
+      buildRoleRecoveryPrompt(),
+    ].join("\n");
+  }
+  return [
+    ROLE_BOUNDARY_LINE,
+    "ถ้าต้องการเลือกรถให้เหมาะกับงบ การใช้งาน พื้นที่ หรืออยากเช็กความปลอดภัยก่อนซื้อขาย น้องเอช่วยได้ทันทีครับ",
+  ].join("\n");
+}
+
 function hasConcreteSearchSignals(text: string): boolean {
   if (parseBuyerSearchIntent(text).isVehicleSearch) return true;
   const criteria = parseMarketplaceSearchQuery(text);
@@ -118,6 +172,14 @@ export function tryBuyerIntentGateReply(
 ): BuyerIntentGateReply | null {
   const t = normalizeBuyerAdvisorMessage(message);
   if (!t) return null;
+
+  const offTopicKind = detectOffTopicRecoveryKind(t);
+  if (offTopicKind) {
+    return {
+      text: buildOffTopicRecoveryReply(offTopicKind),
+      skipGemini: true,
+    };
+  }
 
   const buyerIntent = parseBuyerSearchIntent(t);
 
