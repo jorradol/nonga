@@ -2,7 +2,6 @@
  * v6.0N — Gemini real provider wiring behind disabled flag — no network, no secret values.
  * Round 1 = Gemini only; OpenAI future-only/no-op. Not wired to useChat / chatSearchOrchestrator.
  */
-import { createHash } from "node:crypto";
 import { redactPiiForSalesBrainLog } from "./salesBrainMock";
 import type {
   SalesBrainAdapterInput,
@@ -181,7 +180,22 @@ function computeRequestIdHash(
     msg: redactPiiForSalesBrainLog(input.userMessage).slice(0, 120),
     listingId: input.listingContext?.listingId ?? null,
   };
-  return createHash("sha256").update(JSON.stringify(safe)).digest("hex").slice(0, 16);
+  return stableHash16(JSON.stringify(safe));
+}
+
+function stableHash16(value: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < value.length; i += 1) {
+    const c = value.charCodeAt(i);
+    h1 ^= c;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= c;
+    h2 = Math.imul(h2, 0x27d4eb2d);
+  }
+  const p1 = (h1 >>> 0).toString(16).padStart(8, "0");
+  const p2 = (h2 >>> 0).toString(16).padStart(8, "0");
+  return `${p1}${p2}`;
 }
 
 export function prepareProviderPayload(input: SalesBrainAdapterInput): {

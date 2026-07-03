@@ -2,7 +2,6 @@
  * v6.0E — Local mock Sales Brain router (deterministic, no network, no paid API).
  * Not wired to chat/orchestrator runtime — import for tests and future feature-flagged use.
  */
-import { createHash } from "node:crypto";
 import type {
   SalesBrainMockInput,
   SalesBrainMockOutput,
@@ -33,7 +32,22 @@ function computeParamsHash(input: SalesBrainMockInput): string {
     aiFirst: input.aiFirstEnabled ?? true,
     kill: input.emergencyKillSwitch ?? false,
   };
-  return createHash("sha256").update(JSON.stringify(safe)).digest("hex").slice(0, 16);
+  return stableHash16(JSON.stringify(safe));
+}
+
+function stableHash16(value: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < value.length; i += 1) {
+    const c = value.charCodeAt(i);
+    h1 ^= c;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= c;
+    h2 = Math.imul(h2, 0x27d4eb2d);
+  }
+  const p1 = (h1 >>> 0).toString(16).padStart(8, "0");
+  const p2 = (h2 >>> 0).toString(16).padStart(8, "0");
+  return `${p1}${p2}`;
 }
 
 function mockToolCall(
