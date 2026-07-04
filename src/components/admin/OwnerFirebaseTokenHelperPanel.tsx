@@ -308,6 +308,30 @@ export function OwnerFirebaseTokenHelperPanel() {
           >
             owner-only Gemini UX one-run ต้องได้รับ fresh owner authorization ก่อนกดทุกครั้ง
           </p>
+          <section
+            className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-3 space-y-2"
+            data-testid="owner-one-run-evidence-block"
+          >
+            <p
+              className="text-[11px] font-black uppercase tracking-wider text-amber-200"
+              data-testid="owner-one-run-evidence-readiness"
+            >
+              Evidence capture readiness: v14.0B contract active
+            </p>
+            <p className="text-[11px] text-amber-100/90">
+              One-run evidence readiness: sanitized answer text contract enabled
+            </p>
+            <p className="text-[11px] text-amber-100/90">
+              expected fields: sanitizedUserVisibleText | missingUserVisibleText |
+              missingUserVisibleTextReason | answerFieldSource | answerCharCount |
+              evidenceCapturedAt
+            </p>
+            {!oneRunEvidence ? (
+              <p className="text-[11px] text-amber-100/90">
+                One-run evidence (sanitized): waiting for fresh owner-approved run
+              </p>
+            ) : null}
+          </section>
           <button
             type="button"
             onClick={handleRunOwnerGeminiOneRun}
@@ -365,13 +389,21 @@ export function OwnerFirebaseTokenHelperPanel() {
                 {oneRunEvidence.allowlistCount}
               </p>
               {oneRunEvidence.userVisibleTextMissing ? (
-                <p
-                  className="text-[11px] font-bold text-amber-200"
-                  data-testid="owner-gemini-ux-one-run-answer-missing-warning"
-                >
-                  WARNING: answer text missing from one-run payload ({oneRunEvidence.userVisibleTextMissingReason}).
-                  Hold quality verdict and request fresh owner approval before any new retest.
-                </p>
+                <>
+                  <p
+                    className="text-[11px] font-bold text-amber-200"
+                    data-testid="owner-gemini-ux-one-run-answer-missing-warning"
+                  >
+                    WARNING: answer text missing from one-run payload ({oneRunEvidence.userVisibleTextMissingReason}).
+                    Hold quality verdict and request fresh owner approval before any new retest.
+                  </p>
+                  <p
+                    className="text-[11px] font-bold text-amber-200"
+                    data-testid="owner-one-run-missing-answer-warning"
+                  >
+                    missingUserVisibleText=true | reason={oneRunEvidence.userVisibleTextMissingReason}
+                  </p>
+                </>
               ) : (
                 <div className="space-y-1">
                   <p className="text-[11px] font-bold text-amber-200">
@@ -381,6 +413,12 @@ export function OwnerFirebaseTokenHelperPanel() {
                   <p
                     className="text-[11px] text-amber-50/95 whitespace-pre-wrap"
                     data-testid="owner-gemini-ux-one-run-answer-text"
+                  >
+                    {oneRunEvidence.userVisibleTextSanitized}
+                  </p>
+                  <p
+                    className="text-[11px] text-amber-50/95 whitespace-pre-wrap"
+                    data-testid="owner-one-run-answer-text"
                   >
                     {oneRunEvidence.userVisibleTextSanitized}
                   </p>
