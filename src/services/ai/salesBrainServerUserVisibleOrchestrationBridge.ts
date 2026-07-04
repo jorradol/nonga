@@ -29,6 +29,11 @@ import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 import { maybeApplyUserVisibleRealProvider } from "./salesBrainUserVisibleRealProvider";
+import {
+  evaluateUserVisibleGate,
+  parseUserVisibleAllowlistUids,
+  NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV,
+} from "./salesBrainUserVisibleGate";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -62,6 +67,14 @@ export interface RedactedUserVisibleOrchestrationPayload {
   /** v6.8D — redacted real-provider diagnostics (no secret values) */
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
+  /** v13.15N-N — masked allowlist diagnostics (no raw UID / token / secret). */
+  userVisibleGateDiagnostic?: {
+    blockedReason: string;
+    requestUidMasked: string;
+    allowlistMasked: string[];
+    allowlistMatch: boolean;
+    allowlistCount: number;
+  };
 }
 
 export interface UserVisibleOrchestrationBridgeResult {
@@ -101,6 +114,39 @@ function buildRedactedPayload(
     carCardCount: orchestrated?.carCards?.length ?? 0,
     hasMoreCars: orchestrated?.hasMoreCars,
     isDraftPreview: orchestrated?.isDraftPreview,
+  };
+}
+
+function maskUid(uid: string | undefined | null): string {
+  const value = String(uid ?? "").trim();
+  if (!value) return "***";
+  if (value.length <= 6) return "***";
+  return `${value.slice(0, 3)}...${value.slice(-3)}`;
+}
+
+function withMaskedUserVisibleGateDiagnostic(input: {
+  payload: RedactedUserVisibleOrchestrationPayload;
+  firebaseUid: string;
+  environment?: SalesBrainRuntimeEnvironment;
+  env?: Record<string, string | undefined>;
+}): RedactedUserVisibleOrchestrationPayload {
+  const gate = evaluateUserVisibleGate({
+    firebaseUid: input.firebaseUid,
+    environment: input.environment,
+    env: input.env,
+  });
+  const allowlist = parseUserVisibleAllowlistUids(
+    input.env?.[NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV]
+  );
+  return {
+    ...input.payload,
+    userVisibleGateDiagnostic: {
+      blockedReason: gate.blockedReason,
+      requestUidMasked: maskUid(input.firebaseUid),
+      allowlistMasked: allowlist.map((uid) => maskUid(uid)),
+      allowlistMatch: gate.redactedDiagnostics.uidAllowlisted,
+      allowlistCount: allowlist.length,
+    },
   };
 }
 
@@ -381,10 +427,16 @@ export async function handleChatUserVisibleOrchestratePost(
       env: process.env as Record<string, string | undefined>,
     });
 
+    const payloadWithMaskedGate = withMaskedUserVisibleGateDiagnostic({
+      payload: result.payload,
+      firebaseUid: auth.uid,
+      env: process.env as Record<string, string | undefined>,
+    });
+
     res.json({
       success: true,
       data: {
-        ...result.payload,
+        ...payloadWithMaskedGate,
         carCards: result.orchestrated?.carCards ?? [],
         hasMoreCars: result.orchestrated?.hasMoreCars,
         isDraftPreview: result.orchestrated?.isDraftPreview,
