@@ -86,6 +86,10 @@ ok("probe helper requires owner/admin role", !nonAdmin.enabled);
 ok("admin block reason", nonAdmin.reason === "not-admin");
 
 const helperCode = readFileSync(HELPER_COMPONENT_PATH, "utf8");
+const authOnlyProbeMatch = helperCode.match(
+  /const handleRunAuthOnlyProbe = async \(\) => \{[\s\S]*?\n  \};/
+);
+const authOnlyProbeCode = authOnlyProbeMatch?.[0] ?? "";
 
 ok(
   "probe helper exposes manual click probe button",
@@ -100,11 +104,11 @@ ok(
   "probe helper calls only runtime-proof auth-only route",
   /AUTH_ONLY_PROBE_ROUTE = "\/api\/admin\/sales-brain-runtime-proof-skeleton"/.test(
     helperCode
-  ) && /fetch\(AUTH_ONLY_PROBE_ROUTE,/.test(helperCode)
+  ) && /fetch\(AUTH_ONLY_PROBE_ROUTE,/.test(authOnlyProbeCode)
 );
 ok(
-  "probe helper does not call Gemini UX routes",
-  !/\/api\/ai\/chat-user-visible-orchestrate|\/api\/gemini\//.test(helperCode)
+  "auth-only probe path does not call Gemini UX routes",
+  !/\/api\/ai\/chat-user-visible-orchestrate|\/api\/gemini\//.test(authOnlyProbeCode)
 );
 ok(
   "probe helper does not render token",
@@ -123,8 +127,8 @@ ok(
   !/atob\(|split\(\s*["']\.[\"']\s*\)|jwt/i.test(helperCode)
 );
 ok(
-  "probe helper has no one-run/provider/lead path",
-  !/one-run|oneRun|provider call|createLead|lead/i.test(helperCode)
+  "auth-only probe path has no one-run/provider/lead path",
+  !/one-run|oneRun|provider call|createLead|lead/i.test(authOnlyProbeCode)
 );
 
 console.log(`\nDone v13.15M-P guard validation - ${pass} PASS, ${fail} FAIL.\n`);

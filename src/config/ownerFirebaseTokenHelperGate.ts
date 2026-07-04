@@ -2,6 +2,8 @@ import { canAccessAdmin } from "../utils/rbac";
 
 export const OWNER_FIREBASE_TOKEN_HELPER_FLAG_ENV =
   "VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ENABLED";
+export const OWNER_GEMINI_ONE_RUN_HELPER_FLAG_ENV =
+  "VITE_NONGA_OWNER_GEMINI_ONE_RUN_HELPER_ENABLED";
 export const OWNER_FIREBASE_TOKEN_HELPER_ALLOWLIST_UIDS_ENV =
   "VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ALLOWLIST_UIDS";
 export const OWNER_FIREBASE_TOKEN_HELPER_STAGING_HOST = "a.nongbot.org";
@@ -67,6 +69,15 @@ function isFlagEnabled(
   readEnv: (key: string) => string | undefined = defaultReadEnv
 ): boolean {
   const raw = String(readEnv(OWNER_FIREBASE_TOKEN_HELPER_FLAG_ENV) ?? "")
+    .trim()
+    .toLowerCase();
+  return raw === "true";
+}
+
+export function isOwnerGeminiOneRunHelperEnabled(
+  readEnv: (key: string) => string | undefined = defaultReadEnv
+): boolean {
+  const raw = String(readEnv(OWNER_GEMINI_ONE_RUN_HELPER_FLAG_ENV) ?? "")
     .trim()
     .toLowerCase();
   return raw === "true";

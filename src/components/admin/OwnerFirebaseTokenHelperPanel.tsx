@@ -2,17 +2,45 @@ import { useMemo, useState } from "react";
 import { KeyRound } from "lucide-react";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { getCurrentUserIdToken, getFirebaseAuthHeaders } from "../../services/auth/firebaseAuthHeaders";
-import { evaluateOwnerFirebaseTokenHelperGate } from "../../config/ownerFirebaseTokenHelperGate";
+import {
+  evaluateOwnerFirebaseTokenHelperGate,
+  isOwnerGeminiOneRunHelperEnabled,
+} from "../../config/ownerFirebaseTokenHelperGate";
 
 const STATUS_CLEAR_MS = 7000;
 const AUTH_ONLY_PROBE_ROUTE = "/api/admin/sales-brain-runtime-proof-skeleton";
+const OWNER_GEMINI_ONE_RUN_ROUTE = "/api/ai/chat-user-visible-orchestrate";
+const OWNER_GEMINI_ONE_RUN_SESSION_KEY =
+  "nonga-owner-gemini-one-run-consumed-v1315n";
+const SYNTHETIC_ONE_RUN_PROMPT =
+  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: สนใจรถใช้งานครอบครัว งบประมาณกลาง ๆ ขอคำแนะนำแบบสุภาพและปลอดภัย";
+
+function isOneRunConsumedInSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(OWNER_GEMINI_ONE_RUN_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markOneRunConsumedInSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(OWNER_GEMINI_ONE_RUN_SESSION_KEY, "1");
+  } catch {
+    // Ignore session storage errors and keep fail-closed behavior in memory only.
+  }
+}
 
 export function OwnerFirebaseTokenHelperPanel() {
   const { isSignedIn, user } = useAuth();
   const [copyStatusText, setCopyStatusText] = useState("");
   const [probeStatusText, setProbeStatusText] = useState("");
+  const [oneRunStatusText, setOneRunStatusText] = useState("");
   const [isCopying, setIsCopying] = useState(false);
   const [isProbing, setIsProbing] = useState(false);
+  const [isRunningOneRun, setIsRunningOneRun] = useState(false);
 
   const gate = useMemo(
     () =>
@@ -26,6 +54,8 @@ export function OwnerFirebaseTokenHelperPanel() {
   );
 
   if (!gate.enabled) return null;
+  const oneRunHelperEnabled = isOwnerGeminiOneRunHelperEnabled();
+  const oneRunConsumed = isOneRunConsumedInSession();
 
   const handleCopyToken = async () => {
     if (isCopying) return;
@@ -104,6 +134,89 @@ export function OwnerFirebaseTokenHelperPanel() {
     }
   };
 
+  const handleRunOwnerGeminiOneRun = async () => {
+    if (!oneRunHelperEnabled) return;
+    if (isRunningOneRun) return;
+    if (isOneRunConsumedInSession()) {
+      setOneRunStatusText(
+        "One-run ถูกใช้แล้วใน session นี้ — ต้องใช้ owner approval รอบใหม่ก่อนรันอีกครั้ง"
+      );
+      return;
+    }
+
+    setIsRunningOneRun(true);
+    setOneRunStatusText("");
+    markOneRunConsumedInSession();
+
+    try {
+      const headers = await getFirebaseAuthHeaders({ forceRefresh: true });
+      if (!("Authorization" in headers)) {
+        setOneRunStatusText("One-run ไม่เริ่ม: ไม่พบ signed-in Firebase token");
+        return;
+      }
+
+      const response = await fetch(OWNER_GEMINI_ONE_RUN_ROUTE, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          userMessage: SYNTHETIC_ONE_RUN_PROMPT,
+        }),
+      });
+
+      let data: unknown = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      const payload =
+        data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+      const nested =
+        payload?.data && typeof payload.data === "object"
+          ? (payload.data as Record<string, unknown>)
+          : null;
+
+      const authResult =
+        response.status === 401 || response.status === 403
+          ? "fail"
+          : response.ok
+            ? "pass"
+            : "unknown";
+      const pilotPathActive =
+        typeof nested?.pilotPathActive === "boolean"
+          ? nested.pilotPathActive
+            ? "true"
+            : "false"
+          : "unknown";
+      const fallbackToLegacy =
+        typeof nested?.fallbackToLegacy === "boolean"
+          ? nested.fallbackToLegacy
+            ? "true"
+            : "false"
+          : "unknown";
+      const skipGemini =
+        typeof nested?.skipGemini === "boolean"
+          ? nested.skipGemini
+            ? "true"
+            : "false"
+          : "unknown";
+      const carCardCount =
+        typeof nested?.carCardCount === "number"
+          ? String(nested.carCardCount)
+          : "unknown";
+
+      setOneRunStatusText(
+        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount}`
+      );
+      window.setTimeout(() => setOneRunStatusText(""), STATUS_CLEAR_MS);
+    } catch {
+      setOneRunStatusText("One-run request failed (network/request error)");
+    } finally {
+      setIsRunningOneRun(false);
+    }
+  };
+
   return (
     <section
       className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 space-y-3"
@@ -152,6 +265,37 @@ export function OwnerFirebaseTokenHelperPanel() {
         >
           {probeStatusText}
         </p>
+      ) : null}
+      {oneRunHelperEnabled ? (
+        <>
+          <p
+            className="text-[11px] text-amber-100/90"
+            data-testid="owner-gemini-one-run-reminder"
+          >
+            owner-only Gemini UX one-run ต้องได้รับ fresh owner authorization ก่อนกดทุกครั้ง
+          </p>
+          <button
+            type="button"
+            onClick={handleRunOwnerGeminiOneRun}
+            disabled={isRunningOneRun || oneRunConsumed}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/20 px-3 py-2 text-xs font-black text-amber-100 hover:bg-amber-500/30 disabled:opacity-70"
+            data-testid="owner-gemini-ux-one-run-button"
+          >
+            {isRunningOneRun
+              ? "กำลังรัน owner-only Gemini UX one-run..."
+              : oneRunConsumed
+                ? "Owner-only Gemini UX one-run used (session locked)"
+                : "Run owner-only Gemini UX one-run (1/1)"}
+          </button>
+          {oneRunStatusText ? (
+            <p
+              className="text-[11px] text-amber-100/90"
+              data-testid="owner-gemini-ux-one-run-status"
+            >
+              {oneRunStatusText}
+            </p>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

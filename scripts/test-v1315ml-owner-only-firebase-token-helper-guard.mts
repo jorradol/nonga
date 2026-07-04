@@ -115,6 +115,10 @@ ok("allowlist blocks unknown uid", !allowlistBlocked.enabled);
 ok("allowlist block reason", allowlistBlocked.reason === "uid-not-allowlisted");
 
 const helperCode = readFileSync(HELPER_COMPONENT_PATH, "utf8");
+const copyHandlerMatch = helperCode.match(
+  /const handleCopyToken = async \(\) => \{[\s\S]*?\n  \};/
+);
+const copyHandlerCode = copyHandlerMatch?.[0] ?? "";
 
 ok(
   "helper uses force-refresh token helper path",
@@ -132,10 +136,13 @@ ok(
   !/Bearer\s+/i.test(helperCode)
 );
 ok(
-  "helper does not call Gemini routes",
-  !/\/api\/gemini\/|\/api\/ai\/chat-user-visible-orchestrate/.test(helperCode)
+  "copy helper path does not call Gemini routes",
+  !/\/api\/gemini\/|\/api\/ai\/chat-user-visible-orchestrate/.test(copyHandlerCode)
 );
-ok("helper has no one-run mutation", !/one-run|oneRun|consume/i.test(helperCode));
+ok(
+  "copy helper path has no one-run mutation",
+  !/one-run|oneRun|consume/i.test(copyHandlerCode)
+);
 
 console.log(`\nDone v13.15M-L guard validation - ${pass} PASS, ${fail} FAIL.\n`);
 if (process.exitCode) process.exit(process.exitCode);
