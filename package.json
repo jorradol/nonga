@@ -208,6 +208,7 @@
     "test:v13.15M-P": "tsx scripts/test-v1315mp-in-browser-auth-only-probe-helper-guard.mts",
     "test:v13.15N-B": "tsx scripts/test-v1315nb-in-browser-owner-gemini-one-run-helper-guard.mts",
     "test:v13.15N-E": "tsx scripts/test-v1315ne-owner-helper-surface-diagnostics-guard.mts",
+    "test:v13.15N-H": "tsx scripts/test-v1315nh-owner-one-run-pilot-context-guard.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

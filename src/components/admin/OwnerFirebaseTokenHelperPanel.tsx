@@ -14,7 +14,34 @@ const OWNER_GEMINI_ONE_RUN_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 const OWNER_GEMINI_ONE_RUN_SESSION_KEY =
   "nonga-owner-gemini-one-run-consumed-v1315n";
 const SYNTHETIC_ONE_RUN_PROMPT =
-  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: สนใจรถใช้งานครอบครัว งบประมาณกลาง ๆ ขอคำแนะนำแบบสุภาพและปลอดภัย";
+  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: ช่วยสรุปจุดเด่นของคันที่ 1 และ 2 แบบสุภาพสำหรับครอบครัวหน่อยครับ";
+const SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT = {
+  recentCarCards: [
+    {
+      index: 1,
+      brand: "Toyota",
+      model: "Yaris Ativ",
+      year: 2020,
+      price: 419000,
+      mileage: 56000,
+      fuelType: "เบนซิน",
+      bodyClassLabel: "Sedan",
+      description: "รถครอบครัวขนาดกะทัดรัด เน้นใช้งานในเมือง",
+    },
+    {
+      index: 2,
+      brand: "Honda",
+      model: "City",
+      year: 2020,
+      price: 449000,
+      mileage: 61000,
+      fuelType: "เบนซิน",
+      bodyClassLabel: "Sedan",
+      description: "ห้องโดยสารนั่งสบาย เหมาะใช้เดินทางครอบครัว",
+    },
+  ],
+  lastSearchBudgetMax: 500000,
+} as const;
 
 function isOneRunConsumedInSession(): boolean {
   if (typeof window === "undefined") return false;
@@ -179,6 +206,7 @@ export function OwnerFirebaseTokenHelperPanel() {
         headers,
         body: JSON.stringify({
           userMessage: SYNTHETIC_ONE_RUN_PROMPT,
+          pilotSessionContext: SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT,
         }),
       });
 
@@ -224,9 +252,19 @@ export function OwnerFirebaseTokenHelperPanel() {
         typeof nested?.carCardCount === "number"
           ? String(nested.carCardCount)
           : "unknown";
+      const realProviderNetwork =
+        typeof nested?.realProviderNetwork === "boolean"
+          ? nested.realProviderNetwork
+            ? "true"
+            : "false"
+          : "unknown";
+      const realProviderGateReason =
+        typeof nested?.realProviderGateReason === "string"
+          ? nested.realProviderGateReason
+          : "unknown";
 
       setOneRunStatusText(
-        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount}`
+        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${realProviderGateReason}`
       );
       window.setTimeout(() => setOneRunStatusText(""), STATUS_CLEAR_MS);
     } catch {
