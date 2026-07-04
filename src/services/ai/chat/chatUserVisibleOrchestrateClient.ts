@@ -36,6 +36,9 @@ export interface ChatUserVisibleOrchestrateData {
     followUpMessage: boolean;
     pilotInactiveReason: string;
     guardPolicyVersion: string;
+    thaiUxTuningSliceId: string;
+    thaiUxTuningActive: boolean;
+    targetAnswerLengthGuidance: string;
     leadPiiCueGuardActive: boolean;
     phoneEchoGuardActive: boolean;
     safeConfirmationStepWordingActive: boolean;

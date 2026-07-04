@@ -301,6 +301,18 @@ export const AI_USER_VISIBLE_GUARD_POLICY_MARKERS = Object.freeze({
   phoneEchoGuard: true,
   safeConfirmationStepWording: true,
 });
+/**
+ * v14.2A owner-only quality evidence marker surface.
+ * Static/sanitized metadata only for diagnostics UI and offline validation.
+ */
+export const AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS = Object.freeze({
+  thaiUxTuningSliceId: USER_VISIBLE_THAI_UX_TUNING_SLICE_ID,
+  thaiUxTuningActive: true,
+  targetAnswerLengthGuidance: "4-7-sentences",
+  safeConfirmationStepWordingActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.safeConfirmationStepWording,
+  leadPiiCueGuardActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.leadPiiCueGuard,
+  phoneEchoGuardActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.phoneEchoGuard,
+});
 
 /** Output guard — finance guarantee language must trigger mock fallback. */
 export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [

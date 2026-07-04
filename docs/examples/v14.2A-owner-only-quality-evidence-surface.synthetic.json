@@ -1,0 +1,48 @@
+{
+  "version": "v14.2A",
+  "scope": "owner-only quality evidence marker surface",
+  "environment": "staging-owner-only-evidence-surface",
+  "dataPolicy": {
+    "syntheticOnly": true,
+    "noRealLead": true,
+    "noRealPii": true,
+    "noPhonePlateVin": true
+  },
+  "evidenceMarkersExpected": {
+    "thaiUxTuningSliceId": "v14.2",
+    "thaiUxTuningActive": true,
+    "targetAnswerLengthGuidance": "4-7-sentences",
+    "safeConfirmationStepWordingActive": true,
+    "leadPiiCueGuardActive": true,
+    "phoneEchoGuardActive": true
+  },
+  "guardrailsMustHold": {
+    "noLeadPiiCueInChat": true,
+    "noPhoneEchoInChat": true,
+    "noFinanceGuarantee": true,
+    "noHallucinatedVehicleFacts": true
+  },
+  "forbiddenWordingSamples": {
+    "leadPiiCue": [
+      "ฝากชื่อและเบอร์",
+      "ส่งเบอร์มาได้เลย",
+      "เดี๋ยวผู้ขายโทรกลับแน่นอน"
+    ],
+    "phoneEcho": [
+      "<PRIVATE_PHONE>",
+      "08x-xxx-xxxx"
+    ],
+    "financeGuarantee": [
+      "อนุมัติแน่นอน",
+      "รับประกันอนุมัติ"
+    ]
+  },
+  "finalRecommendationEnum": [
+    "READY FOR CONTROLLED STAGING DEPLOY OF v14.2A EVIDENCE SURFACE — NO RETEST YET",
+    "READY FOR OWNER MANUAL QUALITY RETEST — FRESH APPROVAL REQUIRED",
+    "HOLD — EVIDENCE SURFACE INCOMPLETE",
+    "HOLD — GUARDRAIL REGRESSION DETECTED",
+    "HOLD — TEST FAILURE",
+    "HOLD — SECRET/PII/REAL LEAD RISK DETECTED"
+  ]
+}

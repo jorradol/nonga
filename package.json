@@ -224,6 +224,7 @@
     "test:v14.1B": "tsx scripts/test-v141B-runtime-guard-deployment-server-visibility-diagnosis.mts",
     "test:v14.1C": "tsx scripts/test-v141C-owner-manual-gemini-quality-retest-pass-closure.mts",
     "test:v14.2": "tsx scripts/test-v142-real-answer-thai-ux-quality-tuning-from-captured-evidence.mts",
+    "test:v14.2A": "tsx scripts/test-v142A-owner-only-quality-evidence-surface.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

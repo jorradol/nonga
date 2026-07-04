@@ -18,6 +18,9 @@ export interface OwnerOneRunEvidence {
   serverRecentCarCardsCount: string;
   pilotInactiveReason: string;
   guardPolicyVersion: string;
+  thaiUxTuningSliceId: string;
+  thaiUxTuningActive: string;
+  targetAnswerLengthGuidance: string;
   leadPiiCueGuardActive: string;
   phoneEchoGuardActive: string;
   safeConfirmationStepWordingActive: string;
@@ -152,6 +155,15 @@ export function buildOwnerOneRunEvidence(input: {
     guardPolicyVersion:
       typeof runtimeDiagnostic.guardPolicyVersion === "string"
         ? runtimeDiagnostic.guardPolicyVersion
+        : "unknown",
+    thaiUxTuningSliceId:
+      typeof runtimeDiagnostic.thaiUxTuningSliceId === "string"
+        ? runtimeDiagnostic.thaiUxTuningSliceId
+        : "unknown",
+    thaiUxTuningActive: readBooleanField(runtimeDiagnostic.thaiUxTuningActive),
+    targetAnswerLengthGuidance:
+      typeof runtimeDiagnostic.targetAnswerLengthGuidance === "string"
+        ? runtimeDiagnostic.targetAnswerLengthGuidance
         : "unknown",
     leadPiiCueGuardActive: readBooleanField(runtimeDiagnostic.leadPiiCueGuardActive),
     phoneEchoGuardActive: readBooleanField(runtimeDiagnostic.phoneEchoGuardActive),

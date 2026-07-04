@@ -324,7 +324,8 @@ export function OwnerFirebaseTokenHelperPanel() {
             <p className="text-[11px] text-amber-100/90">
               expected fields: sanitizedUserVisibleText | missingUserVisibleText |
               missingUserVisibleTextReason | answerFieldSource | answerCharCount |
-              evidenceCapturedAt
+              evidenceCapturedAt | thaiUxTuningSliceId | thaiUxTuningActive |
+              targetAnswerLengthGuidance
             </p>
             {!oneRunEvidence ? (
               <p className="text-[11px] text-amber-100/90">
@@ -383,7 +384,12 @@ export function OwnerFirebaseTokenHelperPanel() {
                 {oneRunEvidence.pilotInactiveReason}
               </p>
               <p className="text-[11px] text-amber-100/90">
-                guardPolicyVersion={oneRunEvidence.guardPolicyVersion} |
+                guardPolicyVersion={oneRunEvidence.guardPolicyVersion} | thaiUxTuningSliceId=
+                {oneRunEvidence.thaiUxTuningSliceId} | thaiUxTuningActive=
+                {oneRunEvidence.thaiUxTuningActive} | targetAnswerLengthGuidance=
+                {oneRunEvidence.targetAnswerLengthGuidance}
+              </p>
+              <p className="text-[11px] text-amber-100/90">
                 leadPiiCueGuardActive={oneRunEvidence.leadPiiCueGuardActive} |
                 phoneEchoGuardActive={oneRunEvidence.phoneEchoGuardActive} |
                 safeConfirmationStepWordingActive=

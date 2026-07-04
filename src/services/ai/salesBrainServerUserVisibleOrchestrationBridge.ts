@@ -35,6 +35,7 @@ import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisibleP
 import {
   AI_USER_VISIBLE_GUARD_POLICY_MARKERS,
   AI_USER_VISIBLE_GUARD_POLICY_VERSION,
+  AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS,
   maybeApplyUserVisibleRealProvider,
 } from "./salesBrainUserVisibleRealProvider";
 import {
@@ -97,6 +98,9 @@ export interface RedactedUserVisibleOrchestrationPayload {
     followUpMessage: boolean;
     pilotInactiveReason: string;
     guardPolicyVersion: string;
+    thaiUxTuningSliceId: string;
+    thaiUxTuningActive: boolean;
+    targetAnswerLengthGuidance: string;
     leadPiiCueGuardActive: boolean;
     phoneEchoGuardActive: boolean;
     safeConfirmationStepWordingActive: boolean;
@@ -236,10 +240,14 @@ function withSafeUserVisibleRuntimeDiagnostic(input: {
       followUpMessage,
       pilotInactiveReason,
       guardPolicyVersion: AI_USER_VISIBLE_GUARD_POLICY_VERSION,
-      leadPiiCueGuardActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.leadPiiCueGuard,
-      phoneEchoGuardActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.phoneEchoGuard,
+      thaiUxTuningSliceId: AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS.thaiUxTuningSliceId,
+      thaiUxTuningActive: AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS.thaiUxTuningActive,
+      targetAnswerLengthGuidance:
+        AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS.targetAnswerLengthGuidance,
+      leadPiiCueGuardActive: AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS.leadPiiCueGuardActive,
+      phoneEchoGuardActive: AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS.phoneEchoGuardActive,
       safeConfirmationStepWordingActive:
-        AI_USER_VISIBLE_GUARD_POLICY_MARKERS.safeConfirmationStepWording,
+        AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS.safeConfirmationStepWordingActive,
     },
   };
 }
