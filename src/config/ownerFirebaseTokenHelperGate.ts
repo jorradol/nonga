@@ -74,6 +74,12 @@ function isFlagEnabled(
   return raw === "true";
 }
 
+export function isOwnerFirebaseTokenHelperEnabled(
+  readEnv: (key: string) => string | undefined = defaultReadEnv
+): boolean {
+  return isFlagEnabled(readEnv);
+}
+
 export function isOwnerGeminiOneRunHelperEnabled(
   readEnv: (key: string) => string | undefined = defaultReadEnv
 ): boolean {

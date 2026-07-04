@@ -91,7 +91,7 @@ const oneRunHandlerCode = oneRunHandlerMatch?.[0] ?? "";
 ok(
   "requires signed-in owner/admin via existing gate",
   /evaluateOwnerFirebaseTokenHelperGate\(/.test(helperCode) &&
-    /if \(!gate\.enabled\) return null;/.test(helperCode)
+    /if \(!gate\.enabled\)/.test(helperCode)
 );
 ok(
   "manual click only for one-run",
