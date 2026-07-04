@@ -220,6 +220,7 @@
     "test:v14.0B": "tsx scripts/test-v140B-answer-text-capture-root-cause-fix.mts",
     "test:v14.0C": "tsx scripts/test-v140C-staging-evidence-ui-deploy-visibility-gate.mts",
     "test:v14.1": "tsx scripts/test-v141-lead-pii-cue-guard-thai-ux-tuning.mts",
+    "test:v14.1A": "tsx scripts/test-v141A-controlled-staging-deploy-guard-visibility-check.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
