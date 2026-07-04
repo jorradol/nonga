@@ -17,6 +17,10 @@ const REQUIRED_ENV_KEYS = [
   "VITE_FIREBASE_MESSAGING_SENDER_ID",
   "VITE_FIREBASE_APP_ID",
 ] as const;
+const STAGING_OWNER_HELPER_FLAGS = [
+  "VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ENABLED",
+  "VITE_NONGA_OWNER_GEMINI_ONE_RUN_HELPER_ENABLED",
+] as const;
 
 function redactEnvReport(env: Record<string, string | undefined>): void {
   for (const key of REQUIRED_ENV_KEYS) {
@@ -44,6 +48,10 @@ function redactEnvReport(env: Record<string, string | undefined>): void {
   console.log(
     `VITE_NONGA_PUBLIC_SIGNUP_ENABLED: ${String(env.VITE_NONGA_PUBLIC_SIGNUP_ENABLED ?? "").trim() || "missing"}`
   );
+  for (const key of STAGING_OWNER_HELPER_FLAGS) {
+    const value = String(env[key] ?? "").trim().toLowerCase();
+    console.log(`${key}: ${value === "true" ? "true" : value || "missing"}`);
+  }
 }
 
 function loadDotEnvFile(filePath: string): Record<string, string> {
@@ -83,6 +91,8 @@ function loadFromCloudBuild(buildId: string): Record<string, string> {
     VITE_FIREBASE_APP_ID: subs._VITE_FIREBASE_APP_ID,
     VITE_FIREBASE_MEASUREMENT_ID: subs._VITE_FIREBASE_MEASUREMENT_ID,
     VITE_NONGA_PUBLIC_SIGNUP_ENABLED: "false",
+    VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ENABLED: "true",
+    VITE_NONGA_OWNER_GEMINI_ONE_RUN_HELPER_ENABLED: "true",
     VITE_NONGA_DEALER_API_TOKEN: "",
     VITE_NONGA_ADMIN_API_TOKEN: "",
   };
@@ -122,6 +132,11 @@ function assertStagingBuildEnv(env: Record<string, string>): FirebaseWebConfigEn
     throw new Error(
       `VITE_FIREBASE_PROJECT_ID must be nonga-ce93c (got ${env.VITE_FIREBASE_PROJECT_ID})`
     );
+  }
+  for (const key of STAGING_OWNER_HELPER_FLAGS) {
+    if (String(env[key] ?? "").trim().toLowerCase() !== "true") {
+      throw new Error(`${key} must be true for staging owner-helper hosting builds`);
+    }
   }
 
   const viteEnv: FirebaseWebConfigEnv = {
@@ -164,6 +179,8 @@ function verifyDistBundle(): void {
   const required = [
     /VITE_FIREBASE_PROJECT_ID:"nonga-ce93c"/,
     /VITE_FIREBASE_AUTH_DOMAIN:"nonga-ce93c\.firebaseapp\.com"/,
+    /VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ENABLED:"true"/,
+    /VITE_NONGA_OWNER_GEMINI_ONE_RUN_HELPER_ENABLED:"true"/,
   ];
   for (const file of jsFiles) {
     const content = fs.readFileSync(path.join(assetsDir, file), "utf8");
@@ -193,7 +210,14 @@ const fromFile = loadDotEnvFile(path.resolve(envFile));
 const fromCloud =
   Object.keys(fromFile).length === 0 ? loadFromCloudBuild(buildId) : {};
 const processFirebaseEnv = Object.fromEntries(
-  [...REQUIRED_ENV_KEYS, "VITE_FIREBASE_MEASUREMENT_ID", "VITE_NONGA_PUBLIC_SIGNUP_ENABLED", "VITE_NONGA_DEALER_API_TOKEN", "VITE_NONGA_ADMIN_API_TOKEN"]
+  [
+    ...REQUIRED_ENV_KEYS,
+    ...STAGING_OWNER_HELPER_FLAGS,
+    "VITE_FIREBASE_MEASUREMENT_ID",
+    "VITE_NONGA_PUBLIC_SIGNUP_ENABLED",
+    "VITE_NONGA_DEALER_API_TOKEN",
+    "VITE_NONGA_ADMIN_API_TOKEN",
+  ]
     .map((key) => [key, process.env[key]])
     .filter(([, value]) => typeof value === "string" && value.trim())
 ) as Record<string, string>;
