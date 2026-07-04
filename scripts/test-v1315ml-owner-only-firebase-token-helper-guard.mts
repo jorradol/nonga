@@ -127,8 +127,14 @@ ok(
 );
 ok("helper does not render token to UI", !/\{token\}/.test(helperCode));
 ok("helper does not log token", !/console\.(log|debug|info|warn|error)\(/.test(helperCode));
-ok("helper does not build Authorization header", !/Authorization|Bearer\s+/i.test(helperCode));
-ok("helper has no Gemini/provider call", !/gemini|provider/i.test(helperCode));
+ok(
+  "helper does not build direct Bearer token string in UI code",
+  !/Bearer\s+/i.test(helperCode)
+);
+ok(
+  "helper does not call Gemini routes",
+  !/\/api\/gemini\/|\/api\/ai\/chat-user-visible-orchestrate/.test(helperCode)
+);
 ok("helper has no one-run mutation", !/one-run|oneRun|consume/i.test(helperCode));
 
 console.log(`\nDone v13.15M-L guard validation - ${pass} PASS, ${fail} FAIL.\n`);

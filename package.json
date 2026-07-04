@@ -205,6 +205,7 @@
     "test:v13.15L": "tsx scripts/test-v1315l-secure-firebase-owner-auth-probe-setup.mts",
     "test:v13.15M-A": "tsx scripts/test-v1315ma-owner-firebase-id-token-acquisition-guide.mts",
     "test:v13.15M-L": "tsx scripts/test-v1315ml-owner-only-firebase-token-helper-guard.mts",
+    "test:v13.15M-P": "tsx scripts/test-v1315mp-in-browser-auth-only-probe-helper-guard.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
