@@ -383,6 +383,13 @@ export function OwnerFirebaseTokenHelperPanel() {
                 {oneRunEvidence.pilotInactiveReason}
               </p>
               <p className="text-[11px] text-amber-100/90">
+                guardPolicyVersion={oneRunEvidence.guardPolicyVersion} |
+                leadPiiCueGuardActive={oneRunEvidence.leadPiiCueGuardActive} |
+                phoneEchoGuardActive={oneRunEvidence.phoneEchoGuardActive} |
+                safeConfirmationStepWordingActive=
+                {oneRunEvidence.safeConfirmationStepWordingActive}
+              </p>
+              <p className="text-[11px] text-amber-100/90">
                 requestUidMasked={oneRunEvidence.requestUidMasked} | allowlistMasked=
                 {oneRunEvidence.allowlistMasked} | allowlistMatch=
                 {oneRunEvidence.allowlistMatch} | allowlistCount=

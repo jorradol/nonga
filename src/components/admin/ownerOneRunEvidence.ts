@@ -17,6 +17,10 @@ export interface OwnerOneRunEvidence {
   pilotContextPresent: string;
   serverRecentCarCardsCount: string;
   pilotInactiveReason: string;
+  guardPolicyVersion: string;
+  leadPiiCueGuardActive: string;
+  phoneEchoGuardActive: string;
+  safeConfirmationStepWordingActive: string;
   userVisibleTextSanitized: string;
   userVisibleTextMissing: boolean;
   userVisibleTextMissingReason: string;
@@ -145,6 +149,15 @@ export function buildOwnerOneRunEvidence(input: {
       typeof runtimeDiagnostic.pilotInactiveReason === "string"
         ? runtimeDiagnostic.pilotInactiveReason
         : "unknown",
+    guardPolicyVersion:
+      typeof runtimeDiagnostic.guardPolicyVersion === "string"
+        ? runtimeDiagnostic.guardPolicyVersion
+        : "unknown",
+    leadPiiCueGuardActive: readBooleanField(runtimeDiagnostic.leadPiiCueGuardActive),
+    phoneEchoGuardActive: readBooleanField(runtimeDiagnostic.phoneEchoGuardActive),
+    safeConfirmationStepWordingActive: readBooleanField(
+      runtimeDiagnostic.safeConfirmationStepWordingActive
+    ),
     userVisibleTextSanitized: answerCandidate.value,
     userVisibleTextMissing,
     userVisibleTextMissingReason,

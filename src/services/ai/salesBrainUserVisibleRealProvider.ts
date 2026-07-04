@@ -289,6 +289,17 @@ export const USER_VISIBLE_BUYER_CTA_RULE_MARKERS = [
   "ห้ามขอข้อมูลติดต่อในแชต",
 ] as const;
 
+/**
+ * v14.1B runtime-safe diagnostics marker for owner/admin verification.
+ * Static metadata only; contains no secret, token, or PII.
+ */
+export const AI_USER_VISIBLE_GUARD_POLICY_VERSION = "v14.1-lead-pii-cue-guard";
+export const AI_USER_VISIBLE_GUARD_POLICY_MARKERS = Object.freeze({
+  leadPiiCueGuard: true,
+  phoneEchoGuard: true,
+  safeConfirmationStepWording: true,
+});
+
 /** Output guard — finance guarantee language must trigger mock fallback. */
 export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [
   /อนุมัติแน่นอน/,

@@ -24,6 +24,22 @@ export interface ChatUserVisibleOrchestrateData {
   isDraftPreview?: boolean;
   carCards: ChatCarCardData[];
   draftFields?: ExtractedCarFields;
+  userVisibleRuntimeDiagnostic?: {
+    runtimeMode: string;
+    provider: string;
+    userVisibleEnabled: boolean;
+    realProviderEnabled: boolean;
+    ownerControlledUxEnabled: boolean;
+    aiFirstEnabled: boolean;
+    pilotContextPresentServer: boolean;
+    serverRecentCarCardsCount: number;
+    followUpMessage: boolean;
+    pilotInactiveReason: string;
+    guardPolicyVersion: string;
+    leadPiiCueGuardActive: boolean;
+    phoneEchoGuardActive: boolean;
+    safeConfirmationStepWordingActive: boolean;
+  };
 }
 
 export interface ChatUserVisibleOrchestrateResponse {

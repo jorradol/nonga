@@ -32,7 +32,11 @@ import {
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
-import { maybeApplyUserVisibleRealProvider } from "./salesBrainUserVisibleRealProvider";
+import {
+  AI_USER_VISIBLE_GUARD_POLICY_MARKERS,
+  AI_USER_VISIBLE_GUARD_POLICY_VERSION,
+  maybeApplyUserVisibleRealProvider,
+} from "./salesBrainUserVisibleRealProvider";
 import {
   evaluateUserVisibleGate,
   parseUserVisibleAllowlistUids,
@@ -92,6 +96,10 @@ export interface RedactedUserVisibleOrchestrationPayload {
     serverRecentCarCardsCount: number;
     followUpMessage: boolean;
     pilotInactiveReason: string;
+    guardPolicyVersion: string;
+    leadPiiCueGuardActive: boolean;
+    phoneEchoGuardActive: boolean;
+    safeConfirmationStepWordingActive: boolean;
   };
 }
 
@@ -227,6 +235,11 @@ function withSafeUserVisibleRuntimeDiagnostic(input: {
       serverRecentCarCardsCount,
       followUpMessage,
       pilotInactiveReason,
+      guardPolicyVersion: AI_USER_VISIBLE_GUARD_POLICY_VERSION,
+      leadPiiCueGuardActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.leadPiiCueGuard,
+      phoneEchoGuardActive: AI_USER_VISIBLE_GUARD_POLICY_MARKERS.phoneEchoGuard,
+      safeConfirmationStepWordingActive:
+        AI_USER_VISIBLE_GUARD_POLICY_MARKERS.safeConfirmationStepWording,
     },
   };
 }
