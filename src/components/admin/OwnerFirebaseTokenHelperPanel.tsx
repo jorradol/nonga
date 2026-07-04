@@ -43,6 +43,30 @@ const SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT = {
   lastSearchBudgetMax: 500000,
 } as const;
 
+type OwnerOneRunEvidence = {
+  capturedAtIso: string;
+  httpStatus: number;
+  auth: "pass" | "fail" | "unknown";
+  pilotPathActive: string;
+  fallbackToLegacy: string;
+  skipGemini: string;
+  carCardCount: string;
+  providerNetwork: string;
+  gateReason: string;
+  requestUidMasked: string;
+  allowlistMasked: string;
+  allowlistMatch: string;
+  allowlistCount: string;
+  runtimeMode: string;
+  userVisibleEnabled: string;
+  pilotContextPresent: string;
+  serverRecentCarCardsCount: string;
+  pilotInactiveReason: string;
+  userVisibleTextSanitized: string;
+  userVisibleTextMissing: boolean;
+  runSessionLocked: boolean;
+};
+
 function maskUidForDisplay(value: unknown): string {
   const uid = typeof value === "string" ? value.trim() : "";
   if (!uid) return "***";
@@ -95,6 +119,7 @@ export function OwnerFirebaseTokenHelperPanel() {
   const [isCopying, setIsCopying] = useState(false);
   const [isProbing, setIsProbing] = useState(false);
   const [isRunningOneRun, setIsRunningOneRun] = useState(false);
+  const [oneRunEvidence, setOneRunEvidence] = useState<OwnerOneRunEvidence | null>(null);
 
   const gate = useMemo(
     () =>
@@ -323,10 +348,40 @@ export function OwnerFirebaseTokenHelperPanel() {
           : "unknown";
       const gateReason =
         realProviderGateReason !== "unknown" ? realProviderGateReason : blockedReason;
+      const userVisibleTextRaw =
+        typeof nested?.userVisibleText === "string" ? nested.userVisibleText.trim() : "";
+      const userVisibleTextSanitized = userVisibleTextRaw
+        ? userVisibleTextRaw.replace(/\s+/g, " ").slice(0, 1200)
+        : "";
+      const userVisibleTextMissing = userVisibleTextSanitized.length === 0;
+      const capturedAtIso = new Date().toISOString();
 
       setOneRunStatusText(
         `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${gateReason} | requestUidMasked=${requestUidMasked} | allowlistMasked=${allowlistMasked} | allowlistMatch=${allowlistMatch} | allowlistCount=${allowlistCount} | runtimeMode=${runtimeMode} | userVisibleEnabled=${userVisibleEnabled} | pilotContextPresent=${pilotContextPresent} | serverRecentCarCardsCount=${serverRecentCarCardsCount} | pilotInactiveReason=${pilotInactiveReason}`
       );
+      setOneRunEvidence({
+        capturedAtIso,
+        httpStatus: response.status,
+        auth: authResult,
+        pilotPathActive,
+        fallbackToLegacy,
+        skipGemini,
+        carCardCount,
+        providerNetwork: realProviderNetwork,
+        gateReason,
+        requestUidMasked,
+        allowlistMasked,
+        allowlistMatch,
+        allowlistCount,
+        runtimeMode,
+        userVisibleEnabled,
+        pilotContextPresent,
+        serverRecentCarCardsCount,
+        pilotInactiveReason,
+        userVisibleTextSanitized,
+        userVisibleTextMissing,
+        runSessionLocked: true,
+      });
       window.setTimeout(() => setOneRunStatusText(""), STATUS_CLEAR_MS);
     } catch {
       setOneRunStatusText("One-run request failed (network/request error)");
@@ -412,6 +467,62 @@ export function OwnerFirebaseTokenHelperPanel() {
             >
               {oneRunStatusText}
             </p>
+          ) : null}
+          {oneRunEvidence ? (
+            <section
+              className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 space-y-2"
+              data-testid="owner-gemini-ux-one-run-evidence"
+            >
+              <p className="text-[11px] font-black uppercase tracking-wider text-amber-200">
+                One-run evidence (sanitized)
+              </p>
+              <p className="text-[11px] text-amber-100/90">
+                capturedAt={oneRunEvidence.capturedAtIso} | sessionLocked=
+                {oneRunEvidence.runSessionLocked ? "true" : "false"} | noRetry=true |
+                noSecondRunWithoutFreshApproval=true
+              </p>
+              <p className="text-[11px] text-amber-100/90">
+                HTTP {oneRunEvidence.httpStatus} | auth={oneRunEvidence.auth} |
+                pilotPathActive={oneRunEvidence.pilotPathActive} | fallbackToLegacy=
+                {oneRunEvidence.fallbackToLegacy} | skipGemini={oneRunEvidence.skipGemini}
+              </p>
+              <p className="text-[11px] text-amber-100/90">
+                providerNetwork={oneRunEvidence.providerNetwork} | gateReason=
+                {oneRunEvidence.gateReason} | carCardCount={oneRunEvidence.carCardCount} |
+                serverRecentCarCardsCount={oneRunEvidence.serverRecentCarCardsCount}
+              </p>
+              <p className="text-[11px] text-amber-100/90">
+                runtimeMode={oneRunEvidence.runtimeMode} | userVisibleEnabled=
+                {oneRunEvidence.userVisibleEnabled} | pilotContextPresent=
+                {oneRunEvidence.pilotContextPresent} | pilotInactiveReason=
+                {oneRunEvidence.pilotInactiveReason}
+              </p>
+              <p className="text-[11px] text-amber-100/90">
+                requestUidMasked={oneRunEvidence.requestUidMasked} | allowlistMasked=
+                {oneRunEvidence.allowlistMasked} | allowlistMatch=
+                {oneRunEvidence.allowlistMatch} | allowlistCount=
+                {oneRunEvidence.allowlistCount}
+              </p>
+              {oneRunEvidence.userVisibleTextMissing ? (
+                <p
+                  className="text-[11px] font-bold text-amber-200"
+                  data-testid="owner-gemini-ux-one-run-answer-missing-warning"
+                >
+                  WARNING: userVisibleText missing from one-run payload. Hold quality verdict and
+                  request fresh owner approval before any new retest.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-amber-200">userVisibleText (sanitized)</p>
+                  <p
+                    className="text-[11px] text-amber-50/95 whitespace-pre-wrap"
+                    data-testid="owner-gemini-ux-one-run-answer-text"
+                  >
+                    {oneRunEvidence.userVisibleTextSanitized}
+                  </p>
+                </div>
+              )}
+            </section>
           ) : null}
         </>
       ) : null}
