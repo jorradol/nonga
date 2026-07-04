@@ -284,9 +284,9 @@ export const USER_VISIBLE_FINANCE_SAFE_PHRASE_MARKERS = [
 ] as const;
 
 export const USER_VISIBLE_BUYER_CTA_RULE_MARKERS = [
-  "ฝากชื่อ",
-  "เบอร์",
-  "ทีมงานติดต่อกลับ",
+  "ขั้นตอนยืนยันความสนใจอย่างปลอดภัย",
+  "ผู้ใช้กรอกเบอร์เองในขั้นตอนยืนยัน",
+  "ห้ามขอข้อมูลติดต่อในแชต",
 ] as const;
 
 /** Output guard — finance guarantee language must trigger mock fallback. */
@@ -296,6 +296,27 @@ export const USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS: RegExp[] = [
   /ผ่านชัวร์/,
   /รับประกัน(?:อนุมัติ|ผ่าน)/,
   /การันตี(?:อนุมัติ|ผ่าน|ผ่อน)/,
+];
+
+/**
+ * Output guard — disallow lead/contact cues in user-visible quality path.
+ * Contact details must only be entered by the user in dedicated confirmation step.
+ */
+export const USER_VISIBLE_LEAD_PII_CUE_OUTPUT_PATTERNS: RegExp[] = [
+  /ฝาก(?:ชื่อ|ข้อมูลติดต่อ|เบอร์|เบอร์โทร|เบอร์โทรศัพท์)/i,
+  /ส่ง(?:ชื่อ|เบอร์|ข้อมูลติดต่อ)(?:มา|ได้เลย)?/i,
+  /ขอ(?:ชื่อ|เบอร์|เบอร์ติดต่อ|ข้อมูลติดต่อ)/i,
+  /เดี๋ยว(?:ให้)?ผู้ขาย(?:จะ)?(?:ติดต่อกลับ|โทรกลับ)/i,
+  /ทีมงาน(?:จะ)?(?:ติดต่อกลับ|โทรกลับ)/i,
+  /ส่งข้อมูล(?:ให้)?ผู้ขาย(?:แล้ว)?/i,
+  /lead(?:\s+)?(?:sent|submitted|created)/i,
+  /line\s*id|contact\s*info|phone\s*number/i,
+];
+
+/** Output guard — do not echo raw phone number patterns back in chat text. */
+export const USER_VISIBLE_PHONE_ECHO_OUTPUT_PATTERNS: RegExp[] = [
+  /\b0[689]\d{8}\b/,
+  /\b\d{3}[-\s]?\d{3}[-\s]?\d{4}\b/,
 ];
 
 export const USER_VISIBLE_REAL_GEMINI_MODEL = "gemini-3.5-flash";
@@ -729,6 +750,12 @@ export function evaluateRealProviderOutputSafety(
   if (!assertNoFinanceGuaranteeLanguage(trimmed)) {
     return { safe: false, unsafeReason: "finance_forbidden_phrase", scenario, outputLength };
   }
+  if (!assertNoLeadOrPiiCueLanguage(trimmed)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
+  if (!assertNoPhoneEchoInChatText(trimmed)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
   if (hasMetaInstructionLeak(trimmed)) {
     return { safe: false, unsafeReason: "meta_instruction_leak", scenario, outputLength };
   }
@@ -988,9 +1015,11 @@ function buildUserVisibleBuyerSystemInstruction(
     "จากความรู้ทั่วไปของรุ่นนี้ได้เฉพาะ insight ทั่วไป พร้อม disclaimer ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง.",
     "รถไฟฟ้า/EV: พูดได้ว่าเป็นรถไฟฟ้าจาก fuelType ถ้ามี — ห้ามเดา kWh ระยะวิ่ง ค่าชาร์จ ประกันแบต ถ้า listing ไม่มี.",
     "ไฟแนนซ์: ห้าม อนุมัติแน่นอน/การันตี/ผ่อนได้แน่นอน — ใช้ ประเมินเบื้องต้น ขึ้นอยู่กับเงื่อนไขไฟแนนซ์.",
-    "ชวนฝากชื่อ/เบอร์ให้ทีมงานติดต่อกลับได้ครับ",
+    "Lead/PII safety: ห้ามขอชื่อจริง เบอร์โทร หรือข้อมูลติดต่อในแชต ห้ามบอกว่าส่ง lead แล้ว หรือผู้ขายจะโทรกลับแน่นอน.",
+    "ถ้าผู้ใช้สนใจ ใช้ถ้อยคำนี้: ถ้าสนใจคันนี้ เดี๋ยวน้องเอพาไปขั้นตอนยืนยันความสนใจอย่างปลอดภัยก่อนนะครับ.",
+    "ย้ำว่าผู้ใช้เป็นคนกรอกเบอร์เองในขั้นตอนยืนยันสุดท้ายเท่านั้น และห้าม echo เบอร์ในคำตอบแชต.",
     "",
-    `ตัวอย่าง: ${buildUserVisibleStructuredOutputJson("สวัสดีครับ น้องเอคัดรถ Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ... ถ้าสนใจฝากชื่อเบอร์ได้ครับ")}`,
+    `ตัวอย่าง: ${buildUserVisibleStructuredOutputJson("สวัสดีครับ น้องเอคัดรถ Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ปี XXXX ราคา XXX,XXX บาทให้ก่อนนะครับ ถ้าสนใจคันไหน เดี๋ยวน้องเอพาไปขั้นตอนยืนยันความสนใจอย่างปลอดภัย โดยคุณลูกค้าเป็นคนกรอกข้อมูลติดต่อเองในขั้นตอนนั้นครับ")}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1372,6 +1401,20 @@ export async function invokeUserVisibleRealProvider(input: {
 /** Block finance guarantee language in real-provider user-visible output. */
 export function assertNoFinanceGuaranteeLanguage(text: string): boolean {
   for (const pattern of USER_VISIBLE_FINANCE_GUARANTEE_OUTPUT_PATTERNS) {
+    if (pattern.test(text)) return false;
+  }
+  return true;
+}
+
+export function assertNoLeadOrPiiCueLanguage(text: string): boolean {
+  for (const pattern of USER_VISIBLE_LEAD_PII_CUE_OUTPUT_PATTERNS) {
+    if (pattern.test(text)) return false;
+  }
+  return true;
+}
+
+export function assertNoPhoneEchoInChatText(text: string): boolean {
+  for (const pattern of USER_VISIBLE_PHONE_ECHO_OUTPUT_PATTERNS) {
     if (pattern.test(text)) return false;
   }
   return true;
