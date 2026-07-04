@@ -14,7 +14,7 @@ const OWNER_GEMINI_ONE_RUN_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 const OWNER_GEMINI_ONE_RUN_SESSION_KEY =
   "nonga-owner-gemini-one-run-consumed-v1315n";
 const SYNTHETIC_ONE_RUN_PROMPT =
-  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: ช่วยสรุปจุดเด่นของคันที่ 1 และ 2 แบบสุภาพสำหรับครอบครัวหน่อยครับ";
+  "สถานะ AI โหมดค้นหา: ช่วยอธิบายแบบเป็นธรรมชาติว่ารถแนวนี้เหมาะกับใคร และควรถามอะไรต่อดี";
 const SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT = {
   recentCarCards: [
     {

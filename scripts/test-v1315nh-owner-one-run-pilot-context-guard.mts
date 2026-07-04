@@ -43,9 +43,9 @@ ok(
     /pilotSessionContext:\s*SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT/.test(oneRunHandlerCode)
 );
 ok(
-  "one-run helper uses follow-up style synthetic prompt",
+  "one-run helper uses admin-routed follow-up synthetic prompt",
   /SYNTHETIC_ONE_RUN_PROMPT/.test(helperCode) &&
-    /สรุปจุดเด่น|คันที่ 1 และ 2|follow-up/i.test(helperCode)
+    /สถานะ AI|เหมาะกับใคร|ถามอะไรต่อดี|ค้นหา/i.test(helperCode)
 );
 ok(
   "one-run helper route unchanged and manual-click only",
