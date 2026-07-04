@@ -45,6 +45,7 @@ export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
 export const USER_VISIBLE_ORCHESTRATION_BRIDGE_SLICE_ID = "v6.1L.2c";
 
 const MAX_USER_MESSAGE_LENGTH = 4000;
+const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
 export interface UserVisibleOrchestrationBridgeInput {
   userMessage: string;
@@ -132,6 +133,11 @@ function buildRedactedPayload(
     hasMoreCars: orchestrated?.hasMoreCars,
     isDraftPreview: orchestrated?.isDraftPreview,
   };
+}
+
+function sanitizeUserVisibleEvidenceText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/\s+/g, " ").slice(0, MAX_USER_VISIBLE_EVIDENCE_CHARS);
 }
 
 function maskUid(uid: string | undefined | null): string {
@@ -513,11 +519,22 @@ export async function handleChatUserVisibleOrchestratePost(
       pilotSessionContext,
       env: process.env as Record<string, string | undefined>,
     });
+    const sanitizedUserVisibleText = sanitizeUserVisibleEvidenceText(
+      payloadWithRuntimeDiagnostic.userVisibleText
+    );
+    const missingUserVisibleText = sanitizedUserVisibleText.length === 0;
+    const evidenceCapturedAt = new Date().toISOString();
 
     res.json({
       success: true,
       data: {
         ...payloadWithRuntimeDiagnostic,
+        sanitizedUserVisibleText,
+        missingUserVisibleText,
+        ...(missingUserVisibleText
+          ? { missingUserVisibleTextReason: "missing_or_empty_user_visible_text" }
+          : {}),
+        evidenceCapturedAt,
         carCards: result.orchestrated?.carCards ?? [],
         hasMoreCars: result.orchestrated?.hasMoreCars,
         isDraftPreview: result.orchestrated?.isDraftPreview,

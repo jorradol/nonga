@@ -52,7 +52,7 @@ ok(
 ok(
   "panel has missing-answer warning",
   /owner-gemini-ux-one-run-answer-missing-warning/.test(panel) &&
-    /userVisibleText missing/.test(panel)
+    /userVisibleText missing|answer text missing/i.test(panel)
 );
 ok("panel captures evidence timestamp", /capturedAtIso/.test(panel));
 ok("panel captures gate reason", /gateReason/.test(panel));

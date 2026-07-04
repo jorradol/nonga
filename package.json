@@ -217,6 +217,7 @@
     "test:v13.16": "tsx scripts/test-v1316-owner-only-gemini-runtime-proof-closure.mts",
     "test:v14.0": "tsx scripts/test-v140-owner-only-gemini-answer-quality-review.mts",
     "test:v14.0A": "tsx scripts/test-v140A-one-run-evidence-capture-fix-prep.mts",
+    "test:v14.0B": "tsx scripts/test-v140B-answer-text-capture-root-cause-fix.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

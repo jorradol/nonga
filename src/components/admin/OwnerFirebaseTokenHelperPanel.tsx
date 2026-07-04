@@ -7,6 +7,7 @@ import {
   isOwnerFirebaseTokenHelperEnabled,
   isOwnerGeminiOneRunHelperEnabled,
 } from "../../config/ownerFirebaseTokenHelperGate";
+import { buildOwnerOneRunEvidence, type OwnerOneRunEvidence } from "./ownerOneRunEvidence";
 
 const STATUS_CLEAR_MS = 7000;
 const AUTH_ONLY_PROBE_ROUTE = "/api/admin/sales-brain-runtime-proof-skeleton";
@@ -42,56 +43,6 @@ const SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT = {
   ],
   lastSearchBudgetMax: 500000,
 } as const;
-
-type OwnerOneRunEvidence = {
-  capturedAtIso: string;
-  httpStatus: number;
-  auth: "pass" | "fail" | "unknown";
-  pilotPathActive: string;
-  fallbackToLegacy: string;
-  skipGemini: string;
-  carCardCount: string;
-  providerNetwork: string;
-  gateReason: string;
-  requestUidMasked: string;
-  allowlistMasked: string;
-  allowlistMatch: string;
-  allowlistCount: string;
-  runtimeMode: string;
-  userVisibleEnabled: string;
-  pilotContextPresent: string;
-  serverRecentCarCardsCount: string;
-  pilotInactiveReason: string;
-  userVisibleTextSanitized: string;
-  userVisibleTextMissing: boolean;
-  runSessionLocked: boolean;
-};
-
-function maskUidForDisplay(value: unknown): string {
-  const uid = typeof value === "string" ? value.trim() : "";
-  if (!uid) return "***";
-  if (uid.length <= 6) return "***";
-  return `${uid.slice(0, 3)}...${uid.slice(-3)}`;
-}
-
-function formatMaskedAllowlistForDisplay(value: unknown): string {
-  if (!Array.isArray(value)) return "unknown";
-  const masked = value
-    .map((entry) => maskUidForDisplay(entry))
-    .filter((entry) => entry !== "");
-  if (masked.length === 0) return "none";
-  return masked.join(",");
-}
-
-function readBooleanField(value: unknown): string {
-  if (typeof value !== "boolean") return "unknown";
-  return value ? "true" : "false";
-}
-
-function readCountField(value: unknown): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "unknown";
-  return String(Math.max(0, Math.floor(value)));
-}
 
 function isOneRunConsumedInSession(): boolean {
   if (typeof window === "undefined") return false;
@@ -275,114 +226,24 @@ export function OwnerFirebaseTokenHelperPanel() {
           ? (payload.data as Record<string, unknown>)
           : null;
 
-      const authResult =
-        response.status === 401 || response.status === 403
-          ? "fail"
-          : response.ok
-            ? "pass"
-            : "unknown";
-      const pilotPathActive =
-        typeof nested?.pilotPathActive === "boolean"
-          ? nested.pilotPathActive
-            ? "true"
-            : "false"
-          : "unknown";
-      const fallbackToLegacy =
-        typeof nested?.fallbackToLegacy === "boolean"
-          ? nested.fallbackToLegacy
-            ? "true"
-            : "false"
-          : "unknown";
-      const skipGemini =
-        typeof nested?.skipGemini === "boolean"
-          ? nested.skipGemini
-            ? "true"
-            : "false"
-          : "unknown";
-      const carCardCount =
-        typeof nested?.carCardCount === "number"
-          ? String(nested.carCardCount)
-          : "unknown";
-      const realProviderNetwork =
-        typeof nested?.realProviderNetwork === "boolean"
-          ? nested.realProviderNetwork
-            ? "true"
-            : "false"
-          : "unknown";
-      const realProviderGateReason =
-        typeof nested?.realProviderGateReason === "string"
-          ? nested.realProviderGateReason
-          : "unknown";
-      const gateDiagnostic =
-        nested?.userVisibleGateDiagnostic &&
-        typeof nested.userVisibleGateDiagnostic === "object"
-          ? (nested.userVisibleGateDiagnostic as Record<string, unknown>)
-          : null;
-      const runtimeDiagnostic =
-        nested?.userVisibleRuntimeDiagnostic &&
-        typeof nested.userVisibleRuntimeDiagnostic === "object"
-          ? (nested.userVisibleRuntimeDiagnostic as Record<string, unknown>)
-          : null;
-      const requestUidMasked = maskUidForDisplay(gateDiagnostic?.requestUidMasked);
-      const allowlistMasked = formatMaskedAllowlistForDisplay(
-        gateDiagnostic?.allowlistMasked
-      );
-      const allowlistMatch = readBooleanField(gateDiagnostic?.allowlistMatch);
-      const allowlistCount = readCountField(gateDiagnostic?.allowlistCount);
-      const runtimeMode =
-        typeof runtimeDiagnostic?.runtimeMode === "string"
-          ? runtimeDiagnostic.runtimeMode
-          : "unknown";
-      const userVisibleEnabled = readBooleanField(runtimeDiagnostic?.userVisibleEnabled);
-      const pilotContextPresent = readBooleanField(runtimeDiagnostic?.pilotContextPresentServer);
-      const serverRecentCarCardsCount = readCountField(
-        runtimeDiagnostic?.serverRecentCarCardsCount
-      );
-      const pilotInactiveReason =
-        typeof runtimeDiagnostic?.pilotInactiveReason === "string"
-          ? runtimeDiagnostic.pilotInactiveReason
-          : "unknown";
-      const blockedReason =
-        typeof gateDiagnostic?.blockedReason === "string"
-          ? gateDiagnostic.blockedReason
-          : "unknown";
-      const gateReason =
-        realProviderGateReason !== "unknown" ? realProviderGateReason : blockedReason;
-      const userVisibleTextRaw =
-        typeof nested?.userVisibleText === "string" ? nested.userVisibleText.trim() : "";
-      const userVisibleTextSanitized = userVisibleTextRaw
-        ? userVisibleTextRaw.replace(/\s+/g, " ").slice(0, 1200)
-        : "";
-      const userVisibleTextMissing = userVisibleTextSanitized.length === 0;
-      const capturedAtIso = new Date().toISOString();
-
-      setOneRunStatusText(
-        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${gateReason} | requestUidMasked=${requestUidMasked} | allowlistMasked=${allowlistMasked} | allowlistMatch=${allowlistMatch} | allowlistCount=${allowlistCount} | runtimeMode=${runtimeMode} | userVisibleEnabled=${userVisibleEnabled} | pilotContextPresent=${pilotContextPresent} | serverRecentCarCardsCount=${serverRecentCarCardsCount} | pilotInactiveReason=${pilotInactiveReason}`
-      );
-      setOneRunEvidence({
-        capturedAtIso,
-        httpStatus: response.status,
-        auth: authResult,
-        pilotPathActive,
-        fallbackToLegacy,
-        skipGemini,
-        carCardCount,
-        providerNetwork: realProviderNetwork,
-        gateReason,
-        requestUidMasked,
-        allowlistMasked,
-        allowlistMatch,
-        allowlistCount,
-        runtimeMode,
-        userVisibleEnabled,
-        pilotContextPresent,
-        serverRecentCarCardsCount,
-        pilotInactiveReason,
-        userVisibleTextSanitized,
-        userVisibleTextMissing,
+      const payloadData =
+        nested ??
+        (payload &&
+        (typeof payload.userVisibleText === "string" ||
+          typeof payload.sanitizedUserVisibleText === "string")
+          ? payload
+          : null);
+      const oneRunEvidenceResult = buildOwnerOneRunEvidence({
+        responseStatus: response.status,
+        payloadData,
+        fallbackCapturedAtIso: new Date().toISOString(),
         runSessionLocked: true,
       });
-      window.setTimeout(() => setOneRunStatusText(""), STATUS_CLEAR_MS);
+
+      setOneRunStatusText(
+        `One-run result: HTTP ${oneRunEvidenceResult.httpStatus} | auth=${oneRunEvidenceResult.auth} | pilotPathActive=${oneRunEvidenceResult.pilotPathActive} | fallbackToLegacy=${oneRunEvidenceResult.fallbackToLegacy} | skipGemini=${oneRunEvidenceResult.skipGemini} | carCardCount=${oneRunEvidenceResult.carCardCount} | providerNetwork=${oneRunEvidenceResult.providerNetwork} | gateReason=${oneRunEvidenceResult.gateReason} | answerChars=${oneRunEvidenceResult.answerCharCount} | missingAnswer=${oneRunEvidenceResult.userVisibleTextMissing ? "true" : "false"} | runtimeMode=${oneRunEvidenceResult.runtimeMode}`
+      );
+      setOneRunEvidence(oneRunEvidenceResult);
     } catch {
       setOneRunStatusText("One-run request failed (network/request error)");
     } finally {
@@ -508,12 +369,15 @@ export function OwnerFirebaseTokenHelperPanel() {
                   className="text-[11px] font-bold text-amber-200"
                   data-testid="owner-gemini-ux-one-run-answer-missing-warning"
                 >
-                  WARNING: userVisibleText missing from one-run payload. Hold quality verdict and
-                  request fresh owner approval before any new retest.
+                  WARNING: answer text missing from one-run payload ({oneRunEvidence.userVisibleTextMissingReason}).
+                  Hold quality verdict and request fresh owner approval before any new retest.
                 </p>
               ) : (
                 <div className="space-y-1">
-                  <p className="text-[11px] font-bold text-amber-200">userVisibleText (sanitized)</p>
+                  <p className="text-[11px] font-bold text-amber-200">
+                    userVisibleText (sanitized) | source={oneRunEvidence.answerFieldSource} | chars=
+                    {oneRunEvidence.answerCharCount}
+                  </p>
                   <p
                     className="text-[11px] text-amber-50/95 whitespace-pre-wrap"
                     data-testid="owner-gemini-ux-one-run-answer-text"

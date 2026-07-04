@@ -12,6 +12,10 @@ export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-or
 export interface ChatUserVisibleOrchestrateData {
   sliceId: string;
   userVisibleText: string;
+  sanitizedUserVisibleText?: string;
+  missingUserVisibleText?: boolean;
+  missingUserVisibleTextReason?: string;
+  evidenceCapturedAt?: string;
   pilotPathActive: boolean;
   fallbackToLegacy: boolean;
   skipGemini: boolean;
