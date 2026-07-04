@@ -32,7 +32,7 @@ const diagnosticShapeMatch = bridgeCode.match(
 const diagnosticShapeCode = diagnosticShapeMatch?.[0] ?? "";
 
 const responsePayloadMatch = bridgeCode.match(
-  /const payloadWithMaskedGate = withMaskedUserVisibleGateDiagnostic\([\s\S]*?\);\s*[\s\S]*?res\.json\([\s\S]*?\);/
+  /const payloadWithMaskedGate = withMaskedUserVisibleGateDiagnostic\([\s\S]*?\);\s*const payloadWithRuntimeDiagnostic = withSafeUserVisibleRuntimeDiagnostic\([\s\S]*?\);\s*[\s\S]*?res\.json\([\s\S]*?\);/
 );
 const responsePayloadCode = responsePayloadMatch?.[0] ?? "";
 
@@ -54,7 +54,7 @@ ok(
 ok(
   "response uses masked diagnostic helper path",
   /const payloadWithMaskedGate = withMaskedUserVisibleGateDiagnostic\(/.test(bridgeCode) &&
-    /\.\.\.payloadWithMaskedGate/.test(responsePayloadCode)
+    /\.\.\.payloadWithRuntimeDiagnostic/.test(responsePayloadCode)
 );
 
 ok(

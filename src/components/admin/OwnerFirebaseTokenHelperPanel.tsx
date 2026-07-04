@@ -293,12 +293,30 @@ export function OwnerFirebaseTokenHelperPanel() {
         typeof nested.userVisibleGateDiagnostic === "object"
           ? (nested.userVisibleGateDiagnostic as Record<string, unknown>)
           : null;
+      const runtimeDiagnostic =
+        nested?.userVisibleRuntimeDiagnostic &&
+        typeof nested.userVisibleRuntimeDiagnostic === "object"
+          ? (nested.userVisibleRuntimeDiagnostic as Record<string, unknown>)
+          : null;
       const requestUidMasked = maskUidForDisplay(gateDiagnostic?.requestUidMasked);
       const allowlistMasked = formatMaskedAllowlistForDisplay(
         gateDiagnostic?.allowlistMasked
       );
       const allowlistMatch = readBooleanField(gateDiagnostic?.allowlistMatch);
       const allowlistCount = readCountField(gateDiagnostic?.allowlistCount);
+      const runtimeMode =
+        typeof runtimeDiagnostic?.runtimeMode === "string"
+          ? runtimeDiagnostic.runtimeMode
+          : "unknown";
+      const userVisibleEnabled = readBooleanField(runtimeDiagnostic?.userVisibleEnabled);
+      const pilotContextPresent = readBooleanField(runtimeDiagnostic?.pilotContextPresentServer);
+      const serverRecentCarCardsCount = readCountField(
+        runtimeDiagnostic?.serverRecentCarCardsCount
+      );
+      const pilotInactiveReason =
+        typeof runtimeDiagnostic?.pilotInactiveReason === "string"
+          ? runtimeDiagnostic.pilotInactiveReason
+          : "unknown";
       const blockedReason =
         typeof gateDiagnostic?.blockedReason === "string"
           ? gateDiagnostic.blockedReason
@@ -307,7 +325,7 @@ export function OwnerFirebaseTokenHelperPanel() {
         realProviderGateReason !== "unknown" ? realProviderGateReason : blockedReason;
 
       setOneRunStatusText(
-        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${gateReason} | requestUidMasked=${requestUidMasked} | allowlistMasked=${allowlistMasked} | allowlistMatch=${allowlistMatch} | allowlistCount=${allowlistCount}`
+        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${gateReason} | requestUidMasked=${requestUidMasked} | allowlistMasked=${allowlistMasked} | allowlistMatch=${allowlistMatch} | allowlistCount=${allowlistCount} | runtimeMode=${runtimeMode} | userVisibleEnabled=${userVisibleEnabled} | pilotContextPresent=${pilotContextPresent} | serverRecentCarCardsCount=${serverRecentCarCardsCount} | pilotInactiveReason=${pilotInactiveReason}`
       );
       window.setTimeout(() => setOneRunStatusText(""), STATUS_CLEAR_MS);
     } catch {

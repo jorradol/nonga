@@ -18,7 +18,11 @@ import { wireShadowChatPathWithPilot } from "./salesBrainShadowChatPathNode";
 import {
   resolveSalesBrainRuntimeEnvironmentFromProcess,
 } from "./salesBrainShadowChatPath";
-import type { SalesBrainRuntimeEnvironment } from "./salesBrainRuntimeFlags";
+import {
+  resolveSalesBrainRuntimeFlags,
+  NONGA_AI_USER_VISIBLE_REAL_PROVIDER_ENABLED_ENV,
+  type SalesBrainRuntimeEnvironment,
+} from "./salesBrainRuntimeFlags";
 import type { SalesBrainUserRole } from "./salesBrainTypes";
 import type { PilotBuyerSessionContext } from "./chat/chatPilotSessionContext";
 import {
@@ -75,6 +79,19 @@ export interface RedactedUserVisibleOrchestrationPayload {
     allowlistMatch: boolean;
     allowlistCount: number;
   };
+  /** v13.15N-W — runtime status-only diagnostics for pilot-path mismatch analysis. */
+  userVisibleRuntimeDiagnostic?: {
+    runtimeMode: string;
+    provider: string;
+    userVisibleEnabled: boolean;
+    realProviderEnabled: boolean;
+    ownerControlledUxEnabled: boolean;
+    aiFirstEnabled: boolean;
+    pilotContextPresentServer: boolean;
+    serverRecentCarCardsCount: number;
+    followUpMessage: boolean;
+    pilotInactiveReason: string;
+  };
 }
 
 export interface UserVisibleOrchestrationBridgeResult {
@@ -124,6 +141,11 @@ function maskUid(uid: string | undefined | null): string {
   return `${value.slice(0, 3)}...${value.slice(-3)}`;
 }
 
+function parseTruthy(raw: string | undefined): boolean {
+  const v = String(raw ?? "").trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes";
+}
+
 function withMaskedUserVisibleGateDiagnostic(input: {
   payload: RedactedUserVisibleOrchestrationPayload;
   firebaseUid: string;
@@ -146,6 +168,59 @@ function withMaskedUserVisibleGateDiagnostic(input: {
       allowlistMasked: allowlist.map((uid) => maskUid(uid)),
       allowlistMatch: gate.redactedDiagnostics.uidAllowlisted,
       allowlistCount: allowlist.length,
+    },
+  };
+}
+
+function withSafeUserVisibleRuntimeDiagnostic(input: {
+  payload: RedactedUserVisibleOrchestrationPayload;
+  userMessage: string;
+  pilotSessionContext?: PilotBuyerSessionContext;
+  environment?: SalesBrainRuntimeEnvironment;
+  env?: Record<string, string | undefined>;
+}): RedactedUserVisibleOrchestrationPayload {
+  const resolvedEnvironment = resolveBridgeEnvironment(input.environment);
+  const runtimeFlags = resolveSalesBrainRuntimeFlags({
+    environment: resolvedEnvironment,
+    env: input.env,
+  });
+  const serverRecentCarCardsCount = input.pilotSessionContext?.recentCarCards?.length ?? 0;
+  const pilotContextPresentServer = serverRecentCarCardsCount > 0;
+  const followUpMessage = isPilotBuyerFollowUpMessage(input.userMessage);
+
+  let pilotInactiveReason = "pilot_active";
+  if (!input.payload.pilotPathActive) {
+    if (!runtimeFlags.userVisibleEnabled) {
+      pilotInactiveReason = "user_visible_disabled";
+    } else if (
+      typeof input.payload.realProviderGateReason === "string" &&
+      input.payload.realProviderGateReason === "pilot_path_inactive"
+    ) {
+      pilotInactiveReason = "real_provider_gate_pilot_path_inactive";
+    } else if (!followUpMessage) {
+      pilotInactiveReason = "message_not_followup";
+    } else if (!pilotContextPresentServer) {
+      pilotInactiveReason = "pilot_context_missing_or_dropped";
+    } else {
+      pilotInactiveReason = "pilot_resolution_fallback";
+    }
+  }
+
+  return {
+    ...input.payload,
+    userVisibleRuntimeDiagnostic: {
+      runtimeMode: runtimeFlags.mode,
+      provider: runtimeFlags.provider,
+      userVisibleEnabled: runtimeFlags.userVisibleEnabled,
+      realProviderEnabled: parseTruthy(
+        input.env?.[NONGA_AI_USER_VISIBLE_REAL_PROVIDER_ENABLED_ENV]
+      ),
+      ownerControlledUxEnabled: runtimeFlags.ownerOnlyControlledUxEnabled,
+      aiFirstEnabled: runtimeFlags.aiFirstEnabled,
+      pilotContextPresentServer,
+      serverRecentCarCardsCount,
+      followUpMessage,
+      pilotInactiveReason,
     },
   };
 }
@@ -432,11 +507,17 @@ export async function handleChatUserVisibleOrchestratePost(
       firebaseUid: auth.uid,
       env: process.env as Record<string, string | undefined>,
     });
+    const payloadWithRuntimeDiagnostic = withSafeUserVisibleRuntimeDiagnostic({
+      payload: payloadWithMaskedGate,
+      userMessage,
+      pilotSessionContext,
+      env: process.env as Record<string, string | undefined>,
+    });
 
     res.json({
       success: true,
       data: {
-        ...payloadWithMaskedGate,
+        ...payloadWithRuntimeDiagnostic,
         carCards: result.orchestrated?.carCards ?? [],
         hasMoreCars: result.orchestrated?.hasMoreCars,
         isDraftPreview: result.orchestrated?.isDraftPreview,
