@@ -43,6 +43,32 @@ const SYNTHETIC_ONE_RUN_PILOT_SESSION_CONTEXT = {
   lastSearchBudgetMax: 500000,
 } as const;
 
+function maskUidForDisplay(value: unknown): string {
+  const uid = typeof value === "string" ? value.trim() : "";
+  if (!uid) return "***";
+  if (uid.length <= 6) return "***";
+  return `${uid.slice(0, 3)}...${uid.slice(-3)}`;
+}
+
+function formatMaskedAllowlistForDisplay(value: unknown): string {
+  if (!Array.isArray(value)) return "unknown";
+  const masked = value
+    .map((entry) => maskUidForDisplay(entry))
+    .filter((entry) => entry !== "");
+  if (masked.length === 0) return "none";
+  return masked.join(",");
+}
+
+function readBooleanField(value: unknown): string {
+  if (typeof value !== "boolean") return "unknown";
+  return value ? "true" : "false";
+}
+
+function readCountField(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "unknown";
+  return String(Math.max(0, Math.floor(value)));
+}
+
 function isOneRunConsumedInSession(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -262,9 +288,26 @@ export function OwnerFirebaseTokenHelperPanel() {
         typeof nested?.realProviderGateReason === "string"
           ? nested.realProviderGateReason
           : "unknown";
+      const gateDiagnostic =
+        nested?.userVisibleGateDiagnostic &&
+        typeof nested.userVisibleGateDiagnostic === "object"
+          ? (nested.userVisibleGateDiagnostic as Record<string, unknown>)
+          : null;
+      const requestUidMasked = maskUidForDisplay(gateDiagnostic?.requestUidMasked);
+      const allowlistMasked = formatMaskedAllowlistForDisplay(
+        gateDiagnostic?.allowlistMasked
+      );
+      const allowlistMatch = readBooleanField(gateDiagnostic?.allowlistMatch);
+      const allowlistCount = readCountField(gateDiagnostic?.allowlistCount);
+      const blockedReason =
+        typeof gateDiagnostic?.blockedReason === "string"
+          ? gateDiagnostic.blockedReason
+          : "unknown";
+      const gateReason =
+        realProviderGateReason !== "unknown" ? realProviderGateReason : blockedReason;
 
       setOneRunStatusText(
-        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${realProviderGateReason}`
+        `One-run result: HTTP ${response.status} | auth=${authResult} | pilotPathActive=${pilotPathActive} | fallbackToLegacy=${fallbackToLegacy} | skipGemini=${skipGemini} | carCardCount=${carCardCount} | providerNetwork=${realProviderNetwork} | gateReason=${gateReason} | requestUidMasked=${requestUidMasked} | allowlistMasked=${allowlistMasked} | allowlistMatch=${allowlistMatch} | allowlistCount=${allowlistCount}`
       );
       window.setTimeout(() => setOneRunStatusText(""), STATUS_CLEAR_MS);
     } catch {

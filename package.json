@@ -210,6 +210,7 @@
     "test:v13.15N-E": "tsx scripts/test-v1315ne-owner-helper-surface-diagnostics-guard.mts",
     "test:v13.15N-H": "tsx scripts/test-v1315nh-owner-one-run-pilot-context-guard.mts",
     "test:v13.15N-O": "tsx scripts/test-v1315no-safe-uid-allowlist-diagnostic.mts",
+    "test:v13.15N-Q": "tsx scripts/test-v1315nq-owner-helper-safe-uid-diagnostic-surface.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

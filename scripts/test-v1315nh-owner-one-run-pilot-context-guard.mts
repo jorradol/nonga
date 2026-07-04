@@ -62,10 +62,15 @@ ok(
 ok(
   "one-run helper status exposes sanitized gate diagnostics only",
   /providerNetwork=\$\{realProviderNetwork\}/.test(helperCode) &&
-    /gateReason=\$\{realProviderGateReason\}/.test(helperCode) &&
+    /gateReason=\$\{gateReason\}/.test(helperCode) &&
+    /requestUidMasked=\$\{requestUidMasked\}/.test(helperCode) &&
+    /allowlistMasked=\$\{allowlistMasked\}/.test(helperCode) &&
+    /allowlistMatch=\$\{allowlistMatch\}/.test(helperCode) &&
+    /allowlistCount=\$\{allowlistCount\}/.test(helperCode) &&
     !/\$\{[^}]*token[^}]*\}/i.test(helperCode) &&
     !/\$\{[^}]*authorization[^}]*\}/i.test(helperCode) &&
-    !/\$\{[^}]*api[_-]?key[^}]*\}/i.test(helperCode)
+    !/\$\{[^}]*api[_-]?key[^}]*\}/i.test(helperCode) &&
+    !/\$\{[^}]*email[^}]*\}/i.test(helperCode)
 );
 ok(
   "no auto-run retry loop or second-run automation",
