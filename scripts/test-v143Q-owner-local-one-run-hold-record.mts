@@ -54,8 +54,8 @@ ok("validator states static checks only", /Static checks only/i.test(self));
 ok(
   "doc records baseline branch/head/origin/clean",
   /branch:\s*`feature\/chat-image-attachment-v1`/.test(doc) &&
-    /local HEAD:\s*`7f02c14d28860cae38be73e0b0ea058a6815e0a4`/.test(doc) &&
-    /origin HEAD:\s*`7f02c14d28860cae38be73e0b0ea058a6815e0a4`/.test(doc) &&
+    /local HEAD:\s*`c25c37d832aeb47bbcd7310148ee3893faa19b2a`/.test(doc) &&
+    /origin HEAD:\s*`c25c37d832aeb47bbcd7310148ee3893faa19b2a`/.test(doc) &&
     /local equals origin:\s*`yes`/.test(doc) &&
     /working tree clean:\s*`yes`/.test(doc)
 );
@@ -99,24 +99,27 @@ ok(
 );
 
 ok(
-  "doc holds when fresh approval is missing",
-  /freshApprovalReceived:\s*`false`/i.test(doc) &&
-    /approvalTextMatched:\s*`false`/i.test(doc) &&
-    /execution decision:\s*`HOLD — FRESH OWNER APPROVAL MISSING`/i.test(doc)
+  "doc accepts fresh approval and moves to token readiness gate",
+  /freshApprovalReceived:\s*`true`/i.test(doc) &&
+    /approvalTextMatched:\s*`true`/i.test(doc) &&
+    /execution decision at this gate:\s*`proceed to owner-local token\/session readiness`/i.test(doc)
 );
 
 ok(
-  "doc keeps owner-local token session check in not_run state",
-  /ownerLocalTokenPresent:\s*`not_run`/i.test(doc) &&
-    /ownerLocalTokenValid:\s*`not_run`/i.test(doc) &&
-    /token printed:\s*`no`/i.test(doc) &&
-    /secret exposure:\s*`false`/i.test(doc)
+  "doc records failed owner-local token session check",
+  /ownerLocalTokenPresent:\s*`false`/i.test(doc) &&
+    /ownerLocalTokenValid:\s*`false`/i.test(doc) &&
+    /NONGA_ADMIN_API_TOKEN:\s*missing/i.test(doc) &&
+    /format:\s*invalid/i.test(doc) &&
+    /token printed:\s*no/i.test(doc) &&
+    /secret exposure:\s*false/i.test(doc) &&
+    /hold reason:\s*`HOLD — OWNER-LOCAL AUTH SESSION NOT READY`/i.test(doc)
 );
 
 ok(
-  "doc includes command ambiguity hold guard",
+  "doc keeps command execution blocked before runtime start",
   /command identified for execution now:\s*`not_run`/i.test(doc) &&
-    /HOLD — OWNER-LOCAL ONE-RUN COMMAND MISSING OR AMBIGUOUS/.test(doc) &&
+    /command execution now:\s*`not_run`/i.test(doc) &&
     /do not guess command/.test(doc) &&
     /do not invent endpoint/.test(doc)
 );
@@ -130,14 +133,14 @@ ok(
 );
 
 const evidenceChecks: Array<[string, RegExp]> = [
-  ["freshApprovalReceived false", /freshApprovalReceived=false/],
-  ["approvalTextMatched false", /approvalTextMatched=false/],
-  ["ownerLocalTokenPresent not_run", /ownerLocalTokenPresent=not_run/],
-  ["ownerLocalTokenValid not_run", /ownerLocalTokenValid=not_run/],
+  ["freshApprovalReceived true", /freshApprovalReceived=true/],
+  ["approvalTextMatched true", /approvalTextMatched=true/],
+  ["ownerLocalTokenPresent false", /ownerLocalTokenPresent=false/],
+  ["ownerLocalTokenValid false", /ownerLocalTokenValid=false/],
   ["httpStatus not_run", /httpStatus=not_run/],
-  ["auth not_run", /auth=not_run/],
+  ["auth fail", /auth=fail/],
   ["providerNetwork false", /providerNetwork=false/],
-  ["gateReason hold", /gateReason=HOLD_FRESH_OWNER_APPROVAL_MISSING/],
+  ["gateReason hold", /gateReason=HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY/],
   ["runtimeMode not_run", /runtimeMode=not_run/],
   ["pilotContextPresent not_run", /pilotContextPresent=not_run/],
   ["allowlistMatch not_run", /allowlistMatch=not_run/],
@@ -194,13 +197,13 @@ for (const value of allowedFinalRecommendations) {
   ok(`doc includes allowed final recommendation ${value}`, doc.includes(value));
 }
 ok(
-  "doc final recommendation is hold missing approval",
-  /Final recommendation in this round:[\s\S]*HOLD — FRESH OWNER APPROVAL MISSING/.test(doc)
+  "doc final recommendation is hold owner-local auth session not ready",
+  /Final recommendation in this round:[\s\S]*HOLD — OWNER-LOCAL AUTH SESSION NOT READY/.test(doc)
 );
 
 ok(
-  "cross-doc lineage keeps no-gemini pre-approval rule",
-  /HOLD — FRESH OWNER APPROVAL MISSING/.test(v143pDoc) &&
+  "cross-doc lineage keeps no-gemini and future-only constraints",
+  /owner-local one-run execution evidence packet: hold-record mode/i.test(v143pDoc) &&
     /future-only/.test(v143oDoc)
 );
 ok(
@@ -226,8 +229,8 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
   ok(
     "fixture baseline matches v14.3Q snapshot",
     baseline?.branch === "feature/chat-image-attachment-v1" &&
-      baseline?.localHead === "7f02c14d28860cae38be73e0b0ea058a6815e0a4" &&
-      baseline?.originHead === "7f02c14d28860cae38be73e0b0ea058a6815e0a4" &&
+      baseline?.localHead === "c25c37d832aeb47bbcd7310148ee3893faa19b2a" &&
+      baseline?.originHead === "c25c37d832aeb47bbcd7310148ee3893faa19b2a" &&
       baseline?.localEqualsOrigin === true &&
       baseline?.workingTreeClean === true
   );
@@ -255,22 +258,24 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
 
   const approval = root.freshApproval as Record<string, unknown>;
   ok(
-    "fixture approval status indicates missing fresh approval",
-    approval?.freshApprovalReceived === false &&
-      approval?.approvalTextMatched === false &&
-      approval?.decision === "HOLD — FRESH OWNER APPROVAL MISSING" &&
+    "fixture approval status indicates fresh approval accepted",
+    approval?.freshApprovalReceived === true &&
+      approval?.approvalTextMatched === true &&
+      approval?.decision === "PROCEED_TO_OWNER_LOCAL_TOKEN_SESSION_READINESS" &&
       typeof approval?.requiredApprovalText === "string" &&
       String(approval.requiredApprovalText).includes("FINAL EXECUTION AUTHORIZE v14.3Q OWNER-LOCAL ONE-RUN")
   );
 
   const readiness = root.ownerLocalTokenSessionReadiness as Record<string, unknown>;
   ok(
-    "fixture token readiness is masked not_run",
-    readiness?.ownerLocalTokenPresent === "not_run" &&
-      readiness?.ownerLocalTokenValid === "not_run" &&
-      readiness?.status === "not_run" &&
+    "fixture token readiness captures failed checker",
+    readiness?.ownerLocalTokenPresent === false &&
+      readiness?.ownerLocalTokenValid === false &&
+      readiness?.status === "failed" &&
       readiness?.tokenPrinted === false &&
-      readiness?.secretExposure === false
+      readiness?.secretExposure === false &&
+      (readiness?.checkerSummary as Record<string, unknown>)?.tokenState === "missing" &&
+      (readiness?.checkerSummary as Record<string, unknown>)?.formatState === "invalid"
   );
 
   const command = root.ownerLocalOneRunCommandStatus as Record<string, unknown>;
@@ -286,18 +291,18 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
   const evidence = root.evidenceSnapshot as Record<string, unknown>;
   ok(
     "fixture evidence fields are complete in hold mode",
-    evidence?.freshApprovalReceived === false &&
-      evidence?.approvalTextMatched === false &&
-      evidence?.ownerLocalTokenPresent === "not_run" &&
-      evidence?.ownerLocalTokenValid === "not_run" &&
+    evidence?.freshApprovalReceived === true &&
+      evidence?.approvalTextMatched === true &&
+      evidence?.ownerLocalTokenPresent === false &&
+      evidence?.ownerLocalTokenValid === false &&
       evidence?.oneRunStarted === false &&
       evidence?.oneRunConsumed === false &&
       evidence?.retryUsed === false &&
       evidence?.secondRunUsed === false &&
       evidence?.httpStatus === "not_run" &&
-      evidence?.auth === "not_run" &&
+      evidence?.auth === "fail" &&
       evidence?.providerNetwork === false &&
-      evidence?.gateReason === "HOLD_FRESH_OWNER_APPROVAL_MISSING" &&
+      evidence?.gateReason === "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY" &&
       evidence?.pilotContextPresent === "not_run" &&
       evidence?.allowlistMatch === "not_run" &&
       evidence?.carCardCount === "not_run" &&
@@ -341,8 +346,8 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
     ok(`fixture includes allowed final recommendation ${expected}`, finalEnum.includes(expected));
   }
   ok(
-    "fixture final recommendation is hold missing approval",
-    root.finalRecommendation === "HOLD — FRESH OWNER APPROVAL MISSING"
+    "fixture final recommendation is hold owner-local auth session not ready",
+    root.finalRecommendation === "HOLD — OWNER-LOCAL AUTH SESSION NOT READY"
   );
 }
 

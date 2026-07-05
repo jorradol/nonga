@@ -26,8 +26,8 @@
   },
   "baselineBeforeWork": {
     "branch": "feature/chat-image-attachment-v1",
-    "localHead": "7f02c14d28860cae38be73e0b0ea058a6815e0a4",
-    "originHead": "7f02c14d28860cae38be73e0b0ea058a6815e0a4",
+    "localHead": "c25c37d832aeb47bbcd7310148ee3893faa19b2a",
+    "originHead": "c25c37d832aeb47bbcd7310148ee3893faa19b2a",
     "localEqualsOrigin": true,
     "workingTreeClean": true
   },
@@ -51,16 +51,21 @@
   },
   "freshApproval": {
     "requiredApprovalText": "FINAL EXECUTION AUTHORIZE v14.3Q OWNER-LOCAL ONE-RUN\nI approve exactly one owner-local staging Gemini run.\nNo retry.\nNo second run.\nNo production.\nNo public route.\nNo real lead.\nNo real customer data / PII.\nI understand one-run is consumed only if runtime execution starts.",
-    "freshApprovalReceived": false,
-    "approvalTextMatched": false,
-    "decision": "HOLD — FRESH OWNER APPROVAL MISSING"
+    "freshApprovalReceived": true,
+    "approvalTextMatched": true,
+    "decision": "PROCEED_TO_OWNER_LOCAL_TOKEN_SESSION_READINESS"
   },
   "ownerLocalTokenSessionReadiness": {
-    "ownerLocalTokenPresent": "not_run",
-    "ownerLocalTokenValid": "not_run",
-    "status": "not_run",
+    "ownerLocalTokenPresent": false,
+    "ownerLocalTokenValid": false,
+    "status": "failed",
     "tokenPrinted": false,
-    "secretExposure": false
+    "secretExposure": false,
+    "checkerSummary": {
+      "tokenState": "missing",
+      "formatState": "invalid",
+      "maskedTokenShown": true
+    }
   },
   "ownerLocalOneRunCommandStatus": {
     "identified": "not_run",
@@ -70,21 +75,21 @@
     "doNotInventEndpoint": true
   },
   "evidenceSnapshot": {
-    "freshApprovalReceived": false,
-    "approvalTextMatched": false,
-    "ownerLocalTokenPresent": "not_run",
-    "ownerLocalTokenValid": "not_run",
+    "freshApprovalReceived": true,
+    "approvalTextMatched": true,
+    "ownerLocalTokenPresent": false,
+    "ownerLocalTokenValid": false,
     "oneRunStarted": false,
     "oneRunConsumed": false,
     "retryUsed": false,
     "secondRunUsed": false,
     "httpStatus": "not_run",
-    "auth": "not_run",
+    "auth": "fail",
     "pilotPathActive": "not_run",
     "fallbackToLegacy": "not_run",
     "skipGemini": "not_run",
     "providerNetwork": false,
-    "gateReason": "HOLD_FRESH_OWNER_APPROVAL_MISSING",
+    "gateReason": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
     "runtimeMode": "not_run",
     "userVisibleEnabled": "not_run",
     "pilotContextPresent": "not_run",
@@ -137,5 +142,5 @@
     "HOLD — RETRY/SECOND-RUN CONTROL VIOLATION",
     "HOLD — TEST FAILURE"
   ],
-  "finalRecommendation": "HOLD — FRESH OWNER APPROVAL MISSING"
+  "finalRecommendation": "HOLD — OWNER-LOCAL AUTH SESSION NOT READY"
 }
