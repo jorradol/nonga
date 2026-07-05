@@ -1,0 +1,72 @@
+{
+  "version": "v14.3AA",
+  "recordType": "controlled-runtime-adapter-preflight-diagnosis-and-provider-path-readiness-prep",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "835f49c1e0306e554237dbad4b1dad860097bd86",
+    "originHead": "835f49c1e0306e554237dbad4b1dad860097bd86",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "ownerManualRunSnapshot": {
+    "executeApproved": true,
+    "runtimeAdapterEntered": true,
+    "runtimeAdapterPolicy": "staging-owner-only-preflight",
+    "providerCall": "not_run",
+    "geminiRuntime": "not_run",
+    "providerNetwork": "not_run",
+    "deploy": "not_run",
+    "runtimeMutation": "not_run",
+    "tokenExposure": "masked-only",
+    "holdReason": "HOLD_RUNTIME_ADAPTER_REACHED_CONTROLLED_PREFLIGHT_BEFORE_PROVIDER_CALL"
+  },
+  "preflightHoldSource": {
+    "sourceFile": "scripts/owner-local-one-run-gate-v143u.mts",
+    "sourceFunction": "runControlledRuntimeAdapter",
+    "sourcePolicy": "staging-owner-only-preflight",
+    "intentionalPreflightStop": true,
+    "missingImplementation": false
+  },
+  "providerPathMapping": {
+    "adminShadowRoute": {
+      "route": "/api/admin/sales-brain-shadow-smoke",
+      "tokenModel": "NONGA_ADMIN_API_TOKEN",
+      "realProviderCapable": true
+    },
+    "userVisibleRoute": {
+      "route": "/api/ai/chat-user-visible-orchestrate",
+      "tokenModel": "Firebase ID token",
+      "realProviderCapable": true,
+      "hasPilotMarkers": true
+    },
+    "authModelMismatchDetected": true
+  },
+  "controlledProviderPathDecision": {
+    "patched": false,
+    "decision": "not_patched_due_to_auth_path_ambiguity_risk",
+    "safeMappingConfirmed": false
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentGeminiCall": false
+  },
+  "tokenSafety": {
+    "maskedOnly": true,
+    "rawTokenPrinted": false,
+    "apiKeyPrinted": false
+  },
+  "finalDecisionEnum": [
+    "READY FOR v14.3AB FRESH OWNER APPROVAL + OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "NEED REVIEW — PROVIDER PATH ENABLEMENT RISK",
+    "NEED REVIEW — PREFLIGHT SOURCE AMBIGUOUS",
+    "NEED REVIEW — EXISTING PROVIDER PATH NOT SAFELY MAPPED",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "NEED REVIEW — EXISTING PROVIDER PATH NOT SAFELY MAPPED"
+}
