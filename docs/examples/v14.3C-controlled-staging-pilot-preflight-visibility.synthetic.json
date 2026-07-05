@@ -1,0 +1,188 @@
+{
+  "version": "v14.3C",
+  "preflightType": "controlled-staging-pilot-preflight-visibility-no-gemini",
+  "executionType": {
+    "staticMockOnly": true,
+    "readOnlyInspectionOnly": true,
+    "runtimeExecution": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "retry": false,
+    "secondRun": false,
+    "providerNetworkCall": false,
+    "providerTriggeringEndpointCall": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretValueChange": false
+  },
+  "scope": {
+    "stagingOnly": true,
+    "ownerAdminOnly": true,
+    "syntheticSanitizedOnly": true,
+    "noRealBuyerData": true,
+    "noRealPhoneCapture": true,
+    "noLeadDelivery": true,
+    "noPublicRoute": true,
+    "noProduction": true,
+    "noRealCustomerDataPii": true,
+    "noPhonePlateVinExamples": true,
+    "noSecretTokenApiKeyExposure": true,
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true
+  },
+  "ownerVisibilityFields": {
+    "runtimeMode": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "string"
+    },
+    "userVisibleEnabled": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "boolean-string"
+    },
+    "pilotPathActive": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "boolean-string"
+    },
+    "fallbackToLegacy": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "boolean-string"
+    },
+    "skipGemini": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "boolean-string"
+    },
+    "providerNetwork": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "boolean-string"
+    },
+    "gateReason": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "string"
+    },
+    "guardPolicyVersion": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "v14.1-lead-pii-cue-guard"
+    },
+    "thaiUxTuningSliceId": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "v14.2"
+    },
+    "thaiUxTuningActive": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "true"
+    },
+    "targetAnswerLengthGuidance": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "4-7-sentences"
+    },
+    "leadPiiCueGuardActive": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "true"
+    },
+    "phoneEchoGuardActive": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "true"
+    },
+    "safeConfirmationStepWordingActive": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "expected": "true"
+    },
+    "runSessionLocked": {
+      "required": true,
+      "source": "ownerOneRunEvidence",
+      "type": "boolean"
+    },
+    "freshOwnerApprovalRequired": {
+      "required": true,
+      "source": "ownerOneRunPreflightPolicy",
+      "expected": true
+    },
+    "oneRunCountExplicit": {
+      "required": true,
+      "source": "ownerOneRunPreflightPolicy",
+      "expected": true
+    },
+    "noRetry": {
+      "required": true,
+      "source": "ownerOneRunPreflightPolicy",
+      "expected": true
+    },
+    "noSecondRun": {
+      "required": true,
+      "source": "ownerOneRunPreflightPolicy",
+      "expected": true
+    }
+  },
+  "evidenceFieldsForGoHold": {
+    "sanitizedUserVisibleText": true,
+    "missingUserVisibleText": true,
+    "missingUserVisibleTextReason": true,
+    "answerFieldSource": true,
+    "answerCharCount": true,
+    "capturedAt": true,
+    "auth": true,
+    "httpStatus": true,
+    "requestUidMasked": true,
+    "allowlistMasked": true,
+    "allowlistMatch": true,
+    "allowlistCount": true
+  },
+  "misleadingWordingMustRemainFalse": {
+    "pilotAlreadyActiveClaim": false,
+    "publicAlreadyActiveClaim": false,
+    "productionAlreadyActiveClaim": false,
+    "realLeadAlreadyActiveClaim": false,
+    "geminiRunWithoutFreshApprovalClaim": false,
+    "retryAllowedClaim": false,
+    "secondRunAllowedClaim": false
+  },
+  "requiredOwnerVisibilityWording": [
+    "staging only",
+    "owner/admin only",
+    "synthetic/sanitized only",
+    "no real buyer data",
+    "no real phone capture",
+    "no lead delivery",
+    "no public route",
+    "no production",
+    "fresh owner approval required before any future one-run",
+    "no retry",
+    "no second run"
+  ],
+  "stopHoldRulesRequired": [
+    "missingVisibilityField",
+    "ambiguousEvidenceInterpretation",
+    "pilotPublicProductionRealLeadActivationWordingRisk",
+    "ownerApprovalOneRunWordingAmbiguity",
+    "retryOrSecondRunAllowedWordingRisk",
+    "routeAuthGuardVisibilityAmbiguity",
+    "syntheticSanitizedBoundaryMissing",
+    "publicProductionBoundaryMissing",
+    "secretPiiExposureRisk",
+    "testFailure"
+  ],
+  "finalRecommendationEnum": [
+    "READY FOR v14.3D OWNER-ONLY PILOT DRY-RUN PLAN — NO RUNTIME EXECUTION",
+    "READY FOR v14.3D CONTROLLED OWNER APPROVAL PACKET — NO GEMINI YET",
+    "HOLD — PREFLIGHT VISIBILITY INCOMPLETE",
+    "HOLD — OWNER APPROVAL / ONE-RUN WORDING AMBIGUITY",
+    "HOLD — ROUTE/AUTH/GUARD VISIBILITY AMBIGUITY",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — SECRET/PII RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ]
+}
