@@ -233,6 +233,7 @@
     "test:v14.3C": "tsx scripts/test-v143C-controlled-staging-pilot-preflight-visibility-no-gemini.mts",
     "test:v14.3D": "tsx scripts/test-v143D-controlled-owner-approval-packet-no-gemini.mts",
     "test:v14.3E": "tsx scripts/test-v143E-fresh-owner-approval-request-draft-no-gemini.mts",
+    "test:v14.3F": "tsx scripts/test-v143F-owner-only-pilot-dry-run-plan-no-runtime-execution.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
