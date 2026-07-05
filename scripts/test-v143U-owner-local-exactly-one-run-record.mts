@@ -73,19 +73,21 @@ ok(
 ok(
   "doc includes Gate 1 hold result with masked checker output",
   /Gate 1 same-CMD token\/session result/i.test(doc) &&
-    /NONGA_ADMIN_API_TOKEN: missing/.test(doc) &&
-    /length: zero/.test(doc) &&
-    /format: invalid/.test(doc) &&
+    /NONGA_ADMIN_API_TOKEN: present/.test(doc) &&
+    /length: nonzero/.test(doc) &&
+    /format: valid/.test(doc) &&
     /token: \*\*\*MASKED\*\*\*/.test(doc) &&
-    /HOLD — OWNER-LOCAL AUTH SESSION NOT READY/.test(doc)
+    /READY FOR ADMIN AUTH NON-GEMINI LIVE RECHECK/.test(doc) &&
+    /sameCmdTokenCheckPassed=true/.test(doc)
 );
 
 ok(
   "doc includes Gate 2 v14.3U-only approval phrase and blocked carryover",
   /FINAL EXECUTION AUTHORIZE v14\.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN/.test(doc) &&
-    /freshApprovalReceived=false/.test(doc) &&
+    /freshApprovalReceived=true/.test(doc) &&
     /approvalTextMatched=false/.test(doc) &&
-    /approvalFileUsed=none/.test(doc) &&
+    /approvalFileUsed=`v14\.3U-local-approval\.txt`/.test(doc) &&
+    /HOLD — fresh owner approval text mismatch/.test(doc) &&
     /approval carryover from v14\.3S or earlier: forbidden/i.test(doc)
 );
 
@@ -103,6 +105,7 @@ ok(
 
 ok(
   "doc records no run started/consumed and no runtime",
+  /executionDecision=`HOLD_FRESH_OWNER_APPROVAL_MISSING_OR_MISMATCHED`/.test(doc) &&
   /oneRunStarted=false/.test(doc) &&
     /oneRunConsumed=false/.test(doc) &&
     /retryUsed=false/.test(doc) &&
@@ -129,8 +132,8 @@ for (const value of allowedFinalDecisions) {
   ok(`doc includes allowed final decision ${value}`, doc.includes(value));
 }
 ok(
-  "doc final decision is hold owner-local auth session not ready",
-  /Final decision in this round:[\s\S]*HOLD — OWNER-LOCAL AUTH SESSION NOT READY/.test(doc)
+  "doc final decision is hold fresh approval missing or mismatched",
+  /Final decision in this round:[\s\S]*HOLD — FRESH OWNER APPROVAL MISSING OR MISMATCHED/.test(doc)
 );
 
 ok(
@@ -176,11 +179,13 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
     unknown
   >;
   ok(
-    "fixture gate1 marks auth session not ready",
-    gate1?.sameCmdTokenCheckPassed === false &&
-      (gate1?.checkerResult as Record<string, unknown>)?.tokenPresence === "missing" &&
+    "fixture gate1 marks same-cmd token check pass",
+    gate1?.sameCmdTokenCheckPassed === true &&
+      (gate1?.checkerResult as Record<string, unknown>)?.tokenPresence === "present" &&
+      (gate1?.checkerResult as Record<string, unknown>)?.length === "nonzero" &&
+      (gate1?.checkerResult as Record<string, unknown>)?.format === "valid" &&
       (gate1?.checkerResult as Record<string, unknown>)?.token === "***MASKED***" &&
-      gate1?.decision === "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY"
+      gate1?.decision === "PASS"
   );
 
   const gate2 = (root.gates as Record<string, unknown>)?.gate2FreshApprovalV143UOnly as Record<
@@ -191,9 +196,9 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
     "fixture gate2 enforces v14.3U phrase and carryover block",
     gate2?.requiredPhrase ===
       "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN" &&
-      gate2?.freshApprovalReceived === false &&
+      gate2?.freshApprovalReceived === true &&
       gate2?.approvalTextMatched === false &&
-      gate2?.approvalFileUsed === "none" &&
+      gate2?.approvalFileUsed === "v14.3U-local-approval.txt" &&
       gate2?.approvalCarryoverBlocked === true
   );
 
@@ -216,12 +221,16 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
   const evidence = root.executionEvidence as Record<string, unknown>;
   ok(
     "fixture evidence records no run and no retry",
-    evidence?.executionDecision === "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY" &&
+    evidence?.executionDecision === "HOLD_FRESH_OWNER_APPROVAL_MISSING_OR_MISMATCHED" &&
+      evidence?.sameCmdTokenCheckPassed === true &&
+      evidence?.freshApprovalReceived === true &&
+      evidence?.approvalTextMatched === false &&
+      evidence?.approvalFileUsed === "v14.3U-local-approval.txt" &&
       evidence?.oneRunStarted === false &&
       evidence?.oneRunConsumed === false &&
       evidence?.retryUsed === false &&
       evidence?.secondRunUsed === false &&
-      evidence?.gateReason === "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY"
+      evidence?.gateReason === "HOLD_FRESH_OWNER_APPROVAL_MISSING_OR_MISMATCHED"
   );
 
   const finalEnum = Array.isArray(root.finalDecisionEnum) ? root.finalDecisionEnum : [];
@@ -229,8 +238,8 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
     ok(`fixture includes allowed final decision ${value}`, finalEnum.includes(value));
   }
   ok(
-    "fixture final decision is hold owner-local auth session not ready",
-    root.finalDecision === "HOLD — OWNER-LOCAL AUTH SESSION NOT READY"
+    "fixture final decision is hold fresh approval missing or mismatched",
+    root.finalDecision === "HOLD — FRESH OWNER APPROVAL MISSING OR MISMATCHED"
   );
 }
 

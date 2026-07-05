@@ -14,15 +14,7 @@ import { resolve } from "node:path";
 
 const LOCK_PATH = resolve(".nonga-owner-local-one-run-v143u.lock.json");
 const REQUIRED_APPROVAL_TEXT =
-  "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL ONE-RUN\n" +
-  "I approve exactly one owner-local staging Gemini run.\n" +
-  "No retry.\n" +
-  "No second run.\n" +
-  "No production.\n" +
-  "No public route.\n" +
-  "No real lead.\n" +
-  "No real customer data / PII.\n" +
-  "I understand one-run is consumed only if runtime execution starts.";
+  "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN";
 
 type TokenState = {
   present: boolean;
@@ -72,7 +64,10 @@ function readApprovalFileOrHold(pathValue: string | null): string {
   if (!pathValue) hold("approval file is required (--approval-file <path>)");
   const resolved = resolve(pathValue);
   if (!existsSync(resolved)) hold("approval file not found");
-  return readFileSync(resolved, "utf8").replace(/\r\n/g, "\n").trim();
+  return readFileSync(resolved, "utf8")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
 }
 
 function loadLock(): { consumed: boolean } {

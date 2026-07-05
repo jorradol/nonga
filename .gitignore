@@ -38,3 +38,7 @@ data/checkpoints/
 # WIP dealer tests (local only — not ready for commit)
 scripts/test-dealer-draft-required-fields.mts
 scripts/test-dealer-e2e-v418.mts
+
+# Owner-local approval artifacts (never commit)
+v14.3U-local-approval.txt
+v14.*-local-approval.txt

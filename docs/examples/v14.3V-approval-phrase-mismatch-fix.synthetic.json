@@ -1,0 +1,80 @@
+{
+  "version": "v14.3V",
+  "recordType": "approval-phrase-mismatch-fix-no-retry",
+  "executionType": "docs/tests/fixtures/static + wrapper constant fix + validation only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "1fba6f8c858c5d24892ffdc20fff6b0a3548ea5b",
+    "originHead": "1fba6f8c858c5d24892ffdc20fff6b0a3548ea5b",
+    "localEqualsOrigin": true,
+    "workingTreeClean": false
+  },
+  "previousV143UContext": {
+    "gate1TokenSessionPassed": true,
+    "wrapperReached": true,
+    "approvalMismatch": true,
+    "wrapperOutput": "HOLD — fresh owner approval text mismatch",
+    "geminiProviderRuntime": false,
+    "oneRunRealExecutionPath": "not_run",
+    "retryUsed": false,
+    "secondRunUsed": false
+  },
+  "rootCause": {
+    "confirmed": true,
+    "type": "docs_spec_mismatch_with_wrapper_constant",
+    "beforeRequiredApprovalTextSummary": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL ONE-RUN + multiline body",
+    "afterRequiredApprovalText": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "docsApprovalPhrase": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "fixtureApprovalPhrase": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "validatorExpectedPhrase": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "allMatchExactly": true
+  },
+  "approvalFileParsing": {
+    "stripBom": true,
+    "normalizeCrLfToLf": true,
+    "trimWhitespace": true,
+    "windowsEchoTrailingNewlineSafe": true
+  },
+  "wrapperSafetyControls": {
+    "requiresSameCmdToken": true,
+    "requiresFreshApprovalFile": true,
+    "blocksApprovalCarryover": true,
+    "blocksRetry": true,
+    "blocksSecondRun": true,
+    "tokenPrintingMaskedOnly": true,
+    "usesProduction": false,
+    "usesPublicRoute": false,
+    "sendsRealLead": false,
+    "usesPIIPhonePlateVin": false,
+    "failClosedBeforeExecutionOnMismatch": true
+  },
+  "localApprovalFileHandling": {
+    "localApprovalFilePath": "v14.3U-local-approval.txt",
+    "committed": false,
+    "gitignoreRuleAdded": true,
+    "gitignoreRules": [
+      "v14.3U-local-approval.txt",
+      "v14.*-local-approval.txt"
+    ]
+  },
+  "boundaryStatus": {
+    "noRetryExecution": true,
+    "noSecondRun": true,
+    "geminiProviderRuntime": false,
+    "oneRunRealExecutionPath": "not_run",
+    "noProviderNetworkTriggerEndpointCallInV143V": true,
+    "noProductionPublicRealLeadPii": true,
+    "noTokenSecretExposure": true
+  },
+  "finalDecisionEnum": [
+    "READY FOR v14.3W FRESH OWNER APPROVAL + SAME-CMD EXACTLY-ONE-RUN",
+    "HOLD — APPROVAL PHRASE MISMATCH FIX INCOMPLETE",
+    "HOLD — LOCAL APPROVAL FILE COMMIT RISK",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — RETRY OR SECOND-RUN RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED",
+    "HOLD — TEST FAILURE",
+    "HOLD — REPO STATE NOT READY"
+  ],
+  "finalDecision": "READY FOR v14.3W FRESH OWNER APPROVAL + SAME-CMD EXACTLY-ONE-RUN"
+}

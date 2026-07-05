@@ -128,7 +128,7 @@ ok(
     /oneRunStarted=false/.test(doc) &&
     /oneRunConsumed=false/.test(doc) &&
     /freshOwnerApprovalRequiredBeforeNextExecution=true/.test(doc) &&
-    /FINAL EXECUTION AUTHORIZE v14\.3U OWNER-LOCAL ONE-RUN/.test(doc)
+    /FINAL EXECUTION AUTHORIZE v14\.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN/.test(doc)
 );
 
 const allowedFinalRecommendations = [

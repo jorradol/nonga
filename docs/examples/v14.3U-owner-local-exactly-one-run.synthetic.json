@@ -1,7 +1,7 @@
 {
   "version": "v14.3U",
   "recordType": "owner-local-same-cmd-exactly-one-run-record",
-  "executionType": "gate validation + docs/tests/fixtures/static record",
+  "executionType": "owner-local same-CMD attempt reached wrapper and stopped before execution + docs/tests/fixtures/static record",
   "baselineBeforeWork": {
     "branch": "feature/chat-image-attachment-v1",
     "localHead": "753c59e902b71e1ee4b5eaf6f987db0e88c0ca85",
@@ -34,11 +34,11 @@
       "passed": true
     },
     "gate1SameCmdTokenSession": {
-      "sameCmdTokenCheckPassed": false,
+      "sameCmdTokenCheckPassed": true,
       "checkerResult": {
-        "tokenPresence": "missing",
-        "length": "zero",
-        "format": "invalid",
+        "tokenPresence": "present",
+        "length": "nonzero",
+        "format": "valid",
         "leadingTrailingWhitespace": "no",
         "containsNewline": "no",
         "quotedValueRisk": "no",
@@ -46,13 +46,13 @@
         "startsWithBearerPrefix": "no",
         "token": "***MASKED***"
       },
-      "decision": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY"
+      "decision": "PASS"
     },
     "gate2FreshApprovalV143UOnly": {
       "requiredPhrase": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
-      "freshApprovalReceived": false,
+      "freshApprovalReceived": true,
       "approvalTextMatched": false,
-      "approvalFileUsed": "none",
+      "approvalFileUsed": "v14.3U-local-approval.txt",
       "approvalCarryoverBlocked": true
     },
     "gate3CommandVerification": {
@@ -67,11 +67,11 @@
     }
   },
   "executionEvidence": {
-    "executionDecision": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
-    "sameCmdTokenCheckPassed": false,
-    "freshApprovalReceived": false,
+    "executionDecision": "HOLD_FRESH_OWNER_APPROVAL_MISSING_OR_MISMATCHED",
+    "sameCmdTokenCheckPassed": true,
+    "freshApprovalReceived": true,
     "approvalTextMatched": false,
-    "approvalFileUsed": "none",
+    "approvalFileUsed": "v14.3U-local-approval.txt",
     "oneRunStarted": false,
     "oneRunConsumed": false,
     "retryUsed": false,
@@ -82,7 +82,7 @@
     "fallbackToLegacy": "not_run",
     "skipGemini": "not_run",
     "providerNetwork": "not_run",
-    "gateReason": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
+    "gateReason": "HOLD_FRESH_OWNER_APPROVAL_MISSING_OR_MISMATCHED",
     "runtimeMode": "not_run",
     "userVisibleEnabled": "not_run",
     "guardPolicyVersion": "not_run",
@@ -121,5 +121,5 @@
     "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED",
     "HOLD — TEST FAILURE"
   ],
-  "finalDecision": "HOLD — OWNER-LOCAL AUTH SESSION NOT READY"
+  "finalDecision": "HOLD — FRESH OWNER APPROVAL MISSING OR MISMATCHED"
 }
