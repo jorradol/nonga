@@ -1,0 +1,57 @@
+{
+  "version": "v14.4G",
+  "executionType": "static/read-only diagnosis + safe docs/tests/wrapper context patch only",
+  "repoSanityAtStart": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "ffb9d2fcdf296a7907f1be5f5621a71c78ba7d4a",
+    "originHead": "ffb9d2fcdf296a7907f1be5f5621a71c78ba7d4a",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "ownerV143AKResult": {
+    "dispatchHttpStatus": 200,
+    "dispatchEvidenceGateReason": "owner_controlled_zone_not_allowed",
+    "dispatchEvidenceMissingFields": [
+      "skipGemini!=false",
+      "providerNetwork!=true",
+      "gateReason!=real_provider_call_ok"
+    ]
+  },
+  "ownerControlledZoneDiagnosis": {
+    "sourceFile": "src/services/ai/salesBrainUserVisibleRealProvider.ts",
+    "sourceFunction": "maybeApplyUserVisibleRealProvider",
+    "sourceCondition": "if (!detectOwnerControlledGeminiUxZone(input.userMessage))",
+    "previousWrapperPromptZone": "not_allowed",
+    "updatedWrapperPromptZone": "compare_car_types",
+    "expectedBlockedGateReason": "owner_controlled_zone_not_allowed"
+  },
+  "wrapperContextPatch": {
+    "file": "scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
+    "onlySyntheticPromptChanged": true,
+    "guardBypass": false,
+    "providerFlagForce": false,
+    "fakeEvidence": false
+  },
+  "v144FImpactCheck": {
+    "commit": "ffb9d2fcdf296a7907f1be5f5621a71c78ba7d4a",
+    "changedOnlyApprovalPhraseToV143AK": true,
+    "changedOwnerControlledContext": false
+  },
+  "oneRunLockStatus": {
+    "v143akLockFilePresentInRepoRoot": true,
+    "consumed": true
+  },
+  "nextOwnerRunPolicy": {
+    "retryV143akAllowed": false,
+    "nextRunIdIfAuthorizedLater": "v14.3AL"
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentLiveEndpointCall": false,
+    "agentProviderCall": false,
+    "agentRuntimeMutation": false
+  },
+  "finalDecision": "NEED REVIEW — OWNER CONTROLLED ZONE CONTEXT MISSING FROM WRAPPER"
+}

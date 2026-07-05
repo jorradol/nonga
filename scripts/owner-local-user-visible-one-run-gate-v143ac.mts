@@ -24,7 +24,7 @@ const TARGET_ORIGIN = "https://a.nongbot.org";
 const TARGET_URL = `${TARGET_ORIGIN}${TARGET_PATH}`;
 
 const SYNTHETIC_DISPATCH_USER_MESSAGE =
-  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: ช่วยสรุปจุดเด่นของคันที่ 1 และ 2 แบบสุภาพสำหรับครอบครัวหน่อยครับ";
+  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: ช่วยเปรียบเทียบคันที่ 1 กับ 2 แบบสุภาพสำหรับครอบครัวหน่อยครับ";
 const SYNTHETIC_PILOT_SESSION_CONTEXT = {
   recentCarCards: [
     {
