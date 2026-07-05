@@ -1,0 +1,87 @@
+{
+  "version": "v14.3AC",
+  "executionType": "docs/tests/fixtures/static + controlled Firebase-auth owner-local wrapper prep only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "aa20f84ed5e4eefe1ae0921830222f00c552588c",
+    "originHead": "aa20f84ed5e4eefe1ae0921830222f00c552588c",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "gates": {
+    "gate0RepoSanity": {
+      "branch": "feature/chat-image-attachment-v1",
+      "localHead": "aa20f84ed5e4eefe1ae0921830222f00c552588c",
+      "originHead": "aa20f84ed5e4eefe1ae0921830222f00c552588c",
+      "localEqualsOrigin": true,
+      "workingTreeClean": true,
+      "decision": "PASS"
+    },
+    "gate1FirebaseTokenChecker": {
+      "envName": "NONGA_OWNER_FIREBASE_ID_TOKEN",
+      "tokenPresence": "present",
+      "length": "nonzero",
+      "format": "valid-shape",
+      "token": "***MASKED***",
+      "decision": "PASS"
+    },
+    "gate2FreshApprovalV143ACOnly": {
+      "requiredPhrase": "FINAL EXECUTION AUTHORIZE v14.3AC USER-VISIBLE FIREBASE SAME-CMD EXACTLY-ONE-RUN",
+      "approvalFile": "v14.3AC-user-visible-local-approval.txt",
+      "freshApprovalRequired": true,
+      "exactMatchRequired": true
+    },
+    "gate3ExactCommandAndOneRunLock": {
+      "exactCommandOnly": true,
+      "consumeLockActive": true,
+      "retryBlocked": true,
+      "secondRunBlocked": true,
+      "stagingOnly": true
+    }
+  },
+  "authModelSeparation": {
+    "legacyAdminCommandRetained": true,
+    "newFirebaseCommandCreated": true,
+    "adminTokenOnFirebaseRouteForbidden": true,
+    "legacyAdminCommand": "owner-local-one-run:v14.3U",
+    "newFirebaseCommand": "owner-local-one-run:v14.3AC:user-visible",
+    "firebaseTargetPath": "/api/ai/chat-user-visible-orchestrate"
+  },
+  "preflightExpectedOutput": {
+    "gateName": "owner-local-user-visible-one-run-gate-v143ac",
+    "firebaseToken": "***MASKED***",
+    "executeApproved": true,
+    "authModel": "firebase-id-token",
+    "targetPath": "/api/ai/chat-user-visible-orchestrate",
+    "runtimeAdapter": "entered",
+    "runtimeAdapterPolicy": "user-visible-firebase-auth-preflight",
+    "providerCall": "not_run",
+    "geminiRuntime": "not_run",
+    "providerNetwork": "not_run",
+    "deploy": "not_run",
+    "runtimeMutation": "not_run",
+    "tokenExposure": "masked-only",
+    "holdReason": "HOLD — user-visible Firebase auth adapter reached controlled preflight"
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentProviderNetworkCall": false,
+    "agentGeminiCall": false,
+    "agentDeploy": false,
+    "agentRuntimeConfigMutation": false
+  },
+  "finalDecisionEnum": [
+    "READY FOR v14.3AD OWNER-LOCAL USER-VISIBLE FIREBASE PREFLIGHT",
+    "READY FOR v14.3AD FRESH OWNER APPROVAL + USER-VISIBLE FIREBASE SAME-CMD EXACTLY-ONE-RUN",
+    "NEED REVIEW — FIREBASE OWNER TOKEN CHECKER NOT SAFELY IMPLEMENTED",
+    "NEED REVIEW — USER-VISIBLE AUTH MODEL STILL AMBIGUOUS",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR v14.3AD FRESH OWNER APPROVAL + USER-VISIBLE FIREBASE SAME-CMD EXACTLY-ONE-RUN"
+}
