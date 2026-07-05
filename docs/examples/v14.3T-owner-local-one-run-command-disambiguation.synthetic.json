@@ -1,0 +1,97 @@
+{
+  "version": "v14.3T",
+  "recordType": "owner-local-one-run-command-disambiguation-no-gemini",
+  "executionType": "docs/tests/fixtures/static/mock + read-only command disambiguation only",
+  "previousHoldReason": "HOLD_OWNER_LOCAL_ONE_RUN_COMMAND_MISSING_OR_AMBIGUOUS",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "dd4882678bd52cbdfe2094b0d29e9c9317afcbbd",
+    "originHead": "dd4882678bd52cbdfe2094b0d29e9c9317afcbbd",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "boundaryStatus": {
+    "geminiRunNow": false,
+    "oneRunClickNow": false,
+    "providerNetworkCall": false,
+    "triggerEndpointCall": false,
+    "retryUsed": false,
+    "secondRunUsed": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretExposure": false,
+    "publicRouteActivation": false,
+    "production": false,
+    "buyerFacingAiRelease": false,
+    "realLeadSending": false,
+    "realCustomerDataPII": false,
+    "phonePlateVin": false,
+    "thorRealDataImport": false,
+    "dealerRealInventoryImport": false
+  },
+  "sameCmdTokenPolicy": {
+    "requiredCommands": [
+      "cd /d D:\\nonga",
+      "set NONGA_ADMIN_API_TOKEN=<paste-token-here>",
+      "npm run check:admin-token-session-env"
+    ],
+    "sameCmdSessionRequired": true,
+    "tokenReporting": "masked/status-only",
+    "doNotEchoToken": true,
+    "doNotScreenshotToken": true,
+    "doNotPasteTokenInChatReport": true,
+    "doNotPrintTokenInLogs": true,
+    "doNotPersistTokenByDefault": true
+  },
+  "freshApprovalPolicy": {
+    "freshApprovalCarryoverAllowed": false,
+    "freshApprovalForExecutionNow": false,
+    "geminiRunNow": false,
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "freshOwnerApprovalRequiredBeforeNextExecution": true,
+    "requiredApprovalTemplateVersion": "v14.3U"
+  },
+  "commandInspection": {
+    "inspectedPaths": [
+      "package.json",
+      "scripts/check-admin-token-session-env.mts",
+      "src/components/admin/OwnerFirebaseTokenHelperPanel.tsx",
+      "docs/v14.3Q-owner-local-one-run-hold-record.md",
+      "docs/v14.3S-owner-local-one-run-hold-record.md"
+    ],
+    "oneRunCommandIdentified": true,
+    "oneRunCommand": "npm run owner-local-one-run:v14.3U -- --execute-approved --approval-file <local-approval-file.txt>",
+    "commandSource": "package.json#scripts.owner-local-one-run:v14.3U -> scripts/owner-local-one-run-gate-v143u.mts",
+    "commandRequiresSameCmdToken": true,
+    "commandRequiresFreshApproval": true,
+    "commandIsExactlyOneRun": true,
+    "commandBlocksRetry": true,
+    "commandBlocksSecondRun": true,
+    "commandPrintsToken": false,
+    "commandUsesProduction": false,
+    "commandUsesPublicRoute": false,
+    "commandUsesRealLead": false,
+    "commandUsesPII": false,
+    "commandAmbiguous": false
+  },
+  "executionState": {
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false,
+    "providerNetwork": false,
+    "triggerEndpointCall": false
+  },
+  "finalRecommendationEnum": [
+    "READY FOR v14.3U FRESH OWNER APPROVAL + IDENTIFIED SAME-CMD OWNER-LOCAL ONE-RUN — NO GEMINI UNTIL OWNER APPROVES",
+    "HOLD — ONE-RUN COMMAND STILL AMBIGUOUS",
+    "HOLD — COMMAND DISAMBIGUATION PACKET INCOMPLETE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — FRESH APPROVAL CARRYOVER RISK DETECTED",
+    "HOLD — ONE-RUN / RETRY / SECOND-RUN CONTROL AMBIGUITY",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ],
+  "finalRecommendation": "READY FOR v14.3U FRESH OWNER APPROVAL + IDENTIFIED SAME-CMD OWNER-LOCAL ONE-RUN — NO GEMINI UNTIL OWNER APPROVES"
+}
