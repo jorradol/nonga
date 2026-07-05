@@ -231,6 +231,7 @@
     "test:v14.3A": "tsx scripts/test-v143A-limited-staging-pilot-checklist-validator.mts",
     "test:v14.3B": "tsx scripts/test-v143B-staging-only-pilot-gate-preflight-no-gemini.mts",
     "test:v14.3C": "tsx scripts/test-v143C-controlled-staging-pilot-preflight-visibility-no-gemini.mts",
+    "test:v14.3D": "tsx scripts/test-v143D-controlled-owner-approval-packet-no-gemini.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

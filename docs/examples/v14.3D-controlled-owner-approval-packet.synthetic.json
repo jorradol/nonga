@@ -1,0 +1,130 @@
+{
+  "version": "v14.3D",
+  "packetType": "controlled-owner-approval-packet-no-gemini",
+  "executionType": {
+    "staticMockOnly": true,
+    "readOnlyInspectionOnly": true,
+    "runtimeExecution": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "retry": false,
+    "secondRun": false,
+    "providerNetworkCall": false,
+    "providerTriggeringEndpointCall": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretValueChange": false
+  },
+  "approvalStatus": {
+    "approvalStatusNow": "not granted",
+    "futureFreshOwnerApprovalRequired": true,
+    "templateForFutureUseOnly": true
+  },
+  "ownerApprovalStatementTemplate": {
+    "statement": "I, owner, authorize exactly ONE owner-only staging pilot dry-run. Gemini/provider call may occur only for this approved run. No retry. No second run. No public/prod/real lead. Synthetic/sanitized only.",
+    "requiredMetadata": {
+      "ownerSignerRequired": true,
+      "approvalTimestampIsoRequired": true,
+      "approvedRunCountExactOneRequired": true,
+      "stagingOnlyRequired": true,
+      "ownerAdminOnlyRequired": true,
+      "syntheticSanitizedOnlyRequired": true,
+      "noRetryRequired": true,
+      "noSecondRunRequired": true,
+      "noPublicRouteRequired": true,
+      "noProductionRequired": true,
+      "noRealLeadRequired": true
+    }
+  },
+  "oneRunScopeChecklist": {
+    "stagingOnly": true,
+    "ownerAdminOnly": true,
+    "allowlistRequired": true,
+    "syntheticSanitizedInventoryOnly": true,
+    "noRealBuyerData": true,
+    "noRealPhoneCapture": true,
+    "noLeadDelivery": true,
+    "noPublicRoute": true,
+    "noProduction": true,
+    "oneRunOnly": true,
+    "noRetry": true,
+    "noSecondRun": true,
+    "runSessionLockedRequired": true
+  },
+  "preRunGoHoldChecklist": {
+    "holdOnRouteAuthGateAmbiguity": true,
+    "holdOnPublicProductionExposureRisk": true,
+    "holdOnRealLeadRisk": true,
+    "holdOnPiiSecretRisk": true,
+    "holdOnMarkerMissing": true,
+    "holdOnVisibilityFieldMissing": true,
+    "holdOnApprovalWordingAmbiguous": true,
+    "holdOnRunCountNotExplicit": true,
+    "holdOnRunSessionLockedMissing": true,
+    "holdOnTestsFail": true
+  },
+  "postRunEvidenceChecklist": {
+    "httpStatus": true,
+    "auth": true,
+    "runtimeMode": true,
+    "userVisibleEnabled": true,
+    "pilotPathActive": true,
+    "fallbackToLegacy": true,
+    "skipGemini": true,
+    "providerNetwork": true,
+    "gateReason": true,
+    "guardPolicyVersion": true,
+    "thaiUxTuningSliceId": true,
+    "thaiUxTuningActive": true,
+    "leadPiiCueGuardActive": true,
+    "phoneEchoGuardActive": true,
+    "safeConfirmationStepWordingActive": true,
+    "sanitizedUserVisibleText": true,
+    "missingUserVisibleText": true,
+    "answerFieldSource": true,
+    "answerCharCount": true,
+    "runSessionLocked": true,
+    "oneRunConsumed": true,
+    "noRetry": true,
+    "noSecondRun": true
+  },
+  "antiMisleadingWordingMustRemainNo": {
+    "geminiRunNow": false,
+    "oneRunApprovalGrantedNow": false,
+    "pilotActiveNow": false,
+    "publicActiveNow": false,
+    "productionActiveNow": false,
+    "realLeadPathActiveNow": false,
+    "retryAllowed": false,
+    "secondRunAllowed": false
+  },
+  "requiredOwnerReadableSummaryPoints": [
+    "approval envelope only",
+    "not execution",
+    "approval not granted yet",
+    "fresh explicit owner approval required",
+    "staging-only owner-only synthetic-only",
+    "one-run only with no retry and no second run",
+    "post-run evidence required for owner GO/HOLD"
+  ],
+  "stopHoldRulesRequired": [
+    "ownerApprovalPacketIncomplete",
+    "approvalWordingAmbiguity",
+    "oneRunRetrySecondRunControlAmbiguity",
+    "routeAuthGateEvidenceRequirementIncomplete",
+    "publicProductionRealLeadRiskDetected",
+    "secretPiiRiskDetected",
+    "testFailure"
+  ],
+  "finalRecommendationEnum": [
+    "READY FOR v14.3E OWNER-ONLY PILOT DRY-RUN PLAN — NO RUNTIME EXECUTION",
+    "READY FOR v14.3E FRESH OWNER APPROVAL REQUEST DRAFT — NO GEMINI YET",
+    "HOLD — OWNER APPROVAL PACKET INCOMPLETE",
+    "HOLD — APPROVAL WORDING AMBIGUITY",
+    "HOLD — ONE-RUN / RETRY / SECOND-RUN CONTROL AMBIGUITY",
+    "HOLD — ROUTE/AUTH/GUARD/EVIDENCE REQUIREMENT INCOMPLETE",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — SECRET/PII RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ]
+}
