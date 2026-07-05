@@ -1,0 +1,74 @@
+{
+  "version": "v14.3A",
+  "checklistType": "limited-staging-pilot-readiness-static-validator",
+  "executionType": {
+    "staticMockOnly": true,
+    "runtimeExecution": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "retry": false,
+    "secondRun": false,
+    "providerNetworkCall": false,
+    "deploy": false
+  },
+  "scope": {
+    "ownerAdminOnly": true,
+    "stagingOnly": true,
+    "syntheticOrSanitizedInventoryOnly": true,
+    "noPublicRouteActivation": true,
+    "noProductionDeploy": true,
+    "noRealLeadSending": true,
+    "noRealBuyerCustomerData": true,
+    "noPii": true,
+    "noPhoneCaptureInChat": true,
+    "noPlateVinExposure": true,
+    "noSecretTokenApiKeyExposure": true,
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true,
+    "noRuntimeConfigMutation": true,
+    "noSecretValueChange": true
+  },
+  "approvalPolicy": {
+    "freshOwnerApprovalRequiredForAnyOneRun": true,
+    "oneRunCountMustBeExplicit": true,
+    "noRetry": true,
+    "noSecondRun": true
+  },
+  "requiredGuards": {
+    "leadPiiCueGuardRequired": true,
+    "phoneEchoGuardRequired": true,
+    "safeConfirmationWordingRequired": true,
+    "thaiUxTuningMarkerRequired": true,
+    "noFinanceGuarantee": true,
+    "noHallucinatedVehicleFacts": true,
+    "evidenceCaptureRequired": true,
+    "runSessionLockedRequired": true
+  },
+  "requiredMarkers": {
+    "guardPolicyVersion": "v14.1-lead-pii-cue-guard",
+    "thaiUxTuningSliceId": "v14.2",
+    "targetAnswerLengthGuidance": "4-7-sentences",
+    "evidenceFieldSource": "sanitizedUserVisibleText",
+    "runSessionLockField": "runSessionLocked"
+  },
+  "stopHoldRulesRequired": [
+    "authAllowlistAmbiguity",
+    "guardPolicyMarkerMissingOrMismatch",
+    "thaiUxMarkerMissingOrMismatch",
+    "leadPiiCueRegression",
+    "phoneEchoRisk",
+    "financeGuaranteeWording",
+    "hallucinatedVehicleFacts",
+    "publicOrProductionExposureRisk",
+    "realLeadPathRisk",
+    "secretPiiExposureRisk"
+  ],
+  "finalRecommendationEnum": [
+    "READY FOR v14.3B STAGING-ONLY PILOT GATE PREFLIGHT — NO GEMINI YET",
+    "READY FOR v14.3B OWNER-ONLY PILOT DRY-RUN PLAN — NO RUNTIME EXECUTION",
+    "HOLD — PILOT CHECKLIST VALIDATOR INCOMPLETE",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — SECRET/PII RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ]
+}
