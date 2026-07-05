@@ -1,0 +1,114 @@
+{
+  "version": "v14.3H",
+  "recordType": "owner-only-one-run-execution-record-auth-hold",
+  "executionType": {
+    "recordStaticOnly": true,
+    "runtimeExecutionStarted": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "providerNetworkCall": false,
+    "providerTriggeringEndpointCall": false,
+    "retry": false,
+    "secondRun": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretChange": false
+  },
+  "authorization": {
+    "lineReceived": "FINAL EXECUTION AUTHORIZE v14.3H: YES — exactly ONE owner-only staging dry-run, no retry, no second run, staging only, owner/admin only, synthetic/sanitized only, no public, no production, no real lead.",
+    "acceptedScope": true,
+    "approvalConsumedNow": false
+  },
+  "authSessionReadiness": {
+    "checkCommand": "npm run check:admin-token-session-env",
+    "adminTokenPresence": "missing",
+    "result": "hold",
+    "holdReason": "NONGA_ADMIN_API_TOKEN missing in operator/session env",
+    "tokenValueExposed": false
+  },
+  "oneRunControlStateNow": {
+    "authorizedRunCount": 1,
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "runSessionLockedExpected": true,
+    "retryUsed": false,
+    "secondRunUsed": false
+  },
+  "boundaryConfirmation": {
+    "stagingOnly": true,
+    "ownerAdminOnly": true,
+    "allowlistOnly": true,
+    "syntheticSanitizedOnly": true,
+    "noPublicRoute": true,
+    "noProduction": true,
+    "noRealLeadPath": true,
+    "noProviderInvocationNow": true
+  },
+  "preExecutionChecklistStatus": {
+    "freshApprovalLinePresent": "pass",
+    "runCountExplicitExactlyOne": "pass",
+    "noRetryNoSecondRunWording": "pass",
+    "boundaryWordingPresent": "pass",
+    "authSessionTokenReadiness": "hold",
+    "routeAuthGateExecutionPrecondition": "hold",
+    "runTriggerPermissionNow": "hold"
+  },
+  "plannedEvidenceFieldsFutureRun": {
+    "httpStatus": true,
+    "auth": true,
+    "runtimeMode": true,
+    "userVisibleEnabled": true,
+    "pilotPathActive": true,
+    "fallbackToLegacy": true,
+    "skipGemini": true,
+    "providerNetwork": true,
+    "gateReason": true,
+    "guardPolicyVersion": true,
+    "thaiUxTuningSliceId": true,
+    "thaiUxTuningActive": true,
+    "leadPiiCueGuardActive": true,
+    "phoneEchoGuardActive": true,
+    "safeConfirmationStepWordingActive": true,
+    "sanitizedUserVisibleText": true,
+    "missingUserVisibleText": true,
+    "answerFieldSource": true,
+    "answerCharCount": true,
+    "runSessionLocked": true,
+    "oneRunConsumed": true,
+    "noRetry": true,
+    "noSecondRun": true,
+    "boundaryConfirmation": true
+  },
+  "antiMisleadingStatusNow": {
+    "runtimeActionNow": false,
+    "geminiRunNow": false,
+    "oneRunStartedNow": false,
+    "oneRunConsumedNow": false,
+    "approvalConsumedNow": false,
+    "providerCallNow": false,
+    "retryAllowed": false,
+    "secondRunAllowed": false,
+    "pilotActiveNow": false,
+    "publicActiveNow": false,
+    "productionActiveNow": false,
+    "realLeadPathActiveNow": false
+  },
+  "holdRulesRequired": {
+    "holdOnMissingOrInvalidAdminAuthSession": true,
+    "holdOnOneRunLockCountAmbiguity": true,
+    "holdOnRetrySecondRunPathOpen": true,
+    "holdOnRouteAuthGateAmbiguity": true,
+    "holdOnPublicProductionRealLeadRisk": true,
+    "holdOnSecretPiiRisk": true,
+    "holdOnTestFailure": true
+  },
+  "finalRecommendationEnum": [
+    "READY FOR v14.3I OWNER-ONLY ONE-RUN EXECUTION ATTEMPT — STRICT SINGLE RUN",
+    "HOLD — ADMIN AUTH SESSION NOT READY",
+    "HOLD — ONE-RUN / RETRY / SECOND-RUN CONTROL AMBIGUITY",
+    "HOLD — ROUTE/AUTH/GATE EXECUTION PRECONDITION INCOMPLETE",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — SECRET/PII RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ]
+}
