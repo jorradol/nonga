@@ -66,10 +66,13 @@ ok(
 );
 
 ok(
-  "wrapper dispatch approval phrase updated to v14.3AK",
-  /FINAL EXECUTION AUTHORIZE v14\.3AK USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN/.test(
+  "wrapper dispatch approval phrase remains in v14.3A* namespace",
+  /FINAL EXECUTION AUTHORIZE v14\.3A[KL] USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN/.test(
     wrapper
-  )
+  ) &&
+    !/FINAL EXECUTION AUTHORIZE v14\.3AJ USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN/.test(
+      wrapper
+    )
 );
 
 ok(

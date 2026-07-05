@@ -1,0 +1,68 @@
+{
+  "version": "v14.4I",
+  "executionType": "static/read-only packet prep + safe wrapper/docs/tests/fixture updates only",
+  "baseStateVerified": {
+    "requiredHead": "bd54c0dd564ede03f459d66e134f2f712ef6f5cc",
+    "branch": "feature/chat-image-attachment-v1",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "consumedRunIds": {
+    "v143ajConsumed": true,
+    "v143akConsumed": true,
+    "retryV143ajAllowed": false,
+    "retryV143akAllowed": false
+  },
+  "nextRunPolicy": {
+    "selectedRunId": "v14.3AL",
+    "approvalPhrase": "FINAL EXECUTION AUTHORIZE v14.3AL USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN"
+  },
+  "wrapperSafetyConfirmation": {
+    "syntheticPromptZoneCompatible": true,
+    "guardBypass": false,
+    "fakeEvidence": false,
+    "tokenSourceEnvVar": "NONGA_OWNER_FIREBASE_ID_TOKEN",
+    "routePath": "/api/ai/chat-user-visible-orchestrate",
+    "authorizationBearerFirebaseIdToken": true
+  },
+  "ownerPacket": {
+    "stepA": "staging admin re-auth and copy Firebase ID token (force refresh)",
+    "stepB": [
+      "cd /d D:\\nonga",
+      "set NONGA_OWNER_FIREBASE_ID_TOKEN=<paste-firebase-id-token-from-clipboard>",
+      "npm run check:owner-firebase-token-session-env"
+    ],
+    "requiredCheckerOutput": "format: valid-shape",
+    "stepC": "echo FINAL EXECUTION AUTHORIZE v14.3AL USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN> v14.3AL-user-visible-dispatch-local-approval.txt",
+    "stepD": "npm run owner-local-one-run:v14.3AC:user-visible -- --execute-approved --dispatch-approved --approval-file v14.3AL-user-visible-dispatch-local-approval.txt"
+  },
+  "expectedSuccessEvidence": {
+    "dispatchHttpStatus": 200,
+    "pilotPathActive": true,
+    "fallbackToLegacy": false,
+    "skipGemini": false,
+    "providerNetwork": true,
+    "gateReason": "real_provider_call_ok",
+    "carCardCount": 2,
+    "serverRecentCarCardsCount": 2,
+    "runtimeMode": "high",
+    "userVisibleEnabled": true,
+    "allowlistMatch": true
+  },
+  "holdFailPolicy": {
+    "stopImmediately": true,
+    "retryAllowed": false,
+    "secondRunAllowed": false,
+    "lockDeletionAllowed": false,
+    "sanitizedOutputOnly": true
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentLiveEndpointCall": false,
+    "agentProviderCall": false,
+    "agentRuntimeMutation": false
+  },
+  "finalDecision": "READY FOR OWNER RE-AUTH + FRESH APPROVAL v14.3AL DISPATCH RETEST"
+}
