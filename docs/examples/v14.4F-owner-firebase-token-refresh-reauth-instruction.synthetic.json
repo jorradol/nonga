@@ -1,0 +1,56 @@
+{
+  "version": "v14.4F",
+  "executionType": "static/read-only diagnosis + safe owner instruction/docs/tests/fixture/wrapper review only",
+  "repoSanityAtStart": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "189c80c375d454768208a33f3efba2e25d999f76",
+    "originHead": "189c80c375d454768208a33f3efba2e25d999f76",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "previous401Interpretation": {
+    "dispatchReachedRoute": true,
+    "httpStatus": 401,
+    "likelyAuthMessages": [
+      "Missing Firebase ID token",
+      "Invalid Firebase ID token"
+    ],
+    "providerGeminiReached": false
+  },
+  "tokenHelperAvailability": {
+    "firebaseTokenFunction": "getCurrentUserIdToken(true)",
+    "tokenHelperPanel": "src/components/admin/OwnerFirebaseTokenHelperPanel.tsx",
+    "tokenCopiedToClipboardOnly": true,
+    "helperGateControlled": true
+  },
+  "wrapperTokenEnvConfirmation": {
+    "envVar": "NONGA_OWNER_FIREBASE_ID_TOKEN",
+    "dispatchHeaderAuthorizationBearer": true,
+    "adminTokenSubstitutionBlocked": true
+  },
+  "ownerInstruction": {
+    "stepA": "re-auth in staging and click Copy Firebase ID token (force refresh)",
+    "stepB": [
+      "cd /d D:\\nonga",
+      "set NONGA_OWNER_FIREBASE_ID_TOKEN=<paste-firebase-id-token-from-clipboard>",
+      "npm run check:owner-firebase-token-session-env"
+    ],
+    "requiredCheckerState": "format: valid-shape",
+    "stepC": "create v14.3AK approval file",
+    "stepD": "run exactly-one-run command with --dispatch-approved"
+  },
+  "nextRun": {
+    "selectedRunId": "v14.3AK",
+    "retryV143AJAllowed": false,
+    "wrapperDispatchApprovalPhraseUpdated": true
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentLiveEndpointCall": false,
+    "agentProviderCall": false,
+    "agentRuntimeMutation": false
+  },
+  "finalDecision": "READY FOR OWNER RE-AUTH + FRESH APPROVAL v14.3AK DISPATCH RETEST"
+}
