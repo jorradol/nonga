@@ -1,0 +1,77 @@
+{
+  "version": "v14.3I",
+  "recoveryType": "admin-auth-session-readiness-recovery-no-gemini",
+  "executionType": {
+    "staticMockOnly": true,
+    "readOnlyInspectionOnly": true,
+    "localSafeAuthReadinessCheckOnly": true,
+    "runtimeExecution": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "providerNetworkCall": false,
+    "providerTriggeringEndpointCall": false,
+    "retry": false,
+    "secondRun": false,
+    "oneRunStartedTrue": false,
+    "oneRunConsumedTrue": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretChange": false
+  },
+  "authReadinessStatus": {
+    "checkCommand": "npm run check:admin-token-session-env",
+    "adminTokenPresence": "missing",
+    "tokenValueExposure": false,
+    "maskedTokenOutputOnly": true,
+    "adminAuthReadiness": "not ready"
+  },
+  "tokenSecretExposurePolicy": {
+    "reportPresenceOnly": true,
+    "noRawTokenPrint": true,
+    "noTokenInDocsOrReport": true,
+    "noTokenCommit": true,
+    "noTokenEcho": true
+  },
+  "recoveryGuideRequirements": {
+    "adminSessionTokenMustBePresent": true,
+    "localSafeCheckerMustPass": true,
+    "tokenStoredInSecureSessionOnly": true,
+    "maskedStatusOnlyReporting": true
+  },
+  "freshApprovalHandling": {
+    "v143hAuthorizationConsumed": false,
+    "freshOwnerApprovalRequiredBeforeFutureExecution": true,
+    "requiredFutureApprovalPattern": "FINAL EXECUTION AUTHORIZE v14.3J: YES — exactly ONE owner-only staging dry-run, no retry, no second run, staging only, owner/admin only, synthetic/sanitized only, no public, no production, no real lead."
+  },
+  "oneRunConsumptionStatus": {
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false
+  },
+  "holdRulesRequired": {
+    "holdOnMissingAdminToken": true,
+    "holdOnInvalidTokenFormat": true,
+    "holdOnTokenExposureRisk": true,
+    "holdOnOneRunConsumptionAmbiguity": true,
+    "holdOnRetrySecondRunControlAmbiguity": true,
+    "holdOnProviderTriggeringActionAttempt": true,
+    "holdOnTestFailure": true
+  },
+  "antiMisleadingStatus": {
+    "runtimeActionNow": false,
+    "geminiProviderCallNow": false,
+    "oneRunConsumedNow": false,
+    "retryAllowed": false,
+    "secondRunAllowed": false,
+    "adminAuthReadinessNowReady": false
+  },
+  "finalRecommendationEnum": [
+    "READY FOR v14.3J FRESH OWNER APPROVAL DECISION POINT — AUTH READY, NO GEMINI UNTIL OWNER APPROVES",
+    "HOLD — ADMIN AUTH SESSION STILL NOT READY",
+    "HOLD — SECRET/TOKEN EXPOSURE RISK DETECTED",
+    "HOLD — ONE-RUN CONSUMPTION AMBIGUITY",
+    "HOLD — RETRY/SECOND-RUN CONTROL AMBIGUITY",
+    "HOLD — TEST FAILURE"
+  ]
+}
