@@ -1,0 +1,85 @@
+{
+  "version": "v14.3AB",
+  "recordType": "provider-path-mapping-decision-packet-static",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "94afaedc98aec58c5977c17d3778aa8616782d2f",
+    "originHead": "94afaedc98aec58c5977c17d3778aa8616782d2f",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "previousDecisionFromV143AA": "NEED REVIEW — EXISTING PROVIDER PATH NOT SAFELY MAPPED",
+  "gate0RepoSanity": {
+    "branchExpected": "feature/chat-image-attachment-v1",
+    "startingHeadExpected": "94afaedc98aec58c5977c17d3778aa8616782d2f",
+    "branchPass": true,
+    "headPass": true,
+    "localEqualsOrigin": true,
+    "workingTreeClean": true,
+    "decision": "PASS"
+  },
+  "pathMapping": {
+    "optionA": {
+      "label": "admin-shadow",
+      "route": "/api/admin/sales-brain-shadow-smoke",
+      "authModel": "NONGA_ADMIN_API_TOKEN",
+      "ownerLocalCompatibility": "high",
+      "sameCmdFeasibility": "high",
+      "thaiUxGuardrailEvidenceStrength": "limited",
+      "realProviderEvidenceMarker": "real_provider_call_ok"
+    },
+    "optionB": {
+      "label": "user-visible-orchestrate",
+      "route": "/api/ai/chat-user-visible-orchestrate",
+      "authModel": "Firebase ID token via getServerAuthContext",
+      "ownerLocalCompatibility": "low_with_current_wrapper",
+      "sameCmdFeasibility": "low_without_auth_model_change",
+      "thaiUxGuardrailEvidenceStrength": "strong",
+      "realProviderEvidenceMarker": "realProviderGateReason=real_provider_call_ok"
+    },
+    "authModelMismatchDetected": true,
+    "safeBridgeExistsWithoutAuthModelChange": false,
+    "manualEndpointGuessUsed": false
+  },
+  "recommendation": {
+    "decision": "NEED OWNER DECISION — AUTH MODEL TRADEOFF NOT SAFE TO CHOOSE AUTOMATICALLY",
+    "ownerChoices": [
+      "Option A (admin-shadow)",
+      "Option B (user-visible orchestrate with Firebase-auth model change)"
+    ],
+    "ownerQuestionMaxTwoOptions": true
+  },
+  "patchPolicyCompliance": {
+    "docsTestsStaticOnly": true,
+    "providerDispatchEnabled": false,
+    "runtimeConfigMutation": false,
+    "deploy": false,
+    "publicRouteActivation": false,
+    "buyerFacingRelease": false
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentGeminiCall": false,
+    "agentProviderNetworkCall": false
+  },
+  "tokenSafety": {
+    "maskedOnly": true,
+    "rawTokenPrinted": false,
+    "apiKeyPrinted": false
+  },
+  "finalDecisionEnum": [
+    "READY FOR OWNER DECISION — CHOOSE ADMIN-SHADOW OR USER-VISIBLE PROVIDER PATH",
+    "READY FOR v14.3AC CONTROLLED PROVIDER-PATH PATCH — ADMIN-SHADOW",
+    "READY FOR v14.3AC CONTROLLED PROVIDER-PATH PATCH — USER-VISIBLE ORCHESTRATE",
+    "NEED REVIEW — AUTH MODEL TRADEOFF NOT SAFE",
+    "NEED REVIEW — PROVIDER PATH SOURCE AMBIGUOUS",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR OWNER DECISION — CHOOSE ADMIN-SHADOW OR USER-VISIBLE PROVIDER PATH"
+}
