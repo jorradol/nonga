@@ -4,8 +4,8 @@
   "executionType": "docs/tests/fixtures/static/mock + owner-local auth checker evidence only",
   "baselineBeforeWork": {
     "branch": "feature/chat-image-attachment-v1",
-    "localHead": "aa354c94c6d366af51ce48fe3c77be4cb8236d81",
-    "originHead": "aa354c94c6d366af51ce48fe3c77be4cb8236d81",
+    "localHead": "d6c4724084ee3c1ae601c0fedaf0b495cee5f337",
+    "originHead": "d6c4724084ee3c1ae601c0fedaf0b495cee5f337",
     "localEqualsOrigin": true,
     "workingTreeClean": true
   },
@@ -31,28 +31,29 @@
   },
   "tokenSessionGate": {
     "sameCmdTokenCheckRan": true,
-    "command": "npm run check:admin-token-session-env",
-    "ownerLocalTokenPresent": false,
-    "ownerLocalTokenValid": false,
+    "source": "owner-reported-same-cmd-checker-output",
+    "ownerLocalTokenPresent": true,
+    "ownerLocalTokenValid": true,
     "tokenReporting": "masked/status-only",
     "token": "***MASKED***",
     "secretExposure": false,
-    "gateResult": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY"
+    "gateResult": "PASS"
   },
   "freshOwnerApprovalGate": {
     "requiredTemplateVersion": "v14.3S",
     "carryOverFromV143QAllowed": false,
     "carryOverFromPreviousRoundsAllowed": false,
-    "freshApprovalReceived": false,
-    "approvalTextMatched": false,
-    "reason": "GATE_1_FAILED_TOKEN_MISSING_INVALID"
+    "freshApprovalReceived": true,
+    "approvalTextMatched": true,
+    "reason": "GATE_2_PASSED"
   },
   "oneRunCommandStatus": {
     "inspectedPriorPacket": true,
     "identified": false,
     "status": "not_run",
     "doNotGuessCommand": true,
-    "doNotInventEndpoint": true
+    "doNotInventEndpoint": true,
+    "holdReason": "HOLD_OWNER_LOCAL_ONE_RUN_COMMAND_MISSING_OR_AMBIGUOUS"
   },
   "executionState": {
     "oneRunStarted": false,
@@ -64,21 +65,21 @@
   },
   "evidenceSnapshot": {
     "sameCmdTokenCheckRan": true,
-    "ownerLocalTokenPresent": false,
-    "ownerLocalTokenValid": false,
-    "freshApprovalReceived": false,
-    "approvalTextMatched": false,
+    "ownerLocalTokenPresent": true,
+    "ownerLocalTokenValid": true,
+    "freshApprovalReceived": true,
+    "approvalTextMatched": true,
     "oneRunStarted": false,
     "oneRunConsumed": false,
     "retryUsed": false,
     "secondRunUsed": false,
     "httpStatus": "not_run",
-    "auth": "fail",
+    "auth": "not_run",
     "pilotPathActive": "not_run",
     "fallbackToLegacy": "not_run",
     "skipGemini": "not_run",
     "providerNetwork": false,
-    "gateReason": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
+    "gateReason": "HOLD_OWNER_LOCAL_ONE_RUN_COMMAND_MISSING_OR_AMBIGUOUS",
     "runtimeMode": "not_run",
     "userVisibleEnabled": "not_run",
     "pilotContextPresent": "not_run",
@@ -132,5 +133,5 @@
     "HOLD — RETRY/SECOND-RUN CONTROL VIOLATION",
     "HOLD — TEST FAILURE"
   ],
-  "finalRecommendation": "HOLD — OWNER-LOCAL AUTH SESSION NOT READY"
+  "finalRecommendation": "HOLD — OWNER-LOCAL ONE-RUN COMMAND MISSING OR AMBIGUOUS"
 }
