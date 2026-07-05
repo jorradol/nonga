@@ -1,0 +1,83 @@
+{
+  "version": "v14.3R",
+  "recordType": "owner-local-same-cmd-auth-session-recovery-no-gemini",
+  "executionType": "docs/tests/fixtures/static/mock + owner-local auth checker evidence only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "6b2a5cb1c801f132a0405adc8f9b5bb1075aa372",
+    "originHead": "6b2a5cb1c801f132a0405adc8f9b5bb1075aa372",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "previousHoldReason": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
+  "boundaryStatus": {
+    "geminiRunNow": false,
+    "oneRunClickNow": false,
+    "providerNetworkCall": false,
+    "triggerEndpointCall": false,
+    "retryUsed": false,
+    "secondRunUsed": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretExposure": false,
+    "publicRouteActivation": false,
+    "production": false,
+    "buyerFacingAiRelease": false,
+    "realLeadSending": false,
+    "realCustomerDataPII": false,
+    "phonePlateVin": false,
+    "thorRealDataImport": false,
+    "dealerRealInventoryImport": false
+  },
+  "sameCmdRecovery": {
+    "sameCmdRequirementDocumented": true,
+    "sameCmdFlow": [
+      "cd /d D:\\nonga",
+      "set NONGA_ADMIN_API_TOKEN=<paste-token-here>",
+      "npm run check:admin-token-session-env"
+    ],
+    "tokenMissingMeansSessionMismatchFirst": true,
+    "tokenMissingMeansTokenInvalidAutomatically": false,
+    "forbiddenActions": [
+      "echo token",
+      "screenshot token",
+      "paste token in chat/report",
+      "print token",
+      "set token in window A then run checker in window B",
+      "persist token by default"
+    ],
+    "tokenReporting": "masked/status-only"
+  },
+  "checkerEvidence": {
+    "command": "npm run check:admin-token-session-env",
+    "tokenPresence": "missing",
+    "format": "invalid",
+    "token": "***MASKED***",
+    "secretExposure": false,
+    "holdMessage": "HOLD — NONGA_ADMIN_API_TOKEN missing in operator/session env"
+  },
+  "freshApprovalPolicy": {
+    "freshApprovalFromV143QReceivedMatched": true,
+    "carryOverToExecutionNowAllowed": false,
+    "freshApprovalForExecutionNow": false,
+    "freshOwnerApprovalRequiredBeforeNextExecution": true,
+    "nextExecutionRound": "v14.3S"
+  },
+  "executionState": {
+    "GeminiRunNow": false,
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false
+  },
+  "finalRecommendationEnum": [
+    "READY FOR v14.3S FRESH OWNER APPROVAL + SAME-CMD OWNER-LOCAL ONE-RUN — NO GEMINI UNTIL OWNER APPROVES",
+    "HOLD — SAME-CMD AUTH RECOVERY PACKET INCOMPLETE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — FRESH APPROVAL CARRYOVER RISK DETECTED",
+    "HOLD — ONE-RUN / RETRY / SECOND-RUN CONTROL AMBIGUITY",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ],
+  "finalRecommendation": "READY FOR v14.3S FRESH OWNER APPROVAL + SAME-CMD OWNER-LOCAL ONE-RUN — NO GEMINI UNTIL OWNER APPROVES"
+}
