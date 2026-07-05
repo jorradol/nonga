@@ -110,7 +110,8 @@ ok(
     /approval file is not fresh enough/.test(wrapper) &&
     /one-run already consumed \(retry\/second-run blocked\)/.test(wrapper) &&
     /authModel=firebase-id-token/.test(wrapper) &&
-    /targetPath=\/api\/ai\/chat-user-visible-orchestrate/.test(wrapper) &&
+    /const TARGET_PATH = "\/api\/ai\/chat-user-visible-orchestrate";/.test(wrapper) &&
+    /console\.log\(`targetPath=\$\{TARGET_PATH\}`\);/.test(wrapper) &&
     /providerCall=not_run/.test(wrapper) &&
     /Gemini\/runtime=not_run/.test(wrapper) &&
     /providerNetwork=not_run/.test(wrapper) &&

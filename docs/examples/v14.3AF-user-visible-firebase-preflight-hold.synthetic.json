@@ -1,0 +1,109 @@
+{
+  "version": "v14.3AF",
+  "executionType": "docs/tests/fixtures/static diagnosis + controlled provider-dispatch readiness prep only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "6e0256a92267f06b541faa62283a0c81408d0572",
+    "originHead": "6e0256a92267f06b541faa62283a0c81408d0572",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "ownerPreflightResult": {
+    "ownerLocalCommandStarted": true,
+    "firebaseTokenShape": "valid",
+    "approvalTextMatched": true,
+    "runtimeAdapterEntered": true,
+    "runtimeAdapterPolicy": "user-visible-firebase-auth-preflight",
+    "providerCall": "not_run",
+    "geminiRuntime": "not_run",
+    "providerNetwork": "not_run",
+    "deploy": "not_run",
+    "runtimeMutation": "not_run",
+    "tokenExposure": "masked-only",
+    "finalState": "HOLD — USER-VISIBLE FIREBASE AUTH ADAPTER REACHED CONTROLLED PREFLIGHT BEFORE PROVIDER CALL"
+  },
+  "gate0RepoSanity": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "6e0256a92267f06b541faa62283a0c81408d0572",
+    "originHead": "6e0256a92267f06b541faa62283a0c81408d0572",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true,
+    "decision": "PASS"
+  },
+  "diagnosis": {
+    "preflightHoldSourceFile": "scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
+    "preflightHoldFunction": "runControlledRuntimeAdapterPreflight",
+    "preflightHoldIsIntentionalFailClosed": true,
+    "providerDispatchExistedBeforeV143AF": false
+  },
+  "providerPathMapping": {
+    "fixedTargetPath": "/api/ai/chat-user-visible-orchestrate",
+    "serverRouteRegisteredInServerTs": true,
+    "serverAuthContextRequired": true,
+    "authorizationBearerRequired": true,
+    "manualEndpointGuessUsed": false
+  },
+  "dispatchReadinessDecision": {
+    "level": "Level 2",
+    "patchPreparedOnly": true,
+    "executedByAgent": false
+  },
+  "lockBehavior": {
+    "preflightLockPath": ".nonga-owner-local-one-run-v143ac-user-visible.lock.json",
+    "dispatchLockPath": ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json",
+    "consumeBeforePreflightHold": true,
+    "consumeBeforeDispatchCall": true,
+    "retryBlocked": true,
+    "secondRunBlocked": true
+  },
+  "dispatchPatchContract": {
+    "requiresExecuteApproved": true,
+    "requiresDispatchApprovedFlag": true,
+    "requiresFreshApprovalExactMatch": true,
+    "requiresFirebaseTokenShapeValid": true,
+    "blocksAdminTokenContamination": true,
+    "exactCommandOnly": true,
+    "stagingOnlyDocumented": true,
+    "fixedTargetPathOnly": true,
+    "manualEndpointOverride": false,
+    "maskedTokenOnly": true,
+    "syntheticPayloadOnly": true,
+    "failClosedOnMissingEvidence": true
+  },
+  "expectedDispatchEvidence": {
+    "providerCall": "run",
+    "geminiRuntime": "run",
+    "providerNetwork": true,
+    "fallbackToLegacy": false,
+    "skipGemini": false,
+    "gateReason": "real_provider_call_ok",
+    "pilotPathActive": true,
+    "allowlistMatch": true,
+    "userVisibleEnabled": true,
+    "guardPolicyVersion": "present",
+    "leadPiiCueGuardActive": true,
+    "phoneEchoGuardActive": true,
+    "safeConfirmationStepWordingActive": true,
+    "tokenExposure": "masked-only"
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentProviderNetworkCall": false,
+    "agentGeminiCall": false,
+    "agentRuntimeMutation": false
+  },
+  "finalDecisionEnum": [
+    "READY FOR v14.3AG FRESH OWNER APPROVAL + USER-VISIBLE FIREBASE DISPATCH ONE-RUN",
+    "READY FOR v14.3AG DISPATCH READINESS REVIEW — NO ONE-RUN",
+    "NEED REVIEW — USER-VISIBLE DISPATCH RISK",
+    "NEED REVIEW — PREFLIGHT HOLD SOURCE AMBIGUOUS",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR v14.3AG FRESH OWNER APPROVAL + USER-VISIBLE FIREBASE DISPATCH ONE-RUN"
+}

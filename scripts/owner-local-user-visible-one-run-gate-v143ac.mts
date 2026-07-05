@@ -15,10 +15,49 @@ import { resolve } from "node:path";
 const LOCK_PATH = resolve(".nonga-owner-local-one-run-v143ac-user-visible.lock.json");
 const REQUIRED_APPROVAL_TEXT =
   "FINAL EXECUTION AUTHORIZE v14.3AC USER-VISIBLE FIREBASE SAME-CMD EXACTLY-ONE-RUN";
+const DISPATCH_LOCK_PATH = resolve(
+  ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json"
+);
+const REQUIRED_DISPATCH_APPROVAL_TEXT =
+  "FINAL EXECUTION AUTHORIZE v14.3AG USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
 const MAX_APPROVAL_AGE_MS = 15 * 60 * 1000;
+const TARGET_PATH = "/api/ai/chat-user-visible-orchestrate";
+const TARGET_ORIGIN = "https://a.nongbot.org";
+const TARGET_URL = `${TARGET_ORIGIN}${TARGET_PATH}`;
+
+const SYNTHETIC_DISPATCH_USER_MESSAGE =
+  "ช่วยอธิบายแบบสั้นและสุภาพว่ารถ 2 คันนี้ต่างกันอย่างไรในภาพรวม โดยไม่ขอข้อมูลติดต่อครับ";
+const SYNTHETIC_PILOT_SESSION_CONTEXT = {
+  recentCarCards: [
+    {
+      index: 1,
+      brand: "Toyota",
+      model: "Yaris Ativ",
+      year: 2020,
+      price: 419000,
+      mileage: 56000,
+      fuelType: "เบนซิน",
+      bodyClassLabel: "Sedan",
+      description: "รถครอบครัวขนาดกะทัดรัด เน้นใช้งานในเมือง",
+    },
+    {
+      index: 2,
+      brand: "Honda",
+      model: "City",
+      year: 2020,
+      price: 449000,
+      mileage: 61000,
+      fuelType: "เบนซิน",
+      bodyClassLabel: "Sedan",
+      description: "ห้องโดยสารนั่งสบาย เหมาะใช้เดินทางครอบครัว",
+    },
+  ],
+  lastSearchBudgetMax: 500000,
+} as const;
 
 type ParsedArgs = {
   executeApproved: boolean;
+  dispatchApproved: boolean;
   approvalFile: string | null;
   unknownArgs: string[];
 };
@@ -30,6 +69,7 @@ type FirebaseTokenState = {
 
 function parseArgs(argv: string[]): ParsedArgs {
   let executeApproved = false;
+  let dispatchApproved = false;
   let approvalFile: string | null = null;
   const unknownArgs: string[] = [];
 
@@ -39,6 +79,10 @@ function parseArgs(argv: string[]): ParsedArgs {
       executeApproved = true;
       continue;
     }
+    if (arg === "--dispatch-approved") {
+      dispatchApproved = true;
+      continue;
+    }
     if (arg === "--approval-file") {
       approvalFile = argv[i + 1] ?? null;
       i += 1;
@@ -46,7 +90,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
     unknownArgs.push(arg);
   }
-  return { executeApproved, approvalFile, unknownArgs };
+  return { executeApproved, dispatchApproved, approvalFile, unknownArgs };
 }
 
 function isJwtLike(token: string): boolean {
@@ -97,25 +141,25 @@ function readApprovalFileOrHold(pathValue: string | null): string {
   return readFileSync(resolved, "utf8").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").trim();
 }
 
-function loadLock(): { consumed: boolean } {
-  if (!existsSync(LOCK_PATH)) return { consumed: false };
+function loadLock(pathValue: string): { consumed: boolean } {
+  if (!existsSync(pathValue)) return { consumed: false };
   try {
-    const parsed = JSON.parse(readFileSync(LOCK_PATH, "utf8")) as { consumed?: boolean };
+    const parsed = JSON.parse(readFileSync(pathValue, "utf8")) as { consumed?: boolean };
     return { consumed: parsed.consumed === true };
   } catch {
     return { consumed: true };
   }
 }
 
-function consumeLockOrHold(): void {
+function consumeLockOrHold(pathValue: string, reason: string): void {
   try {
     writeFileSync(
-      LOCK_PATH,
+      pathValue,
       JSON.stringify(
         {
           consumed: true,
           consumedAtUtc: new Date().toISOString(),
-          reason: "user_visible_firebase_auth_preflight_entry_started",
+          reason,
         },
         null,
         2
@@ -142,36 +186,171 @@ function runControlledRuntimeAdapterPreflight(): never {
   process.exit(1);
 }
 
-const args = parseArgs(process.argv.slice(2));
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-console.log("owner-local-user-visible-one-run-gate-v143ac");
-console.log("firebaseToken: ***MASKED***");
-console.log(`executeApproved=${args.executeApproved ? "true" : "false"}`);
-console.log("authModel=firebase-id-token");
-console.log("targetPath=/api/ai/chat-user-visible-orchestrate");
-console.log("stagingOnly=yes");
-console.log("ownerAdminAllowlistExpectation=documented");
+function readBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
 
-if (!args.executeApproved) {
-  console.log("PASS — dry-run gate packet is present (no runtime/provider execution)");
+async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Promise<never> {
+  console.log("runtimeAdapter=entered");
+  console.log("runtimeAdapterPolicy=user-visible-firebase-auth-dispatch-v143ag");
+  console.log(`dispatchTargetPath=${TARGET_PATH}`);
+  console.log(`dispatchTargetOrigin=${TARGET_ORIGIN}`);
+
+  let response: Response;
+  try {
+    response = await fetch(TARGET_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${firebaseIdToken}`,
+      },
+      body: JSON.stringify({
+        userMessage: SYNTHETIC_DISPATCH_USER_MESSAGE,
+        attachedImageCount: 0,
+        pilotSessionContext: SYNTHETIC_PILOT_SESSION_CONTEXT,
+      }),
+    });
+  } catch {
+    hold("dispatch network/request failure (fail-closed)");
+  }
+
+  if (!response.ok) {
+    hold(`dispatch response http-not-ok (${response.status})`);
+  }
+
+  let parsed: unknown = null;
+  try {
+    parsed = await response.json();
+  } catch {
+    hold("dispatch response is not valid JSON");
+  }
+
+  if (!isObjectRecord(parsed) || parsed.success !== true || !isObjectRecord(parsed.data)) {
+    hold("dispatch response missing success/data envelope");
+  }
+
+  const data = parsed.data as Record<string, unknown>;
+  const gateDiag = isObjectRecord(data.userVisibleGateDiagnostic)
+    ? data.userVisibleGateDiagnostic
+    : null;
+  const runtimeDiag = isObjectRecord(data.userVisibleRuntimeDiagnostic)
+    ? data.userVisibleRuntimeDiagnostic
+    : null;
+
+  const pilotPathActive = readBoolean(data.pilotPathActive);
+  const fallbackToLegacy = readBoolean(data.fallbackToLegacy);
+  const skipGemini = readBoolean(data.skipGemini);
+  const providerNetwork = readBoolean(data.realProviderNetwork);
+  const allowlistMatch = gateDiag ? readBoolean(gateDiag.allowlistMatch) : null;
+  const userVisibleEnabled = runtimeDiag ? readBoolean(runtimeDiag.userVisibleEnabled) : null;
+  const leadPiiCueGuardActive = runtimeDiag
+    ? readBoolean(runtimeDiag.leadPiiCueGuardActive)
+    : null;
+  const phoneEchoGuardActive = runtimeDiag
+    ? readBoolean(runtimeDiag.phoneEchoGuardActive)
+    : null;
+  const safeConfirmationStepWordingActive = runtimeDiag
+    ? readBoolean(runtimeDiag.safeConfirmationStepWordingActive)
+    : null;
+  const guardPolicyVersion =
+    runtimeDiag && typeof runtimeDiag.guardPolicyVersion === "string"
+      ? runtimeDiag.guardPolicyVersion.trim()
+      : "";
+  const gateReason =
+    typeof data.realProviderGateReason === "string" ? data.realProviderGateReason : "";
+
+  const evidenceComplete =
+    pilotPathActive === true &&
+    fallbackToLegacy === false &&
+    skipGemini === false &&
+    providerNetwork === true &&
+    gateReason === "real_provider_call_ok" &&
+    allowlistMatch === true &&
+    userVisibleEnabled === true &&
+    guardPolicyVersion.length > 0 &&
+    leadPiiCueGuardActive === true &&
+    phoneEchoGuardActive === true &&
+    safeConfirmationStepWordingActive === true;
+
+  if (!evidenceComplete) {
+    hold("dispatch response missing required guarded runtime evidence");
+  }
+
+  console.log("providerCall=run");
+  console.log("Gemini/runtime=run");
+  console.log("providerNetwork=true");
+  console.log("fallbackToLegacy=false");
+  console.log("skipGemini=false");
+  console.log("gateReason=real_provider_call_ok");
+  console.log("pilotPathActive=true");
+  console.log("allowlistMatch=true");
+  console.log("userVisibleEnabled=true");
+  console.log("guardPolicyVersion=present");
+  console.log("leadPiiCueGuardActive=true");
+  console.log("phoneEchoGuardActive=true");
+  console.log("safeConfirmationStepWordingActive=true");
+  console.log("tokenExposure=masked-only");
+  console.log("PASS — user-visible Firebase dispatch evidence captured");
   process.exit(0);
 }
 
-if (args.unknownArgs.length > 0) hold("unexpected arguments detected; exact command only");
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
 
-const token = checkFirebaseIdToken(process.env.NONGA_OWNER_FIREBASE_ID_TOKEN);
-if (!token.present) hold("same-CMD Firebase ID token missing");
-if (!token.shapeValid) hold("same-CMD Firebase ID token invalid-shape or unsafe");
+  console.log("owner-local-user-visible-one-run-gate-v143ac");
+  console.log("firebaseToken: ***MASKED***");
+  console.log(`executeApproved=${args.executeApproved ? "true" : "false"}`);
+  console.log(`dispatchApproved=${args.dispatchApproved ? "true" : "false"}`);
+  console.log("authModel=firebase-id-token");
+  console.log(`targetPath=${TARGET_PATH}`);
+  console.log("stagingOnly=yes");
+  console.log("ownerAdminAllowlistExpectation=documented");
 
-if (process.env.NONGA_ADMIN_API_TOKEN?.trim()) {
-  hold("admin token must not be used for user-visible Firebase auth route");
+  if (!args.executeApproved) {
+    console.log("PASS — dry-run gate packet is present (no runtime/provider execution)");
+    process.exit(0);
+  }
+
+  if (args.unknownArgs.length > 0) hold("unexpected arguments detected; exact command only");
+
+  const tokenRaw = String(process.env.NONGA_OWNER_FIREBASE_ID_TOKEN ?? "");
+  const token = checkFirebaseIdToken(tokenRaw);
+  if (!token.present) hold("same-CMD Firebase ID token missing");
+  if (!token.shapeValid) hold("same-CMD Firebase ID token invalid-shape or unsafe");
+
+  if (process.env.NONGA_ADMIN_API_TOKEN?.trim()) {
+    hold("admin token must not be used for user-visible Firebase auth route");
+  }
+
+  const approvalText = readApprovalFileOrHold(args.approvalFile);
+  const requiredApprovalText = args.dispatchApproved
+    ? REQUIRED_DISPATCH_APPROVAL_TEXT
+    : REQUIRED_APPROVAL_TEXT;
+  if (approvalText !== requiredApprovalText) {
+    hold("fresh owner approval text mismatch");
+  }
+
+  const selectedLockPath = args.dispatchApproved ? DISPATCH_LOCK_PATH : LOCK_PATH;
+  const lock = loadLock(selectedLockPath);
+  if (lock.consumed) hold("one-run already consumed (retry/second-run blocked)");
+
+  consumeLockOrHold(
+    selectedLockPath,
+    args.dispatchApproved
+      ? "user_visible_firebase_dispatch_entry_started"
+      : "user_visible_firebase_auth_preflight_entry_started"
+  );
+
+  if (args.dispatchApproved) {
+    await runControlledProviderDispatchOrHold(tokenRaw);
+    return;
+  }
+
+  runControlledRuntimeAdapterPreflight();
 }
 
-const approvalText = readApprovalFileOrHold(args.approvalFile);
-if (approvalText !== REQUIRED_APPROVAL_TEXT) hold("fresh owner approval text mismatch");
-
-const lock = loadLock();
-if (lock.consumed) hold("one-run already consumed (retry/second-run blocked)");
-
-consumeLockOrHold();
-runControlledRuntimeAdapterPreflight();
+void main().catch(() => hold("unexpected wrapper failure"));
