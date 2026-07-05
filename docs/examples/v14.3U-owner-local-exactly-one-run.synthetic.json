@@ -1,0 +1,125 @@
+{
+  "version": "v14.3U",
+  "recordType": "owner-local-same-cmd-exactly-one-run-record",
+  "executionType": "gate validation + docs/tests/fixtures/static record",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "753c59e902b71e1ee4b5eaf6f987db0e88c0ca85",
+    "originHead": "753c59e902b71e1ee4b5eaf6f987db0e88c0ca85",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "previousStatusFromV143T": {
+    "status": "READY_FOR_V143U_FRESH_OWNER_APPROVAL_PLUS_IDENTIFIED_COMMAND",
+    "oneRunCommandIdentified": true,
+    "oneRunCommand": "npm run owner-local-one-run:v14.3U -- --execute-approved --approval-file <local-approval-file.txt>",
+    "commandSource": "package.json#scripts.owner-local-one-run:v14.3U -> scripts/owner-local-one-run-gate-v143u.mts"
+  },
+  "boundaryStatus": {
+    "noProduction": true,
+    "noPublicRouteActivation": true,
+    "noBuyerFacingAiRelease": true,
+    "noRealLeadSending": true,
+    "noRealCustomerDataPII": true,
+    "noPhonePlateVin": true,
+    "noSecretTokenApiKeyExposure": true,
+    "noAutomaticRetry": true,
+    "noSecondRunWithoutFreshApproval": true,
+    "noUncontrolledGeminiExecution": true,
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true
+  },
+  "gates": {
+    "gate0RepoSanity": {
+      "passed": true
+    },
+    "gate1SameCmdTokenSession": {
+      "sameCmdTokenCheckPassed": false,
+      "checkerResult": {
+        "tokenPresence": "missing",
+        "length": "zero",
+        "format": "invalid",
+        "leadingTrailingWhitespace": "no",
+        "containsNewline": "no",
+        "quotedValueRisk": "no",
+        "literalEnvTokenRisk": "no",
+        "startsWithBearerPrefix": "no",
+        "token": "***MASKED***"
+      },
+      "decision": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY"
+    },
+    "gate2FreshApprovalV143UOnly": {
+      "requiredPhrase": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+      "freshApprovalReceived": false,
+      "approvalTextMatched": false,
+      "approvalFileUsed": "none",
+      "approvalCarryoverBlocked": true
+    },
+    "gate3CommandVerification": {
+      "commandMatchesV143TIdentifiedCommand": true,
+      "sameCmdTokenRequired": true,
+      "freshApprovalRequired": true,
+      "exactlyOneRunControlActive": true,
+      "retryBlocked": true,
+      "secondRunBlocked": true,
+      "tokenPrintingBlocked": true,
+      "productionPublicRealLeadPIIBlocked": true
+    }
+  },
+  "executionEvidence": {
+    "executionDecision": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
+    "sameCmdTokenCheckPassed": false,
+    "freshApprovalReceived": false,
+    "approvalTextMatched": false,
+    "approvalFileUsed": "none",
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false,
+    "httpStatus": "not_run",
+    "authStatus": "not_run",
+    "pilotPathActive": "not_run",
+    "fallbackToLegacy": "not_run",
+    "skipGemini": "not_run",
+    "providerNetwork": "not_run",
+    "gateReason": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
+    "runtimeMode": "not_run",
+    "userVisibleEnabled": "not_run",
+    "guardPolicyVersion": "not_run",
+    "thaiUxTuningActive": "not_run",
+    "leadPiiCueGuardActive": "not_run",
+    "phoneEchoGuardActive": "not_run",
+    "safeConfirmationStepWordingActive": "not_run",
+    "answerFieldSource": "not_run",
+    "answerCharCount": "not_run",
+    "carCardCount": "not_run",
+    "serverRecentCarCardsCount": "not_run"
+  },
+  "qualityGuardChecks": {
+    "thaiNaturalness": "not_run",
+    "sentenceGuidance4to7": "not_run",
+    "contextCouplingBuyerCarBudgetConstraints": "not_run",
+    "noHallucinatedVehicleFacts": "not_run",
+    "noFinancePriceConditionGuarantee": "not_run",
+    "noLeadCueAskingNamePhone": "not_run",
+    "noPhoneEcho": "not_run",
+    "safeConfirmationWordingPresent": "not_run",
+    "overallQuality": "not_run"
+  },
+  "finalDecisionEnum": [
+    "PASS — v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN COMPLETED",
+    "NEED REVIEW — v14.3U ONE-RUN RESULT INCONCLUSIVE",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — OWNER-LOCAL AUTH SESSION NOT READY",
+    "HOLD — FRESH OWNER APPROVAL MISSING OR MISMATCHED",
+    "HOLD — OWNER-LOCAL ONE-RUN COMMAND MISMATCH",
+    "HOLD — EXECUTION FAILED BEFORE PROVIDER CALL",
+    "HOLD — AUTH FAILED",
+    "HOLD — PROVIDER/GEMINI CALL FAILED",
+    "HOLD — RETRY OR SECOND-RUN RISK DETECTED",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ],
+  "finalDecision": "HOLD — OWNER-LOCAL AUTH SESSION NOT READY"
+}
