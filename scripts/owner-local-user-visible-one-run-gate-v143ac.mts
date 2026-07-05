@@ -19,7 +19,7 @@ const DISPATCH_LOCK_PATH = resolve(
   ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json"
 );
 const REQUIRED_DISPATCH_APPROVAL_TEXT =
-  "FINAL EXECUTION AUTHORIZE v14.3AG USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
+  "FINAL EXECUTION AUTHORIZE v14.3AI USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
 const MAX_APPROVAL_AGE_MS = 15 * 60 * 1000;
 const TARGET_PATH = "/api/ai/chat-user-visible-orchestrate";
 const TARGET_ORIGIN = "https://a.nongbot.org";
