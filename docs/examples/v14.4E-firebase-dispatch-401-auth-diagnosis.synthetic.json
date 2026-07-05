@@ -1,0 +1,61 @@
+{
+  "version": "v14.4E",
+  "scope": {
+    "executionType": "docs/tests/fixtures/static diagnosis + safe auth/header/token-flow inspection only",
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentLiveEndpointCall": false,
+    "agentProviderCall": false
+  },
+  "repoSanity": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "222cbaa4936dc01cd6f6f63d7e410a97b085f5f0",
+    "originHead": "222cbaa4936dc01cd6f6f63d7e410a97b085f5f0",
+    "localEqualsOrigin": true,
+    "workingTreeCleanAtStart": true
+  },
+  "dispatch401Diagnosis": {
+    "wrapperReadsHttpStatusFrom": "response.status",
+    "wrapperNonOkHoldCondition": "!response.ok",
+    "responseBodyCharsObserved": 55,
+    "possible401MessageClassesByLength55": [
+      "missing_firebase_id_token",
+      "invalid_firebase_id_token"
+    ],
+    "maskedDiagnosticsAdded": [
+      "dispatchResponseErrorCode",
+      "dispatchResponseErrorMessageClass",
+      "dispatchResponseBodyMaskedPreview"
+    ]
+  },
+  "authorizationHeaderPath": {
+    "tokenEnvKey": "NONGA_OWNER_FIREBASE_ID_TOKEN",
+    "headerContentType": "application/json",
+    "headerAuthorizationPrefix": "Bearer ",
+    "headerDroppedByRunIdOrPromptPatch": false
+  },
+  "authRootCauseClassification": {
+    "confirmedFromCode": [
+      "dispatch route requires Firebase bearer token via server auth context",
+      "wrapper does not perform token refresh",
+      "wrapper blocks admin token usage on this route"
+    ],
+    "plausibleNotConfirmed": [
+      "firebase token stale/expired",
+      "wrong token audience/issuer/project",
+      "staging runtime auth state mismatch"
+    ],
+    "ruledOutByCode": [
+      "allowlist mismatch as primary HTTP 401 source",
+      "ai endpoint guard returning HTTP 401",
+      "prompt wording patch directly removes Authorization header"
+    ]
+  },
+  "oneRunConsumption": {
+    "v14_3AJConsumed": true,
+    "mustNotRetryV14_3AJ": true,
+    "nextRunIdExample": "v14.3AK"
+  },
+  "finalDecision": "NEED REVIEW — FIREBASE TOKEN STALE / REFRESH PATH UNCLEAR"
+}

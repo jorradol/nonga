@@ -223,6 +223,25 @@ function readTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function sanitizePreview(input: string): string {
+  const collapsed = input.replace(/\s+/g, " ").trim();
+  const redacted = collapsed
+    .replace(/\bBearer\s+[A-Za-z0-9\-_.]{10,}\b/gi, "Bearer ***REDACTED***")
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "***@***")
+    .replace(/\b[A-Za-z0-9_-]{18,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "***JWT***");
+  return redacted.slice(0, 120);
+}
+
+function classifyDispatchErrorMessage(raw: string): string {
+  const message = raw.trim().toLowerCase();
+  if (!message) return "missing";
+  if (message.includes("missing firebase id token")) return "missing_firebase_id_token";
+  if (message.includes("invalid firebase id token")) return "invalid_firebase_id_token";
+  if (message.includes("firebase admin credentials")) return "firebase_admin_credentials_missing";
+  if (message.includes("กรุณาเข้าสู่ระบบ")) return "localized_auth_required";
+  return "other";
+}
+
 function readBooleanFromCandidates(...values: unknown[]): boolean | null {
   for (const value of values) {
     const parsed = readBoolean(value);
@@ -276,6 +295,14 @@ async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Pro
   }
 
   if (!response.ok) {
+    const parsedRecord = isObjectRecord(parsed) ? parsed : null;
+    const responseErrorCode = readTrimmedString(parsedRecord?.code);
+    const responseErrorMessage = readTrimmedString(parsedRecord?.message);
+    console.log(`dispatchResponseErrorCode=${responseErrorCode || "missing"}`);
+    console.log(
+      `dispatchResponseErrorMessageClass=${classifyDispatchErrorMessage(responseErrorMessage)}`
+    );
+    console.log(`dispatchResponseBodyMaskedPreview=${sanitizePreview(responseBodyText) || "empty"}`);
     hold(`dispatch response http-not-ok (${response.status})`);
   }
 

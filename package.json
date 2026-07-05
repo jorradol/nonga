@@ -260,6 +260,7 @@
     "test:v14.3AH": "tsx scripts/test-v143AH-dispatch-missing-guarded-runtime-evidence.mts",
     "test:v14.4C": "tsx scripts/test-v144C-one-run-consumption-guard-diagnosis.mts",
     "test:v14.4D": "tsx scripts/test-v144D-pilot-path-inactive-diagnosis.mts",
+    "test:v14.4E": "tsx scripts/test-v144E-firebase-dispatch-401-auth-diagnosis.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
