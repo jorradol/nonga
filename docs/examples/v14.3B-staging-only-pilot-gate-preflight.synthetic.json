@@ -1,0 +1,89 @@
+{
+  "version": "v14.3B",
+  "preflightType": "staging-only-pilot-gate-no-gemini",
+  "executionType": {
+    "staticMockOnly": true,
+    "runtimeExecution": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "retry": false,
+    "secondRun": false,
+    "providerNetworkCall": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretValueChange": false
+  },
+  "scope": {
+    "stagingOnly": true,
+    "ownerAdminOnly": true,
+    "syntheticSanitizedOnly": true,
+    "noPublicRouteActivation": true,
+    "noProductionDeploy": true,
+    "noRealLeadSending": true,
+    "noRealCustomerDataPii": true,
+    "noPhoneCaptureInChat": true,
+    "noPlateVinExposure": true,
+    "noSecretTokenApiKeyExposure": true,
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true
+  },
+  "inspectedRoutesConfig": {
+    "hostingApiRewriteSource": "/api/**",
+    "hostingApiRewriteServiceId": "nonga-staging",
+    "hostingApiRewriteRegion": "asia-southeast1",
+    "storageListingsRewriteSource": "/storage/listings/**",
+    "storageListingsRewriteServiceId": "nonga-staging",
+    "serviceMustNotBeProduction": true
+  },
+  "ownerAdminGateRequirements": {
+    "stagingHostOrProjectRequired": true,
+    "adminRoleRequired": true,
+    "allowlistUidRequiredWhenConfigured": true,
+    "authRequiredOnServerBridge": true
+  },
+  "requiredMarkers": {
+    "guardPolicyVersion": "v14.1-lead-pii-cue-guard",
+    "thaiUxTuningSliceId": "v14.2",
+    "thaiUxTuningActive": true,
+    "targetAnswerLengthGuidance": "4-7-sentences",
+    "leadPiiCueGuardActive": true,
+    "phoneEchoGuardActive": true,
+    "safeConfirmationStepWordingActive": true
+  },
+  "oneRunControlRequirements": {
+    "freshOwnerApprovalRequired": true,
+    "oneRunCountExplicitRequired": true,
+    "runSessionLockedRequired": true,
+    "noRetry": true,
+    "noSecondRun": true
+  },
+  "safetyRequirements": {
+    "leadPiiCueGuardRequired": true,
+    "phoneEchoGuardRequired": true,
+    "safeConfirmationWordingRequired": true,
+    "noFinanceGuarantee": true,
+    "noHallucinatedVehicleFacts": true,
+    "evidenceCaptureRequired": true
+  },
+  "stopHoldRulesRequired": [
+    "routeAuthGateAmbiguity",
+    "stagingRewriteMismatch",
+    "publicOrProductionExposureRisk",
+    "realLeadPathRisk",
+    "piiPhonePlateVinRisk",
+    "secretTokenApiKeyRisk",
+    "missingRequiredMarkers",
+    "missingRunSessionLockRule",
+    "missingOwnerApprovalRule",
+    "testFailure"
+  ],
+  "finalRecommendationEnum": [
+    "READY FOR v14.3C OWNER-ONLY PILOT DRY-RUN PLAN — NO RUNTIME EXECUTION",
+    "READY FOR v14.3C CONTROLLED STAGING PILOT PREFLIGHT VISIBILITY CHECK — NO GEMINI YET",
+    "HOLD — PILOT GATE PREFLIGHT INCOMPLETE",
+    "HOLD — ROUTE/AUTH GATE AMBIGUITY",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — SECRET/PII RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ]
+}

@@ -229,6 +229,7 @@
     "test:v14.2C": "tsx scripts/test-v142C-owner-manual-gemini-quality-retest-pass-closure.mts",
     "test:v14.3": "tsx scripts/test-v143-limited-staging-pilot-readiness-planning.mts",
     "test:v14.3A": "tsx scripts/test-v143A-limited-staging-pilot-checklist-validator.mts",
+    "test:v14.3B": "tsx scripts/test-v143B-staging-only-pilot-gate-preflight-no-gemini.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",
