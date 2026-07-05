@@ -67,6 +67,13 @@ type FirebaseTokenState = {
   shapeValid: boolean;
 };
 
+class HoldError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = "HoldError";
+  }
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   let executeApproved = false;
   let dispatchApproved = false;
@@ -119,7 +126,7 @@ function checkFirebaseIdToken(raw: string | undefined): FirebaseTokenState {
 
 function hold(reason: string): never {
   console.log(`HOLD — ${reason}`);
-  process.exit(1);
+  throw new HoldError(reason);
 }
 
 function readApprovalFileOrHold(pathValue: string | null): string {
@@ -180,10 +187,7 @@ function runControlledRuntimeAdapterPreflight(): never {
   console.log("deploy=not_run");
   console.log("runtimeMutation=not_run");
   console.log("tokenExposure=masked-only");
-  console.log(
-    "HOLD — user-visible Firebase auth adapter reached controlled preflight"
-  );
-  process.exit(1);
+  hold("user-visible Firebase auth adapter reached controlled preflight");
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -194,7 +198,19 @@ function readBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
-async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Promise<never> {
+function readTrimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readBooleanFromCandidates(...values: unknown[]): boolean | null {
+  for (const value of values) {
+    const parsed = readBoolean(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Promise<void> {
   console.log("runtimeAdapter=entered");
   console.log("runtimeAdapterPolicy=user-visible-firebase-auth-dispatch-v143ag");
   console.log(`dispatchTargetPath=${TARGET_PATH}`);
@@ -218,15 +234,28 @@ async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Pro
     hold("dispatch network/request failure (fail-closed)");
   }
 
-  if (!response.ok) {
-    hold(`dispatch response http-not-ok (${response.status})`);
+  const dispatchHttpStatus = response.status;
+  const responseContentType = response.headers.get("content-type") ?? "missing";
+  let responseBodyText = "";
+  try {
+    responseBodyText = await response.text();
+  } catch {
+    hold("dispatch response body read failure");
   }
+
+  console.log(`dispatchHttpStatus=${dispatchHttpStatus}`);
+  console.log(`dispatchResponseContentType=${responseContentType}`);
+  console.log(`dispatchResponseBodyChars=${responseBodyText.length}`);
 
   let parsed: unknown = null;
   try {
-    parsed = await response.json();
+    parsed = JSON.parse(responseBodyText);
   } catch {
     hold("dispatch response is not valid JSON");
+  }
+
+  if (!response.ok) {
+    hold(`dispatch response http-not-ok (${response.status})`);
   }
 
   if (!isObjectRecord(parsed) || parsed.success !== true || !isObjectRecord(parsed.data)) {
@@ -244,24 +273,28 @@ async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Pro
   const pilotPathActive = readBoolean(data.pilotPathActive);
   const fallbackToLegacy = readBoolean(data.fallbackToLegacy);
   const skipGemini = readBoolean(data.skipGemini);
-  const providerNetwork = readBoolean(data.realProviderNetwork);
-  const allowlistMatch = gateDiag ? readBoolean(gateDiag.allowlistMatch) : null;
-  const userVisibleEnabled = runtimeDiag ? readBoolean(runtimeDiag.userVisibleEnabled) : null;
-  const leadPiiCueGuardActive = runtimeDiag
-    ? readBoolean(runtimeDiag.leadPiiCueGuardActive)
-    : null;
-  const phoneEchoGuardActive = runtimeDiag
-    ? readBoolean(runtimeDiag.phoneEchoGuardActive)
-    : null;
-  const safeConfirmationStepWordingActive = runtimeDiag
-    ? readBoolean(runtimeDiag.safeConfirmationStepWordingActive)
-    : null;
-  const guardPolicyVersion =
-    runtimeDiag && typeof runtimeDiag.guardPolicyVersion === "string"
-      ? runtimeDiag.guardPolicyVersion.trim()
-      : "";
-  const gateReason =
-    typeof data.realProviderGateReason === "string" ? data.realProviderGateReason : "";
+  const providerNetwork = readBooleanFromCandidates(data.realProviderNetwork, data.providerNetwork);
+  const allowlistMatch = readBooleanFromCandidates(gateDiag?.allowlistMatch, data.allowlistMatch);
+  const userVisibleEnabled = readBooleanFromCandidates(
+    runtimeDiag?.userVisibleEnabled,
+    data.userVisibleEnabled
+  );
+  const leadPiiCueGuardActive = readBooleanFromCandidates(
+    runtimeDiag?.leadPiiCueGuardActive,
+    data.leadPiiCueGuardActive
+  );
+  const phoneEchoGuardActive = readBooleanFromCandidates(
+    runtimeDiag?.phoneEchoGuardActive,
+    data.phoneEchoGuardActive
+  );
+  const safeConfirmationStepWordingActive = readBooleanFromCandidates(
+    runtimeDiag?.safeConfirmationStepWordingActive,
+    data.safeConfirmationStepWordingActive
+  );
+  const guardPolicyVersion = readTrimmedString(
+    runtimeDiag?.guardPolicyVersion ?? data.guardPolicyVersion
+  );
+  const gateReason = readTrimmedString(data.realProviderGateReason ?? data.gateReason);
 
   const evidenceComplete =
     pilotPathActive === true &&
@@ -277,6 +310,23 @@ async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Pro
     safeConfirmationStepWordingActive === true;
 
   if (!evidenceComplete) {
+    const missingFields: string[] = [];
+    if (pilotPathActive !== true) missingFields.push("pilotPathActive!=true");
+    if (fallbackToLegacy !== false) missingFields.push("fallbackToLegacy!=false");
+    if (skipGemini !== false) missingFields.push("skipGemini!=false");
+    if (providerNetwork !== true) missingFields.push("providerNetwork!=true");
+    if (gateReason !== "real_provider_call_ok") missingFields.push("gateReason!=real_provider_call_ok");
+    if (allowlistMatch !== true) missingFields.push("allowlistMatch!=true");
+    if (userVisibleEnabled !== true) missingFields.push("userVisibleEnabled!=true");
+    if (guardPolicyVersion.length === 0) missingFields.push("guardPolicyVersion=missing");
+    if (leadPiiCueGuardActive !== true) missingFields.push("leadPiiCueGuardActive!=true");
+    if (phoneEchoGuardActive !== true) missingFields.push("phoneEchoGuardActive!=true");
+    if (safeConfirmationStepWordingActive !== true) {
+      missingFields.push("safeConfirmationStepWordingActive!=true");
+    }
+    console.log(`dispatchEvidenceSchema=success.data{...}`);
+    console.log(`dispatchEvidenceGateReason=${gateReason || "missing"}`);
+    console.log(`dispatchEvidenceMissingFields=${missingFields.join(",") || "none"}`);
     hold("dispatch response missing required guarded runtime evidence");
   }
 
@@ -295,10 +345,10 @@ async function runControlledProviderDispatchOrHold(firebaseIdToken: string): Pro
   console.log("safeConfirmationStepWordingActive=true");
   console.log("tokenExposure=masked-only");
   console.log("PASS — user-visible Firebase dispatch evidence captured");
-  process.exit(0);
+  return;
 }
 
-async function main(): Promise<void> {
+async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
 
   console.log("owner-local-user-visible-one-run-gate-v143ac");
@@ -312,7 +362,7 @@ async function main(): Promise<void> {
 
   if (!args.executeApproved) {
     console.log("PASS — dry-run gate packet is present (no runtime/provider execution)");
-    process.exit(0);
+    return 0;
   }
 
   if (args.unknownArgs.length > 0) hold("unexpected arguments detected; exact command only");
@@ -347,10 +397,21 @@ async function main(): Promise<void> {
 
   if (args.dispatchApproved) {
     await runControlledProviderDispatchOrHold(tokenRaw);
-    return;
+    return 0;
   }
 
   runControlledRuntimeAdapterPreflight();
 }
 
-void main().catch(() => hold("unexpected wrapper failure"));
+void main()
+  .then((exitCode) => {
+    process.exitCode = exitCode;
+  })
+  .catch((err) => {
+    if (err instanceof HoldError) {
+      process.exitCode = 1;
+      return;
+    }
+    console.log("HOLD — unexpected wrapper failure");
+    process.exitCode = 1;
+  });

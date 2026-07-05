@@ -1,0 +1,107 @@
+{
+  "version": "v14.3AH",
+  "executionType": "docs/tests/fixtures/static diagnosis + safe wrapper/response evidence inspection only",
+  "boundaries": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentProviderNetworkCall": false,
+    "agentGeminiCall": false,
+    "noProduction": true,
+    "noPublicRouteActivation": true,
+    "noRealLead": true,
+    "noPii": true,
+    "tokenExposure": "masked-only"
+  },
+  "gate0RepoSanity": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "336f7d8f9140179d219a6086f71672346d4e7a9d",
+    "originHead": "336f7d8f9140179d219a6086f71672346d4e7a9d",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true,
+    "decision": "PASS"
+  },
+  "previousOwnerDispatchResult": {
+    "ownerLocalCommandStarted": true,
+    "executeApproved": true,
+    "dispatchApproved": true,
+    "dispatchPathReached": true,
+    "dispatchTargetPath": "/api/ai/chat-user-visible-orchestrate",
+    "dispatchTargetOrigin": "https://a.nongbot.org",
+    "finalState": "HOLD — dispatch response missing required guarded runtime evidence",
+    "nodeAsyncAssertion": true
+  },
+  "holdSource": {
+    "file": "scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
+    "function": "runControlledProviderDispatchOrHold",
+    "condition": "if (!evidenceComplete) hold(...)",
+    "evidenceStrictRequired": [
+      "pilotPathActive=true",
+      "fallbackToLegacy=false",
+      "skipGemini=false",
+      "providerNetwork=true",
+      "gateReason=real_provider_call_ok",
+      "allowlistMatch=true",
+      "userVisibleEnabled=true",
+      "guardPolicyVersion=nonempty",
+      "leadPiiCueGuardActive=true",
+      "phoneEchoGuardActive=true",
+      "safeConfirmationStepWordingActive=true"
+    ]
+  },
+  "schemaInspection": {
+    "routeFile": "src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts",
+    "expectedEnvelope": "success=true,data",
+    "nestedEvidencePaths": [
+      "data.userVisibleGateDiagnostic.allowlistMatch",
+      "data.userVisibleRuntimeDiagnostic.userVisibleEnabled",
+      "data.userVisibleRuntimeDiagnostic.guardPolicyVersion",
+      "data.userVisibleRuntimeDiagnostic.leadPiiCueGuardActive",
+      "data.userVisibleRuntimeDiagnostic.phoneEchoGuardActive",
+      "data.userVisibleRuntimeDiagnostic.safeConfirmationStepWordingActive"
+    ],
+    "topLevelEvidencePaths": [
+      "data.realProviderNetwork",
+      "data.realProviderGateReason",
+      "data.pilotPathActive",
+      "data.fallbackToLegacy",
+      "data.skipGemini"
+    ]
+  },
+  "v143AHPatch": {
+    "wrapperDiagnosticsAdded": true,
+    "dispatchStatusMetadataAdded": true,
+    "missingEvidenceListAdded": true,
+    "extractorConservativeFallbackAdded": true,
+    "passCriteriaRelaxed": false,
+    "retryBehaviorChanged": false,
+    "nodeAsyncCleanupHardened": true,
+    "explicitProcessExitRemoved": true
+  },
+  "diagnosticMarkersNowExpected": {
+    "dispatchHttpStatus": "status-only",
+    "dispatchResponseContentType": "status-only",
+    "dispatchResponseBodyChars": "status-only",
+    "dispatchEvidenceGateReason": "status-only",
+    "dispatchEvidenceMissingFields": "status-only masked list"
+  },
+  "nodeAsyncAssertionAssessment": {
+    "likelyCause": "premature process.exit during async handle cleanup on Windows",
+    "confidence": "medium",
+    "mitigationApplied": "process.exitCode shutdown path only",
+    "stillFailClosed": true
+  },
+  "requiredFinalDecisionEnum": [
+    "READY FOR v14.3AI FRESH OWNER APPROVAL + USER-VISIBLE FIREBASE DISPATCH ONE-RUN",
+    "READY FOR v14.3AI DISPATCH EVIDENCE REVIEW — NO ONE-RUN",
+    "NEED REVIEW — DISPATCH RESPONSE SCHEMA MISMATCH",
+    "NEED REVIEW — PROVIDER/GEMINI NOT REACHED",
+    "NEED REVIEW — NODE ASYNC ASSERTION ROOT CAUSE UNCLEAR",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR v14.3AI FRESH OWNER APPROVAL + USER-VISIBLE FIREBASE DISPATCH ONE-RUN"
+}
