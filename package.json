@@ -239,6 +239,7 @@
     "test:v14.3I": "tsx scripts/test-v143I-admin-auth-session-readiness-recovery-no-gemini.mts",
     "test:v14.3J": "tsx scripts/test-v143J-admin-auth-session-ready-confirmation-no-gemini.mts",
     "test:v14.3M": "tsx scripts/test-v143M-owner-local-auth-evidence-acceptance-no-gemini.mts",
+    "test:v14.3N": "tsx scripts/test-v143N-fresh-owner-approval-decision-owner-friendly-local-ux-no-gemini.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",
     "test:v68e6-manual-quality-smoke-partial-execution-record": "tsx scripts/test-v68e6-manual-quality-smoke-partial-execution-record.mts",

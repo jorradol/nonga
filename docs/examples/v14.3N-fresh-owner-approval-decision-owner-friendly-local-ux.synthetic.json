@@ -1,0 +1,87 @@
+{
+  "version": "v14.3N",
+  "packetType": "fresh-owner-approval-decision-owner-friendly-local-ux-no-gemini",
+  "executionType": {
+    "docsTestsFixturesStaticMockOnly": true,
+    "readOnlyInspectionOnly": true,
+    "runtimeExecutionNow": false,
+    "geminiRunNow": false,
+    "oneRunClickNow": false,
+    "providerNetworkCallNow": false,
+    "providerTriggeringEndpointNow": false,
+    "retryNow": false,
+    "secondRunNow": false,
+    "deployNow": false,
+    "runtimeConfigMutationNow": false,
+    "secretChangeNow": false
+  },
+  "freshOwnerApprovalDecision": {
+    "approvalGrantedNow": false,
+    "geminiRunNow": false,
+    "oneRunConsumedNow": false,
+    "freshOwnerApprovalRequiredBeforeExecution": true,
+    "futureApprovalLineTemplate": "FINAL EXECUTION AUTHORIZE v14.3O: YES — exactly ONE owner-local CMD staging dry-run, no retry, no second run, staging only, owner/admin only, synthetic/sanitized only, no public, no production, no real lead.",
+    "thisSliceIsNotRuntimeApproval": true
+  },
+  "ownerFriendlyLocalCmdUxPlan": {
+    "step1OpenCmdAtDnonga": true,
+    "step2SetTokenForSessionOnly": true,
+    "step3RunSafeChecker": "npm run check:admin-token-session-env",
+    "step4MoveToFreshApprovalIfPresentValid": true,
+    "step5RunExactlyOneOnlyAfterFreshApproval": true,
+    "mustUseSameCmdSessionWithTokenPresent": true,
+    "newTerminalRequiresResetToken": true
+  },
+  "oneCommandErgonomicsProposal": {
+    "planningOnlyNoRuntimeExecution": true,
+    "checkTokenPresenceFirst": true,
+    "failClosedIfTokenMissing": true,
+    "printMaskedOnlyStatus": true,
+    "requireExplicitApprovalFlagOrText": true,
+    "enforceExactlyOneRun": true,
+    "blockRetryAndSecondRun": true,
+    "captureEvidenceFields": true,
+    "neverPrintToken": true
+  },
+  "safetyPreservingUxRules": {
+    "convenienceMustNotBypassFreshApproval": true,
+    "convenienceMustNotStoreSecretsInRepo": true,
+    "convenienceMustNotPersistTokenByDefault": true,
+    "convenienceMustNotAutoRunGeminiProvider": true,
+    "convenienceMustNotAllowRetrySecondRun": true,
+    "convenienceMustNotActivatePublicProdRealLead": true
+  },
+  "futureExecutionModel": {
+    "runFromOwnerLocalCmdWithTokenPresentValid": true,
+    "agentOperatorSessionTokenNotAssumed": true,
+    "freshApprovalRequiredImmediatelyBeforeRun": true,
+    "oneRunConsumedOnlyWhenRuntimeActuallyStarts": true,
+    "missingAuthSessionTokenAtExecutionTimeMeansHoldNoConsumption": true
+  },
+  "oneRunControlStatusNow": {
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false
+  },
+  "holdRulesRequired": {
+    "holdOnOwnerFriendlyUxRequirementIncomplete": true,
+    "holdOnFreshApprovalWordingAmbiguity": true,
+    "holdOnOwnerLocalExecutionModelAmbiguity": true,
+    "holdOnSecretTokenExposureRisk": true,
+    "holdOnOneRunRetrySecondRunControlAmbiguity": true,
+    "holdOnPublicProductionRealLeadRisk": true,
+    "holdOnTestFailure": true
+  },
+  "finalRecommendationEnum": [
+    "READY FOR v14.3O FRESH OWNER APPROVAL DECISION POINT — OWNER-LOCAL AUTH READY, NO GEMINI UNTIL OWNER APPROVES",
+    "READY FOR v14.3O OWNER-FRIENDLY ONE-RUN COMMAND PACKET — NO RUNTIME UNTIL OWNER APPROVES",
+    "HOLD — OWNER-FRIENDLY UX REQUIREMENT INCOMPLETE",
+    "HOLD — FRESH APPROVAL WORDING AMBIGUITY",
+    "HOLD — OWNER-LOCAL EXECUTION MODEL AMBIGUITY",
+    "HOLD — SECRET/TOKEN EXPOSURE RISK DETECTED",
+    "HOLD — ONE-RUN / RETRY / SECOND-RUN CONTROL AMBIGUITY",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — TEST FAILURE"
+  ]
+}
