@@ -1,0 +1,85 @@
+{
+  "version": "v14.3AE",
+  "executionType": "docs/tests/fixtures/static + owner-local Firebase ID token acquisition prep only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "c0f9b5b78792b8b6a9eaad5757bbf6822b15ebc7",
+    "originHead": "c0f9b5b78792b8b6a9eaad5757bbf6822b15ebc7",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "previousReadOnlyStatusCheck": {
+    "command": "npm run check:v14.3AC-owner-local-run-status",
+    "firebaseToken": "missing",
+    "firebaseTokenShape": "missing",
+    "adminTokenPresent": "no",
+    "approvalFileExists": "yes",
+    "approvalTextMatch": "match",
+    "approvalFileAgeMinutes": 25,
+    "lockFileExists": "no",
+    "lockConsumed": false,
+    "providerCall": "not_run",
+    "geminiRuntime": "not_run",
+    "providerNetwork": "not_run",
+    "runtimeMutation": "not_run",
+    "tokenExposure": "masked-only"
+  },
+  "gate0RepoSanity": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "c0f9b5b78792b8b6a9eaad5757bbf6822b15ebc7",
+    "originHead": "c0f9b5b78792b8b6a9eaad5757bbf6822b15ebc7",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true,
+    "decision": "PASS"
+  },
+  "tokenAcquisitionInspection": {
+    "serverAuthContextUsesBearerFirebase": true,
+    "clientGetCurrentUserIdTokenHelperExists": true,
+    "ownerPanelCopyTokenUsesForceRefresh": true,
+    "ownerPanelAvoidsRawTokenDisplay": true,
+    "adminTokenReplacementForbidden": true
+  },
+  "recommendedTokenAcquisitionMethod": {
+    "selected": "A_with_B_fallback",
+    "primary": "existing owner helper panel copy token flow",
+    "fallback": "signed-in DevTools path to getIdToken(true) only when helper not reachable",
+    "forbidden": [
+      "localStorage random scraping",
+      "raw token logging",
+      "commit token into repo",
+      "admin token substitution"
+    ]
+  },
+  "helperStatus": {
+    "existingHelperFound": true,
+    "addedInV143AE": false,
+    "helperPath": "src/components/admin/OwnerFirebaseTokenHelperPanel.tsx"
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentProviderNetworkCall": false,
+    "agentGeminiCall": false,
+    "agentRuntimeMutation": false
+  },
+  "ownerNextAction": {
+    "cmd": [
+      "cd /d D:\\nonga",
+      "set NONGA_OWNER_FIREBASE_ID_TOKEN=<paste-firebase-id-token-here>",
+      "npm run check:owner-firebase-token-session-env"
+    ],
+    "oneRunAllowedInV143AE": false
+  },
+  "finalDecisionEnum": [
+    "READY FOR OWNER FIREBASE TOKEN ACQUISITION — NO ONE-RUN",
+    "READY FOR v14.3AF FIREBASE TOKEN CHECK ONLY",
+    "NEED REVIEW — SAFE FIREBASE TOKEN ACQUISITION PATH NOT FOUND",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR OWNER FIREBASE TOKEN ACQUISITION — NO ONE-RUN"
+}
