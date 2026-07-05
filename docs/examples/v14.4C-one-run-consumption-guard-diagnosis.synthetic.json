@@ -16,8 +16,8 @@
     "legacyDispatchLockPath": ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json",
     "approvalRunIdNamespaceEnabled": true,
     "v143agLockPath": ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json",
-    "v143aiLockPath": ".nonga-owner-local-one-run-v143ai-user-visible-dispatch.lock.json",
-    "v143agBlocksV143ai": false,
+    "v143ajLockPath": ".nonga-owner-local-one-run-v143aj-user-visible-dispatch.lock.json",
+    "v143agBlocksV143aj": false,
     "sameRunIdMapsToSameLockPath": true
   },
   "guardSafety": {
@@ -34,7 +34,7 @@
     "geminiRuntimeCall": false
   },
   "nextOwnerApprovalCandidate": {
-    "selectedRunId": "v14.3AI",
+    "selectedRunId": "v14.3AJ",
     "requiresFreshApprovalFile": true,
     "retryAfterConsumedAllowed": false
   }

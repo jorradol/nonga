@@ -18,8 +18,8 @@ const GITIGNORE_PATH = ".gitignore";
 
 const APPROVAL_V143AG =
   "FINAL EXECUTION AUTHORIZE v14.3AG USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
-const APPROVAL_V143AI =
-  "FINAL EXECUTION AUTHORIZE v14.3AI USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
+const APPROVAL_V143AJ =
+  "FINAL EXECUTION AUTHORIZE v14.3AJ USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
 
 let pass = 0;
 let fail = 0;
@@ -54,30 +54,30 @@ const packageRaw = read(PACKAGE_PATH);
 const gitignore = read(GITIGNORE_PATH);
 
 const runIdAg = parseDispatchApprovalRunIdOrHold(APPROVAL_V143AG);
-const runIdAi = parseDispatchApprovalRunIdOrHold(APPROVAL_V143AI);
+const runIdAj = parseDispatchApprovalRunIdOrHold(APPROVAL_V143AJ);
 const lockPathAg = resolveDispatchLockPathForApprovalTextOrHold(APPROVAL_V143AG);
-const lockPathAi = resolveDispatchLockPathForApprovalTextOrHold(APPROVAL_V143AI);
-const lockPathAiAgain = resolveDispatchLockPathForApprovalTextOrHold(APPROVAL_V143AI);
+const lockPathAj = resolveDispatchLockPathForApprovalTextOrHold(APPROVAL_V143AJ);
+const lockPathAjAgain = resolveDispatchLockPathForApprovalTextOrHold(APPROVAL_V143AJ);
 
 ok("dispatch run id parser normalizes AG", runIdAg === "v143ag");
-ok("dispatch run id parser normalizes AI", runIdAi === "v143ai");
+ok("dispatch run id parser normalizes AJ", runIdAj === "v143aj");
 
 ok(
-  "v14.3AI marker namespace differs from v14.3AG marker",
-  lockPathAg !== lockPathAi &&
+  "v14.3AJ marker namespace differs from v14.3AG marker",
+  lockPathAg !== lockPathAj &&
     /\.nonga-owner-local-one-run-v143ag-user-visible-dispatch\.lock\.json$/i.test(lockPathAg) &&
-    /\.nonga-owner-local-one-run-v143ai-user-visible-dispatch\.lock\.json$/i.test(lockPathAi)
+    /\.nonga-owner-local-one-run-v143aj-user-visible-dispatch\.lock\.json$/i.test(lockPathAj)
 );
 
 ok(
-  "same v14.3AI approval phrase maps to same marker path",
-  lockPathAi === lockPathAiAgain
+  "same v14.3AJ approval phrase maps to same marker path",
+  lockPathAj === lockPathAjAgain
 );
 
 let invalidNamespaceThrows = false;
 try {
   parseDispatchApprovalRunIdOrHold(
-    "FINAL EXECUTION AUTHORIZE v14.3AI USER-VISIBLE FIREBASE DISPATCH SAME-CMD"
+    "FINAL EXECUTION AUTHORIZE v14.3AJ USER-VISIBLE FIREBASE DISPATCH SAME-CMD"
   );
 } catch {
   invalidNamespaceThrows = true;
@@ -128,7 +128,7 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
   ok("fixture version is v14.4C", root.version === "v14.4C");
   ok(
     "fixture records namespace split diagnosis",
-    (root.markerNamespaceDiagnosis as Record<string, unknown>)?.v143agBlocksV143ai === false
+    (root.markerNamespaceDiagnosis as Record<string, unknown>)?.v143agBlocksV143aj === false
   );
   ok(
     "fixture records guard safety retained",

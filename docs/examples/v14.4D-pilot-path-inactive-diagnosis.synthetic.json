@@ -1,0 +1,51 @@
+{
+  "version": "v14.4D",
+  "executionType": "docs/tests/fixtures/static diagnosis + safe request/response/gate inspection only",
+  "repoSanityAtStart": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "fdbf7f914fcc13732a36374bb646b4bee55187c6",
+    "originHead": "fdbf7f914fcc13732a36374bb646b4bee55187c6",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "pilotPathInactiveDiagnosis": {
+    "sourceFile": "src/services/ai/salesBrainUserVisibleRealProvider.ts",
+    "sourceFunction": "maybeApplyUserVisibleRealProvider",
+    "sourceCondition": "!input.bridgeResult.payload.pilotPathActive",
+    "inactivePromptFollowUpClassified": false,
+    "inactiveBridgePilotPathActive": false,
+    "inactiveBridgeFallbackToLegacy": true,
+    "inactiveGateReason": "pilot_path_inactive",
+    "inactiveProviderNetwork": false
+  },
+  "requestPayloadInspection": {
+    "includesPilotSessionContext": true,
+    "includesRecentCarCards": true,
+    "includesLastSearchBudgetMax": true,
+    "missingRequiredFieldForPilotPath": false
+  },
+  "wrapperExtractorInspection": {
+    "schemaEnvelope": "success.data",
+    "readsPilotPathActive": true,
+    "readsFallbackToLegacy": true,
+    "readsSkipGemini": true,
+    "readsProviderNetworkConservativeFallback": true,
+    "readsGateReasonConservativeFallback": true,
+    "schemaMismatchDetected": false
+  },
+  "allowlistAuthInspectionMaskedOnly": {
+    "allowlistEnvKey": "NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS",
+    "firebaseBearerAuthRequired": true,
+    "maskedUidDiagnosticsOnly": true
+  },
+  "patchApplied": {
+    "wrapperDispatchPromptUpdatedToFollowUpSafe": true,
+    "dispatchApprovalRunIdUpdated": "v14.3AJ",
+    "guardLooseningApplied": false
+  },
+  "nextOwnerAction": {
+    "runId": "v14.3AJ",
+    "retryV143aiAllowed": false,
+    "requiresFreshApprovalFile": true
+  }
+}

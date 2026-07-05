@@ -17,14 +17,14 @@ const LOCK_PATH = resolve(".nonga-owner-local-one-run-v143ac-user-visible.lock.j
 const REQUIRED_APPROVAL_TEXT =
   "FINAL EXECUTION AUTHORIZE v14.3AC USER-VISIBLE FIREBASE SAME-CMD EXACTLY-ONE-RUN";
 const REQUIRED_DISPATCH_APPROVAL_TEXT =
-  "FINAL EXECUTION AUTHORIZE v14.3AI USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
+  "FINAL EXECUTION AUTHORIZE v14.3AJ USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
 const MAX_APPROVAL_AGE_MS = 15 * 60 * 1000;
 const TARGET_PATH = "/api/ai/chat-user-visible-orchestrate";
 const TARGET_ORIGIN = "https://a.nongbot.org";
 const TARGET_URL = `${TARGET_ORIGIN}${TARGET_PATH}`;
 
 const SYNTHETIC_DISPATCH_USER_MESSAGE =
-  "ช่วยอธิบายแบบสั้นและสุภาพว่ารถ 2 คันนี้ต่างกันอย่างไรในภาพรวม โดยไม่ขอข้อมูลติดต่อครับ";
+  "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: ช่วยสรุปจุดเด่นของคันที่ 1 และ 2 แบบสุภาพสำหรับครอบครัวหน่อยครับ";
 const SYNTHETIC_PILOT_SESSION_CONTEXT = {
   recentCarCards: [
     {
