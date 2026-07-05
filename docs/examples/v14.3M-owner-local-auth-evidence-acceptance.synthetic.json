@@ -1,0 +1,83 @@
+{
+  "version": "v14.3M",
+  "recordType": "owner-local-auth-evidence-acceptance-no-gemini",
+  "executionType": {
+    "docsTestsFixturesStaticMockOnly": true,
+    "readOnlyInspectionOnly": true,
+    "runtimeExecution": false,
+    "geminiRun": false,
+    "oneRunClick": false,
+    "providerNetworkCall": false,
+    "providerTriggeringEndpointCall": false,
+    "retry": false,
+    "secondRun": false,
+    "deploy": false,
+    "runtimeConfigMutation": false,
+    "secretChange": false
+  },
+  "ownerLocalAuthEvidence": {
+    "sourceSession": "owner-local-cmd",
+    "command": "npm run check:admin-token-session-env",
+    "adminTokenPresence": "present",
+    "length": "nonzero",
+    "format": "valid",
+    "leadingTrailingWhitespace": "no",
+    "containsNewline": "no",
+    "quotedValueRisk": "no",
+    "literalEnvTokenRisk": "no",
+    "startsWithBearerPrefix": "no",
+    "tokenMasked": "***MASKED***",
+    "readinessLine": "READY FOR ADMIN AUTH NON-GEMINI LIVE RECHECK — token present in session env",
+    "ownerLocalEvidenceReady": true
+  },
+  "agentOperatorSessionDiagnosis": {
+    "agentOperatorSessionTokenVisibility": "missing",
+    "rootCause": "env session/process mismatch",
+    "tokenInvalidEvidence": false,
+    "ownerLocalCmdTokenReadiness": "ready",
+    "sessionMismatchAccepted": true
+  },
+  "tokenSecretHandling": {
+    "tokenValueExposure": false,
+    "maskedOnlyReporting": true,
+    "noTokenEchoInTerminal": true,
+    "noTokenInDocsReportGit": true,
+    "noTokenPersistenceInRepo": true
+  },
+  "futureExecutionModel": {
+    "futureExecutionMustRunFromOwnerLocalCmdWithTokenPresent": true,
+    "agentOperatorSessionNotAssumedToHaveToken": true,
+    "freshOwnerApprovalRequiredBeforeFutureExecution": true,
+    "noRuntimeExecutionInV143M": true
+  },
+  "holdReadyRule": {
+    "readyMeansOwnerLocalEvidenceOnly": true,
+    "readyIsNotRuntimeApproval": true,
+    "readyIsNotOneRunExecution": true,
+    "authorizationConsumedNow": false
+  },
+  "oneRunControlStatus": {
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false
+  },
+  "antiMisleadingStatusNow": {
+    "runtimeActionNow": false,
+    "geminiProviderCallNow": false,
+    "oneRunExecutionNow": false,
+    "authorizationConsumedNow": false,
+    "retryAllowedNow": false,
+    "secondRunAllowedNow": false,
+    "publicActiveNow": false,
+    "productionActiveNow": false
+  },
+  "finalRecommendationEnum": [
+    "READY FOR v14.3N FRESH OWNER APPROVAL DECISION POINT — OWNER-LOCAL AUTH EVIDENCE READY, NO GEMINI UNTIL OWNER APPROVES",
+    "HOLD — OWNER-LOCAL AUTH EVIDENCE INCOMPLETE",
+    "HOLD — SESSION MISMATCH DIAGNOSIS INCOMPLETE",
+    "HOLD — SECRET/TOKEN EXPOSURE RISK DETECTED",
+    "HOLD — ONE-RUN CONSUMPTION AMBIGUITY",
+    "HOLD — TEST FAILURE"
+  ]
+}
