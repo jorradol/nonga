@@ -1,0 +1,75 @@
+{
+  "version": "v14.3AD",
+  "executionType": "docs/tests/fixtures/static incident record + recovery diagnosis prep only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "188811cd93bf2335cc5d0a391b8f400a16549ac3",
+    "originHead": "188811cd93bf2335cc5d0a391b8f400a16549ac3",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "incident": {
+    "ownerLocalCommandStarted": true,
+    "ownerLocalOutputCaptured": false,
+    "wrongTokenTypeLikely": true,
+    "retryAllowed": false,
+    "secondRunAllowed": false,
+    "providerGeminiStatus": "unknown_from_output",
+    "requiredStatus": "NEED REVIEW — OWNER-LOCAL USER-VISIBLE RUN OUTPUT LOST / WRONG TOKEN USED"
+  },
+  "inspection": {
+    "wrapperPath": "scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
+    "checkerPath": "scripts/check-owner-firebase-token-session-env.mts",
+    "v143acValidatorPath": "scripts/test-v143AC-user-visible-firebase-auth-wrapper-prep.mts",
+    "v143acDocPath": "docs/v14.3AC-user-visible-firebase-auth-wrapper-prep.md",
+    "v143acFixturePath": "docs/examples/v14.3AC-user-visible-firebase-auth-wrapper-prep.synthetic.json",
+    "gitignorePath": ".gitignore",
+    "packagePath": "package.json"
+  },
+  "failClosedAnalysis": {
+    "wrongTokenInvalidShapeHoldsBeforeProviderCall": true,
+    "missingTokenHolds": true,
+    "adminTokenMixedSessionHolds": true,
+    "approvalMissingOrMismatchHolds": true,
+    "lockConsumedBlocksRetrySecondRun": true,
+    "providerDispatchPresentInWrapper": false,
+    "preflightOnlyProviderCallState": "not_run"
+  },
+  "lockConsumeOrderAnalysis": {
+    "tokenValidationBeforeLockConsume": true,
+    "approvalValidationBeforeLockConsume": true,
+    "lockConsumedStateAfterValidationOnly": true,
+    "lostOutputMeansConsumedNotConfirmed": true
+  },
+  "recoveryChecker": {
+    "added": true,
+    "scriptPath": "scripts/check-v143AC-owner-local-run-status.mts",
+    "packageCommand": "check:v14.3AC-owner-local-run-status",
+    "readOnly": true,
+    "printsRawToken": false,
+    "providerCall": false,
+    "providerNetwork": false,
+    "runtimeMutation": false,
+    "lockMutation": false
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentProviderNetworkCall": false,
+    "agentGeminiCall": false,
+    "agentDeploy": false,
+    "agentRuntimeConfigMutation": false
+  },
+  "finalDecisionEnum": [
+    "NEED REVIEW — OWNER OUTPUT LOST; AWAIT READ-ONLY LOCAL STATUS CHECK",
+    "READY FOR OWNER READ-ONLY STATUS CHECK — NO ONE-RUN",
+    "READY FOR v14.3AE CORRECT FIREBASE TOKEN ACQUISITION PREP",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR OWNER READ-ONLY STATUS CHECK — NO ONE-RUN"
+}
