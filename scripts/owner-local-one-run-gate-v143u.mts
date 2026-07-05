@@ -9,7 +9,7 @@
  * - Never prints token value.
  * - Does not execute Gemini/provider in v14.3T.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const LOCK_PATH = resolve(".nonga-owner-local-one-run-v143u.lock.json");
@@ -21,9 +21,16 @@ type TokenState = {
   formatValid: boolean;
 };
 
-function parseArgs(argv: string[]): { executeApproved: boolean; approvalFile: string | null } {
+type ParsedArgs = {
+  executeApproved: boolean;
+  approvalFile: string | null;
+  unknownArgs: string[];
+};
+
+function parseArgs(argv: string[]): ParsedArgs {
   let executeApproved = false;
   let approvalFile: string | null = null;
+  const unknownArgs: string[] = [];
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -34,9 +41,11 @@ function parseArgs(argv: string[]): { executeApproved: boolean; approvalFile: st
     if (arg === "--approval-file") {
       approvalFile = argv[i + 1] ?? null;
       i += 1;
+      continue;
     }
+    unknownArgs.push(arg);
   }
-  return { executeApproved, approvalFile };
+  return { executeApproved, approvalFile, unknownArgs };
 }
 
 function checkToken(raw: string | undefined): TokenState {
@@ -80,6 +89,57 @@ function loadLock(): { consumed: boolean } {
   }
 }
 
+function consumeLockOrHold(): void {
+  try {
+    writeFileSync(
+      LOCK_PATH,
+      JSON.stringify(
+        {
+          consumed: true,
+          consumedAtUtc: new Date().toISOString(),
+          reason: "runtime_adapter_entry_started",
+        },
+        null,
+        2
+      ) + "\n",
+      "utf8"
+    );
+  } catch {
+    hold("cannot persist one-run lock");
+  }
+}
+
+type RuntimeAdapterInput = {
+  executeApproved: boolean;
+  approvalFile: string;
+  approvalMatched: boolean;
+  sameCmdTokenPresent: boolean;
+  sameCmdTokenFormatValid: boolean;
+};
+
+function runControlledRuntimeAdapter(input: RuntimeAdapterInput): never {
+  if (
+    !input.executeApproved ||
+    !input.approvalFile ||
+    !input.approvalMatched ||
+    !input.sameCmdTokenPresent ||
+    !input.sameCmdTokenFormatValid
+  ) {
+    hold("runtime adapter preconditions not satisfied");
+  }
+
+  console.log("runtimeAdapter=entered");
+  console.log("runtimeAdapterPolicy=staging-owner-only-preflight");
+  console.log("providerCall=not_run");
+  console.log("Gemini/runtime=not_run");
+  console.log("providerNetwork=not_run");
+  console.log("deploy=not_run");
+  console.log("runtimeMutation=not_run");
+  console.log("tokenExposure=masked-only");
+  console.log("HOLD — runtime adapter reached under controlled preflight (v14.3Y)");
+  process.exit(1);
+}
+
 const args = parseArgs(process.argv.slice(2));
 
 console.log("owner-local-one-run-gate-v143u");
@@ -91,6 +151,8 @@ if (!args.executeApproved) {
   process.exit(0);
 }
 
+if (args.unknownArgs.length > 0) hold("unexpected arguments detected; exact command only");
+
 const token = checkToken(process.env.NONGA_ADMIN_API_TOKEN);
 if (!token.present) hold("same-CMD token missing");
 if (!token.formatValid) hold("same-CMD token format invalid or unsafe");
@@ -101,10 +163,11 @@ if (approvalText !== REQUIRED_APPROVAL_TEXT) hold("fresh owner approval text mis
 const lock = loadLock();
 if (lock.consumed) hold("one-run already consumed (retry/second-run blocked)");
 
-/**
- * v14.3T policy: do not run Gemini/provider in this round.
- * This wrapper is command-disambiguation only, so execution path is intentionally blocked.
- */
-console.log("HOLD — runtime execution adapter is disabled in v14.3T packet");
-console.log("No provider call, no deploy, no runtime mutation performed.");
-process.exit(1);
+consumeLockOrHold();
+runControlledRuntimeAdapter({
+  executeApproved: args.executeApproved,
+  approvalFile: args.approvalFile ?? "",
+  approvalMatched: true,
+  sameCmdTokenPresent: token.present,
+  sameCmdTokenFormatValid: token.formatValid,
+});

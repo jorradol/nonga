@@ -1,0 +1,69 @@
+{
+  "version": "v14.3Y",
+  "recordType": "runtime-execution-adapter-disabled-diagnosis-and-controlled-enablement-prep",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "2998a3b9605c39a3a64f480cae846fe112818664",
+    "originHead": "2998a3b9605c39a3a64f480cae846fe112818664",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "ownerManualRunSnapshot": {
+    "tokenMasked": true,
+    "executeApproved": true,
+    "holdReason": "HOLD_RUNTIME_EXECUTION_ADAPTER_DISABLED_IN_V14_3T_PACKET",
+    "providerCall": "not_run",
+    "geminiRuntime": "not_run",
+    "providerNetwork": "not_run",
+    "deploy": "not_run",
+    "runtimeMutation": "not_run"
+  },
+  "disabledAdapterSource": {
+    "sourceFile": "scripts/owner-local-one-run-gate-v143u.mts",
+    "sourceBranchType": "intentional_hard_stop_placeholder",
+    "disabledLineSignature": "HOLD — runtime execution adapter is disabled in v14.3T packet",
+    "adapterReachableBeforePatch": false
+  },
+  "rootCause": {
+    "type": "intentional_v14_3t_packet_policy_block",
+    "isConfigIssue": false,
+    "isIntentionalPlaceholder": true,
+    "providerPathReachableBeforePatch": false
+  },
+  "controlledEnablementPatch": {
+    "patched": true,
+    "exactArgsOnlyGuard": true,
+    "sameCmdTokenRequired": true,
+    "executeApprovedRequired": true,
+    "freshApprovalExactMatchRequired": true,
+    "oneRunLockConsumeWrite": true,
+    "runtimeAdapterEntrypointAdded": true,
+    "providerCallByAdapter": "not_run",
+    "providerNetworkByAdapter": "not_run",
+    "runtimeMutationByAdapter": "not_run",
+    "productionPublicRouteBlocked": true,
+    "realLeadAndPIIBlocked": true
+  },
+  "agentExecutionPolicy": {
+    "agentRanOneRun": false,
+    "agentRetry": false,
+    "agentSecondRun": false,
+    "agentProviderCall": false,
+    "agentGeminiCall": false
+  },
+  "tokenSafety": {
+    "maskedOnly": true,
+    "rawTokenPrinted": false,
+    "apiKeyPrinted": false
+  },
+  "finalDecisionEnum": [
+    "READY FOR v14.3Z FRESH OWNER APPROVAL + OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "NEED REVIEW — RUNTIME ADAPTER ENABLEMENT RISK",
+    "NEED REVIEW — DISABLED ADAPTER SOURCE AMBIGUOUS",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED"
+  ],
+  "finalDecision": "READY FOR v14.3Z FRESH OWNER APPROVAL + OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN"
+}

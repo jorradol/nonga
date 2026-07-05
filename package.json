@@ -250,6 +250,7 @@
     "test:v14.3V": "tsx scripts/test-v143V-approval-phrase-mismatch-fix-no-retry.mts",
     "test:v14.3W": "tsx scripts/test-v143W-owner-local-exactly-one-run-after-approval-fix.mts",
     "test:v14.3X": "tsx scripts/test-v143X-owner-local-run-handoff.mts",
+    "test:v14.3Y": "tsx scripts/test-v143Y-runtime-execution-adapter-disabled.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
     "test:v68e7-staging-smoke-partial-execution-record": "tsx scripts/test-v68e7-staging-smoke-partial-execution-record.mts",

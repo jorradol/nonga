@@ -42,3 +42,4 @@ scripts/test-dealer-e2e-v418.mts
 # Owner-local approval artifacts (never commit)
 v14.3U-local-approval.txt
 v14.*-local-approval.txt
+.nonga-owner-local-one-run-v143u.lock.json
