@@ -1,0 +1,86 @@
+{
+  "version": "v14.3X",
+  "recordType": "owner-local-run-handoff-after-token-session-hold",
+  "executionType": "docs/tests/fixtures/static handoff only",
+  "baselineBeforeWork": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "bc08d68f999de46ae6538827aeef05fd3f9d9b1b",
+    "originHead": "bc08d68f999de46ae6538827aeef05fd3f9d9b1b",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "previousStatusFromV143W": {
+    "finalDecision": "HOLD — OWNER-LOCAL AUTH SESSION NOT READY",
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false,
+    "geminiProviderRuntime": "not_run",
+    "providerNetwork": "not_run",
+    "gateReason": "HOLD_OWNER_LOCAL_AUTH_SESSION_NOT_READY",
+    "rootCause": "token_missing_in_owner_local_same_cmd_session_env"
+  },
+  "gate0RepoSanity": {
+    "passed": true,
+    "startingHeadExpectedMatched": true
+  },
+  "ownerLocalHandoffPolicy": {
+    "sameCmdRequired": true,
+    "checkerCommand": "npm run check:admin-token-session-env",
+    "approvalPhraseExact": "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-CMD EXACTLY-ONE-RUN",
+    "identifiedOneRunCommand": "npm run owner-local-one-run:v14.3U -- --execute-approved --approval-file v14.3U-local-approval.txt",
+    "agentMustNotExecuteOneRun": true
+  },
+  "expectedCheckerOutput": {
+    "tokenPresence": "present",
+    "length": "nonzero",
+    "format": "valid",
+    "leadingTrailingWhitespace": "no",
+    "containsNewline": "no",
+    "quotedValueRisk": "no",
+    "literalEnvTokenRisk": "no",
+    "startsWithBearerPrefix": "no",
+    "token": "***MASKED***",
+    "readyLine": "READY FOR ADMIN AUTH NON-GEMINI LIVE RECHECK — token present in session env"
+  },
+  "stopRules": {
+    "stopIfTokenCheckFails": true,
+    "holdTokenFail": "HOLD — OWNER-LOCAL AUTH SESSION NOT READY",
+    "stopIfApprovalMissingMismatch": true,
+    "holdApprovalFail": "HOLD — FRESH OWNER APPROVAL MISSING OR MISMATCHED",
+    "stopIfCommandFailTimeoutAuthProviderInconclusive": true,
+    "holdNeedReviewNoRetry": true,
+    "noRetry": true,
+    "noSecondRun": true
+  },
+  "executionStatusNow": {
+    "oneRunStarted": false,
+    "oneRunConsumed": false,
+    "retryUsed": false,
+    "secondRunUsed": false,
+    "geminiProviderRuntime": "no",
+    "oneRunRealExecutionPath": "not_run",
+    "providerNetworkCall": "no"
+  },
+  "boundaries": {
+    "noProduction": true,
+    "noPublicRouteActivation": true,
+    "noBuyerFacingAiRelease": true,
+    "noRealLeadSending": true,
+    "noRealCustomerDataPII": true,
+    "noPhonePlateVin": true,
+    "noSecretTokenApiKeyExposure": true,
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true,
+    "noManualEndpointGuess": true
+  },
+  "finalDecisionEnum": [
+    "READY FOR OWNER-LOCAL MANUAL SAME-CMD EXACTLY-ONE-RUN",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD/PII RISK DETECTED",
+    "NEED REVIEW — HANDOFF AMBIGUOUS"
+  ],
+  "finalDecision": "READY FOR OWNER-LOCAL MANUAL SAME-CMD EXACTLY-ONE-RUN"
+}
