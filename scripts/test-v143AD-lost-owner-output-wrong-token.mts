@@ -87,9 +87,8 @@ ok(
 ok(
   "wrapper validates token before lock and keeps preflight not_run",
   /same-CMD Firebase ID token invalid-shape or unsafe/.test(wrapper) &&
-    /const selectedLockPath = args\.dispatchApproved \? DISPATCH_LOCK_PATH : LOCK_PATH;/.test(
-      wrapper
-    ) &&
+    /resolveDispatchLockPathForApprovalTextOrHold/.test(wrapper) &&
+    /const selectedLockPath = args\.dispatchApproved/.test(wrapper) &&
     /const lock = loadLock\(selectedLockPath\)/.test(wrapper) &&
     /consumeLockOrHold\(/.test(wrapper) &&
     /providerCall=not_run/.test(wrapper) &&

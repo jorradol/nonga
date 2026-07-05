@@ -1,0 +1,41 @@
+{
+  "version": "v14.4C",
+  "executionType": "docs/tests/fixtures/static diagnosis + safe wrapper/one-run marker inspection only",
+  "repoSanityAtStart": {
+    "branch": "feature/chat-image-attachment-v1",
+    "localHead": "440f713412924a91a34df75f692bd25b6396c3e3",
+    "originHead": "440f713412924a91a34df75f692bd25b6396c3e3",
+    "localEqualsOrigin": true,
+    "workingTreeClean": true
+  },
+  "holdSource": {
+    "wrapperFile": "scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
+    "condition": "if (lock.consumed) hold(\"one-run already consumed (retry/second-run blocked)\")"
+  },
+  "markerNamespaceDiagnosis": {
+    "legacyDispatchLockPath": ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json",
+    "approvalRunIdNamespaceEnabled": true,
+    "v143agLockPath": ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json",
+    "v143aiLockPath": ".nonga-owner-local-one-run-v143ai-user-visible-dispatch.lock.json",
+    "v143agBlocksV143ai": false,
+    "sameRunIdMapsToSameLockPath": true
+  },
+  "guardSafety": {
+    "exactlyOneRunGuardRemoved": false,
+    "retrySecondRunBlocked": true,
+    "approvalPhraseMismatchStillHold": true,
+    "consumptionFailureFailClosed": true,
+    "providerNetworkFaked": false
+  },
+  "runtimeExecutionByAgent": {
+    "oneRunExecuted": false,
+    "providerCall": false,
+    "providerNetworkCall": false,
+    "geminiRuntimeCall": false
+  },
+  "nextOwnerApprovalCandidate": {
+    "selectedRunId": "v14.3AI",
+    "requiresFreshApprovalFile": true,
+    "retryAfterConsumedAllowed": false
+  }
+}

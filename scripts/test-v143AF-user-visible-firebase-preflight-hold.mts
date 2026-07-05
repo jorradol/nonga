@@ -101,7 +101,7 @@ ok(
     /runtimeAdapterPolicy=user-visible-firebase-auth-preflight/.test(wrapper) &&
     /--dispatch-approved/.test(wrapper) &&
     /REQUIRED_DISPATCH_APPROVAL_TEXT/.test(wrapper) &&
-    /DISPATCH_LOCK_PATH/.test(wrapper)
+    /resolveDispatchLockPathForApprovalTextOrHold/.test(wrapper)
 );
 
 ok(

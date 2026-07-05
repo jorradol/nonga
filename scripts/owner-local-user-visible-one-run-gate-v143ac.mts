@@ -11,13 +11,11 @@
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const LOCK_PATH = resolve(".nonga-owner-local-one-run-v143ac-user-visible.lock.json");
 const REQUIRED_APPROVAL_TEXT =
   "FINAL EXECUTION AUTHORIZE v14.3AC USER-VISIBLE FIREBASE SAME-CMD EXACTLY-ONE-RUN";
-const DISPATCH_LOCK_PATH = resolve(
-  ".nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json"
-);
 const REQUIRED_DISPATCH_APPROVAL_TEXT =
   "FINAL EXECUTION AUTHORIZE v14.3AI USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN";
 const MAX_APPROVAL_AGE_MS = 15 * 60 * 1000;
@@ -127,6 +125,29 @@ function checkFirebaseIdToken(raw: string | undefined): FirebaseTokenState {
 function hold(reason: string): never {
   console.log(`HOLD — ${reason}`);
   throw new HoldError(reason);
+}
+
+function normalizeRunId(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+export function parseDispatchApprovalRunIdOrHold(approvalText: string): string {
+  const match = approvalText.match(
+    /^FINAL EXECUTION AUTHORIZE\s+([A-Za-z0-9._-]+)\s+USER-VISIBLE FIREBASE DISPATCH SAME-CMD EXACTLY-ONE-RUN$/
+  );
+  if (!match) {
+    hold("dispatch approval text format invalid for one-run namespace");
+  }
+  const runId = normalizeRunId(match[1]);
+  if (runId.length === 0) {
+    hold("dispatch run id is missing for one-run namespace");
+  }
+  return runId;
+}
+
+export function resolveDispatchLockPathForApprovalTextOrHold(approvalText: string): string {
+  const runId = parseDispatchApprovalRunIdOrHold(approvalText);
+  return resolve(`.nonga-owner-local-one-run-${runId}-user-visible-dispatch.lock.json`);
 }
 
 function readApprovalFileOrHold(pathValue: string | null): string {
@@ -384,7 +405,9 @@ async function main(): Promise<number> {
     hold("fresh owner approval text mismatch");
   }
 
-  const selectedLockPath = args.dispatchApproved ? DISPATCH_LOCK_PATH : LOCK_PATH;
+  const selectedLockPath = args.dispatchApproved
+    ? resolveDispatchLockPathForApprovalTextOrHold(requiredApprovalText)
+    : LOCK_PATH;
   const lock = loadLock(selectedLockPath);
   if (lock.consumed) hold("one-run already consumed (retry/second-run blocked)");
 
@@ -403,15 +426,23 @@ async function main(): Promise<number> {
   runControlledRuntimeAdapterPreflight();
 }
 
-void main()
-  .then((exitCode) => {
-    process.exitCode = exitCode;
-  })
-  .catch((err) => {
-    if (err instanceof HoldError) {
+const isDirectExecution = (() => {
+  const entryArg = process.argv[1];
+  if (!entryArg) return false;
+  return import.meta.url === pathToFileURL(resolve(entryArg)).href;
+})();
+
+if (isDirectExecution) {
+  void main()
+    .then((exitCode) => {
+      process.exitCode = exitCode;
+    })
+    .catch((err) => {
+      if (err instanceof HoldError) {
+        process.exitCode = 1;
+        return;
+      }
+      console.log("HOLD — unexpected wrapper failure");
       process.exitCode = 1;
-      return;
-    }
-    console.log("HOLD — unexpected wrapper failure");
-    process.exitCode = 1;
-  });
+    });
+}
