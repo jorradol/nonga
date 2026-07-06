@@ -330,6 +330,7 @@
     "test:v18.10": "tsx scripts/test-v1810-owner-acknowledgment-review-closure-record.mts",
     "test:v18.11": "tsx scripts/test-v1811-final-v18-milestone-closure-marker.mts",
     "test:v19.0": "tsx scripts/test-v190-future-separate-owner-request-intake.mts",
+    "test:v19.1": "tsx scripts/test-v191-owner-future-request-review-packet.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
