@@ -1,0 +1,181 @@
+{
+  "version": "v16.8",
+  "executionType": "pre-go-boundary-review only",
+  "v168aStatus": "HOLD FIX / PLANNING ONLY / NO EXECUTION",
+  "planningOnly": true,
+  "preGoBoundaryReviewOnly": true,
+  "noGo": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRun": true,
+  "noRetry": true,
+  "noSecondRun": true,
+  "noPublicActivation": true,
+  "noProductionActivation": true,
+  "noBuyerFacingPublicRelease": true,
+  "noRealLead": true,
+  "noRealDealerAction": true,
+  "noRuntimeProviderGeminiCall": true,
+  "noLiveEndpointCall": true,
+  "noManualEndpointGuess": true,
+  "noThorImport": true,
+  "noDealerImport": true,
+  "noPII": true,
+  "noTokenSecretExposure": true,
+  "baselineConfirmed": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15": "CLOSED",
+    "v16.0": "PASSED",
+    "v16.1": "PASSED",
+    "v16.2": "PASSED",
+    "v16.3": "PASSED via v16.3A HOLD FIX",
+    "v16.4": "PASSED",
+    "v16.5": "PASSED",
+    "v16.6": "PASSED",
+    "v16.7": "PASSED via v16.7B HOLD FIX",
+    "v16.8": "PLANNING ONLY / PRE-GO BOUNDARY REVIEW ONLY"
+  },
+  "boundaryReviews": {
+    "noExecutionBoundaryReview": true,
+    "oneRunNoRetryNoSecondRunBoundaryReview": true,
+    "publicProductionBuyerFacingBoundaryReview": true,
+    "realLeadBoundaryReview": true,
+    "realDealerActionBoundaryReview": true,
+    "runtimeProviderGeminiBoundaryReview": true,
+    "liveEndpointManualEndpointGuessBoundaryReview": true,
+    "securityPrivacyPiiTokenBoundaryReview": true,
+    "thorDealerImportBoundaryReview": true,
+    "rollbackKillSwitchBoundaryReview": true,
+    "stopConditionBoundaryReview": true
+  },
+  "goSeparationStatement": {
+    "v168IsNotGoDecision": true,
+    "v168IsNotExecutionApproval": true,
+    "v168IsNotOneRunApproval": true,
+    "v168DoesNotAuthorizeDeployPublicProd": true,
+    "v168DoesNotAuthorizeRealLeadRealDealer": true,
+    "v168DoesNotAuthorizeRuntimeProviderGeminiLiveEndpoint": true
+  },
+  "ownerApprovalSeparation": {
+    "currentArtifactIsNotOwnerApproval": true,
+    "futureGoNeedsFreshOwnerReview": true,
+    "futureGoNeedsFreshOwnerApproval": true,
+    "ownerApprovalMustBeSeparateArtifact": true
+  },
+  "futureApprovalTemplateBoundary": {
+    "templateIsNotApproval": true,
+    "templateCannotBeUsedAsGoApprovalInV168": true,
+    "templateIsPlaceholderOnly": true
+  },
+  "placeholderOnlyBoundary": {
+    "exactCommand": "EXACT_COMMAND_PLACEHOLDER_ONLY",
+    "exactTarget": "EXACT_TARGET_PLACEHOLDER_ONLY",
+    "exactEvidence": "EXACT_EVIDENCE_PLACEHOLDER_ONLY",
+    "placeholdersAreNonExecutableAndNonAuthorizing": true
+  },
+  "goBlockerMatrix": {
+    "repoHeadOriginMismatch": "HOLD",
+    "workingTreeNotClean": "HOLD",
+    "missingOwnerApproval": "HOLD",
+    "ambiguousCommandTargetEvidence": "HOLD",
+    "missingOneRunNoRetryNoSecondRunStatement": "HOLD",
+    "missingRollbackKillSwitch": "HOLD",
+    "missingStopCondition": "HOLD",
+    "tokenSecretApiKeyExposureRisk": "HOLD",
+    "piiPhonePlateVinExposureRisk": "HOLD",
+    "publicProdRealLeadAmbiguity": "HOLD",
+    "realDealerActionAmbiguity": "HOLD",
+    "runtimeProviderGeminiAmbiguity": "HOLD",
+    "liveEndpointManualEndpointGuessAmbiguity": "HOLD",
+    "thorDealerRealImportAmbiguity": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureValidatorMismatch": "HOLD"
+  },
+  "boundaryRiskRegister": [
+    {
+      "id": "R1",
+      "risk": "ambiguous GO phrasing",
+      "control": "explicit no-GO statements",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R2",
+      "risk": "implicit execution approval wording",
+      "control": "explicit non-executable wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R3",
+      "risk": "one-run unlock misunderstanding",
+      "control": "explicit one-run locked wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R4",
+      "risk": "public or production scope drift",
+      "control": "explicit no public or production activation wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R5",
+      "risk": "real lead ambiguity",
+      "control": "explicit no real lead wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R6",
+      "risk": "real dealer action ambiguity",
+      "control": "explicit no real dealer action wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R7",
+      "risk": "runtime provider gemini ambiguity",
+      "control": "explicit runtime provider gemini prohibition wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R8",
+      "risk": "live endpoint or manual endpoint guess ambiguity",
+      "control": "explicit no live endpoint and no manual endpoint guess wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R9",
+      "risk": "token secret pii exposure risk",
+      "control": "explicit security privacy prohibition wording",
+      "status": "CONTROLLED"
+    },
+    {
+      "id": "R10",
+      "risk": "thor or dealer real import ambiguity",
+      "control": "explicit no real import wording",
+      "status": "CONTROLLED"
+    }
+  ],
+  "requiredConditionsBeforeFutureGoRequest": [
+    "clean repo with local and origin synchronized",
+    "separate fresh owner review and separate fresh owner approval",
+    "explicit and unambiguous command target evidence in future packet",
+    "explicit one-run only and explicit no retry no second run statement",
+    "rollback owner and kill-switch owner explicitly assigned",
+    "explicit stop conditions mapped to HOLD behavior",
+    "no token secret api key exposure risk and no pii exposure risk",
+    "no ambiguity on public prod real lead real dealer runtime provider gemini live endpoint manual endpoint guess real import boundaries",
+    "all validation tests pass with doc fixture validator consistency"
+  ],
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureValidatorMismatch": "HOLD",
+    "tokenSecretApiKeyExposureRisk": "HOLD",
+    "realPiiPhonePlateVinExposureRisk": "HOLD",
+    "publicProductionRealLeadRiskDetected": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadBoundaryCrossed": "HOLD"
+  },
+  "nextStepRecommendation": "Proceed to v16.9 GO/NO-GO decision frame only (planning-only / no execution).",
+  "finalDecision": "READY FOR v16.9 GO/NO-GO DECISION FRAME — PLANNING ONLY / NO EXECUTION"
+}

@@ -300,6 +300,7 @@
     "test:v16.5": "tsx scripts/test-v165-limited-pilot-owner-decision-packet.mts",
     "test:v16.6": "tsx scripts/test-v166-pre-execution-clarification-packet.mts",
     "test:v16.7": "tsx scripts/test-v167-future-owner-approval-template.mts",
+    "test:v16.8": "tsx scripts/test-v168-pre-go-boundary-review.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
