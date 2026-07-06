@@ -1,0 +1,143 @@
+{
+  "version": "v15.12",
+  "baselineHead": "e99282f235853e3f3bb7e717eb30b9900fa5bb67",
+  "sourceV13Proof": "docs/v13.16-owner-only-gemini-runtime-proof-closure.md",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceV150GatePacket": "docs/v15.0-controlled-production-public-preparation-gate-packet.md",
+  "sourceV150AReview": "docs/v15.0A-controlled-production-public-preparation-gate-packet-review.md",
+  "sourceV151ChecklistReview": "docs/v15.1-production-public-prep-checklist-review.md",
+  "sourceV152RiskRegister": "docs/v15.2-controlled-pre-prod-risk-register.md",
+  "sourceV153GoNoGoCriteria": "docs/v15.3-controlled-pre-prod-go-no-go-criteria.md",
+  "sourceV154OwnerDecisionPacket": "docs/v15.4-controlled-pre-prod-owner-decision-packet.md",
+  "sourceV155DryRunDesign": "docs/v15.5-controlled-pre-prod-dry-run-packet-design.md",
+  "sourceV156DryRunReview": "docs/v15.6-controlled-pre-prod-dry-run-packet-review.md",
+  "sourceV157OwnerApprovalTemplate": "docs/v15.7-controlled-pre-prod-owner-approval-template.md",
+  "sourceV158ApprovalTemplateReview": "docs/v15.8-controlled-pre-prod-approval-template-review.md",
+  "sourceV159FinalPreExecutionPacket": "docs/v15.9-controlled-pre-prod-final-pre-execution-packet.md",
+  "sourceV1510PreExecutionPacketReview": "docs/v15.10-controlled-pre-execution-packet-review.md",
+  "sourceV1511OwnerApprovalRequestDraft": "docs/v15.11-controlled-owner-approval-request-draft.md",
+  "reviewOnly": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRunApproval": true,
+  "noDeployApproval": true,
+  "noPublicProductionRealLeadApproval": true,
+  "v16NotStarted": true,
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false
+  },
+  "v1511DraftCompletenessReview": {
+    "draftStatusComplete": true,
+    "draftPurposeComplete": true,
+    "requiredRequestFieldsComplete": true,
+    "safeRequestedActionTypesComplete": true,
+    "approvalPhrasePlaceholderSafetyComplete": true,
+    "oneRunRetrySecondRunModelComplete": true,
+    "commandTargetClarityComplete": true,
+    "boundaryAssertionsComplete": true,
+    "evidenceRequirementDraftComplete": true,
+    "rollbackKillSwitchComplete": true,
+    "stopConditionsComplete": true,
+    "safeNextStepOptionsComplete": true,
+    "thaiOwnerFriendlyExplanationComplete": true
+  },
+  "noRealApprovalReview": {
+    "v1511AndV1512AreNotRealOwnerApproval": true,
+    "noImmediateExecutionAuthorization": true,
+    "noImmediateDryRunAuthorization": true,
+    "noImmediateOneRunAuthorization": true,
+    "noImmediateDeployPublicProductionRealLeadAuthorization": true,
+    "noImmediateV16Authorization": true,
+    "repoTextNotRealApproval": true
+  },
+  "approvalPhrasePlaceholderSafetyReview": {
+    "placeholderExampleOnly": true,
+    "finalExecutionAuthorizeLabeledPlaceholderOnly": true,
+    "approvalNotGrantedStatementRequired": true,
+    "futureApprovalAfterSeparateOwnerReviewOnly": true,
+    "futureExecutionNeedsFreshOwnerApprovalForThatRound": true,
+    "retrySecondRunNeedsFreshOwnerApproval": true
+  },
+  "safeRequestedActionTypeReview": {
+    "requestControlledDryRunOnlyAllowed": true,
+    "requestControlledPreflightOnlyAllowed": true,
+    "requestControlledEvidenceCaptureOnlyAllowed": true,
+    "requestControlledRollbackReviewOnlyAllowed": true,
+    "noImmediateProductionPublicRealLeadActionType": true
+  },
+  "commandTargetEvidenceClarityReview": {
+    "noManualEndpointGuess": true,
+    "futureApprovalNeedsExactCommandAction": true,
+    "futureApprovalNeedsExactTargetScope": true,
+    "futureApprovalNeedsExpectedEvidence": true,
+    "holdIfCommandTargetEvidenceAmbiguous": true
+  },
+  "boundaryReview": {
+    "noPublicRelease": true,
+    "noProductionActivation": true,
+    "noProductionDeploy": true,
+    "noPublicRouteActivation": true,
+    "noBuyerFacingPublicRelease": true,
+    "noRealLead": true,
+    "noRealPiiCustomerData": true,
+    "noPhonePlateVin": true,
+    "noTokenSecretApiKey": true,
+    "noUncontrolledGeminiProviderRuntimeCall": true,
+    "noThorDealerRealImport": true,
+    "noV16RealAction": true
+  },
+  "securityPrivacyReview": {
+    "noTokenSecretApiKeyExposure": true,
+    "noRealPiiCustomerData": true,
+    "noPhonePlateVin": true,
+    "syntheticOnlyArtifacts": true,
+    "maskedOnlyExpectation": true,
+    "sensitivePatternChecksExpected": true
+  },
+  "runtimeProviderGeminiReview": {
+    "noLiveEndpointCall": true,
+    "noProviderGeminiRuntimeNetworkCall": true,
+    "noUncontrolledGeminiExecution": true,
+    "priorV13V14EvidenceOnly": true,
+    "futureRuntimeProviderNeedsSeparateOwnerApproval": true
+  },
+  "rollbackKillSwitchReview": {
+    "futureApprovalNeedsRollbackDisablePathBeforeRealRun": true,
+    "ownerOperatorResponsibilityExplicit": true,
+    "evidenceCaptureExplicit": true,
+    "holdIfRollbackKillSwitchMissing": true
+  },
+  "stopConditionReview": {
+    "missingOwnerApproval": "HOLD",
+    "approvalPhraseAmbiguity": "HOLD",
+    "commandTargetEvidenceAmbiguity": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "tokenSecretPiiRisk": "HOLD",
+    "publicProductionActivationRisk": "HOLD",
+    "realLeadRisk": "HOLD",
+    "uncontrolledRuntimeProviderGeminiRisk": "HOLD",
+    "thorDealerImportRisk": "HOLD",
+    "v16BoundaryCrossed": "HOLD",
+    "rollbackKillSwitchMissing": "HOLD"
+  },
+  "decisionMappingReview": {
+    "GO": "next preparation review step only",
+    "NEED_REVIEW": "incomplete draft review with boundary intact",
+    "HOLD": "risk in approval ambiguity execution deploy public production real lead runtime security privacy v16"
+  },
+  "thaiOwnerFriendlyReviewSummary": {
+    "whatIsV1512": "v15.12 คือ review ร่างคำขออนุมัติ ไม่ใช่คำอนุมัติจริง",
+    "whyReviewBeforeFutureApproval": "ต้อง review ให้ครบก่อน owner จะอนุมัติจริงในอนาคต",
+    "placeholderNotRealApproval": "placeholder ในเอกสารไม่ใช่ approval จริง",
+    "futureRunNeedsFreshOwnerApproval": "หากจะรันจริงต้องมี fresh owner approval แยก",
+    "whatIsStillProhibited": "ยังห้าม one-run retry second-run และห้าม public production real lead",
+    "v16NotStarted": "v16 ยังไม่เริ่ม"
+  },
+  "thorDealerImportProhibited": true,
+  "reviewDecision": "READY FOR v15.13 CONTROLLED PRE-EXECUTION CLOSURE CANDIDATE — NO EXECUTION",
+  "nextOwnerAction": "Approve v15.13 controlled pre-execution closure candidate preparation under unchanged hard boundaries."
+}
