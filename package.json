@@ -308,6 +308,7 @@
     "test:v17.1": "tsx scripts/test-v171-owner-review-packet-future-execution-request.mts",
     "test:v17.2": "tsx scripts/test-v172-future-real-value-request-draft-template.mts",
     "test:v17.3": "tsx scripts/test-v173-future-real-value-insertion-gate-review.mts",
+    "test:v17.4": "tsx scripts/test-v174-future-real-value-insertion-request-checklist.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
