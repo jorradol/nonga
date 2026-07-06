@@ -1,0 +1,84 @@
+{
+  "version": "v15.1",
+  "baselineHead": "8aa128137be9f395d2eb089c1060a1a757b4e073",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceV150GatePacket": "docs/v15.0-controlled-production-public-preparation-gate-packet.md",
+  "sourceV150AReview": "docs/v15.0A-controlled-production-public-preparation-gate-packet-review.md",
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false,
+    "deployByAgent": false,
+    "productionDeployByAgent": false,
+    "productionActivationByAgent": false,
+    "publicRouteActivationByAgent": false,
+    "buyerFacingPublicReleaseByAgent": false,
+    "realLeadSendByAgent": false,
+    "realCustomerDataPiiByAgent": false,
+    "phonePlateVinByAgent": false,
+    "tokenSecretApiKeyExposureByAgent": false,
+    "thorRealDataImportByAgent": false,
+    "dealerRealInventoryImportByAgent": false,
+    "v16RealDealerRealLeadActionByAgent": false
+  },
+  "productionDeployReadinessChecklist": {
+    "stillNoDeployNow": "PASS",
+    "futureOwnerApprovalRequired": "PASS",
+    "futurePrePostDeployEvidenceRequired": "PASS",
+    "rollbackExpectationDocumented": "PASS"
+  },
+  "publicRouteReadinessChecklist": {
+    "stillNoPublicRouteActivationNow": "PASS",
+    "futureOwnerApprovalRequired": "PASS",
+    "routeExposureReviewRequired": "PASS",
+    "publicDisableKillSwitchExpectationDocumented": "PASS"
+  },
+  "buyerFacingReleaseReadinessChecklist": {
+    "stillNoBuyerFacingPublicReleaseNow": "PASS",
+    "thaiUxReviewRequired": "PASS",
+    "guardrailReviewRequired": "PASS",
+    "noHallucinatedVehicleFactsRequired": "PASS",
+    "financePriceConditionSafetyReviewRequired": "PASS"
+  },
+  "realLeadReadinessChecklist": {
+    "stillNoRealLeadSendingNow": "PASS",
+    "realLeadOutsideV151Scope": "PASS",
+    "realLeadReservedForFutureMilestoneAfterOwnerApproval": "PASS",
+    "noRealCustomerDataPiiPhoneUsage": "PASS"
+  },
+  "piiPhonePlateVinChecklist": {
+    "noRealPii": "PASS",
+    "noPhonePlateVinInArtifacts": "PASS",
+    "noTokenSecretApiKeyExposure": "PASS",
+    "redactionExpectationDocumented": "PASS"
+  },
+  "geminiProviderRuntimeChecklist": {
+    "priorV13V14EvidenceOnly": "PASS",
+    "noUncontrolledGeminiExecution": "PASS",
+    "noProviderRuntimeNetworkCallInThisRound": "PASS",
+    "futureOwnerManualOneRunNeedsFreshApproval": "PASS"
+  },
+  "ownerApprovalModelChecklist": {
+    "productionDeploySeparateOwnerApproval": "PASS",
+    "publicRouteSeparateOwnerApproval": "PASS",
+    "buyerFacingReleaseSeparateOwnerApproval": "PASS",
+    "realLeadSeparateOwnerApprovalOutsideV151": "PASS",
+    "noRetryNoSecondRunWithoutFreshOwnerApproval": "PASS"
+  },
+  "rollbackKillSwitchChecklist": {
+    "disablePathExpectationDocumented": "PASS",
+    "ownerOperatorResponsibilityDocumented": "PASS",
+    "evidenceCaptureDocumented": "PASS",
+    "stopConditionForPublicProductionRealLeadRiskDocumented": "PASS"
+  },
+  "v16BoundaryChecklist": {
+    "v16NotStarted": "PASS",
+    "noRealDealerRealLeadAction": "PASS",
+    "noThorDealerRealImport": "PASS",
+    "noCrossMilestoneAction": "PASS"
+  },
+  "reviewDecision": "READY FOR v15.2 CONTROLLED PRE-PROD RISK REGISTER — NO PUBLIC RELEASE",
+  "nextOwnerAction": "Approve v15.2 controlled pre-prod risk register drafting under unchanged hard boundaries."
+}
