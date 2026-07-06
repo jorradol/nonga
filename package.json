@@ -340,6 +340,7 @@
     "test:v19.8": "tsx scripts/test-v198-exact-demo-command-target-evidence-packet.mts",
     "test:v19.9": "tsx scripts/test-v199-fresh-owner-approval-request-packet.mts",
     "test:v19.10": "tsx scripts/test-v1910-fresh-owner-approval-readiness-packet.mts",
+    "test:v19.11": "tsx scripts/test-v1911-controlled-owner-only-one-run-execution-request-packet.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
