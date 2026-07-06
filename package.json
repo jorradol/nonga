@@ -265,6 +265,7 @@
     "test:v14.4G": "tsx scripts/test-v144G-owner-controlled-zone-gate-diagnosis.mts",
     "test:v14.4I": "tsx scripts/test-v144I-v143al-owner-dispatch-retest-packet-prep.mts",
     "test:v14.4J": "tsx scripts/test-v144J-user-visible-firebase-dispatch-pass-evidence-closure.mts",
+    "test:v14.5": "tsx scripts/test-v145-thai-ux-real-answer-final-review-packet.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
