@@ -294,6 +294,7 @@
     "test:v15.21": "tsx scripts/test-v1521-final-v15-closed-marker.mts",
     "test:v16.0": "tsx scripts/test-v160-limited-real-dealer-real-lead-pilot-planning-packet.mts",
     "test:v16.1": "tsx scripts/test-v161-limited-pilot-planning-review.mts",
+    "test:v16.2": "tsx scripts/test-v162-limited-pilot-scope-design.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",

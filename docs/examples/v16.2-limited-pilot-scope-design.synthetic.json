@@ -1,0 +1,185 @@
+{
+  "version": "v16.2",
+  "scope": "limited real dealer / real lead pilot scope design",
+  "executionType": "limited-pilot-scope-design only",
+  "isScopeDesignOnly": true,
+  "isPlanningOnly": true,
+  "isExecution": false,
+  "isDryRun": false,
+  "isOwnerApproval": false,
+  "isPublicRelease": false,
+  "isProductionActivation": false,
+  "isRealLead": false,
+  "isRealDealerAction": false,
+  "isThorRealImport": false,
+  "isDealerRealImport": false,
+  "baseline": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15": "CLOSED",
+    "v16.0": "PASSED",
+    "v16.1": "PASSED",
+    "v16.2": "PLANNING ONLY"
+  },
+  "limitedPilotPurpose": {
+    "defineMinimalReversibleFrame": true,
+    "preventBoundaryDrift": true,
+    "prepareOwnerReviewInputs": true,
+    "noExecutionInV162": true
+  },
+  "proposedPilotBoundaries": {
+    "planningConstraintsOnly": true,
+    "noRuntimeTraffic": true,
+    "noEndpointCall": true,
+    "noPublicActivation": true,
+    "rollbackKillSwitchReadinessRequiredBeforeFutureRequest": true
+  },
+  "proposedDealerCohortBoundary": {
+    "designOnlyNonActivated": true,
+    "futureAllowlistSmallNamedCohortRequired": true,
+    "noDealerOutreachInV162": true,
+    "noDealerActionInV162": true
+  },
+  "proposedLeadEligibilityBoundary": {
+    "designOnlyCriteria": true,
+    "requiresExplicitOptInRulesForFuture": true,
+    "noRealLeadCaptureQueueRouteSend": true,
+    "syntheticExamplesOnly": true
+  },
+  "proposedUserExposureBoundary": {
+    "noBuyerFacingRouteActivation": true,
+    "noProductionPublicVisibility": true,
+    "noStagingToPublicPromotionPath": true,
+    "internalPlanningArtifactsOnly": true
+  },
+  "proposedDataBoundary": {
+    "syntheticOnlyArtifacts": true,
+    "noRealCustomerDataPii": true,
+    "noPhonePlateVin": true,
+    "noThorRealImport": true,
+    "noDealerRealInventoryImport": true
+  },
+  "proposedEvidenceBoundary": {
+    "schemaTemplateOnly": true,
+    "noLiveExecutionEvidenceCollection": true,
+    "futureEvidenceRequiresExactCommandTargetEvidence": true,
+    "noSecretsOrIdentifiersInEvidence": true
+  },
+  "notAllowedActions": [
+    "no execution",
+    "no dry-run",
+    "no one-run",
+    "no automatic retry",
+    "no second run",
+    "no production deploy",
+    "no production activation",
+    "no public route activation",
+    "no buyer-facing public release",
+    "no real lead sending",
+    "no real dealer action",
+    "no real customer data / PII",
+    "no phone / plate / VIN",
+    "no token / secret / API key exposure",
+    "no uncontrolled Gemini execution",
+    "no live endpoint call",
+    "no provider/Gemini/runtime network call",
+    "no Thor real data import",
+    "no dealer real inventory import",
+    "no manual endpoint guess",
+    "no v16 real dealer / real lead action"
+  ],
+  "ownerApprovalGates": {
+    "freshOwnerReviewRequired": true,
+    "freshOwnerApprovalRequired": true,
+    "mustReferenceExactPacketVersionAndBoundaryChecklist": true,
+    "mustProveRollbackKillSwitchReadinessBeforeFutureRequest": true
+  },
+  "futureRunRequirements": {
+    "requiresExactCommand": true,
+    "requiresExactTarget": true,
+    "requiresExactEvidence": true,
+    "rejectsAmbiguousRequests": true
+  },
+  "oneRunPolicy": {
+    "oneRunOnlyWhenSeparatelyApproved": true,
+    "noAutomaticRetry": true,
+    "noSecondRunWithoutFreshOwnerApproval": true
+  },
+  "boundaries": {
+    "noProductionDeploy": true,
+    "noProductionActivation": true,
+    "noPublicRouteActivation": true,
+    "noBuyerFacingPublicRelease": true,
+    "noRealLeadSending": true,
+    "noRealDealerAction": true
+  },
+  "runtimeProviderGemini": {
+    "noLiveEndpointCall": true,
+    "noProviderGeminiRuntimeNetworkCall": true,
+    "noUncontrolledGeminiExecution": true,
+    "noManualEndpointGuess": true
+  },
+  "securityPrivacy": {
+    "noRealCustomerDataPii": true,
+    "noPhonePlateVin": true,
+    "noTokenSecretApiKeyExposure": true,
+    "syntheticOnlyAndSanitizedArtifacts": true
+  },
+  "rollbackKillSwitch": {
+    "requiredBeforeFutureExecutionRequest": true,
+    "requiresOwnerOperatorAssignment": true,
+    "requiresTriggerCriteriaAndHaltCriteria": true,
+    "noFutureRequestWithoutReadinessEvidence": true
+  },
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "publicProductionRealLeadBoundaryCrossed": "HOLD",
+    "thorDealerRealImportBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadActionAttempt": "HOLD"
+  },
+  "decisionOptions": [
+    "READY FOR v16.3 LIMITED PILOT SCOPE REVIEW — PLANNING ONLY / NO EXECUTION",
+    "NEED REVIEW — V16.2 SCOPE DESIGN INCOMPLETE",
+    "NEED REVIEW — BASELINE CONFIRMATION INCOMPLETE",
+    "NEED REVIEW — LIMITED PILOT PURPOSE INCOMPLETE",
+    "NEED REVIEW — PILOT BOUNDARIES INCOMPLETE",
+    "NEED REVIEW — DEALER COHORT BOUNDARY INCOMPLETE",
+    "NEED REVIEW — LEAD ELIGIBILITY BOUNDARY INCOMPLETE",
+    "NEED REVIEW — USER EXPOSURE BOUNDARY INCOMPLETE",
+    "NEED REVIEW — DATA BOUNDARY INCOMPLETE",
+    "NEED REVIEW — EVIDENCE BOUNDARY INCOMPLETE",
+    "NEED REVIEW — NOT-ALLOWED ACTIONS INCOMPLETE",
+    "NEED REVIEW — OWNER APPROVAL GATES INCOMPLETE",
+    "NEED REVIEW — FUTURE RUN REQUIREMENTS INCOMPLETE",
+    "NEED REVIEW — ONE-RUN POLICY INCOMPLETE",
+    "NEED REVIEW — BOUNDARY CONFIRMATION INCOMPLETE",
+    "NEED REVIEW — RUNTIME/PROVIDER/GEMINI CONFIRMATION INCOMPLETE",
+    "NEED REVIEW — SECURITY/PRIVACY CONFIRMATION INCOMPLETE",
+    "NEED REVIEW — THOR/DEALER IMPORT CONFIRMATION INCOMPLETE",
+    "NEED REVIEW — ROLLBACK/KILL-SWITCH REQUIREMENTS INCOMPLETE",
+    "NEED REVIEW — STOP CONDITIONS INCOMPLETE",
+    "NEED REVIEW — THAI OWNER-FRIENDLY SUMMARY INCOMPLETE",
+    "NEED REVIEW — TEST/DOC/FIXTURE MISMATCH",
+    "NEED REVIEW — COMMIT/PUSH NOT DONE",
+    "HOLD — REPO STATE NOT READY",
+    "HOLD — TEST FAILURE",
+    "HOLD — TOKEN/SECRET/PII EXPOSURE RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED",
+    "HOLD — RUNTIME/PROVIDER/GEMINI BOUNDARY CROSSED",
+    "HOLD — ONE-RUN/RETRY/SECOND-RUN BOUNDARY CROSSED",
+    "HOLD — V16 REAL DEALER/REAL LEAD BOUNDARY CROSSED"
+  ],
+  "thaiOwnerSummary": {
+    "summary": "ออกแบบขอบเขต v16 ก่อน ยังไม่แตะของจริง",
+    "status": "v16.2 เป็น scope design เท่านั้น",
+    "approvalStatus": "ยังไม่ใช่ owner approval สำหรับ execution",
+    "activationStatus": "ยังไม่เปิด public/production และยังไม่เริ่ม real dealer/real lead pilot"
+  },
+  "nextRecommendation": "Proceed to v16.3 limited pilot scope review only (planning-only review step, no execution)."
+}
