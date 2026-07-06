@@ -1,0 +1,108 @@
+{
+  "version": "v15.3",
+  "baselineHead": "1a3c6202fae30137fba8a254e1b68ceb277c58a3",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceV150GatePacket": "docs/v15.0-controlled-production-public-preparation-gate-packet.md",
+  "sourceV150AReview": "docs/v15.0A-controlled-production-public-preparation-gate-packet-review.md",
+  "sourceV151ChecklistReview": "docs/v15.1-production-public-prep-checklist-review.md",
+  "sourceV152RiskRegister": "docs/v15.2-controlled-pre-prod-risk-register.md",
+  "preparationOnly": true,
+  "noPublicRelease": true,
+  "noProductionActivation": true,
+  "noRealLead": true,
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false
+  },
+  "repoReadinessGoCriteria": {
+    "branchCorrect": "PASS",
+    "localHeadExpected": "PASS",
+    "originHeadMatched": "PASS",
+    "workingTreeClean": "PASS",
+    "requiredArtifactsPresent": "PASS",
+    "requiredValidationsPassed": "PASS"
+  },
+  "productionPublicPreparationGoCriteria": {
+    "preparationOnly": "PASS",
+    "noProductionDeploy": "PASS",
+    "noProductionActivation": "PASS",
+    "noPublicRouteActivation": "PASS",
+    "noBuyerFacingPublicRelease": "PASS",
+    "separateOwnerApprovalRequiredForFutureMovement": "PASS"
+  },
+  "safetyGuardGoCriteria": {
+    "thaiUxBaselineFromV14Confirmed": "PASS",
+    "guardrailBaselineConfirmed": "PASS",
+    "noHallucinatedVehicleFactsExpectationConfirmed": "PASS",
+    "financePriceConditionSafetyExpectationConfirmed": "PASS",
+    "rollbackKillSwitchExpectationConfirmed": "PASS"
+  },
+  "dataPrivacyGoCriteria": {
+    "noRealCustomerData": "PASS",
+    "noPii": "PASS",
+    "noPhone": "PASS",
+    "noPlate": "PASS",
+    "noVin": "PASS",
+    "noTokenSecretApiKey": "PASS",
+    "syntheticOnlyArtifacts": "PASS"
+  },
+  "runtimeProviderGeminiGoCriteria": {
+    "priorV13V14EvidenceOnly": "PASS",
+    "noLiveEndpointCallInThisRound": "PASS",
+    "noProviderGeminiRuntimeNetworkCallInThisRound": "PASS",
+    "futureManualOneRunRequiresFreshOwnerApprovalOnly": "PASS"
+  },
+  "ownerApprovalGoCriteria": {
+    "productionDeploySeparateOwnerApproval": "PASS",
+    "publicRouteSeparateOwnerApproval": "PASS",
+    "buyerFacingReleaseSeparateOwnerApproval": "PASS",
+    "realLeadSeparateOwnerApprovalOutsideV153Scope": "PASS",
+    "noRetryNoSecondRunWithoutFreshOwnerApproval": "PASS"
+  },
+  "repoNoGoHoldCriteria": {
+    "branchMismatch": "HOLD",
+    "headMismatch": "HOLD",
+    "localOriginMismatch": "HOLD",
+    "workingTreeNotClean": "HOLD",
+    "requiredValidationFail": "HOLD",
+    "docFixtureTestMismatch": "NEED REVIEW"
+  },
+  "boundaryNoGoHoldCriteria": {
+    "productionDeployOrActivationDetected": "HOLD",
+    "publicRouteActivationDetected": "HOLD",
+    "buyerFacingPublicReleaseDetected": "HOLD",
+    "realLeadSendingDetected": "HOLD",
+    "v16RealDealerRealLeadActionDetected": "HOLD",
+    "thorDealerRealImportDetected": "HOLD"
+  },
+  "securityPrivacyNoGoHoldCriteria": {
+    "tokenSecretApiKeyExposureDetected": "HOLD",
+    "realPiiCustomerDataDetected": "HOLD",
+    "phonePlateVinDetected": "HOLD",
+    "unmaskedSensitiveValueDetected": "HOLD"
+  },
+  "runtimeNoGoHoldCriteria": {
+    "liveEndpointCallDetected": "HOLD",
+    "providerGeminiRuntimeNetworkCallDetected": "HOLD",
+    "uncontrolledGeminiExecutionDetected": "HOLD",
+    "oneRunRetrySecondRunWithoutFreshOwnerApprovalDetected": "HOLD"
+  },
+  "rollbackKillSwitchNoGoHoldCriteria": {
+    "rollbackPathUnclear": "NEED REVIEW",
+    "killSwitchExpectationUnclear": "NEED REVIEW",
+    "ownerOperatorResponsibilityUnclear": "NEED REVIEW",
+    "evidenceCaptureExpectationUnclear": "NEED REVIEW"
+  },
+  "decisionMapping": {
+    "GO": "ready for next preparation-only stage",
+    "NEED REVIEW": "gaps in doc test fixture checklist without hard boundary breach",
+    "HOLD": "boundary or security privacy runtime risk detected"
+  },
+  "thorDealerImportProhibited": true,
+  "v16BoundaryActive": true,
+  "reviewDecision": "READY FOR v15.4 CONTROLLED PRE-PROD OWNER DECISION PACKET — NO PUBLIC RELEASE",
+  "nextOwnerAction": "Approve v15.4 controlled pre-prod owner decision packet drafting under unchanged hard boundaries."
+}
