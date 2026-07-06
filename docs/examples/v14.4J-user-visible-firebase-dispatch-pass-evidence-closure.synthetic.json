@@ -1,0 +1,60 @@
+{
+  "version": "v14.4J",
+  "sourceOwnerRun": "v14.3AL",
+  "executionType": "static/local docs/tests/fixtures closure only",
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false,
+    "deployByAgent": false
+  },
+  "sanitizedEvidence": {
+    "wrapper": "owner-local-user-visible-one-run-gate-v143ac",
+    "firebaseToken": "***MASKED***",
+    "executeApproved": true,
+    "dispatchApproved": true,
+    "authModel": "firebase-id-token",
+    "targetPath": "/api/ai/chat-user-visible-orchestrate",
+    "stagingOnly": "yes",
+    "dispatchTargetOrigin": "https://a.nongbot.org",
+    "dispatchHttpStatus": 200,
+    "providerCall": "run",
+    "geminiRuntime": "run",
+    "providerNetwork": true,
+    "fallbackToLegacy": false,
+    "skipGemini": false,
+    "gateReason": "real_provider_call_ok",
+    "pilotPathActive": true,
+    "allowlistMatch": true,
+    "userVisibleEnabled": true,
+    "guardPolicyVersion": "present",
+    "leadPiiCueGuardActive": true,
+    "phoneEchoGuardActive": true,
+    "safeConfirmationStepWordingActive": true,
+    "passLine": "PASS — user-visible Firebase dispatch evidence captured"
+  },
+  "consumedRunHistory": {
+    "v14.3AJ": {
+      "status": "consumed",
+      "history": "401_hold",
+      "retryAllowed": false
+    },
+    "v14.3AK": {
+      "status": "consumed",
+      "history": "owner_controlled_zone_not_allowed_hold",
+      "retryAllowed": false
+    },
+    "v14.3AL": {
+      "status": "consumed",
+      "history": "pass",
+      "retryAllowed": false
+    }
+  },
+  "closureDecision": "v14.4 Dispatch Evidence = PASS / CLOSED",
+  "nextMilestone": "v14.5 Thai UX Real Answer Final Review",
+  "tokenExposure": "masked-only",
+  "secretExposure": "none",
+  "piiExposure": "none"
+}
