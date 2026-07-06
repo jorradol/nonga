@@ -1,0 +1,48 @@
+{
+  "milestone": "v19.15",
+  "execution_type": "static-local-docs-tests-fixtures-readonly-lock-confirmation-only",
+  "approval_status": "not_granted",
+  "lock_rearm_status": "not_performed",
+  "one_run_status": "not_performed",
+  "execution_status": "not_performed",
+  "public_status": "not_public",
+  "production_status": "not_production",
+  "real_dealer_status": "not_used",
+  "real_lead_status": "not_used",
+  "real_data_status": "not_used",
+  "token_secret_exposure": "none",
+  "pii_exposure": "none",
+  "boundary_phrase": "ยังไม่ GO, ยังไม่ execution, ยังไม่ public, ยังไม่ production, ยังไม่ real dealer, ยังไม่ real lead และยังไม่แตะของจริง",
+  "carry_forward": {
+    "v13_to_v1914_closed": true,
+    "latest_status": "V19.14 FUTURE LOCK RE-ARM APPROVAL PACKET CLOSED — READY FOR FRESH OWNER BOUNDARY-CHANGING APPROVAL ONLY / NO LOCK MUTATION / NO EXECUTION",
+    "lock_file": ".nonga-owner-local-one-run-v143u.lock.json",
+    "previous_observed_state": "\"consumed\": true",
+    "prior_hold_result": "HOLD — RETRY OR SECOND-RUN RISK DETECTED"
+  },
+  "future_approval_requirements": {
+    "exactly_one_lock_rearm": true,
+    "exactly_one_controlled_owner_only_one_run": true,
+    "no_retry": true,
+    "no_second_run": true,
+    "owner_only": true,
+    "staging_only": true,
+    "no_public": true,
+    "no_production": true,
+    "no_real_dealer_action": true,
+    "no_real_lead": true,
+    "no_real_customer_data": true,
+    "no_token_secret_credential_pii_exposure": true,
+    "fresh_explicit_boundary_changing_owner_approval_required": true
+  },
+  "insufficient_wording_examples": [
+    "OK",
+    "GO",
+    "ทำต่อได้",
+    "อนุมัติ",
+    "รันได้"
+  ],
+  "safe_default_if_wording_unclear": "HOLD — OWNER APPROVAL WORDING INSUFFICIENT",
+  "final_preflight_decision": "PASS — v19.15 fresh owner approval readiness preflight packet closed",
+  "placeholder_only": true
+}
