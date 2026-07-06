@@ -1,0 +1,49 @@
+{
+  "version": "v15.0A",
+  "baselineHead": "c733abb6b8ed4a87f83926bffe0c30746f7e3df6",
+  "sourceV150Doc": "docs/v15.0-controlled-production-public-preparation-gate-packet.md",
+  "sourceV150Fixture": "docs/examples/v15.0-controlled-production-public-preparation-gate-packet.synthetic.json",
+  "sourceV150Test": "scripts/test-v150-controlled-production-public-preparation-gate-packet.mts",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceDispatchClosure": "docs/v14.4J-user-visible-firebase-dispatch-pass-evidence-closure.md",
+  "sourceThaiUxResult": "docs/v14.5B-thai-ux-review-result-record.md",
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false,
+    "deployByAgent": false,
+    "productionDeployByAgent": false,
+    "productionActivationByAgent": false,
+    "publicRouteActivationByAgent": false,
+    "buyerFacingPublicReleaseByAgent": false,
+    "realLeadSendByAgent": false,
+    "realCustomerDataPiiByAgent": false,
+    "thorRealDataImportByAgent": false,
+    "dealerRealInventoryImportByAgent": false,
+    "v16RealDealerRealLeadActionByAgent": false
+  },
+  "reviewChecklist": {
+    "v14ClosureBaselineConfirmed": "PASS",
+    "v15PreparationOnlyStatusConfirmed": "PASS",
+    "productionPublicBoundaryMatrixConfirmed": "PASS",
+    "ownerApprovalModelConfirmed": "PASS",
+    "oneRunNoRetryNoSecondRunModelConfirmed": "PASS",
+    "rollbackKillSwitchExpectationConfirmed": "PASS",
+    "safetyGuardBaselineConfirmed": "PASS",
+    "auditEvidenceRequirementConfirmed": "PASS",
+    "tokenSecretPiiExposureRiskConfirmedNone": "PASS",
+    "phonePlateVinRiskConfirmedNone": "PASS",
+    "thorDealerRealImportRiskConfirmedNone": "PASS",
+    "v16BoundaryCrossingRiskConfirmedNone": "PASS"
+  },
+  "gapAnalysis": {
+    "gapCount": 0,
+    "runtimePathChangeNeeded": false,
+    "endpointProviderDeployConfigChangeNeeded": false,
+    "docsTestsFixturesRemediationRequired": false
+  },
+  "finalDecision": "READY FOR v15.1 PRODUCTION/PUBLIC PREP CHECKLIST REVIEW — NO PUBLIC RELEASE",
+  "nextOwnerAction": "Approve v15.1 controlled production/public prep checklist drafting scope while keeping no one-run/no retry/no second-run active."
+}
