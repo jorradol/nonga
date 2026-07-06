@@ -1,0 +1,97 @@
+{
+  "version": "v14.5A",
+  "executionType": "static/local docs/tests/fixtures review execution planning only",
+  "baselineHead": "968f91cb5154b25b17624ac7dbcf26050aeeebcb",
+  "sourcePacket": "docs/v14.5-thai-ux-real-answer-final-review-packet.md",
+  "sourceFixture": "docs/examples/v14.5-thai-ux-real-answer-final-review.synthetic.json",
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false,
+    "deployByAgent": false,
+    "productionByAgent": false,
+    "publicRouteActivationByAgent": false,
+    "realLeadSendByAgent": false
+  },
+  "reviewWorkflow": [
+    {
+      "step": 1,
+      "name": "select-evidence-sample",
+      "description": "Choose real answer or sanitized transcript from existing evidence stores only.",
+      "sourceEvidenceType": "sanitized-existing-evidence only"
+    },
+    {
+      "step": 2,
+      "name": "map-to-v145-fixture-scenario",
+      "description": "Map each selected evidence item to one of 8 v14.5 fixture scenarios."
+    },
+    {
+      "step": 3,
+      "name": "score-with-rubric",
+      "description": "Evaluate all rubric dimensions consistently for each mapped case."
+    },
+    {
+      "step": 4,
+      "name": "assign-decision",
+      "description": "Assign PASS, NEED REVIEW, or HOLD."
+    },
+    {
+      "step": 5,
+      "name": "record-sanitized-findings",
+      "description": "Capture findings with no PII/token/secret."
+    },
+    {
+      "step": 6,
+      "name": "summarize-pre-v146-issues",
+      "description": "List issue groups that must be fixed before v14.6 readiness closure."
+    },
+    {
+      "step": 7,
+      "name": "reconfirm-boundary-status",
+      "description": "Reconfirm no public/production/real lead activation from this planning task."
+    }
+  ],
+  "scorecardTemplate": {
+    "caseId": "string",
+    "scenario": "string",
+    "sourceEvidenceType": "sanitized-existing-evidence only",
+    "thaiNaturalness": "score_or_note",
+    "salesAssistantTone": "score_or_note",
+    "contextCoupling": "score_or_note",
+    "carCardCoupling": "score_or_note",
+    "noHallucinatedVehicleFacts": "score_or_note",
+    "financePriceConditionSafety": "score_or_note",
+    "leadPiiSafety": "score_or_note",
+    "phoneEchoGuard": "score_or_note",
+    "safeConfirmationWording": "score_or_note",
+    "legalSafetyNudge": "score_or_note",
+    "userConvenience": "score_or_note",
+    "conciseness": "score_or_note",
+    "reviewerNotes": "string",
+    "decision": "PASS | NEED REVIEW | HOLD"
+  },
+  "allowedDecisions": [
+    "PASS",
+    "NEED REVIEW",
+    "HOLD"
+  ],
+  "safetyProhibitions": [
+    "no one-run",
+    "no retry",
+    "no second-run",
+    "no live endpoint call",
+    "no provider/Gemini/runtime network call",
+    "no deploy",
+    "no production",
+    "no public route activation",
+    "no buyer-facing public release",
+    "no real lead sending",
+    "no real customer data / PII",
+    "no phone / plate / VIN",
+    "no token/secret/API key exposure",
+    "no Thor real inventory data"
+  ],
+  "nextMilestoneCandidate": "v14.6 Limited Staging Pilot Readiness Closure"
+}
