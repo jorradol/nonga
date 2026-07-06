@@ -1,0 +1,92 @@
+{
+  "version": "v16.3",
+  "executionType": "limited-pilot-scope-review only",
+  "planningOnly": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRun": true,
+  "noRetry": true,
+  "noSecondRun": true,
+  "noPublicActivation": true,
+  "noProductionActivation": true,
+  "noRealLead": true,
+  "noRealDealerAction": true,
+  "noRuntimeProviderGeminiCall": true,
+  "noLiveEndpointCall": true,
+  "noThorImport": true,
+  "noDealerImport": true,
+  "noPII": true,
+  "noTokenSecretExposure": true,
+  "baselineConfirmed": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15": "CLOSED",
+    "v16.0": "PASSED",
+    "v16.1": "PASSED",
+    "v16.2": "PASSED",
+    "v16.3": "PLANNING ONLY / SCOPE REVIEW ONLY",
+    "v16.3A": "HOLD FIX / PLANNING ONLY / NO EXECUTION"
+  },
+  "v162ArtifactsReviewed": {
+    "scopeDesignDocReviewed": true,
+    "fixtureReviewed": true,
+    "validatorAlignmentReviewed": true,
+    "planningOnlyLanguageConfirmed": true
+  },
+  "reviewCoverage": {
+    "limitedPilotPurposeReview": true,
+    "pilotBoundaryReview": true,
+    "dealerCohortBoundaryReview": true,
+    "leadEligibilityBoundaryReview": true,
+    "userExposureBoundaryReview": true,
+    "dataBoundaryReview": true,
+    "evidenceBoundaryReview": true,
+    "notAllowedActionsReview": true,
+    "ownerApprovalGateReview": true,
+    "futureRunRequirementsReview": true,
+    "oneRunPolicyReview": true,
+    "publicProductionRealLeadReview": true,
+    "runtimeProviderGeminiReview": true,
+    "securityPrivacyPiiTokenReview": true,
+    "thorDealerImportReview": true,
+    "rollbackKillSwitchReview": true,
+    "stopConditionReview": true,
+    "gapAmbiguityReview": true,
+    "riskRegisterReview": true,
+    "requiredClarificationsReview": true,
+    "thaiOwnerSummaryReview": true,
+    "nextStepRecommendationReview": true
+  },
+  "gaps": [
+    "future cohort entry/exit template is not yet explicitly defined",
+    "future ambiguous lead eligibility tie-break policy is not yet explicitly defined",
+    "future minimum sanitized evidence artifact checklist is not yet explicitly enumerated",
+    "future rollback/kill-switch owner-operator matrix format is not yet explicitly enumerated"
+  ],
+  "risks": [
+    "interpretation drift from planning wording to execution wording",
+    "ambiguity in future cohort inclusion criteria",
+    "ambiguity in future evidence packet completeness threshold",
+    "operational confusion if kill-switch ownership format is not pre-defined"
+  ],
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "publicProductionRealLeadBoundaryCrossed": "HOLD",
+    "thorDealerImportBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadActionAttempt": "HOLD"
+  },
+  "ownerApprovalCarryForward": {
+    "freshOwnerReviewRequired": true,
+    "freshOwnerApprovalRequired": true,
+    "exactVersionAndBoundaryReferenceRequired": true,
+    "noPlanningPacketAsExecutionPermission": true
+  },
+  "nextStepRecommendation": "Proceed to v16.4 limited pilot readiness checklist only (planning-only checklist step, no execution).",
+  "finalDecision": "READY FOR v16.4 LIMITED PILOT READINESS CHECKLIST — PLANNING ONLY / NO EXECUTION"
+}
