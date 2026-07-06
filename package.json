@@ -274,6 +274,7 @@
     "test:v15.1": "tsx scripts/test-v151-production-public-prep-checklist-review.mts",
     "test:v15.2": "tsx scripts/test-v152-controlled-pre-prod-risk-register.mts",
     "test:v15.3": "tsx scripts/test-v153-controlled-pre-prod-go-no-go-criteria.mts",
+    "test:v15.4": "tsx scripts/test-v154-controlled-pre-prod-owner-decision-packet.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
