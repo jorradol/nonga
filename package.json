@@ -268,6 +268,7 @@
     "test:v14.5": "tsx scripts/test-v145-thai-ux-real-answer-final-review-packet.mts",
     "test:v14.5A": "tsx scripts/test-v145A-thai-ux-review-execution-plan.mts",
     "test:v14.5B": "tsx scripts/test-v145B-thai-ux-review-result-record.mts",
+    "test:v14.6": "tsx scripts/test-v146-limited-staging-pilot-readiness-closure.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",

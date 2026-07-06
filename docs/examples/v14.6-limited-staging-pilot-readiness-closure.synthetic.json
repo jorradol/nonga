@@ -1,0 +1,56 @@
+{
+  "version": "v14.6",
+  "executionType": "static/local docs/tests/fixtures readiness closure only",
+  "baselineHead": "9e035ae822079d36cd4ff0408283aab59f5140b8",
+  "sourceDispatchClosure": "docs/v14.4J-user-visible-firebase-dispatch-pass-evidence-closure.md",
+  "sourceThaiUxPacket": "docs/v14.5-thai-ux-real-answer-final-review-packet.md",
+  "sourceThaiUxPlan": "docs/v14.5A-thai-ux-review-execution-plan.md",
+  "sourceThaiUxResult": "docs/v14.5B-thai-ux-review-result-record.md",
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false,
+    "deployByAgent": false,
+    "productionByAgent": false,
+    "publicRouteActivationByAgent": false,
+    "buyerFacingPublicReleaseByAgent": false,
+    "realLeadSendByAgent": false
+  },
+  "readinessChecklist": {
+    "runtimeDispatchEvidence": "PASS",
+    "firebaseAuthDispatchPath": "PASS",
+    "geminiProviderPathProvedFromPriorOwnerRunOnly": "PASS",
+    "fallbackToLegacyFalse": "PASS",
+    "skipGeminiFalse": "PASS",
+    "guardActive": "PASS",
+    "leadPiiCueGuard": "PASS",
+    "phoneEchoGuard": "PASS",
+    "safeConfirmationWording": "PASS",
+    "thaiUxFinalReview": "PASS",
+    "eightScenarioCoverage": "PASS",
+    "noHallucinatedVehicleFactsReview": "PASS",
+    "financePriceConditionSafetyReview": "PASS",
+    "userConvenienceLowFrictionReview": "PASS",
+    "tokenSecretPiiExposureCheck": "PASS",
+    "noPublicProductionRealLeadBoundary": "PASS",
+    "noThorDealerRealImport": "PASS"
+  },
+  "remainingBoundaries": {
+    "production": "still-disallowed",
+    "publicRouteActivation": "still-disallowed",
+    "buyerFacingPublicRelease": "still-disallowed",
+    "realLeadSending": "still-disallowed",
+    "realCustomerDataPii": "still-disallowed",
+    "thorRealDataImport": "still-disallowed",
+    "dealerRealInventoryImport": "still-disallowed",
+    "v15Scope": "controlled production/public preparation only",
+    "v16Scope": "limited real dealer / real lead pilot only"
+  },
+  "closureDecision": {
+    "result": "READY FOR v15 CONTROLLED PRODUCTION/PUBLIC PREPARATION — NO PUBLIC RELEASE YET",
+    "rationale": "All prerequisite v14.4 and v14.5 closure evidence is PASS/CLOSED with checklist and boundary records complete in a no-run, no-network round."
+  },
+  "nextMilestone": "v15 controlled production/public preparation"
+}
