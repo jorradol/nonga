@@ -1,0 +1,110 @@
+{
+  "version": "v15.5",
+  "baselineHead": "967c5a63474b52283930aa0d04f7f637fb077c0d",
+  "sourceV13Closure": "docs/v13.16-owner-only-gemini-runtime-proof-closure.md",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceV150GatePacket": "docs/v15.0-controlled-production-public-preparation-gate-packet.md",
+  "sourceV150AReview": "docs/v15.0A-controlled-production-public-preparation-gate-packet-review.md",
+  "sourceV151ChecklistReview": "docs/v15.1-production-public-prep-checklist-review.md",
+  "sourceV152RiskRegister": "docs/v15.2-controlled-pre-prod-risk-register.md",
+  "sourceV153GoNoGoCriteria": "docs/v15.3-controlled-pre-prod-go-no-go-criteria.md",
+  "sourceV154OwnerDecisionPacket": "docs/v15.4-controlled-pre-prod-owner-decision-packet.md",
+  "designOnly": true,
+  "noExecution": true,
+  "noPublicRelease": true,
+  "noProductionActivation": true,
+  "noRealLead": true,
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false
+  },
+  "dryRunStatus": {
+    "v155DesignOnly": true,
+    "notExecuted": true,
+    "notOneRun": true,
+    "notDeploy": true,
+    "notPublicProductionRealLead": true
+  },
+  "futureDryRunPurpose": {
+    "futureReadinessValidationAfterOwnerApprovalOnly": true,
+    "syntheticOnlyEvidence": true,
+    "controlledPathOnly": true,
+    "noBuyerFacingPublicRelease": true
+  },
+  "futureOwnerApprovalRequirement": {
+    "freshOwnerApprovalRequiredForExecution": true,
+    "scopeMustBeDeclared": true,
+    "commandTargetMustBeDeclared": true,
+    "expectedEvidenceMustBeDeclared": true,
+    "retrySecondRunNeedsFreshOwnerApproval": true
+  },
+  "dryRunPreflightChecklistDesign": [
+    "repoStateCheck",
+    "branchHeadOriginCleanTreeCheck",
+    "testSuitePassCheck",
+    "environmentBoundaryMaskedOnlyCheck",
+    "noSecretExposureCheck",
+    "noPiiPhonePlateVinCheck",
+    "rollbackKillSwitchExpectationCheck",
+    "ownerApprovalCaptureCheck"
+  ],
+  "dryRunEvidenceDesignFields": [
+    "executionAuthorized",
+    "runCount",
+    "targetScope",
+    "routeOrCommandNameMasked",
+    "publicReleaseActivated",
+    "productionActivated",
+    "realLeadSent",
+    "providerNetworkUsed",
+    "fallbackToLegacy",
+    "skipGemini",
+    "guardStatus",
+    "tokenExposure",
+    "piiExposure",
+    "rollbackReady",
+    "finalDecision"
+  ],
+  "runtimeEvidenceGeneratedInV155": false,
+  "dryRunStopConditions": {
+    "publicProductionActivationDetected": "stop",
+    "realLeadRiskDetected": "stop",
+    "tokenSecretPiiExposureDetected": "stop",
+    "uncontrolledGeminiProviderRuntimeCallDetected": "stop",
+    "retrySecondRunRiskDetected": "stop",
+    "v16BoundaryCrossed": "stop",
+    "rollbackKillSwitchMissing": "stop"
+  },
+  "dryRunAllowedFutureDecisions": [
+    "READY FOR NEXT PREPARATION STEP — NO PUBLIC RELEASE",
+    "NEED REVIEW — DRY-RUN EVIDENCE INCOMPLETE",
+    "HOLD — BOUNDARY RISK DETECTED",
+    "HOLD — TOKEN/SECRET/PII RISK DETECTED",
+    "HOLD — PUBLIC/PRODUCTION/REAL LEAD RISK DETECTED"
+  ],
+  "rollbackKillSwitchDesign": {
+    "disablePathExpectationRequired": true,
+    "ownerOperatorResponsibilityRequired": true,
+    "evidenceCaptureRequired": true,
+    "stopConditionRequired": true,
+    "noPublicMovementWithoutRollbackExpectation": true
+  },
+  "v16Boundary": {
+    "v16NotStarted": true,
+    "notRealDealerRealLeadPilot": true,
+    "thorDealerRealImportProhibited": true,
+    "realLeadSendingProhibited": true
+  },
+  "thaiOwnerFriendlyExplanation": {
+    "whatIsV155": "v15.5 เป็นการออกแบบ dry-run packet เท่านั้น ยังไม่รันจริง",
+    "whyDryRunPacketFirst": "ต้องกำหนดขอบเขต หลักฐาน และเงื่อนไขหยุดก่อนเสมอ",
+    "whatNeedsSeparateApproval": "การ execute dry-run ในอนาคตต้องมี owner approval แยกพร้อม scope และ command ชัดเจน",
+    "whatIsStillProhibited": "ยังห้าม one-run/retry/second-run และห้าม public/production/real lead"
+  },
+  "thorDealerImportProhibited": true,
+  "reviewDecision": "READY FOR v15.6 CONTROLLED PRE-PROD DRY-RUN REVIEW — NO EXECUTION",
+  "nextOwnerAction": "Approve v15.6 controlled pre-prod dry-run review packet preparation under unchanged hard boundaries."
+}
