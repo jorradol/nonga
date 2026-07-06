@@ -1,0 +1,67 @@
+{
+  "milestone": "v19.14",
+  "executionType": "future-lock-rearm-approval-packet-only",
+  "v1913CarryForward": {
+    "v1913FinalDecision": "V19.13 LOCK RE-ARM DECISION REQUEST PACKET CLOSED — READY FOR OWNER LOCK RE-ARM DECISION ONLY / NO EXECUTION",
+    "carryForwardConfirmed": true
+  },
+  "consumedLockCarryForward": {
+    "lockFilePath": ".nonga-owner-local-one-run-v143u.lock.json",
+    "observedConsumedState": true,
+    "observedConsumedLiteral": "\"consumed\": true",
+    "holdReason": "HOLD — RETRY OR SECOND-RUN RISK DETECTED"
+  },
+  "priorApprovalDoesNotCoverLockRearm": true,
+  "futureApprovalPacketOnly": true,
+  "noExecution": true,
+  "noOneRun": true,
+  "noRetry": true,
+  "noSecondRun": true,
+  "noLockReset": true,
+  "noLockDeletion": true,
+  "noLockMutation": true,
+  "noLockRearm": true,
+  "noRuntimeProviderGeminiCall": true,
+  "noLiveEndpointCall": true,
+  "noDeploy": true,
+  "noPublic": true,
+  "noProduction": true,
+  "noRealDealerAction": true,
+  "noRealLead": true,
+  "noRealCustomerData": true,
+  "tokenSecretCredentialGuard": {
+    "enabled": true,
+    "note": "synthetic placeholders only"
+  },
+  "piiPhonePlateVinGuard": {
+    "enabled": true,
+    "note": "no pii/phone/plate/vin in packet"
+  },
+  "unsafeApprovalWordingGuard": {
+    "enabled": true,
+    "rejectedExamples": [
+      "ทำต่อได้เลย",
+      "GO",
+      "อนุมัติ",
+      "รันได้"
+    ],
+    "rule": "vague approval is rejected unless lock re-arm and one controlled owner-only one-run are explicit"
+  },
+  "safeDefaultHold": "HOLD — OWNER APPROVAL WORDING INSUFFICIENT",
+  "futureApprovalRequiredFields": {
+    "oneLockRearmOnly": true,
+    "oneControlledOwnerOnlyOneRunOnly": true,
+    "noRetry": true,
+    "noSecondRun": true,
+    "stagingOwnerOnlyBoundary": true,
+    "noPublic": true,
+    "noProduction": true,
+    "noRealDealerAction": true,
+    "noRealLead": true,
+    "noRealCustomerData": true,
+    "noTokenSecretCredentialPiiExposure": true,
+    "freshExplicitBoundaryChangingOwnerApprovalRequired": true
+  },
+  "requiredBoundaryPhrase": "ยังไม่ GO, ยังไม่ execution, ยังไม่ public, ยังไม่ production, ยังไม่ real dealer, ยังไม่ real lead และยังไม่แตะของจริง",
+  "finalDecision": "V19.14 FUTURE LOCK RE-ARM APPROVAL PACKET CLOSED — READY FOR FRESH OWNER BOUNDARY-CHANGING APPROVAL ONLY / NO LOCK MUTATION / NO EXECUTION"
+}
