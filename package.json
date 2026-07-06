@@ -333,6 +333,7 @@
     "test:v19.1": "tsx scripts/test-v191-owner-future-request-review-packet.mts",
     "test:v19.2": "tsx scripts/test-v192-future-request-prerequisite-checklist.mts",
     "test:v19.3": "tsx scripts/test-v193-owner-future-request-type-clarification-packet.mts",
+    "test:v19.4": "tsx scripts/test-v194-owner-future-path-selection-matrix.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
