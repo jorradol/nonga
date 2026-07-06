@@ -1,0 +1,149 @@
+{
+  "version": "v16.6",
+  "executionType": "pre-execution-clarification-packet only",
+  "planningOnly": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRun": true,
+  "noRetry": true,
+  "noSecondRun": true,
+  "noPublicActivation": true,
+  "noProductionActivation": true,
+  "noRealLead": true,
+  "noRealDealerAction": true,
+  "noRuntimeProviderGeminiCall": true,
+  "noLiveEndpointCall": true,
+  "noManualEndpointGuess": true,
+  "noThorImport": true,
+  "noDealerImport": true,
+  "noPII": true,
+  "noTokenSecretExposure": true,
+  "baselineConfirmed": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15": "CLOSED",
+    "v16.0": "PASSED",
+    "v16.1": "PASSED",
+    "v16.2": "PASSED",
+    "v16.3": "PASSED via v16.3A HOLD FIX",
+    "v16.4": "PASSED",
+    "v16.5": "PASSED",
+    "v16.6": "PLANNING ONLY / PRE-EXECUTION CLARIFICATION PACKET ONLY"
+  },
+  "sourceGapsFromV164V165": [
+    "cohort entry and exit template is not finalized",
+    "lead eligibility tie-break logic is not finalized",
+    "sanitized evidence minimum bundle is not finalized",
+    "rollback and kill-switch owner-operator matrix is not finalized",
+    "monitoring and evidence review ownership mapping is not finalized",
+    "operator accountability matrix is not finalized"
+  ],
+  "cohortEntryExitClarification": {
+    "entryCriteriaPlaceholder": "COHORT_ENTRY_CRITERIA_PLACEHOLDER",
+    "exitCriteriaPlaceholder": "COHORT_EXIT_CRITERIA_PLACEHOLDER",
+    "ownerSignOffPlaceholder": "OWNER_SIGN_OFF_PLACEHOLDER",
+    "allowedStatesTemplate": [
+      "ELIGIBLE",
+      "NOT_ELIGIBLE",
+      "NEEDS_OWNER_REVIEW"
+    ],
+    "noRealDealerActivationInPacket": true,
+    "noThorDealerImportInPacket": true
+  },
+  "leadEligibilityTieBreakClarification": {
+    "decisionStatesTemplate": [
+      "ELIGIBLE",
+      "NOT_ELIGIBLE",
+      "NEEDS_OWNER_REVIEW"
+    ],
+    "defaultForAmbiguousCase": "NEEDS_OWNER_REVIEW",
+    "noRealLeadCapture": true,
+    "noRealLeadQueue": true,
+    "noRealLeadRoute": true,
+    "noRealLeadSending": true,
+    "noPhonePiiHandlingInPacket": true
+  },
+  "sanitizedEvidenceMinimumBundleClarification": {
+    "versionedPacketReferenceRequired": true,
+    "exactCommandPlaceholderOnly": "EXACT_COMMAND_PLACEHOLDER_ONLY",
+    "exactTargetPlaceholderOnly": "EXACT_TARGET_PLACEHOLDER_ONLY",
+    "expectedSanitizedEvidenceFieldsPlaceholder": [
+      "EVIDENCE_FIELD_PLACEHOLDER_A",
+      "EVIDENCE_FIELD_PLACEHOLDER_B",
+      "EVIDENCE_FIELD_PLACEHOLDER_C"
+    ],
+    "passFailDecisionFormatPlaceholder": "PASS_FAIL_DECISION_FORMAT_PLACEHOLDER",
+    "noTokenSecretPii": true,
+    "noRealPhonePlateVin": true,
+    "noRealCommandEndpointUrlTarget": true
+  },
+  "rollbackKillSwitchMatrixClarification": {
+    "ownerRolePlaceholder": "OWNER_ROLE_PLACEHOLDER",
+    "operatorRolePlaceholder": "OPERATOR_ROLE_PLACEHOLDER",
+    "killSwitchOwnerPlaceholder": "KILL_SWITCH_OWNER_PLACEHOLDER",
+    "haltTriggerOwnerPlaceholder": "HALT_TRIGGER_OWNER_PLACEHOLDER",
+    "rollbackEvidenceOwnerPlaceholder": "ROLLBACK_EVIDENCE_OWNER_PLACEHOLDER",
+    "escalationContactRolePlaceholderOnly": "ESCALATION_CONTACT_ROLE_PLACEHOLDER",
+    "noContactDataPhonePiiToken": true
+  },
+  "monitoringEvidenceReviewOwnershipClarification": {
+    "evidenceReviewerRolePlaceholder": "EVIDENCE_REVIEWER_ROLE_PLACEHOLDER",
+    "boundaryVerifierRolePlaceholder": "BOUNDARY_VERIFIER_ROLE_PLACEHOLDER",
+    "holdDecisionRolePlaceholder": "HOLD_DECISION_ROLE_PLACEHOLDER",
+    "ownerReportSummarizerRolePlaceholder": "OWNER_REPORT_ROLE_PLACEHOLDER",
+    "artifactBundleSanitizedOnly": true
+  },
+  "operatorAccountabilityMatrixClarification": {
+    "executionBoundaryComplianceOwnerPlaceholder": "EXEC_BOUNDARY_COMPLIANCE_OWNER_PLACEHOLDER",
+    "evidenceCompletenessCheckerPlaceholder": "EVIDENCE_COMPLETENESS_CHECKER_PLACEHOLDER",
+    "stopConditionTriggerCheckerPlaceholder": "STOP_CONDITION_TRIGGER_CHECKER_PLACEHOLDER",
+    "ownerEscalationHandoffPlaceholder": "OWNER_ESCALATION_HANDOFF_PLACEHOLDER",
+    "templateOnlyNoOperationalActivation": true
+  },
+  "approvalSeparationClarification": {
+    "planningPacketIsNotApproval": true,
+    "approvalTemplateIsNotApproval": true,
+    "futureExecutionNeedsFreshOwnerReviewAndApproval": true,
+    "futureApprovalNeedsExactCommandTargetEvidenceButV166PlaceholderOnly": true,
+    "oneRunOnlyIfFutureApprovalExplicitlyGrants": true,
+    "noRetryNoSecondRunCarryForward": true
+  },
+  "openQuestionsStillRemaining": [
+    "future named reviewer assignment remains unresolved and placeholder-only",
+    "future evidence acceptance threshold format requires owner confirmation",
+    "future escalation turnaround expectation requires owner confirmation",
+    "future approval packet version naming convention requires owner finalization"
+  ],
+  "clarificationReadinessMatrix": {
+    "sourceGapsFromV164V165": "CLARIFIED_IN_TEMPLATE",
+    "cohortEntryExit": "CLARIFIED_IN_TEMPLATE",
+    "leadEligibilityTieBreak": "CLARIFIED_IN_TEMPLATE",
+    "sanitizedEvidenceBundle": "CLARIFIED_IN_TEMPLATE",
+    "rollbackKillSwitchMatrix": "CLARIFIED_IN_TEMPLATE",
+    "monitoringEvidenceOwnership": "CLARIFIED_IN_TEMPLATE",
+    "operatorAccountability": "CLARIFIED_IN_TEMPLATE",
+    "approvalSeparation": "CLARIFIED_IN_TEMPLATE",
+    "futureExactCommandTargetEvidencePlaceholderOnly": "CLARIFIED_IN_TEMPLATE",
+    "executionGate": "BLOCKED_FOR_EXECUTION"
+  },
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "publicProductionRealLeadBoundaryCrossed": "HOLD",
+    "thorDealerImportBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadActionAttempt": "HOLD"
+  },
+  "ownerApprovalCarryForward": {
+    "freshOwnerReviewRequired": true,
+    "freshOwnerApprovalRequired": true,
+    "planningPacketIsNotExecutionApproval": true,
+    "futureApprovalMustUseExactCommandTargetEvidencePlaceholdersInPlanning": true
+  },
+  "nextStepRecommendation": "Proceed to v16.7 future owner approval template only (planning-only / no execution).",
+  "finalDecision": "READY FOR v16.7 FUTURE OWNER APPROVAL TEMPLATE — PLANNING ONLY / NO EXECUTION"
+}
