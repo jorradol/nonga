@@ -287,6 +287,7 @@
     "test:v15.14": "tsx scripts/test-v1514-controlled-pre-execution-closure-review.mts",
     "test:v15.15": "tsx scripts/test-v1515-controlled-pre-execution-preparation-closure-packet.mts",
     "test:v15.16": "tsx scripts/test-v1516-controlled-pre-execution-preparation-closure-review.mts",
+    "test:v15.17": "tsx scripts/test-v1517-final-controlled-pre-execution-closure-decision-packet.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
