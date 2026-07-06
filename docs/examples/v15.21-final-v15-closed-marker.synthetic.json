@@ -1,0 +1,154 @@
+{
+  "version": "v15.21",
+  "scope": "final v15 closed marker",
+  "executionType": "final-v15-closed-marker only",
+  "isClosedMarkerOnly": true,
+  "isExecution": false,
+  "isDryRun": false,
+  "isOwnerApproval": false,
+  "isPublicRelease": false,
+  "isProductionActivation": false,
+  "isRealLead": false,
+  "isV16": false,
+  "baseline": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15.0": "PASSED",
+    "v15.0A": "PASSED",
+    "v15.1": "PASSED",
+    "v15.2": "PASSED",
+    "v15.3": "PASSED",
+    "v15.4": "PASSED",
+    "v15.5": "PASSED",
+    "v15.6": "PASSED",
+    "v15.7": "PASSED",
+    "v15.8": "PASSED",
+    "v15.9": "PASSED",
+    "v15.10": "PASSED",
+    "v15.11": "PASSED",
+    "v15.12": "PASSED",
+    "v15.13": "PASSED",
+    "v15.14": "PASSED",
+    "v15.15": "PASSED",
+    "v15.16": "PASSED",
+    "v15.17": "PASSED",
+    "v15.18": "PASSED",
+    "v15.19": "PASSED",
+    "v15.20": "PASSED"
+  },
+  "finalV15ClosedMarkerStatement": {
+    "isFinalV15ClosedMarkerOnly": true,
+    "closesPreparationOnlyNotRealActivation": true,
+    "isNotOwnerApprovalForExecution": true,
+    "doesNotAllowExecutionDryRunOneRun": true,
+    "doesNotOpenPublicProductionRealLead": true,
+    "doesNotStartV16": true
+  },
+  "v15AcceptedItems": [
+    "baseline continuity from v15.0 to v15.20 accepted",
+    "docs fixture validator chain continuity accepted",
+    "boundary lock continuity accepted",
+    "owner-friendly closure summary package accepted"
+  ],
+  "v15StillNotApprovedItems": [
+    "execution is not approved",
+    "dry-run or one-run is not approved",
+    "owner approval for execution is not granted",
+    "public release/public route activation is not approved",
+    "production deploy/production activation is not approved",
+    "real lead sending is not approved",
+    "v16 start and v16 real dealer/real lead action are not approved"
+  ],
+  "finalEvidenceChainMarker": [
+    "v15.0-v15.4 preparation framing and criteria",
+    "v15.5-v15.8 dry-run and approval template safeguards",
+    "v15.9-v15.12 pre-execution consolidation",
+    "v15.13-v15.16 closure progression",
+    "v15.17 final closure decision packet",
+    "v15.18 owner-facing closure review",
+    "v15.19 final closure record",
+    "v15.20 final closure acceptance check",
+    "v15.21 final v15 closed marker"
+  ],
+  "v1520AcceptanceCheckSummary": {
+    "isPassed": true,
+    "acceptanceCompletenessRecorded": true,
+    "keptBoundaryLocks": true,
+    "isPredecessorToV1521ClosedMarker": true
+  },
+  "noRealApprovalFinalMarker": {
+    "isRealOwnerApproval": false,
+    "isDeployApproval": false,
+    "authorizesExecution": false,
+    "authorizesDryRun": false,
+    "authorizesPublicProductionRealLead": false
+  },
+  "noDryRunExecutionFinalMarker": {
+    "dryRunPerformed": false,
+    "executionPerformed": false,
+    "oneRunAuthorized": false,
+    "retryOrSecondRunAuthorized": false
+  },
+  "boundaries": {
+    "noProductionDeploy": true,
+    "noProductionActivation": true,
+    "noPublicRouteActivation": true,
+    "noBuyerFacingPublicRelease": true,
+    "noRealLeadSending": true
+  },
+  "runtimeProviderGemini": {
+    "noLiveEndpointCall": true,
+    "noProviderGeminiRuntimeNetworkCall": true,
+    "noUncontrolledGeminiExecution": true,
+    "noManualEndpointGuess": true
+  },
+  "securityPrivacy": {
+    "noRealCustomerDataPii": true,
+    "noPhonePlateVin": true,
+    "noSecretTokenApiKeyExposure": true,
+    "syntheticOnlyArtifacts": true
+  },
+  "thorDealerImport": {
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true,
+    "noV16RealDealerRealLeadAction": true
+  },
+  "remainingLockedGatesAfterClosedMarker": {
+    "executionGateLocked": true,
+    "dryRunGateLocked": true,
+    "ownerApprovalForExecutionGateLocked": true,
+    "exactCommandTargetEvidenceGateLocked": true,
+    "oneRunLimitGateLocked": true,
+    "noRetryNoSecondRunGateLocked": true,
+    "publicProductionRealLeadGateLocked": true,
+    "runtimeProviderGeminiGateLocked": true,
+    "v16GateLocked": true
+  },
+  "safeTransitionNote": {
+    "doesNotStartV16": true,
+    "v16NeedsSeparateOwnerReviewApproval": true,
+    "v16NeedsNewScopeAndGates": true,
+    "noV16RealDealerRealLeadUntilSeparateScopeGatesApproval": true,
+    "futureExecutionNeedsFreshOwnerApprovalExactCommandTargetEvidenceOneRunLimit": true
+  },
+  "stopConditionCarryForward": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "publicProductionRealLeadBoundaryCrossed": "HOLD",
+    "thorDealerRealImportBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadBoundaryCrossed": "HOLD"
+  },
+  "thaiOwnerClosedSummary": {
+    "summary": "v15.21 คือ final v15 closed marker เท่านั้น และปิดเฉพาะงานเตรียม v15",
+    "approvalStatus": "ยังไม่ใช่ owner approval จริงสำหรับ execution",
+    "executionStatus": "ยังห้าม execution/dry-run/one-run",
+    "launchStatus": "ยังไม่เปิด public/production/real lead",
+    "versionStatus": "ยังไม่เริ่ม v16"
+  },
+  "nextRecommendation": "Owner acknowledgment for v15 closed marker and planning-only v16 scope prompt only (no execution)."
+}

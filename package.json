@@ -291,6 +291,7 @@
     "test:v15.18": "tsx scripts/test-v1518-owner-facing-final-v15-closure-review.mts",
     "test:v15.19": "tsx scripts/test-v1519-final-v15-closure-record.mts",
     "test:v15.20": "tsx scripts/test-v1520-final-v15-closure-acceptance-check.mts",
+    "test:v15.21": "tsx scripts/test-v1521-final-v15-closed-marker.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
