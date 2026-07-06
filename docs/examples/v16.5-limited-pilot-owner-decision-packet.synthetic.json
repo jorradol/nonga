@@ -1,0 +1,139 @@
+{
+  "version": "v16.5",
+  "executionType": "limited-pilot-owner-decision-packet only",
+  "planningOnly": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRun": true,
+  "noRetry": true,
+  "noSecondRun": true,
+  "noPublicActivation": true,
+  "noProductionActivation": true,
+  "noRealLead": true,
+  "noRealDealerAction": true,
+  "noRuntimeProviderGeminiCall": true,
+  "noLiveEndpointCall": true,
+  "noManualEndpointGuess": true,
+  "noThorImport": true,
+  "noDealerImport": true,
+  "noPII": true,
+  "noTokenSecretExposure": true,
+  "baselineConfirmed": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15": "CLOSED",
+    "v16.0": "PASSED",
+    "v16.1": "PASSED",
+    "v16.2": "PASSED",
+    "v16.3": "PASSED via v16.3A HOLD FIX",
+    "v16.4": "PASSED",
+    "v16.5": "PLANNING ONLY / OWNER DECISION PACKET ONLY"
+  },
+  "milestoneSummary": {
+    "milestone": "v16.5",
+    "phase": "pre-execution planning",
+    "status": "owner-decision-packet-only",
+    "executionGate": "BLOCKED_FOR_EXECUTION"
+  },
+  "v16ProducedSoFar": [
+    "v16.0 limited pilot planning packet",
+    "v16.1 planning review",
+    "v16.2 scope design",
+    "v16.3 scope review with hold-fix alignment",
+    "v16.4 readiness checklist"
+  ],
+  "readinessSummary": {
+    "source": "v16.4 readiness checklist",
+    "planningReviewReadyAreas": [
+      "pilotScope",
+      "userExposure",
+      "dataBoundary",
+      "ownerApproval",
+      "oneRunPolicy",
+      "publicProductionRealLeadBoundary",
+      "runtimeProviderGeminiBoundary",
+      "securityPrivacy",
+      "thorDealerImportBoundary",
+      "stopConditions"
+    ],
+    "needsClarificationBeforeExecutionRequest": [
+      "dealerCohort",
+      "leadEligibility",
+      "evidenceBoundary",
+      "rollbackKillSwitch",
+      "monitoringEvidenceReview",
+      "operatorRoleReadiness"
+    ]
+  },
+  "openGaps": [
+    "cohort entry and exit template is not finalized",
+    "ambiguous lead eligibility tie-break policy is not finalized",
+    "minimum sanitized evidence artifact list is not finalized",
+    "rollback and kill-switch owner-operator matrix format is not finalized"
+  ],
+  "requiredClarifications": [
+    "final owner approval chain and accountable sign-off roles",
+    "tie-break rule for ambiguous lead/dealer eligibility",
+    "minimum evidence acceptance criteria and reviewer ownership",
+    "stop trigger escalation sequence and response deadline"
+  ],
+  "requiredArtifactsBeforeFutureExecution": [
+    "v16.6 pre-execution clarification packet",
+    "exact command declaration template with no-manual-endpoint-guess statement",
+    "exact target declaration template",
+    "sanitized evidence checklist template",
+    "owner approval request template separated from planning packet",
+    "rollback and kill-switch matrix template"
+  ],
+  "ownerDecisionOptions": [
+    {
+      "id": "OPTION_A",
+      "title": "OPTION A — CONTINUE PLANNING TO v16.6",
+      "planningOnly": true,
+      "executionAllowed": false
+    },
+    {
+      "id": "OPTION_B",
+      "title": "OPTION B — HOLD v16 PLANNING",
+      "planningOnly": true,
+      "executionAllowed": false
+    },
+    {
+      "id": "OPTION_C",
+      "title": "OPTION C — REVISE SCOPE BEFORE CONTINUING",
+      "planningOnly": true,
+      "executionAllowed": false
+    },
+    {
+      "id": "OPTION_D",
+      "title": "OPTION D — PREPARE FUTURE OWNER APPROVAL TEMPLATE ONLY",
+      "planningOnly": true,
+      "executionAllowed": false
+    }
+  ],
+  "recommendedOwnerDecision": {
+    "optionId": "OPTION_A",
+    "label": "OPTION A — CONTINUE PLANNING TO v16.6",
+    "reason": "advance to pre-execution clarification packet only, while maintaining full no-execution boundary"
+  },
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "publicProductionRealLeadBoundaryCrossed": "HOLD",
+    "thorDealerImportBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadActionAttempt": "HOLD"
+  },
+  "ownerApprovalCarryForward": {
+    "freshOwnerReviewRequired": true,
+    "freshOwnerApprovalRequired": true,
+    "planningPacketIsNotExecutionApproval": true,
+    "futureApprovalMustReferenceExactCommandTargetEvidence": true
+  },
+  "nextStepRecommendation": "Proceed to v16.6 pre-execution clarification packet only (planning-only / no execution).",
+  "finalDecision": "READY FOR v16.6 PRE-EXECUTION CLARIFICATION PACKET — PLANNING ONLY / NO EXECUTION"
+}
