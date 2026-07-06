@@ -1,0 +1,140 @@
+{
+  "version": "v16.7",
+  "executionType": "future-owner-approval-template only",
+  "v167aStatus": "HOLD FIX / PLANNING ONLY / NO EXECUTION",
+  "planningOnly": true,
+  "approvalTemplateOnly": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRun": true,
+  "noRetry": true,
+  "noSecondRun": true,
+  "noPublicActivation": true,
+  "noProductionActivation": true,
+  "noRealLead": true,
+  "noRealDealerAction": true,
+  "noRuntimeProviderGeminiCall": true,
+  "noLiveEndpointCall": true,
+  "noManualEndpointGuess": true,
+  "noThorImport": true,
+  "noDealerImport": true,
+  "noPII": true,
+  "noTokenSecretExposure": true,
+  "baselineConfirmed": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15": "CLOSED",
+    "v16.0": "PASSED",
+    "v16.1": "PASSED",
+    "v16.2": "PASSED",
+    "v16.3": "PASSED via v16.3A HOLD FIX",
+    "v16.4": "PASSED",
+    "v16.5": "PASSED",
+    "v16.6": "PASSED",
+    "v16.7": "PLANNING ONLY / FUTURE OWNER APPROVAL TEMPLATE ONLY"
+  },
+  "templateScope": {
+    "purpose": "future owner approval request form structure only",
+    "containsExecutableContent": false,
+    "placeholderOnly": true
+  },
+  "whatThisTemplateDoesNotApprove": [
+    "no execution",
+    "no dry-run",
+    "no one-run",
+    "no automatic retry",
+    "no second run",
+    "no deploy",
+    "no production activation",
+    "no public route activation",
+    "no buyer-facing public release",
+    "no real lead sending",
+    "no real dealer action",
+    "no Thor real data import",
+    "no dealer real inventory import",
+    "no live endpoint call",
+    "no provider/Gemini/runtime network call",
+    "no manual endpoint guess"
+  ],
+  "approvalSeparationStatement": {
+    "planningPacketIsNotApproval": true,
+    "approvalTemplateIsNotApproval": true,
+    "futureExecutionNeedsFreshOwnerReview": true,
+    "futureExecutionNeedsFreshOwnerApproval": true,
+    "exactPhrases": [
+      "This template is not an approval.",
+      "This template cannot be used as a real approval in v16.7.",
+      "Any future execution requires a separate fresh owner review and separate fresh owner approval.",
+      "The placeholder-only template is non-executable and non-authorizing."
+    ]
+  },
+  "requiredOwnerApprovalFields": [
+    "FRESH_OWNER_REVIEW_REQUIRED",
+    "FRESH_OWNER_APPROVAL_REQUIRED",
+    "EXACT_ACTION_TYPE_REQUIRED",
+    "EXACT_COMMAND_REQUIRED",
+    "EXACT_TARGET_REQUIRED",
+    "EXACT_EXPECTED_EVIDENCE_REQUIRED",
+    "VERSIONED_PACKET_REFERENCE_REQUIRED",
+    "ONE_RUN_ONLY_REQUIRED",
+    "NO_AUTOMATIC_RETRY_REQUIRED",
+    "NO_SECOND_RUN_REQUIRED",
+    "ROLLBACK_KILL_SWITCH_CONFIRMATION_REQUIRED",
+    "STOP_CONDITIONS_REQUIRED",
+    "SANITIZED_EVIDENCE_EXPECTATION_REQUIRED",
+    "BOUNDARY_CONFIRMATION_REQUIRED"
+  ],
+  "requiredPlaceholderFields": {
+    "exactActionType": "EXACT_ACTION_TYPE_PLACEHOLDER_ONLY",
+    "exactCommand": "EXACT_COMMAND_PLACEHOLDER_ONLY",
+    "exactTarget": "EXACT_TARGET_PLACEHOLDER_ONLY",
+    "exactEvidence": "EXACT_EVIDENCE_PLACEHOLDER_ONLY",
+    "versionedPacketReference": "VERSIONED_PACKET_REFERENCE_PLACEHOLDER_ONLY",
+    "ownerFinalDecision": "OWNER_FINAL_DECISION_PLACEHOLDER_ONLY"
+  },
+  "invalidApprovalExamples": [
+    "invalid examples are non-authorizing and must not be interpreted as real approval",
+    "approval without exact command placeholder",
+    "approval without exact target placeholder",
+    "approval without exact evidence placeholder",
+    "approval missing one-run confirmation",
+    "approval text that allows retry",
+    "approval text that allows second run",
+    "approval text that broadly allows public/prod/real lead",
+    "approval text containing token/secret/PII-like data",
+    "ambiguous phrases: ทำได้เลย, ลองรันดู, ยิง endpoint ดู"
+  ],
+  "validPlaceholderOnlyTemplate": {
+    "declaration": "THIS_IS_PLACEHOLDER_ONLY_NOT_REAL_APPROVAL",
+    "mustBeReviewedAgainBeforeUse": true,
+    "cannotBeExecutedInV167": true,
+    "requiredFields": [
+      "EXACT_ACTION_TYPE_PLACEHOLDER_ONLY",
+      "EXACT_COMMAND_PLACEHOLDER_ONLY",
+      "EXACT_TARGET_PLACEHOLDER_ONLY",
+      "EXACT_EVIDENCE_PLACEHOLDER_ONLY",
+      "VERSIONED_PACKET_REFERENCE_PLACEHOLDER_ONLY",
+      "OWNER_FINAL_DECISION_PLACEHOLDER_ONLY"
+    ]
+  },
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "testFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "runtimeProviderGeminiBoundaryCrossed": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "publicProductionRealLeadBoundaryCrossed": "HOLD",
+    "thorDealerImportBoundaryCrossed": "HOLD",
+    "v16RealDealerRealLeadActionAttempt": "HOLD"
+  },
+  "ownerApprovalCarryForward": {
+    "freshOwnerReviewRequired": true,
+    "freshOwnerApprovalRequired": true,
+    "futureApprovalMustContainExactFields": true,
+    "v167TemplateIsNotLiveApproval": true
+  },
+  "nextStepRecommendation": "Proceed to v16.8 pre-go boundary review only (planning-only / no execution).",
+  "finalDecision": "READY FOR v16.8 PRE-GO BOUNDARY REVIEW — PLANNING ONLY / NO EXECUTION"
+}
