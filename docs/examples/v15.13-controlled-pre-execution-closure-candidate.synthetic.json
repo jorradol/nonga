@@ -1,0 +1,103 @@
+{
+  "version": "v15.13",
+  "scope": "controlled pre-execution closure candidate",
+  "executionType": "static/local docs/tests/fixtures pre-execution-closure-candidate only",
+  "isExecution": false,
+  "isDryRun": false,
+  "isOwnerApproval": false,
+  "isPublicRelease": false,
+  "isProductionActivation": false,
+  "isRealLead": false,
+  "isV16": false,
+  "baseline": {
+    "v13": "CLOSED",
+    "v14": "CLOSED",
+    "v15.0": "PASSED",
+    "v15.0A": "PASSED",
+    "v15.1": "PASSED",
+    "v15.2": "PASSED",
+    "v15.3": "PASSED",
+    "v15.4": "PASSED",
+    "v15.5": "PASSED",
+    "v15.6": "PASSED",
+    "v15.7": "PASSED",
+    "v15.8": "PASSED",
+    "v15.9": "PASSED",
+    "v15.10": "PASSED",
+    "v15.11": "PASSED",
+    "v15.12": "PASSED"
+  },
+  "readinessChain": {
+    "v150ToV1512PreparationChainComplete": true,
+    "futureExecutionNeedsFreshOwnerApproval": true,
+    "exactCommandTargetEvidenceRequired": true,
+    "oneRunRetrySecondRunLockedWithoutFreshApproval": true
+  },
+  "approvalSafetyChain": {
+    "v157TemplateSafety": true,
+    "v158TemplateReviewSafety": true,
+    "v1511RequestDraftPlaceholderSafety": true,
+    "v1512RequestReviewNoRealApproval": true,
+    "noRealApprovalGrantedInV1513": true
+  },
+  "boundaries": {
+    "noPublicRouteActivation": true,
+    "noProductionDeploy": true,
+    "noProductionActivation": true,
+    "noBuyerFacingPublicRelease": true,
+    "noRealLeadSending": true,
+    "noThorRealDataImport": true,
+    "noDealerRealInventoryImport": true,
+    "noV16RealDealerRealLeadAction": true
+  },
+  "runtimeProviderGemini": {
+    "noLiveEndpointCall": true,
+    "noProviderGeminiRuntimeNetworkCall": true,
+    "noUncontrolledGeminiExecution": true,
+    "futureRuntimeProviderNeedsSeparateOwnerApproval": true
+  },
+  "securityPrivacy": {
+    "noRealCustomerDataPii": true,
+    "noPhonePlateVin": true,
+    "noSecretTokenApiKeyExposure": true,
+    "syntheticOnlyArtifacts": true,
+    "maskedOnlyExpectation": true,
+    "sensitivePatternChecksExpected": true
+  },
+  "rollbackKillSwitch": {
+    "futureExecutionNeedsRollbackDisablePath": true,
+    "ownerOperatorResponsibilityExplicit": true,
+    "evidenceCaptureExplicit": true,
+    "holdIfRollbackKillSwitchMissing": true
+  },
+  "stopConditions": {
+    "repoStateMismatch": "HOLD",
+    "validationFailure": "HOLD",
+    "docFixtureTestMismatch": "HOLD",
+    "tokenSecretApiKeyExposure": "HOLD",
+    "realPiiPhonePlateVinExposure": "HOLD",
+    "liveEndpointProviderGeminiRuntimeCall": "HOLD",
+    "uncontrolledGeminiExecution": "HOLD",
+    "oneRunRetrySecondRunWithoutFreshOwnerApproval": "HOLD",
+    "productionPublicActivation": "HOLD",
+    "buyerFacingPublicRelease": "HOLD",
+    "realLeadSending": "HOLD",
+    "thorDealerRealImport": "HOLD",
+    "v16RealDealerRealLeadAction": "HOLD",
+    "rollbackKillSwitchMissing": "HOLD",
+    "commandTargetAmbiguity": "HOLD"
+  },
+  "decisionMapping": {
+    "GO": "next preparation review step only",
+    "NEED_REVIEW": "closure candidate incomplete with boundary intact",
+    "HOLD": "risk in repo test security privacy runtime public production real lead v16"
+  },
+  "thaiOwnerSummary": {
+    "whatIsV1513": "v15.13 คือ closure candidate ก่อนปิดชุดเตรียม pre-execution",
+    "notRealApprovalOrExecution": "ยังไม่ใช่ owner approval จริงและยังไม่ใช่การรันจริง",
+    "futureExecutionNeedsFreshOwnerApproval": "อนาคตต้องมี fresh owner approval แยกพร้อม exact command target evidence",
+    "whyNoPublicProductionRealLeadNow": "ยังไม่เปิดจริงทันทีเพื่อคงประตูความปลอดภัย",
+    "v16NotStarted": "v16 ยังไม่เริ่ม"
+  },
+  "nextRecommendation": "READY FOR v15.14 CONTROLLED PRE-EXECUTION CLOSURE REVIEW — NO EXECUTION"
+}

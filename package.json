@@ -283,6 +283,7 @@
     "test:v15.10": "tsx scripts/test-v1510-controlled-pre-execution-packet-review.mts",
     "test:v15.11": "tsx scripts/test-v1511-controlled-owner-approval-request-draft.mts",
     "test:v15.12": "tsx scripts/test-v1512-controlled-owner-approval-request-review.mts",
+    "test:v15.13": "tsx scripts/test-v1513-controlled-pre-execution-closure-candidate.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
