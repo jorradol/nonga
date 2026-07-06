@@ -1,0 +1,147 @@
+{
+  "version": "v15.0",
+  "baselineHead": "7c02bd22d058ba590725e2756e10689478c93b29",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceDispatchClosure": "docs/v14.4J-user-visible-firebase-dispatch-pass-evidence-closure.md",
+  "sourceThaiUxResult": "docs/v14.5B-thai-ux-review-result-record.md",
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false,
+    "deployByAgent": false,
+    "productionDeployByAgent": false,
+    "productionActivationByAgent": false,
+    "publicRouteActivationByAgent": false,
+    "buyerFacingPublicReleaseByAgent": false,
+    "realLeadSendByAgent": false,
+    "realCustomerDataPiiByAgent": false,
+    "thorRealDataImportByAgent": false,
+    "dealerRealInventoryImportByAgent": false
+  },
+  "v15GateChecklist": {
+    "v14ClosureEvidenceConfirmed": "PASS",
+    "stagingReadinessClosureConfirmed": "PASS",
+    "productionPublicBoundaryDocumented": "PASS",
+    "publicRouteActivationRemainsBlocked": "PASS",
+    "buyerFacingPublicReleaseRemainsBlocked": "PASS",
+    "realLeadSendingRemainsBlocked": "PASS",
+    "realPiiCustomerDataRemainsBlocked": "PASS",
+    "phonePlateVinHandlingRemainsBlockedForPublicArtifacts": "PASS",
+    "secretTokenExposurePreventionConfirmed": "PASS",
+    "ownerAuthorizationModelDocumented": "PASS",
+    "oneRunApprovalModelDocumented": "PASS",
+    "noRetryNoSecondRunRuleDocumented": "PASS",
+    "rollbackKillSwitchExpectationDocumented": "PASS",
+    "auditLogEvidenceCaptureExpectationDocumented": "PASS",
+    "thaiUxAndGuardrailBaselineDocumented": "PASS",
+    "firebaseAuthUserVisibleGateBaselineDocumented": "PASS",
+    "geminiProviderRuntimeBaselineDocumentedFromPriorEvidenceOnly": "PASS",
+    "v16BoundaryDocumentedSeparately": "PASS"
+  },
+  "boundaryMatrix": [
+    {
+      "capability": "staging controlled review",
+      "currentAllowedInV150": "yes-docs-tests-fixtures-only",
+      "stillProhibitedInV150": "runtime-dispatch-actions",
+      "requiresFutureOwnerApproval": "scope-expansion-beyond-static-packet",
+      "reservedForV16": "no"
+    },
+    {
+      "capability": "production deploy",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-go-no-go-with-rollback-proof",
+      "reservedForV16": "no"
+    },
+    {
+      "capability": "public route activation",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-with-kill-switch-readiness",
+      "reservedForV16": "no"
+    },
+    {
+      "capability": "buyer-facing AI release",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-after-boundary-review",
+      "reservedForV16": "no"
+    },
+    {
+      "capability": "real lead sending",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-with-lead-safety-sign-off",
+      "reservedForV16": "yes"
+    },
+    {
+      "capability": "real customer data / PII",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-with-data-protection-sign-off",
+      "reservedForV16": "yes"
+    },
+    {
+      "capability": "Thor real data import",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-with-ingestion-guardrails",
+      "reservedForV16": "yes"
+    },
+    {
+      "capability": "dealer real inventory import",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-with-import-controls",
+      "reservedForV16": "yes"
+    },
+    {
+      "capability": "Gemini runtime execution",
+      "currentAllowedInV150": "no",
+      "stillProhibitedInV150": "blocked-in-v150-packet",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-for-controlled-future-stage",
+      "reservedForV16": "yes"
+    },
+    {
+      "capability": "Firebase auth / allowlist",
+      "currentAllowedInV150": "baseline-documentation-only-from-prior-evidence",
+      "stillProhibitedInV150": "new-live-auth-flow-execution",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-for-live-changes",
+      "reservedForV16": "no"
+    },
+    {
+      "capability": "token/secret handling",
+      "currentAllowedInV150": "synthetic-sanitized-documentation-only",
+      "stillProhibitedInV150": "token-secret-value-handling-in-artifacts",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-for-runtime-secret-operations",
+      "reservedForV16": "no"
+    },
+    {
+      "capability": "rollback / disable path",
+      "currentAllowedInV150": "expectation-documentation-only",
+      "stillProhibitedInV150": "live-rollback-drill-run",
+      "requiresFutureOwnerApproval": "explicit-owner-approval-before-live-activation-path",
+      "reservedForV16": "no"
+    }
+  ],
+  "ownerApprovalRequirements": {
+    "authorityModel": "owner-only-for-scope-expansion",
+    "requiredSignals": [
+      "explicit-scope-definition",
+      "boundary-acceptance",
+      "rollback-kill-switch-readiness",
+      "sanitized-evidence-completeness"
+    ],
+    "executionRule": "no-run-in-v150-packet"
+  },
+  "rollbackKillSwitchExpectations": {
+    "disablePathMustExistBeforeFutureActivation": true,
+    "publicRouteImmediateDisableExpectation": true,
+    "buyerSurfaceImmediateDisableExpectation": true,
+    "ownerOperatorAssignmentRequired": true,
+    "evidenceCaptureRequired": true
+  },
+  "nextMilestoneCandidate": "v15.0A GATE PACKET REVIEW — NO ONE-RUN"
+}
