@@ -1,0 +1,152 @@
+{
+  "version": "v15.11",
+  "baselineHead": "6c8e3137ee6023760c3db3fee6a49b74e12a90d4",
+  "sourceV13Proof": "docs/v13.16-owner-only-gemini-runtime-proof-closure.md",
+  "sourceV14Closure": "docs/v14.6-limited-staging-pilot-readiness-closure.md",
+  "sourceV150GatePacket": "docs/v15.0-controlled-production-public-preparation-gate-packet.md",
+  "sourceV150AReview": "docs/v15.0A-controlled-production-public-preparation-gate-packet-review.md",
+  "sourceV151ChecklistReview": "docs/v15.1-production-public-prep-checklist-review.md",
+  "sourceV152RiskRegister": "docs/v15.2-controlled-pre-prod-risk-register.md",
+  "sourceV153GoNoGoCriteria": "docs/v15.3-controlled-pre-prod-go-no-go-criteria.md",
+  "sourceV154OwnerDecisionPacket": "docs/v15.4-controlled-pre-prod-owner-decision-packet.md",
+  "sourceV155DryRunDesign": "docs/v15.5-controlled-pre-prod-dry-run-packet-design.md",
+  "sourceV156DryRunReview": "docs/v15.6-controlled-pre-prod-dry-run-packet-review.md",
+  "sourceV157OwnerApprovalTemplate": "docs/v15.7-controlled-pre-prod-owner-approval-template.md",
+  "sourceV158ApprovalTemplateReview": "docs/v15.8-controlled-pre-prod-approval-template-review.md",
+  "sourceV159FinalPreExecutionPacket": "docs/v15.9-controlled-pre-prod-final-pre-execution-packet.md",
+  "sourceV1510PreExecutionPacketReview": "docs/v15.10-controlled-pre-execution-packet-review.md",
+  "draftOnly": true,
+  "noExecution": true,
+  "noDryRun": true,
+  "noOneRunApproval": true,
+  "noDeployApproval": true,
+  "noPublicProductionRealLeadApproval": true,
+  "v16NotStarted": true,
+  "noRunControls": {
+    "oneRunByAgent": false,
+    "retryByAgent": false,
+    "secondRunByAgent": false,
+    "liveEndpointCallByAgent": false,
+    "providerGeminiRuntimeNetworkCallByAgent": false
+  },
+  "draftPurpose": {
+    "prepareFutureOwnerApprovalRequestWordingOnly": true,
+    "showScopeCommandTargetEvidenceBoundaryRollbackBeforeFutureRealApproval": true,
+    "notRunCommand": true,
+    "notRealAuthorizationPhrase": true,
+    "notDeployPublicRealLeadApproval": true
+  },
+  "requiredRequestFields": [
+    "request_id",
+    "requested_action_type",
+    "requested_scope",
+    "exact_command_or_action_placeholder",
+    "exact_target_placeholder",
+    "expected_run_count",
+    "one_run_only",
+    "retry_allowed",
+    "second_run_allowed",
+    "expected_evidence",
+    "boundary_assertions",
+    "rollback_plan",
+    "stop_conditions",
+    "token_secret_pii_handling",
+    "owner_explicit_approval_phrase_placeholder",
+    "approval_not_granted_statement",
+    "final_allowed_decision"
+  ],
+  "safeRequestedActionTypes": [
+    "REQUEST_CONTROLLED_DRY_RUN_ONLY",
+    "REQUEST_CONTROLLED_PREFLIGHT_ONLY",
+    "REQUEST_CONTROLLED_EVIDENCE_CAPTURE_ONLY",
+    "REQUEST_CONTROLLED_ROLLBACK_REVIEW_ONLY"
+  ],
+  "approvalPhrasePlaceholderSafety": {
+    "placeholderOnly": true,
+    "finalExecutionAuthorizeExampleOnly": true,
+    "ownerApprovalNotGrantedInV1511": true,
+    "futureApprovalAfterOwnerReviewOnly": true,
+    "repoTextNotRealApproval": true
+  },
+  "oneRunRetrySecondRunModel": {
+    "defaultExpectedRunCount": 1,
+    "oneRunOnly": true,
+    "retryAllowed": false,
+    "secondRunAllowed": false,
+    "retrySecondRunNeedsFreshOwnerApproval": true,
+    "automaticRetryProhibited": true
+  },
+  "commandTargetClarity": {
+    "manualEndpointGuessProhibited": true,
+    "exactCommandActionRequiredBeforeFutureRealApproval": true,
+    "exactTargetScopeRequiredBeforeFutureRealApproval": true,
+    "expectedEvidenceRequiredBeforeFutureRealApproval": true,
+    "holdIfCommandTargetEvidenceAmbiguous": true
+  },
+  "boundaryAssertions": {
+    "noPublicRelease": true,
+    "noProductionActivation": true,
+    "noProductionDeploy": true,
+    "noPublicRouteActivation": true,
+    "noBuyerFacingPublicRelease": true,
+    "noRealLead": true,
+    "noRealPiiCustomerData": true,
+    "noPhonePlateVin": true,
+    "noTokenSecretApiKeyExposure": true,
+    "noUncontrolledGeminiProviderRuntimeCall": true,
+    "noThorDealerRealImport": true,
+    "noV16RealAction": true
+  },
+  "evidenceRequirementDraftFields": [
+    "executionAuthorized",
+    "requestId",
+    "approvalId",
+    "runCount",
+    "commandOrAction",
+    "targetScope",
+    "providerNetworkUsed",
+    "runtimeCallUsed",
+    "publicReleaseActivated",
+    "productionActivated",
+    "realLeadSent",
+    "tokenExposure",
+    "piiExposure",
+    "rollbackReady",
+    "finalDecision"
+  ],
+  "runtimeEvidenceGeneratedInV1511": false,
+  "rollbackKillSwitch": {
+    "rollbackDisablePathRequiredBeforeFutureRealApproval": true,
+    "ownerOperatorResponsibilityExplicit": true,
+    "evidenceCaptureExplicit": true,
+    "holdIfRollbackKillSwitchMissing": true
+  },
+  "stopConditions": {
+    "commandTargetAmbiguity": "HOLD",
+    "missingOwnerApproval": "HOLD",
+    "oneRunRetrySecondRunBoundaryCrossed": "HOLD",
+    "tokenSecretPiiRisk": "HOLD",
+    "publicProductionActivationRisk": "HOLD",
+    "realLeadRisk": "HOLD",
+    "uncontrolledRuntimeProviderGeminiRisk": "HOLD",
+    "thorDealerImportRisk": "HOLD",
+    "v16BoundaryCrossed": "HOLD",
+    "rollbackKillSwitchMissing": "HOLD"
+  },
+  "safeNextStepOptions": [
+    "OPTION A — Review approval request draft only",
+    "OPTION B — Revise approval request draft only",
+    "OPTION C — Prepare approval request review packet only",
+    "OPTION D — Hold before any execution"
+  ],
+  "thaiOwnerFriendlyExplanation": {
+    "whatIsV1511": "v15.11 คือร่างคำขออนุมัติ ยังไม่ใช่คำอนุมัติจริง",
+    "whyDraftFirst": "ต้องร่างให้ครบก่อนเพื่อลดความเสี่ยงการอนุมัติผิดขอบเขต",
+    "whatOwnerMustReviewForFutureApproval": "owner ต้องดู scope command target evidence boundary rollback ให้ครบ",
+    "whyNoPublicProductionRealLeadNow": "ยังไม่เปิด public production real lead เพราะยังอยู่ขั้นเตรียม",
+    "v16NotStarted": "v16 ยังไม่เริ่ม"
+  },
+  "thorDealerImportProhibited": true,
+  "reviewDecision": "READY FOR v15.12 CONTROLLED OWNER APPROVAL REQUEST REVIEW — NO EXECUTION",
+  "nextOwnerAction": "Approve v15.12 controlled owner approval request review preparation under unchanged hard boundaries."
+}
