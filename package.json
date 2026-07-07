@@ -349,6 +349,7 @@
     "test:v19.17": "tsx scripts/test-v1917-owner-approval-intake-execution-readiness-hold.mts",
     "test:v19.18": "tsx scripts/test-v1918-fresh-owner-boundary-changing-approval-step1-record.mts",
     "test:v19.19": "tsx scripts/test-v1919-step1-execution-request-single-run-gate-packet.mts",
+    "test:v19.20": "tsx scripts/test-v1920-step1-controlled-owner-only-staging-one-run-execution-record.mts",
     "owner-local-one-run:v14.3U": "tsx scripts/owner-local-one-run-gate-v143u.mts",
     "owner-local-one-run:v14.3AC:user-visible": "tsx scripts/owner-local-user-visible-one-run-gate-v143ac.mts",
     "check:admin-token-session-env": "npm exec tsx scripts/check-admin-token-session-env.mts",
