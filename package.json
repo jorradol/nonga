@@ -383,6 +383,7 @@
     "test:v20.4A": "node scripts/validate-v20.4A-limited-private-tester-browser-check.mjs",
     "test:v20.4B": "node scripts/validate-v20.4B-limited-private-tester-result-record.mjs",
     "test:v20.5": "node scripts/validate-v20.5-limited-private-pilot-review-step2-completion-criteria.mjs",
+    "test:v20.6": "node scripts/validate-v20.6-owner-decision-packet-step2-path.mjs",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
