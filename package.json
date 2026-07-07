@@ -387,6 +387,7 @@
     "test:v20.7": "node scripts/validate-v20.7-step2-closure-readiness-packet.mjs",
     "test:v20.8": "node scripts/validate-v20.8-step2-closure-record.mjs",
     "test:v22.0": "node scripts/validate-v22.0-step3-real-dealer-dry-run-readiness-planning.mjs",
+    "test:v22.1": "node scripts/validate-v22.1-step3-real-dealer-dry-run-prep-packet.mjs",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
