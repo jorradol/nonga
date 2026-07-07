@@ -1,0 +1,18 @@
+{
+  "dealer_code": "THOR_MOCK",
+  "car_id": "CAR_MOCK_1001",
+  "make": "Toyota",
+  "model": "Corolla Altis",
+  "year": 2020,
+  "trim": "GR Sport",
+  "body_type": "Sedan",
+  "transmission": "AT",
+  "fuel_type": "Gasoline",
+  "mileage_range": "70,000-90,000 km",
+  "sanitized_price": "5xx,xxx THB",
+  "location_area": "Bangna Area",
+  "public_description": "ตัวอย่างข้อมูลประกาศรถแบบ mock สำหรับตรวจโครงสร้างเท่านั้น",
+  "image_placeholder_url": "https://mock.local/images/thor-mock-1001.jpg",
+  "availability_status": "available_mock",
+  "safety_notes": "mock template only, no real dealer/customer data"
+}
