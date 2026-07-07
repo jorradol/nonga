@@ -1,0 +1,91 @@
+{
+  "version": "v22.12",
+  "label": "v22.12 existing inventory web intake flow confirmation thor auto",
+  "execution_type": "CONTROLLED EXISTING INVENTORY WEB INTAKE FLOW CONFIRMATION + STATIC LOCAL DOCS/TESTS/FIXTURES + MINIMAL SAFE PATCH IF REQUIRED / USE EXISTING NONG A IMPORT FLOW IF PRESENT / OWNER-BROWSER LOGIN ONLY / STAGING MARKET ONLY / NO PUBLIC / NO PRODUCTION / NO REAL LEAD / NO DEALER-FACING SEND",
+  "baseline_v2211_confirmed": true,
+  "baseline_v2211_blocker": "NEED OWNER DATA",
+  "owner_clarification_existing_import_flow_expected": true,
+  "not_duplicate_import_system_creation": true,
+  "confirmation_scope_existing_nonga_inventory_web_intake_flow": true,
+  "owner_browser_login_session_intended_path": true,
+  "no_owner_token_header_cookie_secret_env_sharing": true,
+  "staging_market_only": true,
+  "no_public": true,
+  "no_production": true,
+  "no_real_lead": true,
+  "no_real_customer_data": true,
+  "no_dealer_facing_send": true,
+  "no_pii_phone_plate_vin_private_data": true,
+  "no_step4_movement": true,
+  "existing_flow_found": true,
+  "existing_flow_discovery": {
+    "route_or_page_paths": [
+      "src/App.tsx -> inventory-import route",
+      "src/components/dealer-portal/DealerPortalView.tsx -> import tab"
+    ],
+    "components_or_files": [
+      "src/components/admin/inventory-import/InventoryImportView.tsx",
+      "src/components/admin/inventory-import/DealerImportHelpSection.tsx"
+    ],
+    "api_or_backend_paths": [
+      "src/server/dealerPortalRoutes.ts -> /api/dealer/import/commit",
+      "src/server/dealerPortalRoutes.ts -> /api/dealer/paste-import/*",
+      "server.ts -> /api/admin/inventory-import/commit",
+      "src/server/inventoryImportCommit.ts -> processSmartInventoryImport"
+    ],
+    "auth_role_gates": [
+      "src/components/auth/RouteGuard.tsx -> RequireAdmin/RequireDealer",
+      "src/server/apiAuth.ts -> dealerApiAuth/adminApiAuth",
+      "src/server/dealerAccess.ts -> dealer scope enforcement"
+    ],
+    "staging_only_guard_found": "partial",
+    "inventory_target_source_found": "src/server/repositories/inventoryRepository.ts",
+    "thor_auto_assignment_path_found": true,
+    "import_creates_lead_action": false,
+    "import_sends_dealer_facing_notification": false,
+    "forbidden_fields_rejected_or_hidden": "partial",
+    "owner_browser_login_without_pasting_token": true
+  },
+  "role_permission_status": {
+    "owner_role_access": "requires dealer/admin scoped account",
+    "dealer_role_access": true,
+    "admin_role_access": true,
+    "thor_auto_group_assignment_path": true,
+    "accidental_public_or_production_publish_risk": "needs_guard_patch",
+    "accidental_real_lead_risk": "needs_guard_patch",
+    "owner_requires_token_header_cookie_secret_env": false,
+    "owner_browser_login_session_sufficient": true
+  },
+  "staging_market_guard_status": {
+    "target_staging_market_only": "partial",
+    "no_production_target": "partial",
+    "no_public_launch_target": "partial",
+    "no_public_signup_activation": true,
+    "no_live_lead_routing": true,
+    "no_real_customer_data": "partial",
+    "no_dealer_facing_notification_send": true,
+    "no_step4_movement": true
+  },
+  "forbidden_field_guard_status": {
+    "allowed_public_sale_safe_fields_documented": true,
+    "forbidden_fields_documented": true,
+    "existing_flow_guard_gaps_found": true,
+    "guard_gap_examples": [
+      "src/server/inventoryImportCommit.ts includes vin/licensePlate extraction paths",
+      "src/server/inventoryImportCommit.ts maps ownerPhone into records"
+    ]
+  },
+  "duplicate_import_system_created": false,
+  "minimal_patch_performed": false,
+  "minimal_patch_summary": "none in v22.12; existing flow confirmed and guard gap documented for next implementation round",
+  "step_1_status": "completed",
+  "step_2_status": "completed",
+  "step_3_status": "existing_inventory_web_intake_flow_confirmation",
+  "step_3_execution_started": false,
+  "step_3_completed": false,
+  "step_4_status": "not_started",
+  "step_5_status": "not_started",
+  "future_v2213_approval_phrase_documented_only": true,
+  "future_v2213_approval_phrase": "FINAL AUTHORIZE v22.13 CONTROLLED THOR AUTO EXISTING WEB INTAKE OWNER RUN / OWNER-BROWSER LOGIN ONLY / PUBLIC-SALE-SAFE REAL CAR DATA ONLY / STAGING MARKET ONLY / NO PUBLIC / NO PRODUCTION / NO REAL LEAD / NO REAL CUSTOMER DATA / NO PII PHONE PLATE VIN / NO TOKEN HEADER COOKIE SECRET SHARING / NO DEALER-FACING SEND / NO RETRY / NO SECOND-RUN / DO NOT MOVE TO STEP 4",
+  "final_recommendation": "NEED IMPLEMENTATION"
+}
