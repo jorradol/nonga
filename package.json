@@ -378,6 +378,7 @@
     "test:v20.1A": "tsx scripts/test-v201A-step2-auth-context-owner-browser-pivot-packet.mts",
     "test:v20.2A": "node scripts/validate-v20.2A-owner-assisted-browser-staging-check.mjs",
     "test:v20.2B": "node scripts/validate-v20.2B-owner-assisted-browser-result-record.mjs",
+    "test:v20.3": "node scripts/validate-v20.3-limited-private-pilot-stabilization-readiness.mjs",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
