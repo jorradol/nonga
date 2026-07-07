@@ -9,7 +9,7 @@ $legacyBridgeApprovalText = "FINAL EXECUTION AUTHORIZE v14.3U OWNER-LOCAL SAME-C
 
 function Write-HoldAndExit {
   param([string]$Reason)
-  Write-Output "HOLD — $Reason"
+  Write-Output "HOLD - $Reason"
   exit 1
 }
 
@@ -18,11 +18,13 @@ function Read-ApprovalText {
   if (-not (Test-Path -LiteralPath $PathValue)) {
     Write-HoldAndExit "approval file not found"
   }
+
   return (Get-Content -LiteralPath $PathValue -Raw).Replace("`r`n", "`n").Trim()
 }
 
 function Convert-SecureToPlainText {
-  param([securestring]$SecureValue)
+  param([SecureString]$SecureValue)
+
   $ptr = [System.IntPtr]::Zero
   try {
     $ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureValue)
@@ -37,6 +39,7 @@ function Convert-SecureToPlainText {
 
 function Assert-CheckerOutput {
   param([string]$OutputText)
+
   $required = @(
     "NONGA_ADMIN_API_TOKEN: present",
     "length: nonzero",
@@ -48,6 +51,7 @@ function Assert-CheckerOutput {
     "starts with Bearer prefix: no",
     "token: ***MASKED***"
   )
+
   foreach ($line in $required) {
     if ($OutputText -notmatch [Regex]::Escape($line)) {
       Write-HoldAndExit "token checker output missing required line: $line"
@@ -87,7 +91,7 @@ try {
   $checkerOutput = & npm run check:admin-token-session-env 2>&1
   $checkerExit = $LASTEXITCODE
   $checkerText = ($checkerOutput | Out-String)
-  Write-Output $checkerText.TrimEnd()
+  Write-Output ($checkerText.TrimEnd())
 
   if ($checkerExit -ne 0) {
     Write-HoldAndExit "token checker failed; one-run not executed"

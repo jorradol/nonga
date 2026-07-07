@@ -5,6 +5,7 @@
  * npm run test:v19.33
  */
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 
 const DOC_PATH = "docs/v19.33-owner-run-powershell-token-launcher-record.md";
 const EXAMPLE_PATH = "docs/examples/v19.33-owner-run-powershell-token-launcher-record.example.md";
@@ -90,6 +91,23 @@ ok(
 ok(
   "launcher clears env best effort",
   launcher.includes("$env:NONGA_ADMIN_API_TOKEN = $null")
+);
+
+const parseProbe = spawnSync(
+  "powershell",
+  [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    "$errors = $null; [void][System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw 'scripts/run-v19-step1-owner-token.ps1'), [ref]$errors); if ($errors -and $errors.Count -gt 0) { $errors | ForEach-Object { $_.Message }; exit 1 }",
+  ],
+  { encoding: "utf8" }
+);
+ok(
+  "launcher powershell syntax parse check passes",
+  parseProbe.status === 0,
+  parseProbe.stderr || parseProbe.stdout
 );
 
 ok(
