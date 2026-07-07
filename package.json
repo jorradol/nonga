@@ -375,6 +375,7 @@
     "test:v19.39": "tsx scripts/test-v1939-controlled-owner-only-staging-trial-evidence.mts",
     "test:v19.40": "tsx scripts/test-v1940-step2-limited-private-pilot-readiness-packet.mts",
     "test:v20.0": "tsx scripts/test-v200-step2-authenticated-allowlist-context-readiness-packet.mts",
+    "test:v20.1A": "tsx scripts/test-v201A-step2-auth-context-owner-browser-pivot-packet.mts",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
