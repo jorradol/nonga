@@ -369,6 +369,7 @@
     "test:v19.35": "tsx scripts/test-v1935-server-side-staging-secret-readiness-packet.mts",
     "test:v19.36": "tsx scripts/test-v1936-server-side-staging-secret-setup-packet.mts",
     "test:v19.37": "tsx scripts/test-v1937-server-side-staging-secret-setup-evidence.mts",
+    "test:v19.38": "tsx scripts/test-v1938-server-side-staging-secret-masked-verification.mts",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
