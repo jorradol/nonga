@@ -89,6 +89,16 @@ ok(
 );
 
 ok(
+  "launcher is minimal script without top-level param block",
+  !launcher.includes("\nparam(") && !launcher.startsWith("param(")
+);
+
+ok(
+  "launcher has parse-only safe mode",
+  hasEveryLine(launcher, ["NONGA_V19_LAUNCHER_PARSE_ONLY", "parse-only mode"])
+);
+
+ok(
   "launcher clears env best effort",
   launcher.includes("$env:NONGA_ADMIN_API_TOKEN = $null")
 );
@@ -143,6 +153,13 @@ ok(
   hasEveryLine(combined, [
     "fastest owner-only staging fix",
     "do not start another token-loop diagnosis cycle unless this owner-run launcher flow fails",
+  ])
+);
+
+ok(
+  "owner command documented exactly",
+  hasEveryLine(combined, [
+    "powershell -ExecutionPolicy Bypass -File scripts/run-v19-step1-owner-token.ps1",
   ])
 );
 

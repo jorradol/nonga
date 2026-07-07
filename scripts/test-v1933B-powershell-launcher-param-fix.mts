@@ -1,13 +1,13 @@
 /**
- * v19.33A powershell launcher syntax fix validator
+ * v19.33B powershell launcher param-block fix validator
  *
- * npm run test:v19.33A
+ * npm run test:v19.33B
  */
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const DOC_PATH = "docs/v19.33A-powershell-launcher-syntax-fix.md";
-const EXAMPLE_PATH = "docs/examples/v19.33A-powershell-launcher-syntax-fix.example.md";
+const DOC_PATH = "docs/v19.33B-powershell-launcher-param-fix.md";
+const EXAMPLE_PATH = "docs/examples/v19.33B-powershell-launcher-param-fix.example.md";
 const LAUNCHER_PATH = "scripts/run-v19-step1-owner-token.ps1";
 const PACKAGE_PATH = "package.json";
 
@@ -33,7 +33,7 @@ function hasEveryLine(source: string, required: string[]): boolean {
   return required.every((token) => source.includes(token));
 }
 
-console.log("=== v19.33A PowerShell Launcher Syntax Fix Validation ===\n");
+console.log("=== v19.33B PowerShell Launcher Param Fix Validation ===\n");
 
 ok("doc exists", existsSync(DOC_PATH));
 ok("example exists", existsSync(EXAMPLE_PATH));
@@ -47,21 +47,31 @@ const packageRaw = read(PACKAGE_PATH);
 const combined = `${doc}\n${example}\n${launcher}`;
 
 ok(
-  "doc/example identify v19.33A syntax fix",
-  doc.includes("# v19.33A - PowerShell Launcher Syntax Fix") &&
-    example.includes("milestone: v19.33A") &&
-    example.includes("record_type: powershell_launcher_syntax_fix_only")
+  "doc/example identify v19.33B record",
+  doc.includes("# v19.33B - PowerShell Launcher Param-Block Fix") &&
+    example.includes("milestone: v19.33B") &&
+    example.includes("record_type: powershell_launcher_param_block_fix_only")
 );
 
 ok(
-  "no one-run and safety boundaries recorded",
+  "launcher is minimal without top-level param block",
+  !launcher.includes("\nparam(") && !launcher.startsWith("param(")
+);
+
+ok(
+  "owner command documented exactly",
   hasEveryLine(combined, [
-    "no one-run",
-    "no retry",
-    "no second-run",
-    "no re-arm",
-    "no token/secret/auth header exposure",
-    "no PII/phone/plate/VIN exposure",
+    "powershell -ExecutionPolicy Bypass -File scripts/run-v19-step1-owner-token.ps1",
+  ])
+);
+
+ok(
+  "parse-only mode and psscriptroot resolution exist",
+  hasEveryLine(launcher, [
+    "$PSScriptRoot",
+    "Set-Location",
+    "NONGA_V19_LAUNCHER_PARSE_ONLY",
+    "PASS - parse-only mode; launcher runtime path skipped",
   ])
 );
 
@@ -76,27 +86,17 @@ const parseProbe = spawnSync(
   ],
   { encoding: "utf8" }
 );
-ok("launcher parse check passes", parseProbe.status === 0, parseProbe.stderr || parseProbe.stdout);
+ok("launcher powershell parse check passes", parseProbe.status === 0, parseProbe.stderr || parseProbe.stdout);
 
 ok(
-  "launcher still has masked-only and env clear behavior",
-  hasEveryLine(launcher, [
-    "token: ***MASKED***",
-    "$env:NONGA_ADMIN_API_TOKEN = $null",
-  ])
-);
-
-ok(
-  "launcher has no top-level param block and includes parse-only safe mode",
-  !launcher.includes("\nparam(") &&
-    !launcher.startsWith("param(") &&
-    launcher.includes("NONGA_V19_LAUNCHER_PARSE_ONLY")
-);
-
-ok(
-  "owner command documented exactly",
+  "boundaries and no exposure statements exist",
   hasEveryLine(combined, [
-    "powershell -ExecutionPolicy Bypass -File scripts/run-v19-step1-owner-token.ps1",
+    "no one-run",
+    "no retry",
+    "no second-run",
+    "no re-arm",
+    "no token/secret/API key/platform auth credential/Authorization header exposure",
+    "no PII/phone/plate/VIN exposure",
   ])
 );
 
@@ -121,9 +121,9 @@ const scripts =
     : {};
 
 ok(
-  "package has test:v19.33A script",
-  scripts["test:v19.33A"] === "tsx scripts/test-v1933A-powershell-launcher-syntax-fix.mts"
+  "package has test:v19.33B script",
+  scripts["test:v19.33B"] === "tsx scripts/test-v1933B-powershell-launcher-param-fix.mts"
 );
 
-console.log(`\nDone v19.33A validation - ${pass} PASS, ${fail} FAIL.\n`);
+console.log(`\nDone v19.33B validation - ${pass} PASS, ${fail} FAIL.\n`);
 if (process.exitCode) process.exit(process.exitCode);
