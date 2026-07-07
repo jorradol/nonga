@@ -1,0 +1,56 @@
+{
+  "version": "v22.7",
+  "label": "v22.7 sample validation and staging preview prep only",
+  "baseline_v226_pass": true,
+  "baseline_v226_owner_supplied_sample_only": true,
+  "baseline_v226_limited_public_sale_safe_fields_only": true,
+  "baseline_v226_forbidden_fields_found": false,
+  "sample_validation_only": true,
+  "staging_preview_prep_only": true,
+  "no_real_market_import": true,
+  "no_public_preview_yet": true,
+  "no_dealer_facing_send": true,
+  "no_real_lead": true,
+  "step4_not_started": true,
+  "validation_checklist_items": [
+    "allowed_fields_only",
+    "forbidden_fields_absent",
+    "no_public_or_production_import",
+    "no_dealer_facing_send",
+    "no_real_lead_action"
+  ],
+  "forbidden_field_guard_results": {
+    "phone_found": false,
+    "plate_found": false,
+    "vin_found": false,
+    "registration_found": false,
+    "pii_found": false,
+    "token_secret_found": false
+  },
+  "records": [
+    {
+      "dealer_group_label": "Thor Auto",
+      "car_public_id": "THOR-SAFE-0101",
+      "brand": "Mazda",
+      "model": "2",
+      "year": 2022,
+      "trim": "High Plus",
+      "body_type": "Hatchback",
+      "transmission": "AT",
+      "fuel_type": "Gasoline",
+      "mileage_public": "30,000-50,000 km",
+      "price_range_public": "5xx,xxx THB",
+      "location_zone": "Bangna",
+      "public_sale_description": "ตัวอย่างข้อมูลสำหรับตรวจความพร้อมการพรีวิวใน staging เท่านั้น",
+      "public_features": [
+        "Apple CarPlay",
+        "Rear Camera"
+      ],
+      "public_condition_notes": "owner-supplied sample for validation only",
+      "photo_public_allowed": false,
+      "photo_reference_placeholder": "PHOTO_REF_PLACEHOLDER_0101",
+      "sale_status": "pending_check",
+      "general_public_notes": "no real market import, no public preview"
+    }
+  ]
+}
