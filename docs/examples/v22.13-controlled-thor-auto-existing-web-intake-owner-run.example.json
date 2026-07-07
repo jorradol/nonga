@@ -1,0 +1,32 @@
+{
+  "version": "v22.13",
+  "label": "v22.13 controlled thor auto existing web intake owner run",
+  "execution_type": "CONTROLLED OWNER-BROWSER EXISTING WEB INTAKE RUN PREP + SINGLE OWNER-RUN INSTRUCTIONS / THOR AUTO PUBLIC-SALE-SAFE REAL CAR DATA ONLY / STAGING MARKET ONLY / NO PUBLIC / NO PRODUCTION / NO REAL LEAD / NO DEALER-FACING SEND",
+  "baseline_v2212a_pass_confirmed": true,
+  "existing_flow_reused": true,
+  "duplicate_import_system_created": false,
+  "owner_browser_login_session_only": true,
+  "owner_token_header_cookie_secret_env_requested": false,
+  "public_sale_safe_real_thor_auto_data_only_rule_documented": true,
+  "owner_friendly_thai_run_instructions_prepared": true,
+  "controlled_owner_browser_run_performed": false,
+  "imported_car_count": 0,
+  "staging_market_only_confirmed": false,
+  "listings_hidden_non_public_confirmed": false,
+  "forbidden_fields_blocked_stripped_not_persisted_confirmed": false,
+  "public_or_production_action_performed": false,
+  "real_lead_or_customer_data_action_performed": false,
+  "dealer_facing_send_performed": false,
+  "safe_evidence_after_owner_action": {
+    "safe_route_page_path_evidence_only": true,
+    "contains_pii_or_sensitive_fields": false
+  },
+  "step_1_status": "completed",
+  "step_2_status": "completed",
+  "step_3_status": "active_owner_browser_staging_import_run",
+  "step_3_completed": false,
+  "step_4_status": "not_started",
+  "step_5_status": "not_started",
+  "step4_movement_included": false,
+  "final_recommendation": "NEED OWNER RUN"
+}
