@@ -373,6 +373,7 @@
     "test:v19.38A": "tsx scripts/test-v1938A-secret-manager-binding-remediation-packet.mts",
     "test:v19.38B": "tsx scripts/test-v1938B-secret-manager-binding-remediation-evidence.mts",
     "test:v19.39": "tsx scripts/test-v1939-controlled-owner-only-staging-trial-evidence.mts",
+    "test:v19.40": "tsx scripts/test-v1940-step2-limited-private-pilot-readiness-packet.mts",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
