@@ -1,0 +1,54 @@
+{
+  "version": "v22.12A",
+  "label": "v22.12A safe guard patch existing inventory web intake flow thor auto",
+  "baseline_v2212_confirmed": true,
+  "baseline_v2212_recommendation": "NEED IMPLEMENTATION",
+  "existing_flow_reused": true,
+  "duplicate_import_system_created": false,
+  "minimal_patch_performed": true,
+  "patch_target_paths": [
+    "src/server/inventoryImportCommit.ts"
+  ],
+  "thor_auto_staging_only_guard": {
+    "enabled": true,
+    "blocks_in_production": true,
+    "requires_staging_only_for_thor_controlled_path": true
+  },
+  "forbidden_field_guard_after_patch": {
+    "raw_key_forbidden_hint_blocking_enabled": true,
+    "vin_persist_disabled_for_thor": true,
+    "license_plate_persist_disabled_for_thor": true,
+    "private_contact_persist_disabled_for_thor": true,
+    "owner_address_append_disabled_for_thor": true,
+    "listing_public_activation_forced_off_for_thor": true
+  },
+  "role_permission_guard_status_after_patch": {
+    "admin_import_route_admin_scoped": true,
+    "dealer_import_route_dealer_scoped": true,
+    "thor_auto_assignment_scope_retained": true,
+    "owner_browser_login_session_future_path_retained": true,
+    "owner_token_header_cookie_secret_env_paste_required": false
+  },
+  "lead_dealer_facing_guard_status_after_patch": {
+    "real_lead_creation_triggered": false,
+    "real_lead_send_triggered": false,
+    "dealer_facing_send_triggered": false,
+    "buyer_customer_contact_message_triggered": false
+  },
+  "no_owner_run_performed": true,
+  "no_real_inventory_import_performed": true,
+  "no_public_or_production_action": true,
+  "no_real_lead_or_customer_data_action": true,
+  "no_dealer_facing_send": true,
+  "no_owner_secret_sharing_requested": true,
+  "step_1_status": "completed",
+  "step_2_status": "completed",
+  "step_3_status": "active_guard_patch_completed",
+  "step_3_completed": false,
+  "step_4_status": "not_started",
+  "step_5_status": "not_started",
+  "future_v2213_approval_phrase_documented_only": true,
+  "future_v2213_approval_phrase": "FINAL AUTHORIZE v22.13 CONTROLLED THOR AUTO EXISTING WEB INTAKE OWNER RUN / OWNER-BROWSER LOGIN ONLY / PUBLIC-SALE-SAFE REAL CAR DATA ONLY / STAGING MARKET ONLY / NO PUBLIC / NO PRODUCTION / NO REAL LEAD / NO REAL CUSTOMER DATA / NO PII PHONE PLATE VIN / NO TOKEN HEADER COOKIE SECRET SHARING / NO DEALER-FACING SEND / NO RETRY / NO SECOND-RUN / DO NOT MOVE TO STEP 4",
+  "step4_movement_included": false,
+  "final_recommendation": "PASS"
+}

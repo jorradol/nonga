@@ -31,9 +31,125 @@ import {
   extractStorageListingId,
   sanitizeListingImagesForId,
 } from "../utils/listingImages";
+import { THOR_AUTO_DEALER_ID } from "../utils/dealerIdentity";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
+
+interface ImportPolicy {
+  thorControlledStagingGuard: boolean;
+  allowSensitiveVehicleFields: boolean;
+  allowPrivateContactFields: boolean;
+  allowOwnerAddressInDescription: boolean;
+  forceNoPublicListingActivation: boolean;
+  blockForbiddenRawKeys: boolean;
+}
+
+const FORBIDDEN_RAW_KEY_HINTS = [
+  "vin",
+  "plate",
+  "licenseplate",
+  "fullplate",
+  "registration",
+  "ownerphone",
+  "sellerphone",
+  "customerphone",
+  "buyerphone",
+  "phone",
+  "customer",
+  "buyer",
+  "private",
+  "internalcost",
+  "cost",
+  "margin",
+  "bank",
+  "transfer",
+  "payment",
+  "token",
+  "header",
+  "cookie",
+  "secret",
+  "env",
+  "authorization",
+  "credential",
+];
+
+function normalizeKeyForPolicy(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function isForbiddenRawKey(key: string): boolean {
+  const normalized = normalizeKeyForPolicy(key);
+  return FORBIDDEN_RAW_KEY_HINTS.some((hint) => normalized.includes(hint));
+}
+
+function resolveImportPolicy(
+  owner: CommitImportOwner,
+  input: SmartCommitInput
+): ImportPolicy {
+  const dealerSet = new Set<string>();
+  const addDealer = (value: unknown) => {
+    const normalized = normalizeDealerId(String(value ?? "").trim());
+    if (normalized) dealerSet.add(normalized);
+  };
+
+  addDealer(owner.dealerId);
+  for (const row of [...(input.published ?? []), ...(input.drafts ?? [])]) {
+    addDealer(row.ownerId);
+    addDealer(row.rawRow?.dealerId);
+  }
+  const thorControlled = dealerSet.has(THOR_AUTO_DEALER_ID);
+
+  return {
+    thorControlledStagingGuard: thorControlled,
+    allowSensitiveVehicleFields: !thorControlled,
+    allowPrivateContactFields: !thorControlled,
+    allowOwnerAddressInDescription: !thorControlled,
+    forceNoPublicListingActivation: thorControlled,
+    blockForbiddenRawKeys: thorControlled,
+  };
+}
+
+function sanitizeOwnerForPolicy(
+  owner: CommitImportOwner,
+  policy: ImportPolicy
+): CommitImportOwner {
+  if (!policy.thorControlledStagingGuard) return owner;
+  return {
+    ...owner,
+    ownerPhone: undefined,
+    address: undefined,
+  };
+}
+
+function sanitizeRowForPolicy(
+  row: CommitImportRowInput,
+  policy: ImportPolicy
+): { row: CommitImportRowInput; strippedRawKeys: string[] } {
+  if (!policy.thorControlledStagingGuard) {
+    return { row, strippedRawKeys: [] };
+  }
+
+  const raw = row.rawRow ?? {};
+  const nextRaw: Record<string, string> = {};
+  const strippedRawKeys: string[] = [];
+  for (const [k, v] of Object.entries(raw)) {
+    if (policy.blockForbiddenRawKeys && isForbiddenRawKey(k)) {
+      strippedRawKeys.push(k);
+      continue;
+    }
+    nextRaw[k] = v;
+  }
+
+  return {
+    row: {
+      ...row,
+      ownerPhone: undefined,
+      rawRow: nextRaw,
+    },
+    strippedRawKeys,
+  };
+}
 
 export function resolveDealerIdForImport(
   owner: CommitImportOwner,
@@ -126,7 +242,8 @@ function buildCarRecord(
   row: CommitImportRowInput,
   owner: CommitImportOwner,
   carId: string,
-  images: string[]
+  images: string[],
+  policy: ImportPolicy
 ): MarketplaceCarRecord {
   const brand = String(row.brand ?? "").trim();
   const model = String(row.model ?? "").trim();
@@ -135,19 +252,20 @@ function buildCarRecord(
   const fuelType = String(row.fuelType ?? "petrol");
 
   let description = String(row.description ?? "").slice(0, 4000);
-  if (owner.address?.trim()) {
+  if (policy.allowOwnerAddressInDescription && owner.address?.trim()) {
     description = description
       ? `${description}\nที่อยู่: ${owner.address.trim()}`
       : `ที่อยู่: ${owner.address.trim()}`;
   }
 
   const raw = row.rawRow ?? {};
-  const licensePlate = normalizePlate(
-    String(raw.licensePlate ?? raw["ทะเบียน"] ?? raw.plate ?? "")
-  );
-  const vin =
-    extractVinFromText(String(row.description ?? "")) ||
-    extractVinFromText(JSON.stringify(raw));
+  const licensePlate = policy.allowSensitiveVehicleFields
+    ? normalizePlate(String(raw.licensePlate ?? raw["ทะเบียน"] ?? raw.plate ?? ""))
+    : "";
+  const vin = policy.allowSensitiveVehicleFields
+    ? extractVinFromText(String(row.description ?? "")) ||
+      extractVinFromText(JSON.stringify(raw))
+    : "";
 
   return {
     id: carId,
@@ -172,12 +290,14 @@ function buildCarRecord(
     dealerId: resolveDealerIdForImport(owner, row),
     ownerId: String(row.ownerId ?? owner.ownerId ?? "import-admin"),
     ownerName: String(row.ownerName ?? owner.ownerName ?? "Admin Import"),
-    ownerPhone: String(row.ownerPhone ?? owner.ownerPhone ?? "000-000-0000"),
+    ownerPhone: policy.allowPrivateContactFields
+      ? String(row.ownerPhone ?? owner.ownerPhone ?? "")
+      : "",
     showroomName: row.showroomName
       ? String(row.showroomName)
       : owner.showroomName,
     isSold: false,
-    listingStatus: "published",
+    listingStatus: policy.forceNoPublicListingActivation ? "hidden" : "published",
     createdAt: new Date().toISOString(),
     boosted: false,
     featured: false,
@@ -189,19 +309,23 @@ function buildDraftRecord(
   owner: CommitImportOwner,
   draftId: string,
   images: string[],
-  normalizedData: NormalizedInventoryRow
+  normalizedData: NormalizedInventoryRow,
+  policy: ImportPolicy
 ): DealerDraftRecord {
   const now = new Date().toISOString();
   const status: DraftInventoryStatus =
     row.disposition === "needs_review" ? "needs_review" : "draft";
 
   const raw = row.rawRow ?? {};
-  const licensePlate = normalizePlate(
-    String(raw.licensePlate ?? raw["ทะเบียน"] ?? normalizedData.licensePlate ?? "")
-  );
-  const vin =
-    extractVinFromText(String(row.description ?? "")) ||
-    extractVinFromText(String(normalizedData.notes ?? ""));
+  const licensePlate = policy.allowSensitiveVehicleFields
+    ? normalizePlate(
+        String(raw.licensePlate ?? raw["ทะเบียน"] ?? normalizedData.licensePlate ?? "")
+      )
+    : "";
+  const vin = policy.allowSensitiveVehicleFields
+    ? extractVinFromText(String(row.description ?? "")) ||
+      extractVinFromText(String(normalizedData.notes ?? ""))
+    : "";
 
   return {
     id: draftId,
@@ -210,7 +334,9 @@ function buildDraftRecord(
     dealerId: resolveDealerIdForImport(owner, row),
     dealerName: owner.showroomName ?? "Dealer",
     ownerName: String(row.ownerName ?? owner.ownerName ?? ""),
-    phone: String(row.ownerPhone ?? owner.ownerPhone ?? ""),
+    phone: policy.allowPrivateContactFields
+      ? String(row.ownerPhone ?? owner.ownerPhone ?? "")
+      : "",
     showroomName: row.showroomName ?? owner.showroomName,
     rawRow: row.rawRow ?? {},
     normalizedData,
@@ -327,6 +453,14 @@ export async function processSmartInventoryImport(
   input: SmartCommitInput,
   owner: CommitImportOwner = {}
 ): Promise<CommitImportResultPayload> {
+  const policy = resolveImportPolicy(owner, input);
+  if (policy.thorControlledStagingGuard && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Thor Auto controlled import is restricted to staging only; production import is blocked"
+    );
+  }
+  const safeOwner = sanitizeOwnerForPolicy(owner, policy);
+
   const publishedRows = input.published ?? [];
   const draftRows = input.drafts ?? [];
 
@@ -342,7 +476,8 @@ export async function processSmartInventoryImport(
   const baseId = Date.now();
 
   for (let i = 0; i < publishedRows.length; i++) {
-    const row = publishedRows[i];
+    const originalRow = publishedRows[i];
+    const { row, strippedRawKeys } = sanitizeRowForPolicy(originalRow, policy);
     const srcIdx = row.sourceRowIndex ?? i + 1;
     const basics = validatePublishRow(row);
     if (basics.ok === false) {
@@ -353,13 +488,17 @@ export async function processSmartInventoryImport(
     const carId = `car-import-${baseId}-p${i}`;
     const { images, warnings, report } = await resolveImagesForRow(carId, row);
     if (report) imageReports.push(report);
-    const allWarnings = [...warnings, ...(row.warnings ?? [])];
+    const allWarnings = [
+      ...warnings,
+      ...(row.warnings ?? []),
+      ...strippedRawKeys.map((key) => `[guard] stripped forbidden raw key: ${key}`),
+    ];
     if (row.importStatus === "warning" || allWarnings.length) warningCount++;
     if (allWarnings.length) {
       rowWarnings.push({ sourceRowIndex: srcIdx, warnings: allWarnings });
     }
 
-    const car = buildCarRecord(row, owner, carId, images);
+    const car = buildCarRecord(row, safeOwner, carId, images, policy);
     toPublish.push(car);
     importedMeta.push({
       id: car.id,
@@ -372,7 +511,8 @@ export async function processSmartInventoryImport(
   }
 
   for (let i = 0; i < draftRows.length; i++) {
-    const row = draftRows[i];
+    const originalRow = draftRows[i];
+    const { row, strippedRawKeys } = sanitizeRowForPolicy(originalRow, policy);
     const srcIdx = row.sourceRowIndex ?? i + 1;
     const basics = validateDraftRow(row);
     if (basics.ok === false) {
@@ -384,7 +524,11 @@ export async function processSmartInventoryImport(
       row.commitDraftId?.trim() || `draft-import-${baseId}-d${i}`;
     const { images, warnings, report } = await resolveImagesForRow(draftId, row);
     if (report) imageReports.push(report);
-    const allWarnings = [...warnings, ...(row.warnings ?? [])];
+    const allWarnings = [
+      ...warnings,
+      ...(row.warnings ?? []),
+      ...strippedRawKeys.map((key) => `[guard] stripped forbidden raw key: ${key}`),
+    ];
     if (allWarnings.length) {
       warningCount++;
       rowWarnings.push({ sourceRowIndex: srcIdx, warnings: allWarnings });
@@ -392,10 +536,11 @@ export async function processSmartInventoryImport(
 
     const draft = buildDraftRecord(
       row,
-      owner,
+      safeOwner,
       draftId,
       images,
-      rowToNormalized(row)
+      rowToNormalized(row),
+      policy
     );
     toDraft.push(draft);
     draftsMeta.push({
