@@ -355,6 +355,7 @@
     "test:v19.23": "tsx scripts/test-v1923-final-pre-execution-readiness-check-for-v19-wrapper.mts",
     "test:v19.24": "tsx scripts/test-v1924-step1-controlled-owner-only-staging-execution-via-v19-wrapper-record.mts",
     "test:v19.25": "tsx scripts/test-v1925-enable-v19-step1-rearm-helper-live-path.mts",
+    "test:v19.26": "tsx scripts/test-v1926-step1-controlled-owner-only-staging-execution-after-rearm-live-path-record.mts",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",
