@@ -392,6 +392,7 @@
     "test:v22.3": "node scripts/validate-v22.3-thor-auto-dry-run-mock-template-validation.mjs",
     "test:v22.4": "node scripts/validate-v22.4-thor-auto-future-dry-run-approval-packet.mjs",
     "test:v22.5": "node scripts/validate-v22.5-controlled-thor-auto-real-inventory-intake-preparation-packet.mjs",
+    "test:v22.6": "node scripts/validate-v22.6-controlled-thor-auto-real-inventory-owner-supplied-sample-intake.mjs",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",
     "owner-local-one-run:v19.22:dry-run": "tsx scripts/owner-local-step1-one-run-v19.mts --preflight",

@@ -1,0 +1,59 @@
+{
+  "version": "v22.6-owner-supplied-public-sale-safe-sample",
+  "sample_label": "v22.6 owner-supplied public-sale-safe sample intake only",
+  "sample_intake_only": true,
+  "no_real_market_import_yet": true,
+  "no_dealer_facing_send": true,
+  "no_real_lead": true,
+  "step4_not_started": true,
+  "records": [
+    {
+      "dealer_group_label": "Thor Auto",
+      "car_public_id": "THOR-SAFE-0001",
+      "brand": "Toyota",
+      "model": "Yaris Ativ",
+      "year": 2021,
+      "trim": "Premium",
+      "body_type": "Sedan",
+      "transmission": "AT",
+      "fuel_type": "Gasoline",
+      "mileage_public": "60,000-80,000 km",
+      "price_range_public": "4xx,xxx THB",
+      "location_zone": "Bangna",
+      "public_sale_description": "รถมือสองสภาพดี พร้อมใช้งาน",
+      "public_features": [
+        "ระบบเบรก ABS",
+        "ถุงลมนิรภัยคู่หน้า"
+      ],
+      "public_condition_notes": "มีประวัติเข้าศูนย์",
+      "photo_public_allowed": false,
+      "photo_reference_placeholder": "PHOTO_REF_PLACEHOLDER_0001",
+      "sale_status": "pending_check",
+      "general_public_notes": "owner-supplied sample for intake validation only"
+    },
+    {
+      "dealer_group_label": "Thor Auto",
+      "car_public_id": "THOR-SAFE-0002",
+      "brand": "Honda",
+      "model": "City",
+      "year": 2020,
+      "trim": "SV",
+      "body_type": "Sedan",
+      "transmission": "AT",
+      "fuel_type": "Gasoline",
+      "mileage_public": "80,000-100,000 km",
+      "price_public": "489000",
+      "location_zone": "Srinakarin",
+      "public_sale_description": "รถบ้านพร้อมใช้งาน เหมาะกับใช้งานในเมือง",
+      "public_features": [
+        "ระบบกล้องถอย",
+        "ระบบกุญแจอัจฉริยะ"
+      ],
+      "public_condition_notes": "ผ่านการตรวจสภาพเบื้องต้น",
+      "photo_public_allowed": true,
+      "photo_reference_placeholder": "PHOTO_REF_PLACEHOLDER_0002",
+      "sale_status": "ready_for_sale",
+      "general_public_notes": "sample data only - not imported to market"
+    }
+  ]
+}
