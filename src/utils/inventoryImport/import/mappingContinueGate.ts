@@ -42,6 +42,12 @@ export function evaluateMappingContinueGate(
   }
 
   for (const field of missingRequiredFields) {
+    if (field === "model") {
+      reasons.push(
+        "ยังต้องจับคู่คอลัมน์ รุ่น — แนะนำให้เลือกคอลัมน์ “รุ่นหลัก/รุ่นย่อย (Model/Trim)”"
+      );
+      continue;
+    }
     reasons.push(`ยังต้องจับคู่คอลัมน์ ${REQUIRED_MAPPING_LABELS[field]}`);
   }
 

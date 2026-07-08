@@ -26,9 +26,10 @@ export function normalizeColumnKey(name: string): string {
     .toLowerCase()
     .trim()
     .replace(/\uFEFF/g, "")
+    .replace(/["'`]+/g, " ")
+    .replace(/[()[\]{}]/g, " ")
     .replace(/[_\-./\\]+/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/[()[\]{}]/g, "")
     .trim();
 }
 
