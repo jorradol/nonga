@@ -93,8 +93,6 @@ function loadFromCloudBuild(buildId: string): Record<string, string> {
     VITE_NONGA_PUBLIC_SIGNUP_ENABLED: "false",
     VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ENABLED: "true",
     VITE_NONGA_OWNER_GEMINI_ONE_RUN_HELPER_ENABLED: "true",
-    VITE_NONGA_DEALER_API_TOKEN: "",
-    VITE_NONGA_ADMIN_API_TOKEN: "",
   };
 }
 
