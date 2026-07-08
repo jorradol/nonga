@@ -34,6 +34,7 @@ import type { InventoryCleanPipelineResult } from "../../../utils/inventoryImpor
 import { prepareSmartInventoryImport } from "../../../utils/inventoryImport/import/prepareSmartImport";
 import { flattenSmartPrepForCommit } from "../../../utils/inventoryImport/import/prepareSmartImport";
 import { commitInventoryImport } from "../../../utils/inventoryImport/import/commitImport";
+import { evaluateMappingContinueGate } from "../../../utils/inventoryImport/import/mappingContinueGate";
 import type { DealerApiHeaders } from "../../../services/dealer/dealerApi";
 import type {
   ImportCommitResult,
@@ -217,14 +218,27 @@ export default function InventoryImportView({
     [mappingEntries]
   );
 
+  const mappingContinueGate = useMemo(
+    () =>
+      evaluateMappingContinueGate(
+        mappingEntries,
+        parsed?.totalRows ?? 0,
+        canCommitImport
+      ),
+    [mappingEntries, parsed?.totalRows, canCommitImport]
+  );
+
   const runCleanPipeline = useCallback(() => {
     if (!parsed || mappingEntries.length === 0) return;
+    if (!mappingContinueGate.canContinue) {
+      return;
+    }
     const result = runInventoryCleanPipeline(parsed.rows, mappingEntries);
     setCleanResult(result);
     setSmartPrep(null);
     setImportPhase("idle");
     setCommitResult(null);
-  }, [parsed, mappingEntries]);
+  }, [parsed, mappingEntries, mappingContinueGate.canContinue]);
 
   const rawRowsByIndex = useMemo(() => {
     if (!parsed) return {};
@@ -648,6 +662,8 @@ export default function InventoryImportView({
                   onResetMapping={handleResetMapping}
                   onApplyAutoMapping={handleApplyAutoMapping}
                   onContinueNormalize={runCleanPipeline}
+                  canContinueNormalize={mappingContinueGate.canContinue}
+                  continueBlockedReasons={mappingContinueGate.reasons}
                   isDarkMode={isDarkMode}
                 />
               </motion.div>

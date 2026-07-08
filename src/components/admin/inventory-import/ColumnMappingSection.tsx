@@ -15,6 +15,8 @@ interface ColumnMappingSectionProps {
   onResetMapping: () => void;
   onApplyAutoMapping: () => void;
   onContinueNormalize: () => void;
+  canContinueNormalize: boolean;
+  continueBlockedReasons: string[];
   isDarkMode: boolean;
 }
 
@@ -25,6 +27,8 @@ export function ColumnMappingSection({
   onResetMapping,
   onApplyAutoMapping,
   onContinueNormalize,
+  canContinueNormalize,
+  continueBlockedReasons,
   isDarkMode,
 }: ColumnMappingSectionProps) {
   const border = isDarkMode ? "border-slate-800" : "border-slate-200";
@@ -74,12 +78,28 @@ export function ColumnMappingSection({
           <button
             type="button"
             onClick={onContinueNormalize}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 text-white text-xs font-bold"
+            disabled={!canContinueNormalize}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 text-white text-xs font-bold disabled:opacity-45 disabled:cursor-not-allowed"
           >
             Continue to Clean & Validate
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
+        {!canContinueNormalize && continueBlockedReasons.length > 0 && (
+          <div
+            className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200"
+            data-testid="mapping-continue-disabled-reasons"
+          >
+            <p className="font-semibold text-amber-100">
+              ยังไปขั้น Clean & Validate ไม่ได้:
+            </p>
+            <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-100/95">
+              {continueBlockedReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {duplicateWarnings.length > 0 && (
