@@ -23,6 +23,9 @@ export interface MarketplaceImportPayload {
   ownerName: string;
   ownerPhone: string;
   showroomName?: string;
+  registrationProvince?: string;
+  licensePlateMasked?: string;
+  licensePlateFull?: string;
   disposition?: ImportDisposition;
   confidenceScore?: number;
   missingFields?: string[];
@@ -113,6 +116,7 @@ export interface SmartImportPreparationSummary {
   needsReview: SmartPreparedRow[];
   rejected: SmartPreparedRow[];
   forbiddenRawColumns: string[];
+  sensitiveRegistrationColumns?: string[];
   importableCount: number;
   publishedCount: number;
   draftCount: number;

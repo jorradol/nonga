@@ -83,6 +83,17 @@ export default function SellerCard({ car, isDarkMode = true, onContactClick, onS
               : `เขตที่นัดหมาย: จังหวัด${car.province || "กรุงเทพมหานคร"}`}
           </p>
         </div>
+        {(car.licensePlateMasked || car.registrationProvince) && (
+          <div className="flex items-start gap-2.5">
+            <ShieldCheck className="w-4.5 h-4.5 text-cyan-400 shrink-0 mt-0.5" />
+            <p className="text-slate-300 leading-normal">
+              ทะเบียน: {car.licensePlateMasked || "ปิดเลขทะเบียน"}{" "}
+              {car.registrationProvince
+                ? `(${car.registrationProvince})`
+                : ""}
+            </p>
+          </div>
+        )}
 
         {isDealer && (
           <div className="p-3 bg-orange-600/[0.02] border border-orange-500/10 rounded-2xl flex items-center justify-between text-[11px]">

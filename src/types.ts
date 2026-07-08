@@ -17,6 +17,8 @@ export interface Car {
   ownerName: string;
   ownerPhone: string;
   showroomName?: string;
+  registrationProvince?: string;
+  licensePlateMasked?: string;
   isSold: boolean;
   /** published = ตลาด; hidden = ซ่อน */
   listingStatus?: "published" | "hidden";

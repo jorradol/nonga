@@ -28,6 +28,7 @@ import type {
   ImportOwnerContext,
   MarketplaceImportPayload,
 } from "./types";
+import { extractRegistrationFields } from "../../vehicleRegistrationPrivacy";
 
 function parseImageUrls(raw: string): string[] {
   if (!raw?.trim()) return [];
@@ -43,7 +44,17 @@ function buildDescription(data: NormalizedInventoryRow): string {
   if (data.notes?.trim()) parts.push(`หมายเหตุ: ${data.notes.trim()}`);
   if (data.color?.trim()) parts.push(`สี: ${data.color.trim()}`);
   if (data.gear?.trim()) parts.push(`เกียร์: ${data.gear.trim()}`);
-  if (data.province?.trim()) parts.push(`จังหวัด: ${data.province.trim()}`);
+  const legacyProvince = data.province?.trim();
+  const registrationProvince = data.registrationProvince?.trim();
+  if (registrationProvince) {
+    parts.push(`จังหวัดทะเบียน: ${registrationProvince}`);
+  } else if (legacyProvince) {
+    parts.push(`จังหวัด: ${legacyProvince}`);
+  }
+  const maskedPlate = data.licensePlateMasked?.trim();
+  if (maskedPlate) {
+    parts.push(`ทะเบียน (ปิดบางส่วน): ${maskedPlate}`);
+  }
   if (data.youtubeUrl?.trim()) parts.push(`YouTube: ${data.youtubeUrl.trim()}`);
   if (data.tiktokUrl?.trim()) parts.push(`TikTok: ${data.tiktokUrl.trim()}`);
   if (data.financeStatus?.trim())
@@ -64,7 +75,8 @@ export function mapCleanedRowToMarketplacePayload(
   data: NormalizedInventoryRow,
   sourceRowIndex: number,
   importStatus: "valid" | "warning",
-  owner: ImportOwnerContext
+  owner: ImportOwnerContext,
+  rawRow?: Record<string, string>
 ): MarketplaceImportPayload | null {
   const brand = data.brand?.trim();
   const model = data.model?.trim();
@@ -81,6 +93,21 @@ export function mapCleanedRowToMarketplacePayload(
     : `${brand} ${model} ปี ${year}`;
 
   const sourceImageUrls = parseImageUrls(data.imageUrls ?? "");
+  const registration = extractRegistrationFields({
+    plateValue:
+      data.licensePlateFull ||
+      data.licensePlate ||
+      rawRow?.["ทะเบียน/จังหวัด"] ||
+      rawRow?.["ทะเบียน"] ||
+      rawRow?.["license plate"] ||
+      rawRow?.plate,
+    provinceValue:
+      data.registrationProvince ||
+      data.province ||
+      rawRow?.["จังหวัดทะเบียน"] ||
+      rawRow?.["registration province"] ||
+      rawRow?.province,
+  });
 
   const fuelType = data.fuelType?.trim() || "petrol";
   const categoryType = inferMarketplaceCategoryType({
@@ -110,6 +137,9 @@ export function mapCleanedRowToMarketplacePayload(
     ownerName: owner.ownerName,
     ownerPhone: owner.ownerPhone,
     showroomName: owner.showroomName,
+    registrationProvince: registration.registrationProvince || undefined,
+    licensePlateMasked: registration.licensePlateMasked || undefined,
+    licensePlateFull: registration.licensePlateFull || undefined,
   };
 }
 
@@ -118,7 +148,7 @@ export function mapCleanedRowToPartialPayload(
   data: NormalizedInventoryRow,
   sourceRowIndex: number,
   owner: ImportOwnerContext,
-  _rawRow?: Record<string, string>
+  rawRow?: Record<string, string>
 ): MarketplaceImportPayload | null {
   const brand = data.brand?.trim();
   const model = data.model?.trim();
@@ -140,6 +170,21 @@ export function mapCleanedRowToPartialPayload(
     : `${b} ${m}${safeYear ? ` ปี ${safeYear}` : ""}`;
 
   const sourceImageUrls = parseImageUrls(data.imageUrls ?? "");
+  const registration = extractRegistrationFields({
+    plateValue:
+      data.licensePlateFull ||
+      data.licensePlate ||
+      rawRow?.["ทะเบียน/จังหวัด"] ||
+      rawRow?.["ทะเบียน"] ||
+      rawRow?.["license plate"] ||
+      rawRow?.plate,
+    provinceValue:
+      data.registrationProvince ||
+      data.province ||
+      rawRow?.["จังหวัดทะเบียน"] ||
+      rawRow?.["registration province"] ||
+      rawRow?.province,
+  });
   const fuelType = data.fuelType?.trim() || "petrol";
   const mileage = parseInt(data.mileage ?? "0", 10);
 
@@ -166,6 +211,9 @@ export function mapCleanedRowToPartialPayload(
     ownerName: owner.ownerName,
     ownerPhone: owner.ownerPhone,
     showroomName: owner.showroomName,
+    registrationProvince: registration.registrationProvince || undefined,
+    licensePlateMasked: registration.licensePlateMasked || undefined,
+    licensePlateFull: registration.licensePlateFull || undefined,
   };
 }
 

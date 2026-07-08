@@ -18,6 +18,7 @@ import {
   extractVinFromText,
   normalizePlate,
 } from "../utils/duplicateDetection/textSimilarity";
+import { extractRegistrationFields } from "../utils/vehicleRegistrationPrivacy";
 import type { ImportDisposition } from "../utils/inventoryImport/importConfidence";
 import { runImportDuplicateChecks } from "./duplicateDetectionService";
 import {
@@ -32,7 +33,10 @@ import {
   sanitizeListingImagesForId,
 } from "../utils/listingImages";
 import { THOR_AUTO_DEALER_ID } from "../utils/dealerIdentity";
-import { isForbiddenRawKey } from "../utils/inventoryImport/import/forbiddenRawKeys";
+import {
+  isForbiddenRawKey,
+  isSensitiveRegistrationKey,
+} from "../utils/inventoryImport/import/forbiddenRawKeys";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
@@ -40,6 +44,7 @@ const PLACEHOLDER_IMAGE =
 interface ImportPolicy {
   thorControlledStagingGuard: boolean;
   allowSensitiveVehicleFields: boolean;
+  allowVinField: boolean;
   allowPrivateContactFields: boolean;
   allowOwnerAddressInDescription: boolean;
   forceNoPublicListingActivation: boolean;
@@ -75,7 +80,8 @@ function resolveImportPolicy(
 
   return {
     thorControlledStagingGuard: thorControlled,
-    allowSensitiveVehicleFields: !thorControlled,
+    allowSensitiveVehicleFields: true,
+    allowVinField: !thorControlled,
     allowPrivateContactFields: !thorControlled,
     allowOwnerAddressInDescription: !thorControlled,
     forceNoPublicListingActivation: thorForceHidden,
@@ -116,15 +122,26 @@ function scrubPublicSaleSafeText(value: string, policy: ImportPolicy): string {
 function sanitizeRowForPolicy(
   row: CommitImportRowInput,
   policy: ImportPolicy
-): { row: CommitImportRowInput; strippedRawKeys: string[] } {
+): {
+  row: CommitImportRowInput;
+  strippedRawKeys: string[];
+  sensitiveRegistrationKeys: string[];
+} {
   if (!policy.thorControlledStagingGuard) {
-    return { row, strippedRawKeys: [] };
+    const sensitiveRegistrationKeys = Object.keys(row.rawRow ?? {}).filter((key) =>
+      isSensitiveRegistrationKey(key)
+    );
+    return { row, strippedRawKeys: [], sensitiveRegistrationKeys };
   }
 
   const raw = row.rawRow ?? {};
   const nextRaw: Record<string, string> = {};
   const strippedRawKeys: string[] = [];
+  const sensitiveRegistrationKeys: string[] = [];
   for (const [k, v] of Object.entries(raw)) {
+    if (isSensitiveRegistrationKey(k)) {
+      sensitiveRegistrationKeys.push(k);
+    }
     if (policy.blockForbiddenRawKeys && isForbiddenRawKey(k)) {
       strippedRawKeys.push(k);
       continue;
@@ -145,6 +162,7 @@ function sanitizeRowForPolicy(
       rawRow: nextRaw,
     },
     strippedRawKeys,
+    sensitiveRegistrationKeys,
   };
 }
 
@@ -181,6 +199,9 @@ export interface CommitImportRowInput {
   ownerName?: string;
   ownerPhone?: string;
   showroomName?: string;
+  registrationProvince?: string;
+  licensePlateMasked?: string;
+  licensePlateFull?: string;
   /** รหัส Draft ที่กำหนดล่วงหน้า (paste image import) */
   commitDraftId?: string;
   /** Paste: ห้ามดาวน์โหลดรูปจาก sourceImageUrls อัตโนมัติ */
@@ -259,10 +280,21 @@ function buildCarRecord(
   }
 
   const raw = row.rawRow ?? {};
-  const licensePlate = policy.allowSensitiveVehicleFields
-    ? normalizePlate(String(raw.licensePlate ?? raw["ทะเบียน"] ?? raw.plate ?? ""))
+  const registration = extractRegistrationFields({
+    plateValue:
+      row.licensePlateFull ??
+      row.licensePlateMasked ??
+      String(raw.licensePlate ?? raw["ทะเบียน"] ?? raw.plate ?? raw["ทะเบียน/จังหวัด"] ?? ""),
+    provinceValue:
+      row.registrationProvince ??
+      String(raw.registrationProvince ?? raw["จังหวัดทะเบียน"] ?? raw.province ?? ""),
+  });
+  const licensePlateFull = policy.allowSensitiveVehicleFields
+    ? normalizePlate(registration.licensePlateFull)
     : "";
-  const vin = policy.allowSensitiveVehicleFields
+  const licensePlateMasked = registration.licensePlateMasked;
+  const registrationProvince = registration.registrationProvince;
+  const vin = policy.allowVinField
     ? extractVinFromText(String(row.description ?? "")) ||
       extractVinFromText(JSON.stringify(raw))
     : "";
@@ -274,7 +306,10 @@ function buildCarRecord(
       policy
     ),
     vin: vin || undefined,
-    licensePlate: licensePlate || undefined,
+    licensePlate: licensePlateFull || undefined,
+    licensePlateFull: licensePlateFull || undefined,
+    licensePlateMasked: licensePlateMasked || undefined,
+    registrationProvince: registrationProvince || undefined,
     brand,
     model,
     year,
@@ -325,12 +360,32 @@ function buildDraftRecord(
     row.disposition === "needs_review" ? "needs_review" : "draft";
 
   const raw = row.rawRow ?? {};
-  const licensePlate = policy.allowSensitiveVehicleFields
-    ? normalizePlate(
-        String(raw.licensePlate ?? raw["ทะเบียน"] ?? normalizedData.licensePlate ?? "")
-      )
+  const registration = extractRegistrationFields({
+    plateValue:
+      row.licensePlateFull ??
+      row.licensePlateMasked ??
+      String(
+        raw.licensePlate ??
+          raw["ทะเบียน"] ??
+          raw.plate ??
+          raw["ทะเบียน/จังหวัด"] ??
+          normalizedData.licensePlate ??
+          normalizedData.licensePlateFull
+      ),
+    provinceValue:
+      row.registrationProvince ??
+      String(
+        raw.registrationProvince ??
+          raw["จังหวัดทะเบียน"] ??
+          raw.province ??
+          normalizedData.registrationProvince ??
+          normalizedData.province
+      ),
+  });
+  const licensePlateFull = policy.allowSensitiveVehicleFields
+    ? normalizePlate(registration.licensePlateFull)
     : "";
-  const vin = policy.allowSensitiveVehicleFields
+  const vin = policy.allowVinField
     ? extractVinFromText(String(row.description ?? "")) ||
       extractVinFromText(String(normalizedData.notes ?? ""))
     : "";
@@ -338,7 +393,10 @@ function buildDraftRecord(
   return {
     id: draftId,
     vin: vin || undefined,
-    licensePlate: licensePlate || undefined,
+    licensePlate: licensePlateFull || undefined,
+    licensePlateFull: licensePlateFull || undefined,
+    licensePlateMasked: registration.licensePlateMasked || undefined,
+    registrationProvince: registration.registrationProvince || undefined,
     dealerId: resolveDealerIdForImport(owner, row),
     dealerName: owner.showroomName ?? "Dealer",
     ownerName: scrubPublicSaleSafeText(
@@ -386,6 +444,11 @@ function rowToNormalized(row: CommitImportRowInput): NormalizedInventoryRow {
   data.fuelType = row.fuelType ?? "";
   data.imageUrls = (row.sourceImageUrls ?? []).join(",");
   data.description = row.description ?? "";
+  data.registrationProvince = row.registrationProvince ?? "";
+  data.licensePlateMasked = row.licensePlateMasked ?? "";
+  data.licensePlateFull = row.licensePlateFull ?? "";
+  data.licensePlate = row.licensePlateFull ?? "";
+  data.province = row.registrationProvince ?? "";
   return data;
 }
 
@@ -493,7 +556,10 @@ export async function processSmartInventoryImport(
 
   for (let i = 0; i < publishedRows.length; i++) {
     const originalRow = publishedRows[i];
-    const { row, strippedRawKeys } = sanitizeRowForPolicy(originalRow, policy);
+    const { row, strippedRawKeys, sensitiveRegistrationKeys } = sanitizeRowForPolicy(
+      originalRow,
+      policy
+    );
     const srcIdx = row.sourceRowIndex ?? i + 1;
     const basics = validatePublishRow(row);
     if (basics.ok === false) {
@@ -508,6 +574,11 @@ export async function processSmartInventoryImport(
       ...warnings,
       ...(row.warnings ?? []),
       ...strippedRawKeys.map((key) => `[guard] stripped forbidden raw key: ${key}`),
+      ...(sensitiveRegistrationKeys.length > 0
+        ? [
+            "พบข้อมูลทะเบียนรถ ระบบจะแสดงเฉพาะแบบปิดบางส่วนในตลาด และไม่แสดงทะเบียนเต็มโดยอัตโนมัติ",
+          ]
+        : []),
     ];
     if (row.importStatus === "warning" || allWarnings.length) warningCount++;
     if (allWarnings.length) {
@@ -528,7 +599,10 @@ export async function processSmartInventoryImport(
 
   for (let i = 0; i < draftRows.length; i++) {
     const originalRow = draftRows[i];
-    const { row, strippedRawKeys } = sanitizeRowForPolicy(originalRow, policy);
+    const { row, strippedRawKeys, sensitiveRegistrationKeys } = sanitizeRowForPolicy(
+      originalRow,
+      policy
+    );
     const srcIdx = row.sourceRowIndex ?? i + 1;
     const basics = validateDraftRow(row);
     if (basics.ok === false) {
@@ -544,6 +618,11 @@ export async function processSmartInventoryImport(
       ...warnings,
       ...(row.warnings ?? []),
       ...strippedRawKeys.map((key) => `[guard] stripped forbidden raw key: ${key}`),
+      ...(sensitiveRegistrationKeys.length > 0
+        ? [
+            "พบข้อมูลทะเบียนรถ ระบบจะแสดงเฉพาะแบบปิดบางส่วนในตลาด และไม่แสดงทะเบียนเต็มโดยอัตโนมัติ",
+          ]
+        : []),
     ];
     if (allWarnings.length) {
       warningCount++;

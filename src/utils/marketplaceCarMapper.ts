@@ -86,6 +86,12 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
     ownerName: String(raw.ownerName ?? ""),
     ownerPhone: String(raw.ownerPhone ?? ""),
     showroomName: raw.showroomName ? String(raw.showroomName) : undefined,
+    registrationProvince: raw.registrationProvince
+      ? String(raw.registrationProvince)
+      : undefined,
+    licensePlateMasked: raw.licensePlateMasked
+      ? String(raw.licensePlateMasked)
+      : undefined,
     isSold: Boolean(raw.isSold),
     listingStatus:
       raw.listingStatus === "hidden" ? "hidden" : "published",

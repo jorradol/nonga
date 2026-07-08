@@ -1,4 +1,5 @@
 import type { ExtractedCarFields } from "./sellIntentParser";
+import { maskLicensePlate } from "../../../utils/vehicleRegistrationPrivacy";
 
 /** ข้อความที่ผู้ใช้เห็นเมื่อกดปุ่มบันทึกจากแชท */
 export const CHAT_SAVE_LISTING_ACTION = "บันทึกประกาศ";
@@ -51,7 +52,7 @@ export function buildDealerDraftPayloadFromChat(
 
   const descParts: string[] = [];
   if (fields.licensePlate?.trim()) {
-    descParts.push(`ทะเบียน ${fields.licensePlate.trim()}`);
+    descParts.push(`ทะเบียน ${maskLicensePlate(fields.licensePlate.trim())}`);
   }
   if (fields.trimSubModel?.trim()) descParts.push(fields.trimSubModel.trim());
   if (fields.transmission?.trim()) descParts.push(fields.transmission.trim());

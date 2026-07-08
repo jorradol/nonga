@@ -6,7 +6,10 @@ import {
   INVENTORY_IMPORT_FIELD_LABELS,
   type InventoryImportFieldKey,
 } from "../../../utils/inventoryImport/inventoryImportSchema";
-import { isForbiddenRawKey } from "../../../utils/inventoryImport/import/forbiddenRawKeys";
+import {
+  isForbiddenRawKey,
+  isSensitiveRegistrationKey,
+} from "../../../utils/inventoryImport/import/forbiddenRawKeys";
 
 interface ColumnMappingSectionProps {
   entries: ColumnMappingEntry[];
@@ -35,6 +38,9 @@ export function ColumnMappingSection({
   const forbiddenColumns = entries
     .map((entry) => entry.originalColumn)
     .filter((column) => isForbiddenRawKey(column));
+  const sensitiveRegistrationColumns = entries
+    .map((entry) => entry.originalColumn)
+    .filter((column) => isSensitiveRegistrationKey(column));
 
   return (
     <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200"}`}>
@@ -56,6 +62,16 @@ export function ColumnMappingSection({
           <p className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
             ตรวจพบคอลัมน์ต้องห้าม: {forbiddenColumns.slice(0, 10).join(", ")}
             {forbiddenColumns.length > 10 ? ", ..." : ""}
+          </p>
+        )}
+        {sensitiveRegistrationColumns.length > 0 && (
+          <p className="text-[11px] text-cyan-200/90 bg-cyan-500/10 border border-cyan-500/25 rounded-lg px-3 py-2">
+            ตรวจพบข้อมูลทะเบียนรถ: ระบบจะใช้จังหวัดทะเบียนเพื่อช่วยอธิบายรถ
+            และจะแสดงทะเบียนเฉพาะแบบปิดบางส่วนในตลาด ไม่แสดงทะเบียนเต็มโดยอัตโนมัติ
+            {" ("}
+            {sensitiveRegistrationColumns.slice(0, 6).join(", ")}
+            {sensitiveRegistrationColumns.length > 6 ? ", ..." : ""}
+            {")"}
           </p>
         )}
         <div className="flex flex-wrap gap-2">

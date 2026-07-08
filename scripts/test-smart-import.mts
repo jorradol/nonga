@@ -86,7 +86,7 @@ async function main() {
     importedThorCars.every(
       (car) =>
         !car.vin &&
-        !car.licensePlate &&
+        (!car.licensePlate || Boolean(car.licensePlateMasked)) &&
         (car.ownerPhone ?? "") === "" &&
         !/(?:\+?66|0)\d{8,10}/.test(String(car.description ?? ""))
     )
@@ -105,7 +105,7 @@ async function main() {
     importedThorCars.every(
       (car) =>
         !car.vin &&
-        !car.licensePlate &&
+        (!car.licensePlate || Boolean(car.licensePlateMasked)) &&
         (car.ownerPhone ?? "") === "" &&
         !/(?:\+?66|0)\d{8,10}/.test(String(car.description ?? ""))
     );

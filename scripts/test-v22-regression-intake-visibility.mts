@@ -6,6 +6,7 @@ import {
   getPublishedMarketplaceCars,
   removeMarketplaceCar,
 } from "../src/server/marketplaceInventory.ts";
+import { toPublicMarketplaceCarDto } from "../src/utils/publicMarketplaceListingPrivacy.ts";
 import {
   getDealerDraftById,
   removeDealerDraft,
@@ -43,7 +44,7 @@ async function main() {
     description:
       "รถบ้านสภาพดี ownerPhone:0819999999 VIN JTNB11HK123456789 ที่อยู่: 99/9 ถนนทดสอบ",
     rawRow: {
-      plate: "1กข1234",
+      "ทะเบียน/จังหวัด": "1กข1234 กรุงเทพฯ",
       vin: "JTNB11HK123456789",
       ownerPhone: "0819999999",
       color: "ขาว",
@@ -64,7 +65,7 @@ async function main() {
     title: "Honda City 2020",
     description: "รอตรวจเพิ่ม",
     rawRow: {
-      licensePlate: "9ฆอ9999",
+      "ทะเบียน/จังหวัด": "9ฆอ9999 ชลบุรี",
       customerPhone: "0821111111",
       note: "ต้องตรวจทับอีกครั้ง",
     },
@@ -85,9 +86,13 @@ async function main() {
     assert(result.draftCount === 1, "expected 1 draft row");
     assert(
       result.rowWarnings?.some((w) =>
-        w.warnings.some((m) => m.includes("stripped forbidden raw key"))
+        w.warnings.some(
+          (m) =>
+            m.includes("stripped forbidden raw key") ||
+            m.includes("แสดงเฉพาะแบบปิดบางส่วน")
+        )
       ),
-      "expected forbidden raw-key warnings"
+      "expected privacy-safe row warnings"
     );
 
     publishedId =
@@ -101,7 +106,21 @@ async function main() {
     assert(Boolean(importedCar), "thor import should be visible on staging market");
     assert(importedCar?.listingStatus === "published", "listing should be published");
     assert(!importedCar?.vin, "vin must be stripped");
-    assert(!importedCar?.licensePlate, "license plate must be stripped");
+    assert(
+      Boolean(importedCar?.licensePlateMasked),
+      "masked license plate should be present for internal review"
+    );
+    assert(
+      Boolean(importedCar?.registrationProvince),
+      "registration province should be present"
+    );
+    const publicCar = toPublicMarketplaceCarDto(importedCar!);
+    assert(!("licensePlateFull" in publicCar), "public dto must not expose full plate");
+    assert(!("licensePlate" in publicCar), "public dto must not expose legacy full plate field");
+    assert(
+      Boolean((publicCar as unknown as Record<string, unknown>).licensePlateMasked),
+      "public dto should expose masked plate only"
+    );
     assert(importedCar?.ownerPhone === "", "owner phone must be stripped");
     assert(
       Boolean(importedCar?.ownerName) &&
@@ -120,7 +139,7 @@ async function main() {
     const importedDraft = getDealerDraftById(draftId);
     assert(Boolean(importedDraft), "draft record should exist");
     assert(!importedDraft?.vin, "draft vin must be stripped");
-    assert(!importedDraft?.licensePlate, "draft plate must be stripped");
+    assert(Boolean(importedDraft?.licensePlateMasked), "draft should store masked plate");
     assert(importedDraft?.phone === "", "draft phone must be stripped");
     assert(
       Boolean(importedDraft?.ownerName) &&

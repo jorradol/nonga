@@ -2,6 +2,7 @@ import {
   buildDraftPreviewIntro,
   buildStableSeed,
 } from "./thaiSalesCopyVariation";
+import { maskLicensePlate } from "../../../utils/vehicleRegistrationPrivacy";
 
 export interface ExtractedCarFields {
   brand?: string;
@@ -301,7 +302,7 @@ function extractDescription(
 
   if (fields.trimSubModel?.trim()) parts.push(fields.trimSubModel.trim());
   if (fields.licensePlate?.trim()) {
-    parts.push(`ทะเบียน ${fields.licensePlate.trim()}`);
+    parts.push(`ทะเบียน ${maskLicensePlate(fields.licensePlate.trim())}`);
   }
 
   for (const cell of cells) {
@@ -423,7 +424,9 @@ export function buildDraftPreviewCopy(
   reply += `• ยี่ห้อ: ${fields.brand || "-"}\n`;
   reply += `• รุ่น: ${fields.model || "-"}\n`;
   if (fields.trimSubModel) reply += `• รุ่นย่อย: ${fields.trimSubModel}\n`;
-  if (fields.licensePlate) reply += `• ทะเบียน: ${fields.licensePlate}\n`;
+  if (fields.licensePlate) {
+    reply += `• ทะเบียน: ${maskLicensePlate(fields.licensePlate)}\n`;
+  }
   reply += `• ปี: ${fields.year || "-"}\n`;
   if (fields.color) reply += `• สี: ${fields.color}\n`;
   if (fields.transmission) reply += `• เกียร์: ${displayTransmission(fields.transmission)}\n`;

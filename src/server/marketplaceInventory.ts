@@ -65,6 +65,9 @@ export interface MarketplaceCarRecord {
   duplicateMatches?: DuplicateMeta["duplicateMatches"];
   duplicateReviewedAt?: string;
   duplicateReviewAction?: DuplicateMeta["duplicateReviewAction"];
+  registrationProvince?: string;
+  licensePlateMasked?: string;
+  licensePlateFull?: string;
   vin?: string;
   licensePlate?: string;
 }

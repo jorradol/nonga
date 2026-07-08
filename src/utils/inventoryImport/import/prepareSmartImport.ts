@@ -11,7 +11,10 @@ import type {
   SmartImportPreparationSummary,
   SmartPreparedRow,
 } from "./types";
-import { isForbiddenRawKey } from "./forbiddenRawKeys";
+import {
+  isForbiddenRawKey,
+  isSensitiveRegistrationKey,
+} from "./forbiddenRawKeys";
 
 function issueMessages(row: CleanedInventoryRow): string[] {
   return row.issues.map((i) => i.message);
@@ -30,6 +33,7 @@ export function prepareSmartInventoryImport(
   const needsReview: SmartPreparedRow[] = [];
   const rejected: SmartPreparedRow[] = [];
   const forbiddenRawColumnsSet = new Set<string>();
+  const sensitiveRegistrationColumnsSet = new Set<string>();
 
   for (const row of cleanedRows) {
     const previewTitle = buildPreviewTitle(row.data);
@@ -37,6 +41,9 @@ export function prepareSmartInventoryImport(
     for (const key of Object.keys(rawRow)) {
       if (isForbiddenRawKey(key)) {
         forbiddenRawColumnsSet.add(key);
+      }
+      if (isSensitiveRegistrationKey(key)) {
+        sensitiveRegistrationColumnsSet.add(key);
       }
     }
     const warnings = issueMessages(row).filter(Boolean);
@@ -69,7 +76,8 @@ export function prepareSmartInventoryImport(
         row.data,
         row.rowIndex,
         importStatus,
-        owner
+        owner,
+        rawRow
       );
       if (!payload) {
         rejected.push({
@@ -125,6 +133,9 @@ export function prepareSmartInventoryImport(
     rejected,
     forbiddenRawColumns: [...forbiddenRawColumnsSet].sort((a, b) =>
       a.localeCompare(b)
+    ),
+    sensitiveRegistrationColumns: [...sensitiveRegistrationColumnsSet].sort(
+      (a, b) => a.localeCompare(b)
     ),
     importableCount:
       readyToPublish.length + draftRows.length + needsReview.length,

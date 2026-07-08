@@ -1,4 +1,5 @@
 import type { MarketplaceCarRecord } from "../server/marketplaceInventory";
+import { maskLicensePlate } from "./vehicleRegistrationPrivacy";
 
 /** Private seller / listing contact fields — never expose on unauthenticated marketplace APIs */
 export const PUBLIC_LISTING_REDACTED_CONTACT_FIELDS = [
@@ -28,6 +29,7 @@ export const PUBLIC_LISTING_REDACTED_BUYER_CONTACT_FIELDS = [
 export const PUBLIC_LISTING_REDACTED_SENSITIVE_VEHICLE_FIELDS = [
   "vin",
   "licensePlate",
+  "licensePlateFull",
   "plate",
   "registration",
 ] as const;
@@ -111,6 +113,13 @@ function redactPublicListingRecord(
   record: Record<string, unknown>
 ): Record<string, unknown> {
   const next = { ...record };
+  const province = String(next.registrationProvince ?? "").trim();
+  const fullPlate = String(
+    next.licensePlateFull ?? next.licensePlate ?? next.plate ?? ""
+  ).trim();
+  if (!String(next.licensePlateMasked ?? "").trim() && fullPlate) {
+    next.licensePlateMasked = maskLicensePlate(fullPlate, province);
+  }
 
   for (const key of PUBLIC_LISTING_REDACTED_CONTACT_FIELDS) {
     if (key in next) {

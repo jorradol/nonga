@@ -117,6 +117,8 @@ export interface CarListing {
   price: number;
   negotiable: boolean;
   province: string;
+  registrationProvince?: string;
+  licensePlateMasked?: string;
   description: string;
   features: string[]; // Array of standard features (e.g. Navigation, Leather seats, Tesla Autopilot)
   tags: string[]; // Custom descriptive tags
