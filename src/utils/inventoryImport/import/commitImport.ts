@@ -3,16 +3,30 @@ import type {
   ImportOwnerContext,
   MarketplaceImportPayload,
 } from "./types";
-import { adminAuthHeaders } from "../../apiAuthHeaders";
+import { adminAuthHeadersAsync } from "../../apiAuthHeaders";
+import { logTechnicalError, toUserFacingMessage } from "../../userFacingErrors";
 
 export async function commitInventoryImport(
   published: MarketplaceImportPayload[],
   drafts: MarketplaceImportPayload[],
   owner: ImportOwnerContext
 ): Promise<ImportCommitResult> {
+  const fallbackMessage =
+    "ระบบยังไม่พร้อมบันทึกข้อมูลใน staging กรุณาแจ้งผู้ดูแลระบบ";
+  let headers: HeadersInit;
+  try {
+    headers = await adminAuthHeadersAsync("admin", {
+      mode: "auto_legacy_compatible",
+      allowViteAdminTokenFallback: false,
+    });
+  } catch (error) {
+    logTechnicalError("inventory-import-auth", error);
+    throw new Error(fallbackMessage);
+  }
+
   const res = await fetch("/api/admin/inventory-import/commit", {
     method: "POST",
-    headers: adminAuthHeaders(),
+    headers,
     body: JSON.stringify({ published, drafts, owner }),
   });
 
@@ -24,8 +38,13 @@ export async function commitInventoryImport(
   }
 
   if (!res.ok || !body.success) {
+    const technicalMessage =
+      body.message ?? body.error ?? `นำเข้าล้มเหลว (${res.status})`;
+    logTechnicalError("inventory-import-commit", technicalMessage, {
+      status: res.status,
+    });
     throw new Error(
-      body.message ?? body.error ?? `นำเข้าล้มเหลว (${res.status})`
+      toUserFacingMessage(technicalMessage, fallbackMessage)
     );
   }
 

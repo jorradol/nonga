@@ -53,6 +53,7 @@ import { DealerImportHelpSection } from "./DealerImportHelpSection";
 import { DealerPasteImportSection } from "./DealerPasteImportSection";
 import { SmartImportReviewSection } from "./SmartImportReviewSection";
 import { DEALER_FINAL_IMPORT_DISABLED_MESSAGE } from "../../../utils/dealer/dealerImportMessages";
+import { toUserFacingError } from "../../../utils/userFacingErrors";
 
 type DealerImportSourceTab = "file" | "paste";
 
@@ -293,11 +294,11 @@ export default function InventoryImportView({
       setImportPhase("success");
       await fetchCars();
     } catch (err) {
+      const fallbackMessage =
+        "ระบบยังไม่พร้อมบันทึกข้อมูลใน staging กรุณาแจ้งผู้ดูแลระบบ";
       setImportPhase("error");
       setCommitResult(null);
-      setImportError(
-        err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการนำเข้า"
-      );
+      setImportError(toUserFacingError(err, fallbackMessage));
     }
   }, [smartPrep, ownerContext, fetchCars, canCommitImport, commitDisabledMessage]);
 

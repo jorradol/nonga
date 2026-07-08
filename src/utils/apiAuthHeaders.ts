@@ -178,7 +178,7 @@ export function resolveAdminApiTokenForServer(
   }
 
   throw new Error(
-    "Missing admin API token for server mode (primary NONGA_ADMIN_API_TOKEN; optional explicit fallback VITE_NONGA_ADMIN_API_TOKEN)"
+    "Missing admin API token for server mode"
   );
 }
 
