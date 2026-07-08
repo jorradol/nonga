@@ -99,13 +99,23 @@ function resolveImportPolicy(
     addDealer(row.rawRow?.dealerId);
   }
   const thorControlled = dealerSet.has(THOR_AUTO_DEALER_ID);
+  const thorForceHiddenRaw = String(
+    process.env.NONGA_THOR_IMPORT_FORCE_HIDDEN ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  const thorForceHidden =
+    thorControlled &&
+    (thorForceHiddenRaw === "1" ||
+      thorForceHiddenRaw === "true" ||
+      thorForceHiddenRaw === "yes");
 
   return {
     thorControlledStagingGuard: thorControlled,
     allowSensitiveVehicleFields: !thorControlled,
     allowPrivateContactFields: !thorControlled,
     allowOwnerAddressInDescription: !thorControlled,
-    forceNoPublicListingActivation: thorControlled,
+    forceNoPublicListingActivation: thorForceHidden,
     blockForbiddenRawKeys: thorControlled,
   };
 }
