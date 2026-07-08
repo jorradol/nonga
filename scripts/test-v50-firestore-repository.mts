@@ -184,6 +184,10 @@ assert(
   resolveInventoryDataBackend({ NONGA_DATA_BACKEND: "firestore" }) === "firestore",
   "firestore env should select Firestore backend"
 );
+assert(
+  resolveInventoryDataBackend({ NODE_ENV: "production" }) === "firestore",
+  "production default should use firestore backend"
+);
 console.log("PASS backend flag defaults to file and accepts firestore");
 
 const fileRepo = new FileInventoryRepository();

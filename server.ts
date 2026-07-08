@@ -449,7 +449,8 @@ app.post("/api/admin/inventory-import/commit", async (req, res) => {
   try {
     const result = await processSmartInventoryImport(
       { published: publishRows, drafts: draftRows },
-      owner ?? {}
+      owner ?? {},
+      { inventoryRepository }
     );
 
     if (!result.success) {

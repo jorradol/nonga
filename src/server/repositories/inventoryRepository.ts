@@ -83,9 +83,12 @@ export const DEALER_LISTINGS_COLLECTION = "dealerListings";
 export const DEALER_DRAFTS_COLLECTION = "dealerDrafts";
 
 export function resolveInventoryDataBackend(
-  env: Partial<Pick<NodeJS.ProcessEnv, "NONGA_DATA_BACKEND">> = process.env
+  env: Partial<Pick<NodeJS.ProcessEnv, "NONGA_DATA_BACKEND" | "NODE_ENV">> = process.env
 ): NongaDataBackend {
-  return String(env.NONGA_DATA_BACKEND ?? "file").toLowerCase() === "firestore"
+  const configured = String(env.NONGA_DATA_BACKEND ?? "").trim().toLowerCase();
+  if (configured === "firestore") return "firestore";
+  if (configured === "file") return "file";
+  return String(env.NODE_ENV ?? "").toLowerCase() === "production"
     ? "firestore"
     : "file";
 }
@@ -495,7 +498,11 @@ function initializeInventoryRepositoryAdminApp() {
       ...(projectId ? { projectId } : {}),
     });
   }
-  throw new Error("Firebase Admin credentials are required for NONGA_DATA_BACKEND=firestore");
+
+  return initializeApp({
+    credential: applicationDefault(),
+    ...(projectId ? { projectId } : {}),
+  });
 }
 
 export function createInventoryRepository(

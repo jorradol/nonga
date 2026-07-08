@@ -717,7 +717,8 @@ export function registerDealerPortalRoutes(
     try {
       const result = await processSmartInventoryImport(
         { published, drafts },
-        owner
+        owner,
+        { inventoryRepository }
       );
       if (!result.success) {
         return res.status(400).json(result);

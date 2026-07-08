@@ -1,6 +1,6 @@
 import type { Car } from "../types";
-import { mergeListingRecordImages } from "./listingImages";
-import { redactListingPrivateContactFields } from "./publicMarketplaceListingPrivacy";
+import { mergeListingRecordImages } from "./listingImages.ts";
+import { redactListingPrivateContactFields } from "./publicMarketplaceListingPrivacy.ts";
 
 const VALID_TYPES = new Set<Car["type"]>([
   "new",

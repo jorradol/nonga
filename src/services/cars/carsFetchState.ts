@@ -1,5 +1,5 @@
 import type { Car } from "../../types";
-import { normalizePublicMarketplaceCar } from "../../utils/marketplaceCarMapper";
+import { normalizePublicMarketplaceCar } from "../../utils/marketplaceCarMapper.ts";
 
 export interface CarsFetchStateInput {
   cars: Car[];

@@ -37,6 +37,7 @@ import {
   isForbiddenRawKey,
   isSensitiveRegistrationKey,
 } from "../utils/inventoryImport/import/forbiddenRawKeys";
+import type { InventoryRepository } from "./repositories/inventoryRepository";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
@@ -253,7 +254,33 @@ export interface CommitImportResultPayload {
     bucket: string;
     warnings: string[];
   }[];
+  persistenceBackend?: "file-direct" | "file" | "firestore";
   message?: string;
+}
+
+export interface CommitImportOptions {
+  inventoryRepository?: InventoryRepository;
+}
+
+async function persistImportedRecords(
+  cars: MarketplaceCarRecord[],
+  drafts: DealerDraftRecord[],
+  options: CommitImportOptions
+): Promise<CommitImportResultPayload["persistenceBackend"]> {
+  const repo = options.inventoryRepository;
+  if (!repo) {
+    bulkAddMarketplaceCars(cars);
+    bulkAddDealerDrafts(drafts);
+    return "file-direct";
+  }
+
+  for (const car of cars) {
+    await repo.listings.createListing(car.dealerId || car.ownerId, car);
+  }
+  for (const draft of drafts) {
+    await repo.drafts.createDraft(draft.dealerId, draft);
+  }
+  return repo.backend;
 }
 
 function buildCarRecord(
@@ -523,14 +550,16 @@ async function resolveImagesForRow(
 /** Legacy: array of publish rows only */
 export async function processBulkInventoryImport(
   rows: CommitImportRowInput[],
-  owner: CommitImportOwner = {}
+  owner: CommitImportOwner = {},
+  options: CommitImportOptions = {}
 ): Promise<CommitImportResultPayload> {
-  return processSmartInventoryImport({ published: rows, drafts: [] }, owner);
+  return processSmartInventoryImport({ published: rows, drafts: [] }, owner, options);
 }
 
 export async function processSmartInventoryImport(
   input: SmartCommitInput,
-  owner: CommitImportOwner = {}
+  owner: CommitImportOwner = {},
+  options: CommitImportOptions = {}
 ): Promise<CommitImportResultPayload> {
   const policy = resolveImportPolicy(owner, input);
   if (policy.thorControlledStagingGuard && process.env.NODE_ENV === "production") {
@@ -680,8 +709,11 @@ export async function processSmartInventoryImport(
     void draftMeta;
   }
 
-  bulkAddMarketplaceCars(dupChecked.cars);
-  bulkAddDealerDrafts(dupChecked.drafts);
+  const persistenceBackend = await persistImportedRecords(
+    dupChecked.cars,
+    dupChecked.drafts,
+    options
+  );
 
   const imageStats: BulkImageDownloadSummary = {
     totalSourceUrls: imageReports.reduce((s, r) => s + r.totalUrls, 0),
@@ -716,6 +748,7 @@ export async function processSmartInventoryImport(
     imageStats,
     rowWarnings,
     duplicateWarnings,
+    persistenceBackend,
     message:
       importedCount > 0
         ? `นำเข้า ${publishedCount} คัน → ตลาด, ${draftCount} คัน → Draft (รูป ${imageStats.downloaded}/${imageStats.totalSourceUrls})`

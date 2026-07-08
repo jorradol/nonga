@@ -25,6 +25,8 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      // Prefer TypeScript sources over stale transpiled .js siblings.
+      extensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
