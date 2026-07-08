@@ -21,7 +21,16 @@ function RowList({
   rows,
   emptyText,
 }: {
-  rows: { sourceRowIndex: number; previewTitle: string; confidenceScore: number; missingFields: string[] }[];
+  rows: {
+    sourceRowIndex: number;
+    previewTitle: string;
+    confidenceScore: number;
+    missingFields: string[];
+    payload?: {
+      sourceImageUrls?: string[];
+      images?: string[];
+    } | null;
+  }[];
   emptyText: string;
 }) {
   if (rows.length === 0) {
@@ -35,7 +44,14 @@ function RowList({
           className="flex justify-between gap-2 border-b border-slate-800/50 py-1"
         >
           <span className="font-mono text-slate-500 shrink-0">#{r.sourceRowIndex}</span>
-          <span className="truncate flex-1 text-slate-300">{r.previewTitle}</span>
+          <span className="truncate flex-1 text-slate-300">
+            {r.previewTitle}
+            {((r.payload?.sourceImageUrls?.length ?? r.payload?.images?.length ?? 0) > 0) && (
+              <span className="ml-1 text-[10px] text-sky-300/90">
+                · รูป {(r.payload?.sourceImageUrls?.length ?? r.payload?.images?.length ?? 0)}
+              </span>
+            )}
+          </span>
           <span className="font-mono text-orange-400/80 shrink-0">{r.confidenceScore}%</span>
         </li>
       ))}

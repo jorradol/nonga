@@ -405,6 +405,8 @@
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
     "test:thor-csv-column-mapping": "tsx scripts/test-thor-csv-column-mapping.mts",
+    "test:thor-csv-image-links": "tsx scripts/test-thor-csv-image-links.mts",
+    "test:inventory-import-image-links": "tsx scripts/test-thor-csv-image-links.mts",
     "test:owner-browser-import-confirm-auth": "tsx scripts/test-owner-browser-import-confirm-auth.mts",
     "preflight:v19.22": "npm run test:v19.18 && npm run test:v19.19 && npm run test:v19.20 && npm run test:v19.21 && npm run test:v19.22 && npm run rearm:v19.22:dry-run && npm run owner-local-one-run:v19.22:dry-run",
     "rearm:v19.22:dry-run": "tsx scripts/rearm-owner-local-step1-one-run-v19.mts --dry-run",

@@ -29,13 +29,31 @@ import type {
   MarketplaceImportPayload,
 } from "./types";
 import { extractRegistrationFields } from "../../vehicleRegistrationPrivacy";
+import {
+  googleDriveFileDownloadUrl,
+  parseGoogleDriveFileId,
+} from "../imageLinkExtractor";
 
 function parseImageUrls(raw: string): string[] {
   if (!raw?.trim()) return [];
-  return raw
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const parts = raw
     .split(/[\n\r|,;]+/)
     .map((s) => s.trim())
-    .filter((u) => /^https?:\/\//i.test(u));
+    .filter(Boolean);
+  for (const part of parts) {
+    if (!/^https?:\/\//i.test(part)) continue;
+    const driveId = parseGoogleDriveFileId(part);
+    const normalized = driveId
+      ? googleDriveFileDownloadUrl(driveId)
+      : part;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+    if (out.length >= 12) break;
+  }
+  return out;
 }
 
 function buildDescription(data: NormalizedInventoryRow): string {

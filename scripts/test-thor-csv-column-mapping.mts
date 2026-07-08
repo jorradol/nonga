@@ -15,8 +15,8 @@ function assert(condition: unknown, message: string): void {
 
 function main() {
   const csv = [
-    '"ทะเบียน/จังหวัด\n(License Plate)","ยี่ห้อ\n(Make)","รุ่นหลัก/รุ่นย่อย\n(Model/Trim)","ปีรถ (ค.ศ.)\n(Year)","เกียร์\n(Gear)","สีรถ\n(Color)","เลขไมล์ (กม.)\n(Mileage)","ราคาหน้าร้าน (บาท)\n[ราคาสูงสุด - สำหรับลูกค้าทั่วไป]","ราคาส่งเต้นท์ (บาท)\n[ราคาต่ำสุด - สำหรับตัดสด/พันธมิตร]","จุดเด่น/ข้อมูลสภาพรถสำหรับทำคอนเทนต์\n(Selling Points & Condition)"',
-    '"2ขร3120","Toyota","Vios","2021","AT","เทา","127,101","369,000","355,000","รถสวยพร้อมขาย"',
+    '"ทะเบียน/จังหวัด\n(License Plate)","ยี่ห้อ\n(Make)","รุ่นหลัก/รุ่นย่อย\n(Model/Trim)","ปีรถ (ค.ศ.)\n(Year)","เกียร์\n(Gear)","สีรถ\n(Color)","เลขไมล์ (กม.)\n(Mileage)","ราคาหน้าร้าน (บาท)\n[ราคาสูงสุด - สำหรับลูกค้าทั่วไป]","ลิงก์รูปภาพหลัก (Google Drive)\n(Cover Image Link)","ลิงก์รูปภาพประกอบ 4-5 รูป (Google Drive)\n(Gallery Image Links)","จุดเด่น/ข้อมูลสภาพรถสำหรับทำคอนเทนต์\n(Selling Points & Condition)"',
+    '"2ขร3120","Toyota","Vios","2021","AT","เทา","127,101","369,000","https://drive.google.com/file/d/AAA111/view?usp=drive_link","https://drive.google.com/file/d/BBB222/view?usp=drive_link, https://drive.google.com/file/d/CCC333/view?usp=drive_link","รถสวยพร้อมขาย"',
   ].join("\n");
 
   const rows = parseCsvTextToObjects(csv);
@@ -29,6 +29,10 @@ function main() {
   const yearHeader = "ปีรถ (ค.ศ.)\n(Year)";
   const priceHeader = "ราคาหน้าร้าน (บาท)\n[ราคาสูงสุด - สำหรับลูกค้าทั่วไป]";
   const plateHeader = "ทะเบียน/จังหวัด\n(License Plate)";
+  const coverImageHeader =
+    "ลิงก์รูปภาพหลัก (Google Drive)\n(Cover Image Link)";
+  const galleryImageHeader =
+    "ลิงก์รูปภาพประกอบ 4-5 รูป (Google Drive)\n(Gallery Image Links)";
 
   assert(byColumn.get(brandHeader) === "brand", "expected make header -> brand");
   assert(byColumn.get(modelHeader) === "model", "expected model/trim header -> model");
@@ -39,6 +43,14 @@ function main() {
   assert(
     plateMapping === "licensePlateFull" || plateMapping === "registrationProvince",
     "expected plate/province header to map to sensitive registration field"
+  );
+  assert(
+    byColumn.get(coverImageHeader) === "imageUrls",
+    "expected cover image header -> imageUrls"
+  );
+  assert(
+    byColumn.get(galleryImageHeader) === "imageUrls",
+    "expected gallery image header -> imageUrls"
   );
 
   assert(

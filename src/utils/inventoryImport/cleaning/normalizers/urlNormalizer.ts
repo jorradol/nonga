@@ -20,7 +20,8 @@ export function normalizeImageUrlsField(raw: string): FieldNormalizeResult {
   }
 
   const parts = splitMultiUrls(trimmed);
-  const valid = parts.filter((p) => isHttpUrl(p) || p.includes("."));
+  const valid = parts.filter((p) => isHttpUrl(p));
+  const droppedCount = Math.max(0, parts.length - valid.length);
 
   if (valid.length === 0) {
     return {
@@ -36,7 +37,20 @@ export function normalizeImageUrlsField(raw: string): FieldNormalizeResult {
     };
   }
 
-  return { value: valid.join(", "), issues: [] };
+  return {
+    value: valid.join(", "),
+    issues:
+      droppedCount > 0
+        ? [
+            issue(
+              "warning",
+              "image_urls_partial_invalid",
+              "มีบางลิงก์รูปไม่ใช่ URL ที่ถูกต้อง ระบบจะข้ามรายการที่ไม่ถูกต้อง",
+              field
+            ),
+          ]
+        : [],
+  };
 }
 
 export function normalizeYoutubeUrlField(raw: string): FieldNormalizeResult {

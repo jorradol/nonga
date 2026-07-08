@@ -193,6 +193,8 @@ export function buildSmartColumnMappings(
 ): ColumnMappingEntry[] {
   const base = buildAutoColumnMappings(columns, rows);
   const usedFields = new Set<InventoryImportFieldKey>();
+  const allowDuplicateField = (field: InventoryImportFieldKey): boolean =>
+    field === "imageUrls";
 
   return base.map((entry) => {
     const values = sampleValues(rows, entry.originalColumn);
@@ -218,7 +220,8 @@ export function buildSmartColumnMappings(
 
     if (
       finalMapping !== "ignore" &&
-      usedFields.has(finalMapping)
+      usedFields.has(finalMapping) &&
+      !allowDuplicateField(finalMapping)
     ) {
       if (
         valueScore >= 40 &&

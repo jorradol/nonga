@@ -16,6 +16,7 @@ import { Car, CarComment } from "../../../types";
 import {
   getListingGalleryImages,
   getListingPrimaryImage,
+  LISTING_PLACEHOLDER_IMAGE,
 } from "../../../utils/listingImages";
 import ListingDescription from "../../listings/ListingDescription";
 import BuyerFriendlyListingCopyDetailSection from "../../listings/BuyerFriendlyListingCopyDetailSection";
@@ -294,6 +295,10 @@ export default function CarDetailsView() {
   }
 
   const isFav = favorites.includes(car.id);
+  const galleryImages = getListingGalleryImages(car.images, car.id);
+  const hasOnlyPlaceholderImages =
+    galleryImages.length === 0 ||
+    galleryImages.every((url) => url === LISTING_PLACEHOLDER_IMAGE);
   
   // Construct parameters for sharing links
   const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
@@ -356,8 +361,13 @@ export default function CarDetailsView() {
 
       {/* 2. Hero Interactive Media Showcase */}
       <section className="w-full">
+        {hasOnlyPlaceholderImages && (
+          <div className="mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            รูปภาพรายการนี้ยังโหลดไม่ได้หรือยังไม่เปิดสิทธิ์ลิงก์สาธารณะ ระบบจึงใช้รูปสำรองชั่วคราว
+          </div>
+        )}
         <HeroGallery 
-          images={getListingGalleryImages(car.images, car.id)} 
+          images={galleryImages}
           title={car.title} 
           brand={car.brand} 
           isEv={car.type === "ev" || car.fuelType?.includes("electric")}

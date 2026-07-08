@@ -114,6 +114,8 @@ export function buildAutoColumnMappings(
   rows: InventoryRow[]
 ): ColumnMappingEntry[] {
   const usedFields = new Set<InventoryImportFieldKey>();
+  const allowDuplicateField = (field: InventoryImportFieldKey): boolean =>
+    field === "imageUrls";
 
   return columns.map((originalColumn) => {
     const suggested = suggestMappingForColumn(originalColumn);
@@ -121,7 +123,8 @@ export function buildAutoColumnMappings(
 
     if (
       finalMapping !== "ignore" &&
-      usedFields.has(finalMapping)
+      usedFields.has(finalMapping) &&
+      !allowDuplicateField(finalMapping)
     ) {
       finalMapping = "ignore";
     } else if (finalMapping !== "ignore") {
@@ -162,6 +165,7 @@ export function findDuplicateMappingWarnings(
 
   const warnings: DuplicateMappingWarning[] = [];
   for (const [field, columns] of byField) {
+    if (field === "imageUrls") continue;
     if (columns.length > 1) {
       warnings.push({ field, columns });
     }

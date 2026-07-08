@@ -16,6 +16,10 @@ import {
   LISTING_PLACEHOLDER_IMAGE,
   sanitizeListingImagesForId,
 } from "../utils/listingImages";
+import {
+  googleDriveFileDownloadUrl,
+  parseGoogleDriveFileId,
+} from "../utils/inventoryImport/imageLinkExtractor";
 
 const LISTING_IMAGES_ROOT = path.resolve(process.cwd(), "data/listing-images");
 const MAX_IMAGES_PER_CAR = 12;
@@ -222,7 +226,10 @@ async function downloadOneImage(
       return {
         sourceUrl,
         status: "failed",
-        error: `HTTP ${res.status}`,
+        error:
+          res.status === 401 || res.status === 403
+            ? `HTTP ${res.status} (ลิงก์รูปอาจยังไม่เปิดสิทธิ์ดูสาธารณะ)`
+            : `HTTP ${res.status}`,
       };
     }
 
@@ -270,6 +277,11 @@ export async function downloadListingImagesForCar(
       sourceUrls
         .map((u) => u.trim())
         .filter((u) => /^https?:\/\//i.test(u))
+        .map((u) => {
+          const driveId = parseGoogleDriveFileId(u);
+          if (!driveId) return u;
+          return googleDriveFileDownloadUrl(driveId);
+        })
     ),
   ].slice(0, MAX_IMAGES_PER_CAR);
 
