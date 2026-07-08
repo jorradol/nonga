@@ -112,6 +112,7 @@ export interface SmartImportPreparationSummary {
   draftRows: SmartPreparedRow[];
   needsReview: SmartPreparedRow[];
   rejected: SmartPreparedRow[];
+  forbiddenRawColumns: string[];
   importableCount: number;
   publishedCount: number;
   draftCount: number;

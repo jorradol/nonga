@@ -116,7 +116,7 @@ export default function DealerPortalView() {
           savePasteDraft={async (draft) =>
             saveDealerPasteImportDraft(apiHeaders, draft)
           }
-          finalCommitEnabled={false}
+          finalCommitEnabled
           onGoToDrafts={() => navigateToDealerDraftsAfterPasteSave(setTab)}
           compact
         />

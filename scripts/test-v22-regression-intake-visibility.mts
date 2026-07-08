@@ -24,7 +24,7 @@ async function main() {
   const owner = {
     dealerId: "thor-auto",
     ownerId: "owner-thor-auto-regression",
-    ownerName: "Owner Regression",
+    ownerName: "สมชาย ทดสอบ",
     ownerPhone: "0800000000",
     showroomName: "Thor Auto",
     address: "Bangkok",
@@ -40,7 +40,8 @@ async function main() {
     mileage: 52000,
     fuelType: "petrol",
     title: "Toyota Yaris Ativ 2021",
-    description: "รถบ้านสภาพดี พร้อมขาย",
+    description:
+      "รถบ้านสภาพดี ownerPhone:0819999999 VIN JTNB11HK123456789 ที่อยู่: 99/9 ถนนทดสอบ",
     rawRow: {
       plate: "1กข1234",
       vin: "JTNB11HK123456789",
@@ -103,8 +104,17 @@ async function main() {
     assert(!importedCar?.licensePlate, "license plate must be stripped");
     assert(importedCar?.ownerPhone === "", "owner phone must be stripped");
     assert(
+      Boolean(importedCar?.ownerName) &&
+        !String(importedCar?.ownerName ?? "").includes("สมชาย"),
+      "owner name must not expose personal name"
+    );
+    assert(
       !String(importedCar?.description ?? "").includes("ที่อยู่:"),
       "owner address must not be appended"
+    );
+    assert(
+      !/0819999999|JTNB11HK123456789/.test(String(importedCar?.description ?? "")),
+      "description must redact phone and vin"
     );
 
     const importedDraft = getDealerDraftById(draftId);
@@ -112,6 +122,11 @@ async function main() {
     assert(!importedDraft?.vin, "draft vin must be stripped");
     assert(!importedDraft?.licensePlate, "draft plate must be stripped");
     assert(importedDraft?.phone === "", "draft phone must be stripped");
+    assert(
+      Boolean(importedDraft?.ownerName) &&
+        !String(importedDraft?.ownerName ?? "").includes("สมชาย"),
+      "draft owner name must not expose personal name"
+    );
   } finally {
     if (publishedId) removeMarketplaceCar(publishedId);
     if (draftId) removeDealerDraft(draftId);

@@ -6,6 +6,7 @@ import {
   INVENTORY_IMPORT_FIELD_LABELS,
   type InventoryImportFieldKey,
 } from "../../../utils/inventoryImport/inventoryImportSchema";
+import { isForbiddenRawKey } from "../../../utils/inventoryImport/import/forbiddenRawKeys";
 
 interface ColumnMappingSectionProps {
   entries: ColumnMappingEntry[];
@@ -27,6 +28,9 @@ export function ColumnMappingSection({
   isDarkMode,
 }: ColumnMappingSectionProps) {
   const border = isDarkMode ? "border-slate-800" : "border-slate-200";
+  const forbiddenColumns = entries
+    .map((entry) => entry.originalColumn)
+    .filter((column) => isForbiddenRawKey(column));
 
   return (
     <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200"}`}>
@@ -41,8 +45,15 @@ export function ColumnMappingSection({
           </div>
         </div>
         <p className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-          ระบบนี้ยังเป็นการจัด mapping เบื้องต้น ก่อนนำเข้าข้อมูลจริง — ยังไม่บันทึกลง marketplace หรือ Firestore
+          หลัง mapping แล้วสามารถไป Preview → Validate → Confirm Import staging ได้ทันที
+          โดยคอลัมน์ต้องห้าม/PII จะถูก strip/drop อัตโนมัติก่อน commit
         </p>
+        {forbiddenColumns.length > 0 && (
+          <p className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            ตรวจพบคอลัมน์ต้องห้าม: {forbiddenColumns.slice(0, 10).join(", ")}
+            {forbiddenColumns.length > 10 ? ", ..." : ""}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

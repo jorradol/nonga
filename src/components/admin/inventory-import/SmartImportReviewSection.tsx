@@ -109,10 +109,22 @@ export function SmartImportReviewSection({
             onClick={onContinueConfirm}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-600 text-white text-xs font-bold disabled:opacity-40"
           >
-            Continue to Confirm
+            ตรวจสอบข้อมูลและยืนยันนำเข้า
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
+        {preparation.forbiddenRawColumns.length > 0 && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+            <p className="font-semibold">
+              ตรวจพบคอลัมน์ต้องห้าม {preparation.forbiddenRawColumns.length} รายการ
+              ระบบจะ strip/drop ก่อน commit staging
+            </p>
+            <p className="mt-1 text-amber-200/90">
+              {preparation.forbiddenRawColumns.slice(0, 12).join(", ")}
+              {preparation.forbiddenRawColumns.length > 12 ? ", ..." : ""}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-0 md:divide-x divide-slate-800">

@@ -107,6 +107,21 @@ export function ImportConfirmationSection({
           ))}
         </div>
 
+        {preparation.forbiddenRawColumns.length > 0 && (
+          <div className="flex items-start gap-2 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">
+                ระบบจะตัดคอลัมน์ต้องห้ามก่อนบันทึกเข้า staging marketplace
+              </p>
+              <p className="text-xs mt-1">
+                {preparation.forbiddenRawColumns.slice(0, 12).join(", ")}
+                {preparation.forbiddenRawColumns.length > 12 ? ", ..." : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
         {!commitEnabled && commitDisabledMessage && (
           <div className="flex items-start gap-2 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />

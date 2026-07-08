@@ -32,6 +32,7 @@ import {
   sanitizeListingImagesForId,
 } from "../utils/listingImages";
 import { THOR_AUTO_DEALER_ID } from "../utils/dealerIdentity";
+import { isForbiddenRawKey } from "../utils/inventoryImport/import/forbiddenRawKeys";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
@@ -43,44 +44,6 @@ interface ImportPolicy {
   allowOwnerAddressInDescription: boolean;
   forceNoPublicListingActivation: boolean;
   blockForbiddenRawKeys: boolean;
-}
-
-const FORBIDDEN_RAW_KEY_HINTS = [
-  "vin",
-  "plate",
-  "licenseplate",
-  "fullplate",
-  "registration",
-  "ownerphone",
-  "sellerphone",
-  "customerphone",
-  "buyerphone",
-  "phone",
-  "customer",
-  "buyer",
-  "private",
-  "internalcost",
-  "cost",
-  "margin",
-  "bank",
-  "transfer",
-  "payment",
-  "token",
-  "header",
-  "cookie",
-  "secret",
-  "env",
-  "authorization",
-  "credential",
-];
-
-function normalizeKeyForPolicy(key: string): string {
-  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function isForbiddenRawKey(key: string): boolean {
-  const normalized = normalizeKeyForPolicy(key);
-  return FORBIDDEN_RAW_KEY_HINTS.some((hint) => normalized.includes(hint));
 }
 
 function resolveImportPolicy(
@@ -125,11 +88,29 @@ function sanitizeOwnerForPolicy(
   policy: ImportPolicy
 ): CommitImportOwner {
   if (!policy.thorControlledStagingGuard) return owner;
+  const safeDisplayName = String(owner.showroomName ?? owner.ownerName ?? "")
+    .trim()
+    .slice(0, 120);
   return {
     ...owner,
+    ownerName: safeDisplayName || "Thor Auto",
     ownerPhone: undefined,
     address: undefined,
   };
+}
+
+function scrubPublicSaleSafeText(value: string, policy: ImportPolicy): string {
+  const text = String(value ?? "");
+  if (!policy.thorControlledStagingGuard) return text;
+  return text
+    .replace(/\b[A-HJ-NPR-Z0-9]{17}\b/gi, "[redacted-vin]")
+    .replace(/(?:\+?66|0)\d{8,10}/g, "[redacted-phone]")
+    .replace(
+      /(?:ที่อยู่|address|plate|ทะเบียน|vin|owner|seller|customer|buyer|private|หมายเหตุส่วนตัว|internal note|private note)\s*[:：]?\s*[^\n]*/gi,
+      "[redacted-private]"
+    )
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function sanitizeRowForPolicy(
@@ -154,6 +135,12 @@ function sanitizeRowForPolicy(
   return {
     row: {
       ...row,
+      title: scrubPublicSaleSafeText(String(row.title ?? ""), policy),
+      description: scrubPublicSaleSafeText(String(row.description ?? ""), policy),
+      ownerName: undefined,
+      showroomName: row.showroomName
+        ? scrubPublicSaleSafeText(String(row.showroomName), policy)
+        : undefined,
       ownerPhone: undefined,
       rawRow: nextRaw,
     },
@@ -261,7 +248,10 @@ function buildCarRecord(
   const price = Number(row.price) || 0;
   const fuelType = String(row.fuelType ?? "petrol");
 
-  let description = String(row.description ?? "").slice(0, 4000);
+  let description = scrubPublicSaleSafeText(
+    String(row.description ?? "").slice(0, 4000),
+    policy
+  );
   if (policy.allowOwnerAddressInDescription && owner.address?.trim()) {
     description = description
       ? `${description}\nที่อยู่: ${owner.address.trim()}`
@@ -279,7 +269,10 @@ function buildCarRecord(
 
   return {
     id: carId,
-    title: String(row.title ?? `${brand} ${model} ปี ${year}`).slice(0, 200),
+    title: scrubPublicSaleSafeText(
+      String(row.title ?? `${brand} ${model} ปี ${year}`).slice(0, 200),
+      policy
+    ),
     vin: vin || undefined,
     licensePlate: licensePlate || undefined,
     brand,
@@ -299,7 +292,12 @@ function buildCarRecord(
     description,
     dealerId: resolveDealerIdForImport(owner, row),
     ownerId: String(row.ownerId ?? owner.ownerId ?? "import-admin"),
-    ownerName: String(row.ownerName ?? owner.ownerName ?? "Admin Import"),
+    ownerName: scrubPublicSaleSafeText(
+      policy.thorControlledStagingGuard
+        ? String(row.showroomName ?? owner.showroomName ?? owner.ownerName ?? "Thor Auto")
+        : String(row.ownerName ?? owner.ownerName ?? "Admin Import"),
+      policy
+    ),
     ownerPhone: policy.allowPrivateContactFields
       ? String(row.ownerPhone ?? owner.ownerPhone ?? "")
       : "",
@@ -343,7 +341,12 @@ function buildDraftRecord(
     licensePlate: licensePlate || undefined,
     dealerId: resolveDealerIdForImport(owner, row),
     dealerName: owner.showroomName ?? "Dealer",
-    ownerName: String(row.ownerName ?? owner.ownerName ?? ""),
+    ownerName: scrubPublicSaleSafeText(
+      policy.thorControlledStagingGuard
+        ? String(row.showroomName ?? owner.showroomName ?? owner.ownerName ?? "Thor Auto")
+        : String(row.ownerName ?? owner.ownerName ?? ""),
+      policy
+    ),
     phone: policy.allowPrivateContactFields
       ? String(row.ownerPhone ?? owner.ownerPhone ?? "")
       : "",
@@ -364,7 +367,10 @@ function buildDraftRecord(
     mileage: Math.max(0, Number(row.mileage) || 0),
     fuelType: String(row.fuelType ?? "petrol"),
     condition: String(row.condition ?? "มือสอง"),
-    description: String(row.description ?? "").slice(0, 4000),
+    description: scrubPublicSaleSafeText(
+      String(row.description ?? "").slice(0, 4000),
+      policy
+    ),
     createdAt: now,
     updatedAt: now,
   };

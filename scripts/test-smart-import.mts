@@ -61,6 +61,7 @@ async function main() {
     ownerName: "คุณณรงค์ จรดล",
     ownerPhone: "0815553335",
     showroomName: "Thor Auto (ธอร์ ออโต้)",
+    dealerId: "thor-auto",
   });
   console.log("commit:", {
     published: result.publishedCount,
@@ -69,6 +70,7 @@ async function main() {
   });
 
   const marketplace = getPublishedMarketplaceCars();
+  const importedThorCars = marketplace.filter((c) => c.ownerId === "dealer-thor-auto");
   const allHaveStorage = marketplace
     .filter((c) => c.ownerId === "dealer-thor-auto")
     .every(
@@ -79,6 +81,18 @@ async function main() {
   const draftList = getDealerDraftsSorted("thor-auto");
   console.log("marketplace published (thor):", marketplace.filter((c) => c.ownerId === "dealer-thor-auto").length);
   console.log("draft records:", draftList.length);
+  console.log(
+    "privacy guard:",
+    importedThorCars.every(
+      (car) =>
+        !car.vin &&
+        !car.licensePlate &&
+        (car.ownerPhone ?? "") === "" &&
+        !/(?:\+?66|0)\d{8,10}/.test(String(car.description ?? ""))
+    )
+      ? "pass"
+      : "fail"
+  );
 
   const prep2 = await runFile("Partial (no price row)", PARTIAL);
   const draftRow = prep2.draftRows[0] ?? prep2.needsReview[0];
@@ -87,7 +101,14 @@ async function main() {
     prep1.draftCount === 1 &&
     prep2.draftRows.length >= 1 &&
     result.publishedCount >= 4 &&
-    result.draftCount >= 1;
+    result.draftCount >= 1 &&
+    importedThorCars.every(
+      (car) =>
+        !car.vin &&
+        !car.licensePlate &&
+        (car.ownerPhone ?? "") === "" &&
+        !/(?:\+?66|0)\d{8,10}/.test(String(car.description ?? ""))
+    );
 
   console.log("\n===", ok ? "PASS" : "FAIL", "===");
   if (!ok) process.exit(1);
