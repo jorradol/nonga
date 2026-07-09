@@ -146,6 +146,7 @@ const leadResult = await createConsentedBuyerLead({
   buyerUserId: "buyer-a",
   listing: dealerListing,
   repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
 });
 
 ok("dealer listing lead created", leadResult.ok);
@@ -180,6 +181,7 @@ const memberLead = await createConsentedBuyerLead({
   buyerUserId: "buyer-b",
   listing: memberListing,
   repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
 });
 
 ok("member listing lead created", memberLead.ok);

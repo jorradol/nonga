@@ -24,3 +24,7 @@ export const BUYER_LEAD_MODAL_SUBMIT_NETWORK_ERROR =
 
 export const BUYER_LEAD_MODAL_SUBMIT_NOT_READY_ERROR =
   "ยังไม่พร้อมส่งข้อมูล กรุณากรอกข้อมูลในแชทให้ครบก่อนครับ";
+
+/** v22.30 — Shown when global lead capture kill switch is OFF. */
+export const BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT =
+  "รอบ staging นี้ยังไม่เปิดส่งข้อมูลให้ผู้ขาย — กดยืนยันจะไม่บันทึกลีดและไม่ส่งต่อให้ผู้ขาย";

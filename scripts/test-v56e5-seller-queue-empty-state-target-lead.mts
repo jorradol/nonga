@@ -121,6 +121,7 @@ const listingB = {
     buyerUserId: "buyer-e5",
     listing: listingA,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
   ok("lead created on listing A", r1.ok === true);
   if (r1.ok) {

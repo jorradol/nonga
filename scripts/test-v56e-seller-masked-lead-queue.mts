@@ -53,6 +53,7 @@ async function createLead(buyerUserId: string, displayName: string, phone: strin
     buyerUserId,
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
 }
 

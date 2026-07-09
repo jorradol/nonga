@@ -15,6 +15,10 @@ import {
 } from "../services/leads/buyerLeadView";
 import { getServerAuthContext, ServerAuthError } from "./serverAuthContext";
 import { canAccessAdmin } from "../utils/rbac";
+import {
+  BUYER_LEAD_CAPTURE_DISABLED_MESSAGE,
+  isLeadCaptureEnabled,
+} from "../services/leads/leadCaptureFlags";
 
 export function registerBuyerLeadRoutes(
   app: Express,
@@ -24,7 +28,18 @@ export function registerBuyerLeadRoutes(
 
   app.post("/api/buyer-leads", async (req, res) => {
     try {
+      // Auth first — preserve unauth 401 before kill-switch response.
       const auth = await getServerAuthContext(req);
+
+      // v22.30 — kill switch OFF blocks authenticated create (no lead write).
+      if (!isLeadCaptureEnabled()) {
+        return res.status(403).json({
+          success: false,
+          message: BUYER_LEAD_CAPTURE_DISABLED_MESSAGE,
+          leadCaptureEnabled: false,
+        });
+      }
+
       const body = parseBuyerLeadCreateBody((req.body ?? {}) as Record<string, unknown>);
       if (!body) {
         return res.status(400).json({

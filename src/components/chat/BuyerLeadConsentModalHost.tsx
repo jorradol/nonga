@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import {
@@ -10,7 +10,11 @@ import {
   buildLeadPreviewContextFromMemory,
   getConversationalLeadMemory,
 } from "../../services/leads/conversationalLeadMemory";
-import { BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR } from "../../services/leads/buyerLeadConsentModalCopy";
+import {
+  BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT,
+  BUYER_LEAD_MODAL_SUBMIT_GENERIC_ERROR,
+} from "../../services/leads/buyerLeadConsentModalCopy";
+import { fetchLeadCaptureEnabled } from "../../services/leads/leadCaptureClientFlags";
 import { BuyerLeadConsentModal } from "./BuyerLeadConsentModal";
 
 /**
@@ -22,8 +26,21 @@ export function BuyerLeadConsentModalHost() {
   const { activeSessionId, submitBuyerLeadConsent } = useChatContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Fail closed until health confirms true.
+  const [leadCaptureEnabled, setLeadCaptureEnabled] = useState(false);
 
   const sessionId = consentModalSessionId ?? activeSessionId;
+
+  useEffect(() => {
+    if (!consentModalOpen) return;
+    let cancelled = false;
+    void fetchLeadCaptureEnabled().then((enabled) => {
+      if (!cancelled) setLeadCaptureEnabled(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [consentModalOpen]);
 
   const preview = useMemo(() => {
     if (!consentModalOpen || !sessionId) return null;
@@ -39,6 +56,10 @@ export function BuyerLeadConsentModalHost() {
   }, [consentModalOpen, sessionId]);
 
   const handleConfirm = async (phone: string) => {
+    if (!leadCaptureEnabled) {
+      setSubmitError(BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT);
+      return;
+    }
     setSubmitError(null);
     setIsSubmitting(true);
     try {
@@ -68,6 +89,7 @@ export function BuyerLeadConsentModalHost() {
       preview={preview}
       isSubmitting={isSubmitting}
       submitError={submitError}
+      leadCaptureEnabled={leadCaptureEnabled}
       onClose={handleClose}
       onBackToEdit={handleClose}
       onConfirm={handleConfirm}

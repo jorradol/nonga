@@ -78,7 +78,7 @@ ok(
   containsForbiddenSensitiveDocument("ส่งสลิปเงินเดือนให้ดู")
 );
 
-// --- create lead ---
+// --- create lead (requires kill switch ON for this unit path) ---
 let leadId = "";
 {
   const result = await createConsentedBuyerLead({
@@ -94,6 +94,7 @@ let leadId = "";
     buyerUserId: "buyer-uid-1",
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
   ok("create lead success", result.ok === true);
   if (result.ok) {

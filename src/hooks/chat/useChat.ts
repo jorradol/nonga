@@ -2101,11 +2101,12 @@ export function useChat() {
           return;
         }
       }
-      const { reply, isBuyerLeadProfileReuse } = handleBuyerLeadCaptureFromCarCard({
-        sessionId,
-        car,
-        buyerUserId: user?.uid,
-      });
+      const { reply, isBuyerLeadProfileReuse } =
+        await handleBuyerLeadCaptureFromCarCard({
+          sessionId,
+          car,
+          buyerUserId: user?.uid,
+        });
       await addMessage(
         sessionId,
         "ai",

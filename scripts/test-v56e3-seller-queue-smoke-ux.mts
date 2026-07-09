@@ -50,6 +50,7 @@ const r1 = await createConsentedBuyerLead({
   buyerUserId: "buyer-e3-1",
   listing,
   repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
 });
 ok("seed lead for smoke", r1.ok === true);
 const leadId = r1.ok ? r1.lead.id : "";
@@ -133,6 +134,7 @@ const leadId = r1.ok ? r1.lead.id : "";
     buyerUserId: "buyer-e3-a",
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
   const rB = await createConsentedBuyerLead({
     input: {
@@ -147,6 +149,7 @@ const leadId = r1.ok ? r1.lead.id : "";
     buyerUserId: "buyer-e3-b",
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
   ok("two fresh leads", rA.ok === true && rB.ok === true);
   if (rA.ok && rB.ok) {

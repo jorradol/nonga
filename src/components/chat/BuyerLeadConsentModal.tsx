@@ -6,6 +6,7 @@ import {
   BUYER_LEAD_MODAL_CONSENT_PRIMARY,
   BUYER_LEAD_MODAL_PHONE_INVALID_HINT,
   BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL,
+  BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT,
 } from "../../services/leads/buyerLeadConsentModalCopy";
 import { normalizeThaiPhone } from "../../services/leads/buyerLeadValidation";
 import type { BuyerLeadModalPreview } from "../../services/leads/buyerLeadPreview";
@@ -15,6 +16,8 @@ export type BuyerLeadConsentModalProps = {
   preview: BuyerLeadModalPreview | null;
   isSubmitting: boolean;
   submitError?: string | null;
+  /** v22.30 — when false, show staging-disabled hint; backend still blocks create. */
+  leadCaptureEnabled?: boolean;
   onClose: () => void;
   onBackToEdit: () => void;
   onConfirm: (contactPhone: string) => void;
@@ -25,6 +28,7 @@ export function BuyerLeadConsentModal({
   preview,
   isSubmitting,
   submitError = null,
+  leadCaptureEnabled = true,
   onClose,
   onBackToEdit,
   onConfirm,
@@ -185,6 +189,15 @@ export function BuyerLeadConsentModal({
                   <p>{BUYER_LEAD_MODAL_CONSENT_PRIMARY}</p>
                   <p className="text-slate-400">{BUYER_LEAD_MODAL_CONSENT_CONTACT}</p>
                 </section>
+
+                {!leadCaptureEnabled ? (
+                  <p
+                    className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100 leading-relaxed"
+                    data-testid="buyer-lead-capture-disabled-hint"
+                  >
+                    {BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT}
+                  </p>
+                ) : null}
               </>
             )}
           </div>
@@ -201,7 +214,7 @@ export function BuyerLeadConsentModal({
             ) : null}
             <button
               type="button"
-              disabled={!preview || !canConfirm || isSubmitting}
+              disabled={!preview || !canConfirm || isSubmitting || !leadCaptureEnabled}
               onClick={() => {
                 if (normalizedPhone) onConfirm(normalizedPhone);
               }}
@@ -213,8 +226,10 @@ export function BuyerLeadConsentModal({
                   <Loader2 className="w-4 h-4 animate-spin" />
                   {BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL}
                 </>
-              ) : (
+              ) : leadCaptureEnabled ? (
                 "ยืนยันส่งข้อมูลให้ผู้ขาย"
+              ) : (
+                "ยังไม่เปิดส่งข้อมูลในรอบนี้"
               )}
             </button>
             <button

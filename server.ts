@@ -48,6 +48,7 @@ import { sanitizeListingImagesForId } from "./src/utils/listingImages";
 import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
 import { registerRevenuePreviewRoutes } from "./src/server/revenuePreviewRoutes";
 import { registerBuyerLeadRoutes } from "./src/server/buyerLeadRoutes";
+import { isLeadCaptureEnabled } from "./src/services/leads/leadCaptureFlags";
 import { registerBuyerLeadQueueRoutes } from "./src/server/buyerLeadQueueRoutes";
 import {
   resolveCreateListingOwner,
@@ -138,6 +139,7 @@ app.use(
 );
 
 app.get("/api/health", (_req, res) => {
+  // leadCaptureEnabled: boolean only — never echo env names/secrets.
   res.json({
     ok: true,
     service: "nonga",
@@ -145,6 +147,7 @@ app.get("/api/health", (_req, res) => {
     imageBackend: process.env.NONGA_IMAGE_BACKEND ?? "file",
     publicSignupEnabled:
       process.env.VITE_NONGA_PUBLIC_SIGNUP_ENABLED === "true",
+    leadCaptureEnabled: isLeadCaptureEnabled(),
   });
 });
 

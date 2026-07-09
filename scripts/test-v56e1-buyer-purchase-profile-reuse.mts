@@ -92,7 +92,7 @@ resetBuyerPurchaseProfilesForTests();
     preferredContactWindow: "y",
     updatedAt: "",
   });
-  const r = handleBuyerLeadCaptureFromCarCard({ sessionId: sid, car: carA, buyerUserId: buyerId });
+  const r = await handleBuyerLeadCaptureFromCarCard({ sessionId: sid, car: carA, buyerUserId: buyerId });
   ok("no profile: not reuse UI", !r.isBuyerLeadProfileReuse);
   ok("no profile: collecting stage", getBuyerLeadCaptureContext(sid)?.stage === "collecting");
 }
@@ -109,7 +109,7 @@ resetBuyerPurchaseProfilesForTests();
   });
   const sid = "sess-reuse";
   clearBuyerLeadCaptureContext(sid);
-  const r = handleBuyerLeadCaptureFromCarCard({ sessionId: sid, car: carB, buyerUserId: buyerId });
+  const r = await handleBuyerLeadCaptureFromCarCard({ sessionId: sid, car: carB, buyerUserId: buyerId });
   ok("has profile: reuse UI flag", r.isBuyerLeadProfileReuse === true);
   ok("reuse reply mentions saved data", r.reply.includes("ข้อมูลพื้นฐาน"));
   const ctx = getBuyerLeadCaptureContext(sid);

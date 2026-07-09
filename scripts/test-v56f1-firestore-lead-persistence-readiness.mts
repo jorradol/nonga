@@ -125,6 +125,7 @@ function makeLead(partial: Partial<BuyerLead> & { id: string; queuePosition: num
     buyerUserId: "buyer-create-f1",
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
   ok("create lead ok", result.ok === true);
   if (result.ok) {

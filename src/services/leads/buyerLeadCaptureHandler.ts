@@ -16,8 +16,10 @@ import {
   buildBuyerLeadStartFromCarReply,
   buildBuyerLeadSuccessReply,
   BUYER_LEAD_CANCEL_REPLY,
+  BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT,
   BUYER_LEAD_FORBIDDEN_DOC_REPLY,
 } from "./buyerLeadCaptureCopy";
+import { fetchLeadCaptureEnabled } from "./leadCaptureClientFlags";
 import {
   clearBuyerLeadCaptureContext,
   draftToCreateInput,
@@ -112,9 +114,12 @@ export async function handleBuyerLeadCaptureTurn(
   }
 
   if (sessionCtx.stage === "ready_for_modal" && miss.length === 0) {
+    const captureOn = await fetchLeadCaptureEnabled();
     return {
       handled: true,
-      reply: buildBuyerLeadReadySummaryReply(sessionCtx.fields),
+      reply:
+        buildBuyerLeadReadySummaryReply(sessionCtx.fields) +
+        (captureOn ? "" : `\n\n${BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT}`),
       isBuyerLeadReady: true,
     };
   }
@@ -127,22 +132,27 @@ export async function handleBuyerLeadCaptureTurn(
   };
 }
 
-export function handleBuyerLeadCaptureFromCarCard(params: {
+export async function handleBuyerLeadCaptureFromCarCard(params: {
   sessionId: string;
   car: ChatCarCardData;
   buyerUserId?: string;
-}): { reply: string; isBuyerLeadProfileReuse?: boolean } {
+}): Promise<{ reply: string; isBuyerLeadProfileReuse?: boolean }> {
   const ctx = startBuyerLeadCaptureFromCar(
     params.sessionId,
     params.car,
     params.buyerUserId
   );
+  const captureOn = await fetchLeadCaptureEnabled();
+  const disabledNote = captureOn
+    ? ""
+    : `\n\n${BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT}`;
   if (ctx.stage === "reuse_profile_choice") {
     return {
       reply:
         buildBuyerLeadStartFromCarReply(params.car) +
         "\n\n" +
-        buildBuyerLeadSavedProfileSummaryReply(ctx.fields),
+        buildBuyerLeadSavedProfileSummaryReply(ctx.fields) +
+        disabledNote,
       isBuyerLeadProfileReuse: true,
     };
   }
@@ -151,7 +161,8 @@ export function handleBuyerLeadCaptureFromCarCard(params: {
     reply:
       buildBuyerLeadStartFromCarReply(params.car) +
       "\n\n" +
-      buildBuyerLeadCollectingPrompt(miss),
+      buildBuyerLeadCollectingPrompt(miss) +
+      disabledNote,
   };
 }
 

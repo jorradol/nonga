@@ -53,6 +53,7 @@ async function seedLead(buyerUserId: string, name: string, phone: string) {
     buyerUserId,
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
 }
 

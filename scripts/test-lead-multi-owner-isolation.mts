@@ -99,6 +99,7 @@ async function createFakeLead(
     buyerUserId,
     listing,
     repository: repo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
 }
 

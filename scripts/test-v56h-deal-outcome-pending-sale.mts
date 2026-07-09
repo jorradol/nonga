@@ -81,6 +81,7 @@ const leadResult = await createConsentedBuyerLead({
   buyerUserId: "buyer-h-1",
   listing: { id: listingId, title: listing.title, price: listing.price, ownerId },
   repository: leadRepo,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
 });
 ok("lead created", leadResult.ok === true);
 const leadId = leadResult.ok ? leadResult.lead.id : "";
@@ -191,6 +192,7 @@ ok("reveal ok", revealed.ok === true);
     buyerUserId: "buyer-h-2",
     listing: { id: listing2.id, title: listing2.title, price: listing2.price, ownerId },
     repository: repo2,
+    env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });
   ok("lead2", r.ok === true);
   if (r.ok) {

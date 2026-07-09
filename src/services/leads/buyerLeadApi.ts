@@ -11,6 +11,7 @@ import {
   BUYER_LEAD_MODAL_SUBMIT_SESSION_ERROR,
 } from "./buyerLeadConsentModalCopy";
 import { BUYER_LEAD_CONSENT_VERSION } from "./buyerLeadValidation";
+import { BUYER_LEAD_CAPTURE_DISABLED_MESSAGE } from "./leadCaptureFlags";
 
 /** Maps POST /api/buyer-leads HTTP status to user-facing Thai copy (no PII). */
 export function mapBuyerLeadHttpError(
@@ -22,6 +23,13 @@ export function mapBuyerLeadHttpError(
     return BUYER_LEAD_MODAL_SUBMIT_SESSION_ERROR;
   }
   if (status === 403) {
+    if (
+      trimmed &&
+      (trimmed === BUYER_LEAD_CAPTURE_DISABLED_MESSAGE ||
+        /ยังไม่เปิดใช้งาน|ไม่เปิดส่งข้อมูล/.test(trimmed))
+    ) {
+      return trimmed;
+    }
     return trimmed || "ไม่มีสิทธิ์ส่งข้อมูลในตอนนี้ กรุณาลองใหม่อีกครั้ง";
   }
   if (status === 400 || status === 404) {

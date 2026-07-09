@@ -15,12 +15,21 @@ import type { BuyerLead, LeadContactLog, PurchaseMethod } from "./leadTypes";
 import { LEAD_ENGINE_COLLECTIONS } from "./leadTypes";
 import type { BuyerLeadRepository } from "../../server/repositories/buyerLeadRepository";
 import { assignQueuePositionOnCreate, buyerSuccessMessageForQueue } from "./buyerLeadQueueService";
+import {
+  BUYER_LEAD_CAPTURE_DISABLED_MESSAGE,
+  isLeadCaptureEnabled,
+} from "./leadCaptureFlags";
 
 export interface CreateBuyerLeadParams {
   input: BuyerLeadCreateInput;
   buyerUserId: string;
   listing: Pick<MarketplaceCarRecord, "id" | "title" | "price" | "ownerId">;
   repository: BuyerLeadRepository;
+  /**
+   * Optional env for kill-switch evaluation (tests).
+   * Production routes omit this → uses process.env (default OFF).
+   */
+  env?: Record<string, string | undefined>;
 }
 
 export type CreateBuyerLeadResult =
@@ -42,6 +51,20 @@ export function resolveListingSellerId(
 export async function createConsentedBuyerLead(
   params: CreateBuyerLeadParams
 ): Promise<CreateBuyerLeadResult> {
+  // v22.30 — global kill switch (default OFF). Blocks even authenticated create.
+  if (
+    !isLeadCaptureEnabled(
+      params.env ??
+        (process.env as Record<string, string | undefined>)
+    )
+  ) {
+    return {
+      ok: false,
+      status: 403,
+      message: BUYER_LEAD_CAPTURE_DISABLED_MESSAGE,
+    };
+  }
+
   const validation = validateBuyerLeadCreateInput(params.input, {
     checkForbiddenInSummary: true,
   });

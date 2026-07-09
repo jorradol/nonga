@@ -1,0 +1,31 @@
+{
+  "version": "v22.30",
+  "execution_type": "CONTROLLED LEAD CAPTURE KILL SWITCH IMPLEMENTATION / STAGING SAFETY GUARD ONLY / DEFAULT OFF / NO REAL LEAD / NO DEALER-FACING SEND / NO PRODUCTION / NO PUBLIC",
+  "branch": "feature/chat-image-attachment-v1",
+  "staging_url": "https://a.nongbot.org",
+  "env_flag": "NONGA_LEAD_CAPTURE_ENABLED",
+  "default_when_unset": false,
+  "enabled_this_step": false,
+  "checks": {
+    "kill_switch_implemented": "PASS",
+    "default_off": "PASS",
+    "authenticated_create_blocked_when_off": "PASS",
+    "unauth_buyer_lead_401": "PASS",
+    "no_lead_row_when_off": "PASS",
+    "empty_owner_still_blocked": "PASS",
+    "public_signup_enabled_false": "PASS",
+    "marketplace_count_13": "PASS",
+    "production_untouched": "PASS",
+    "no_secrets_or_pii_in_report": "PASS",
+    "real_lead_created": false,
+    "dealer_facing_send_performed": false,
+    "lead_capture_turned_on": false
+  },
+  "approval_requested_this_step": false,
+  "owner_token_requested": false,
+  "owner_terminal_required": false,
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "public_signup_enabled": false,
+  "final_recommendation": "NEED REVIEW — dedicated lead capture kill switch is implemented, defaults OFF, blocks authenticated lead creation (service + route), preserves unauth 401, no lead/dealer/public/production enablement occurred; owner may review UI wording before any later controlled ON approval."
+}
