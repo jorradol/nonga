@@ -1,0 +1,62 @@
+{
+  "version": "v22.27",
+  "label": "v22.27 revenue-safe staging pilot readiness review thor auto real inventory",
+  "execution_type": "CONTROLLED REVENUE-SAFE STAGING PILOT READINESS REVIEW / THOR AUTO REAL INVENTORY MARKETPLACE / OWNER-BROWSER PILOT PREP ONLY / NO PRODUCTION / NO PUBLIC / NO REAL LEAD / NO DEALER-FACING SEND",
+  "branch": "feature/chat-image-attachment-v1",
+  "staging_url": "https://a.nongbot.org",
+  "current_revisions": {
+    "cloud_run_revision": "nonga-staging-00188-tm7",
+    "image_tag": "v20260709-multi-car-b5487b3",
+    "hosting_asset": "assets/index-DqPChjiO.js",
+    "code_commit": "b5487b3",
+    "docs_commit_chain": ["0c8093a", "d5a5dcd"]
+  },
+  "prior_owner_browser_pass": {
+    "chat_answer_persistence": "PASS",
+    "multi_car_professional_sales_explanation": "PASS"
+  },
+  "checks": {
+    "staging_cloud_run_revision": "PASS",
+    "staging_hosting_asset": "PASS",
+    "health_ok": "PASS",
+    "firestore_path_ok": "PASS",
+    "firebase_storage_image_path_ok": "PASS",
+    "public_signup_enabled_false": "PASS",
+    "buyer_lead_unauth_401": "PASS",
+    "production_untouched": "PASS",
+    "marketplace_count_13": "PASS",
+    "thor_listings_visible_once_each": "PASS",
+    "no_duplicate_resurrection": "PASS",
+    "listing_cards_images": "PASS",
+    "public_dto_redacts_full_plate_vin_phone_address_import_key": "PASS",
+    "seller_provided_images_allowed_under_consent": "PASS",
+    "chat_professional_crv_camry_budget": "PASS",
+    "chat_no_hallucination_old_ui_default_lung": "PASS",
+    "chat_persistence_after_reopen": "PASS",
+    "no_duplicate_assistant_after_reopen": "PASS",
+    "no_real_lead_created": "PASS",
+    "no_dealer_facing_send": "PASS",
+    "owner_browser_usable_without_terminal_secrets": "PASS"
+  },
+  "observed": {
+    "marketplace_total_count": 13,
+    "thor_import_count": 3,
+    "data_backend": "firestore",
+    "image_backend": "firebase-storage",
+    "public_signup_enabled": false,
+    "unauthenticated_buyer_lead_status": 401,
+    "thor_image_probe_status": 200
+  },
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "public_signup_enabled": false,
+  "real_lead_created": false,
+  "dealer_facing_send_performed": false,
+  "owner_token_requested": false,
+  "owner_terminal_required": false,
+  "pilot_run_started": false,
+  "step_1_status": "completed",
+  "step_2_status": "completed",
+  "step_3_status": "completed",
+  "final_recommendation": "PASS — revenue-safe staging pilot readiness review completed; staging is ready for owner-controlled revenue-safe pilot preparation, while public/production/real-lead/dealer-facing actions remain locked."
+}
