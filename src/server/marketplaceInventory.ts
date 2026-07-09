@@ -70,6 +70,10 @@ export interface MarketplaceCarRecord {
   licensePlateFull?: string;
   vin?: string;
   licensePlate?: string;
+  /** Opaque deterministic import identity key (never expose plate/VIN raw). */
+  importKey?: string;
+  /** How the import key was derived (plate / vin / fingerprint). */
+  importKeyKind?: string;
 }
 
 export function isPublishedListing(car: MarketplaceCarRecord): boolean {

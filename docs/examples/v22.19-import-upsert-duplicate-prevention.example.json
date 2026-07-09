@@ -1,0 +1,34 @@
+{
+  "version": "v22.19",
+  "executionType": "CONTROLLED STAGING DUPLICATE-PREVENTION + IMPORT UPSERT FIX / THOR AUTO OWNER-BROWSER RE-IMPORT FAILURE / NO PRODUCTION / NO PUBLIC / NO REAL LEAD / NO DEALER-FACING SEND",
+  "boundaryStatus": {
+    "stagingOnly": true,
+    "productionDeploy": false,
+    "publicEnable": false,
+    "realLeadCreation": false,
+    "dealerFacingSend": false,
+    "ownerTokenRequested": false,
+    "ownerTerminalRequired": false
+  },
+  "rootCauseDuplicate": "import always created new car-import-{timestamp} ids with createListing; duplicate scan was advisory only",
+  "rootCauseImages": "new duplicate ids + failed/placeholder image resolution; no blank-safe merge; frontend rejects placeholder as real listing image; ephemeral paths 404 on Cloud Run",
+  "upsertKeyPrecedence": [
+    "dealer_scope + full_plate (+ province when present)",
+    "dealer_scope + vin",
+    "dealer_scope + brand/model/year/color/mileage/price fingerprint when unique"
+  ],
+  "ambiguousPolicy": "NEED REVIEW — do not create duplicate; do not guess",
+  "cleanupPlanDoc": "docs/v22.19-staging-thor-duplicate-cleanup-plan.md",
+  "cleanupExecutedInThisSlice": false,
+  "tests": [
+    "test:v22.19-import-upsert-duplicate-prevention"
+  ],
+  "expectedRecommendation": "NEED REVIEW — upsert/image merge fixed in code; staging deploy + duplicate cleanup + owner-browser verification still required",
+  "passBlockedUntil": [
+    "marketplace count stable on same Thor CSV re-import",
+    "correct existing Thor cars updated",
+    "images show after refresh",
+    "chat retrieves updated listings",
+    "no duplicate Thor cars remain visible"
+  ]
+}

@@ -57,6 +57,9 @@ export const PUBLIC_LISTING_REDACTED_INTERNAL_FIELDS = [
   "reportOpenCount",
   "reports",
   "imageMetadata",
+  "importKey",
+  "importKeyKind",
+  "licensePlateFull",
 ] as const;
 
 /** Duplicate-detection metadata — internal matching signals only. */

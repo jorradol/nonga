@@ -65,6 +65,9 @@ export interface DealerDraftRecord {
   registrationProvince?: string;
   licensePlateMasked?: string;
   licensePlateFull?: string;
+  /** Opaque deterministic import identity key. */
+  importKey?: string;
+  importKeyKind?: string;
   vin?: string;
   licensePlate?: string;
 }

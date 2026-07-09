@@ -1,10 +1,16 @@
 import {
   bulkAddMarketplaceCars,
+  getMarketplaceCarById,
+  getMarketplaceInventorySorted,
+  updateMarketplaceCar,
   type MarketplaceCarRecord,
   devMarketplaceLog,
 } from "./marketplaceInventory";
 import {
   bulkAddDealerDrafts,
+  getDealerDraftById,
+  getDealerDraftsSorted,
+  updateDealerDraft,
   type DealerDraftRecord,
   type DraftInventoryStatus,
 } from "./dealerDraftInventory";
@@ -30,6 +36,7 @@ import {
 } from "./listingImageStorage";
 import {
   extractStorageListingId,
+  LISTING_PLACEHOLDER_IMAGE,
   sanitizeListingImagesForId,
 } from "../utils/listingImages";
 import { THOR_AUTO_DEALER_ID } from "../utils/dealerIdentity";
@@ -42,9 +49,17 @@ import {
   evaluateSellerProvidedImageConsent,
 } from "../utils/vehicleImagePlatePrivacy";
 import type { InventoryRepository } from "./repositories/inventoryRepository";
+import {
+  extractImportIdentityFromDraft,
+  extractImportIdentityFromListing,
+  extractImportIdentityFromRow,
+  mergeImportListingFields,
+  resolveImportUpsertMatch,
+  type ImportIdentityCandidate,
+  type ImportMatchDecision,
+} from "./listingImportIdentity";
 
-const PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
+const PLACEHOLDER_IMAGE = LISTING_PLACEHOLDER_IMAGE;
 
 interface ImportPolicy {
   thorControlledStagingGuard: boolean;
@@ -276,6 +291,9 @@ export interface CommitImportResultPayload {
   importedCount: number;
   publishedCount: number;
   draftCount: number;
+  updatedCount: number;
+  createdCount: number;
+  heldForReviewCount: number;
   skippedCount: number;
   warningCount: number;
   errorCount: number;
@@ -286,6 +304,8 @@ export interface CommitImportResultPayload {
     imageDownloaded?: number;
     imageFailed?: number;
     bucket?: "published" | "draft";
+    action?: "created" | "updated" | "held_for_review";
+    importKey?: string;
   }[];
   drafts: {
     id: string;
@@ -295,6 +315,11 @@ export interface CommitImportResultPayload {
     confidenceScore: number;
   }[];
   failed: { sourceRowIndex: number; message: string }[];
+  heldForReview?: {
+    sourceRowIndex: number;
+    reason: string;
+    candidateIds: string[];
+  }[];
   imageStats?: BulkImageDownloadSummary;
   rowWarnings?: { sourceRowIndex: number; warnings: string[] }[];
   duplicateWarnings?: {
@@ -312,25 +337,203 @@ export interface CommitImportOptions {
   inventoryRepository?: InventoryRepository;
 }
 
+type PersistAction = "create" | "update";
+
+interface PersistCarItem {
+  record: MarketplaceCarRecord;
+  action: PersistAction;
+}
+
+interface PersistDraftItem {
+  record: DealerDraftRecord;
+  action: PersistAction;
+}
+
+async function loadImportMatchCorpus(
+  options: CommitImportOptions,
+  dealerIds: string[] = []
+): Promise<ImportIdentityCandidate[]> {
+  const repo = options.inventoryRepository;
+  const cars = repo
+    ? await repo.listings.listAll()
+    : getMarketplaceInventorySorted();
+
+  let drafts: DealerDraftRecord[] = [];
+  if (repo && dealerIds.length > 0) {
+    const seen = new Set<string>();
+    for (const dealerId of dealerIds) {
+      const list = await repo.drafts.listByDealer(dealerId);
+      for (const d of list) {
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        drafts.push(d);
+      }
+    }
+  } else {
+    drafts = getDealerDraftsSorted();
+  }
+
+  const out: ImportIdentityCandidate[] = [];
+  for (const car of cars) {
+    const identity = extractImportIdentityFromListing(car);
+    out.push({
+      id: car.id,
+      dealerId: identity.dealerId,
+      licensePlateFull: identity.licensePlateFull,
+      licensePlate: car.licensePlate,
+      registrationProvince: identity.registrationProvince,
+      vin: identity.vin,
+      brand: identity.brand,
+      model: identity.model,
+      year: identity.year,
+      color: identity.color,
+      mileage: identity.mileage,
+      price: identity.price,
+      description: car.description,
+      createdAt: car.createdAt,
+    });
+  }
+  for (const draft of drafts) {
+    const identity = extractImportIdentityFromDraft(draft);
+    out.push({
+      id: draft.id,
+      dealerId: identity.dealerId,
+      licensePlateFull: identity.licensePlateFull,
+      licensePlate: draft.licensePlate,
+      registrationProvince: identity.registrationProvince,
+      vin: identity.vin,
+      brand: identity.brand,
+      model: identity.model,
+      year: identity.year,
+      color: identity.color,
+      mileage: identity.mileage,
+      price: identity.price,
+      description: draft.description,
+      createdAt: draft.createdAt,
+    });
+  }
+  return out;
+}
+
 async function persistImportedRecords(
-  cars: MarketplaceCarRecord[],
-  drafts: DealerDraftRecord[],
+  cars: PersistCarItem[],
+  drafts: PersistDraftItem[],
   options: CommitImportOptions
 ): Promise<CommitImportResultPayload["persistenceBackend"]> {
   const repo = options.inventoryRepository;
   if (!repo) {
-    bulkAddMarketplaceCars(cars);
-    bulkAddDealerDrafts(drafts);
+    const creates = cars.filter((c) => c.action === "create").map((c) => c.record);
+    const updates = cars.filter((c) => c.action === "update");
+    if (creates.length) bulkAddMarketplaceCars(creates);
+    for (const item of updates) {
+      updateMarketplaceCar(item.record.id, item.record);
+    }
+    const draftCreates = drafts
+      .filter((d) => d.action === "create")
+      .map((d) => d.record);
+    if (draftCreates.length) bulkAddDealerDrafts(draftCreates);
+    for (const item of drafts.filter((d) => d.action === "update")) {
+      updateDealerDraft(item.record.id, item.record);
+    }
     return "file-direct";
   }
 
-  for (const car of cars) {
-    await repo.listings.createListing(car.dealerId || car.ownerId, car);
+  for (const item of cars) {
+    const dealerId = item.record.dealerId || item.record.ownerId;
+    if (item.action === "update") {
+      await repo.listings.updateListing(dealerId, item.record.id, item.record);
+    } else {
+      await repo.listings.createListing(dealerId, item.record);
+    }
   }
-  for (const draft of drafts) {
-    await repo.drafts.createDraft(draft.dealerId, draft);
+  for (const item of drafts) {
+    if (item.action === "update") {
+      await repo.drafts.updateDraft(
+        item.record.dealerId,
+        item.record.id,
+        item.record
+      );
+    } else {
+      await repo.drafts.createDraft(item.record.dealerId, item.record);
+    }
   }
   return repo.backend;
+}
+
+async function findExistingListing(
+  match: ImportMatchDecision,
+  options: CommitImportOptions
+): Promise<MarketplaceCarRecord | null> {
+  if (!match.matchedId) return null;
+  const repo = options.inventoryRepository;
+  if (repo) return repo.listings.getById(match.matchedId);
+  return getMarketplaceCarById(match.matchedId);
+}
+
+async function findExistingDraft(
+  match: ImportMatchDecision,
+  dealerId: string,
+  options: CommitImportOptions
+): Promise<DealerDraftRecord | null> {
+  if (!match.matchedId) return null;
+  const repo = options.inventoryRepository;
+  if (repo) return repo.drafts.getById(dealerId, match.matchedId);
+  const draft = getDealerDraftById(match.matchedId);
+  return draft && normalizeDealerId(draft.dealerId) === normalizeDealerId(dealerId)
+    ? draft
+    : null;
+}
+
+function applyImportKey(
+  record: MarketplaceCarRecord | DealerDraftRecord,
+  match: ImportMatchDecision
+): void {
+  if (match.importKey) {
+    record.importKey = match.importKey;
+    record.importKeyKind = match.keyKind;
+  }
+}
+
+function isWorkingImageUrl(url: string): boolean {
+  const u = String(url ?? "").trim();
+  if (!u || u === PLACEHOLDER_IMAGE) return false;
+  if (u.includes("unsplash.com/photo-1533473359331-0135ef1b58bf")) return false;
+  return true;
+}
+
+function corpusWithoutId(
+  corpus: ImportIdentityCandidate[],
+  id: string
+): ImportIdentityCandidate[] {
+  return corpus.filter((c) => c.id !== id);
+}
+
+function pushCorpusCandidate(
+  corpus: ImportIdentityCandidate[],
+  record: MarketplaceCarRecord | DealerDraftRecord,
+  kind: "listing" | "draft"
+): void {
+  const identity =
+    kind === "listing"
+      ? extractImportIdentityFromListing(record as MarketplaceCarRecord)
+      : extractImportIdentityFromDraft(record as DealerDraftRecord);
+  corpus.push({
+    id: record.id,
+    dealerId: identity.dealerId,
+    licensePlateFull: identity.licensePlateFull,
+    licensePlate:
+      "licensePlate" in record ? String(record.licensePlate ?? "") : undefined,
+    registrationProvince: identity.registrationProvince,
+    vin: identity.vin,
+    brand: identity.brand,
+    model: identity.model,
+    year: identity.year,
+    color: identity.color,
+    mileage: identity.mileage,
+    price: identity.price,
+    description: record.description,
+    createdAt: record.createdAt,
+  });
 }
 
 function buildCarRecord(
@@ -375,6 +578,7 @@ function buildCarRecord(
     ? extractVinFromText(String(row.description ?? "")) ||
       extractVinFromText(JSON.stringify(raw))
     : "";
+  const color = String(raw.color ?? raw["สี"] ?? "").trim().slice(0, 80);
 
   return {
     id: carId,
@@ -400,6 +604,7 @@ function buildCarRecord(
     condition: String(row.condition ?? "มือสอง").slice(0, 120),
     mileage: Math.max(0, Number(row.mileage) || 0),
     fuelType,
+    color: color || undefined,
     images: images.length > 0 ? images : [PLACEHOLDER_IMAGE],
     description,
     dealerId: resolveDealerIdForImport(owner, row),
@@ -573,12 +778,15 @@ function isReusableStoredListingImageUrl(url: string, carId: string): boolean {
 async function resolveImagesForRow(
   carId: string,
   row: CommitImportRowInput,
-  owner: CommitImportOwner = {}
+  owner: CommitImportOwner = {},
+  existingImages: string[] = []
 ): Promise<{
   images: string[];
   warnings: string[];
   report: RowImageDownloadReport | null;
+  imageFailed: boolean;
 }> {
+  const reusableExisting = existingImages.filter((u) => isWorkingImageUrl(u));
   const existingStored = (row.images ?? []).filter((u) =>
     isReusableStoredListingImageUrl(String(u), carId)
   );
@@ -587,14 +795,32 @@ async function resolveImagesForRow(
       images: sanitizeListingImagesForId(existingStored, carId),
       warnings: [SELLER_PROVIDED_IMAGE_CONSENT_NOTICE],
       report: null,
+      imageFailed: false,
     };
   }
 
   if (row.skipSourceImageDownload) {
-    return { images: [], warnings: [], report: null };
+    return {
+      images: reusableExisting,
+      warnings: [],
+      report: null,
+      imageFailed: false,
+    };
   }
 
   const sourceUrls = row.sourceImageUrls ?? row.images ?? [];
+  if (sourceUrls.length === 0) {
+    return {
+      images: reusableExisting,
+      warnings:
+        reusableExisting.length > 0
+          ? ["preserved existing images — no new source image URLs in CSV"]
+          : [],
+      report: null,
+      imageFailed: false,
+    };
+  }
+
   const dealerId = resolveDealerIdForImport(owner, row);
   const report = await downloadListingImagesForCar(
     carId,
@@ -609,10 +835,37 @@ async function resolveImagesForRow(
     // Confirm Import itself is the seller/owner consent action for this flow.
     sellerConfirmedPublishRightsAndListingConsent: true,
   });
+
+  const downloadedOk = resolved.images.filter((u) => isWorkingImageUrl(u));
+  const imageFailed = report.failed > 0 && downloadedOk.length === 0;
+
+  if (imageFailed && reusableExisting.length > 0) {
+    return {
+      images: sanitizeListingImagesForId(reusableExisting, carId),
+      warnings: [
+        ...resolved.warnings,
+        ...imageConsent.warnings,
+        "image upload/download failed — preserved existing working image URLs",
+      ],
+      report,
+      imageFailed: true,
+    };
+  }
+
+  // Prefer durable Firebase URLs when download succeeded; keep any still-working
+  // existing durable URLs that were not replaced only when download fully failed.
+  const images =
+    downloadedOk.length > 0
+      ? downloadedOk
+      : reusableExisting.length > 0
+        ? reusableExisting
+        : resolved.images;
+
   return {
-    images: sanitizeListingImagesForId(resolved.images, carId),
+    images: sanitizeListingImagesForId(images, carId),
     warnings: [...resolved.warnings, ...imageConsent.warnings],
     report,
+    imageFailed,
   };
 }
 
@@ -645,6 +898,10 @@ export async function processSmartInventoryImport(
   const draftRows = input.drafts ?? [];
 
   const failed: { sourceRowIndex: number; message: string }[] = [];
+  const heldForReview: NonNullable<CommitImportResultPayload["heldForReview"]> =
+    [];
+  const persistCars: PersistCarItem[] = [];
+  const persistDrafts: PersistDraftItem[] = [];
   const toPublish: MarketplaceCarRecord[] = [];
   const toDraft: DealerDraftRecord[] = [];
   const importedMeta: CommitImportResultPayload["imported"] = [];
@@ -652,8 +909,22 @@ export async function processSmartInventoryImport(
   const imageReports: RowImageDownloadReport[] = [];
   const rowWarnings: { sourceRowIndex: number; warnings: string[] }[] = [];
   let warningCount = 0;
+  let updatedCount = 0;
+  let createdCount = 0;
+  let heldForReviewCount = 0;
 
   const baseId = Date.now();
+  const dealerIdsForCorpus = new Set<string>();
+  for (const row of [...publishedRows, ...draftRows]) {
+    dealerIdsForCorpus.add(resolveDealerIdForImport(safeOwner, row));
+  }
+  if (safeOwner.dealerId) {
+    dealerIdsForCorpus.add(normalizeDealerId(safeOwner.dealerId));
+  }
+  const corpus = await loadImportMatchCorpus(
+    options,
+    [...dealerIdsForCorpus]
+  );
 
   for (let i = 0; i < publishedRows.length; i++) {
     const originalRow = publishedRows[i];
@@ -668,11 +939,57 @@ export async function processSmartInventoryImport(
       continue;
     }
 
-    const carId = `car-import-${baseId}-p${i}`;
-    const { images, warnings, report } = await resolveImagesForRow(
+    const dealerId = resolveDealerIdForImport(safeOwner, row);
+    const identity = extractImportIdentityFromRow(row, dealerId);
+    const match = resolveImportUpsertMatch(identity, corpus);
+
+    if (match.confidence === "ambiguous") {
+      heldForReviewCount++;
+      heldForReview.push({
+        sourceRowIndex: srcIdx,
+        reason: match.reason,
+        candidateIds: match.candidateIds,
+      });
+      rowWarnings.push({
+        sourceRowIndex: srcIdx,
+        warnings: [
+          `[NEED REVIEW] ambiguous duplicate match (${match.reason}) — not creating duplicate; candidates: ${match.candidateIds.join(", ") || "none"}`,
+        ],
+      });
+      warningCount++;
+      continue;
+    }
+
+    const existing =
+      match.confidence === "high"
+        ? await findExistingListing(match, options)
+        : null;
+    // If matched id is a draft, treat as create for published bucket (do not guess).
+    const existingIsListing = Boolean(existing);
+
+    if (match.confidence === "high" && !existingIsListing) {
+      heldForReviewCount++;
+      heldForReview.push({
+        sourceRowIndex: srcIdx,
+        reason: "matched_id_not_found_or_not_listing",
+        candidateIds: match.candidateIds,
+      });
+      rowWarnings.push({
+        sourceRowIndex: srcIdx,
+        warnings: [
+          `[NEED REVIEW] matched listing ${match.matchedId ?? ""} not found for update — held`,
+        ],
+      });
+      warningCount++;
+      continue;
+    }
+
+    const carId = existing?.id ?? `car-import-${baseId}-p${i}`;
+    const { images, warnings, report, imageFailed } = await resolveImagesForRow(
       carId,
       row,
-      safeOwner
+      safeOwner,
+      existing?.images ?? []
     );
     if (report) imageReports.push(report);
     const allWarnings = [
@@ -690,8 +1007,47 @@ export async function processSmartInventoryImport(
       rowWarnings.push({ sourceRowIndex: srcIdx, warnings: allWarnings });
     }
 
-    const car = buildCarRecord(row, safeOwner, carId, images, policy);
+    const built = buildCarRecord(row, safeOwner, carId, images, policy);
+    applyImportKey(built, match);
+
+    let car: MarketplaceCarRecord;
+    let action: PersistAction;
+    if (existing) {
+      car = mergeImportListingFields(
+        existing as unknown as Record<string, unknown>,
+        built as unknown as Record<string, unknown>,
+        {
+          preserveExistingImages: true,
+          imageFailed,
+          incomingImages: images.filter(isWorkingImageUrl),
+          placeholderUrl: PLACEHOLDER_IMAGE,
+        }
+      ) as unknown as MarketplaceCarRecord;
+      // Ensure identity + listing status from merge rules stay coherent.
+      car.id = existing.id;
+      car.createdAt = existing.createdAt;
+      car.dealerId = existing.dealerId ?? built.dealerId;
+      car.ownerId = existing.ownerId || built.ownerId;
+      if (match.importKey) {
+        car.importKey = match.importKey;
+        car.importKeyKind = match.keyKind;
+      }
+      action = "update";
+      updatedCount++;
+    } else {
+      car = built;
+      action = "create";
+      createdCount++;
+    }
+
     toPublish.push(car);
+    persistCars.push({ record: car, action });
+    // Keep in-batch corpus current so later rows do not duplicate this car.
+    const nextCorpus = corpusWithoutId(corpus, car.id);
+    corpus.length = 0;
+    corpus.push(...nextCorpus);
+    pushCorpusCandidate(corpus, car, "listing");
+
     importedMeta.push({
       id: car.id,
       title: car.title,
@@ -699,6 +1055,8 @@ export async function processSmartInventoryImport(
       imageDownloaded: report?.downloaded,
       imageFailed: report?.failed,
       bucket: "published",
+      action: action === "update" ? "updated" : "created",
+      importKey: car.importKey,
     });
   }
 
@@ -715,12 +1073,61 @@ export async function processSmartInventoryImport(
       continue;
     }
 
+    const dealerId = resolveDealerIdForImport(safeOwner, row);
+    const identity = extractImportIdentityFromRow(row, dealerId);
+    const match = resolveImportUpsertMatch(identity, corpus);
+
+    if (match.confidence === "ambiguous") {
+      heldForReviewCount++;
+      heldForReview.push({
+        sourceRowIndex: srcIdx,
+        reason: match.reason,
+        candidateIds: match.candidateIds,
+      });
+      rowWarnings.push({
+        sourceRowIndex: srcIdx,
+        warnings: [
+          `[NEED REVIEW] ambiguous duplicate match (${match.reason}) — not creating duplicate`,
+        ],
+      });
+      warningCount++;
+      continue;
+    }
+
+    const existingDraft =
+      match.confidence === "high"
+        ? await findExistingDraft(match, dealerId, options)
+        : null;
+    // Prefer updating an existing draft; if match points at a listing, hold.
+    if (match.confidence === "high" && !existingDraft) {
+      const listingHit = await findExistingListing(match, options);
+      if (listingHit) {
+        heldForReviewCount++;
+        heldForReview.push({
+          sourceRowIndex: srcIdx,
+          reason: "draft_row_matched_existing_listing",
+          candidateIds: match.candidateIds,
+        });
+        rowWarnings.push({
+          sourceRowIndex: srcIdx,
+          warnings: [
+            `[NEED REVIEW] draft row matched existing listing ${listingHit.id} — held (no guess)`,
+          ],
+        });
+        warningCount++;
+        continue;
+      }
+    }
+
     const draftId =
-      row.commitDraftId?.trim() || `draft-import-${baseId}-d${i}`;
-    const { images, warnings, report } = await resolveImagesForRow(
+      existingDraft?.id ||
+      row.commitDraftId?.trim() ||
+      `draft-import-${baseId}-d${i}`;
+    const { images, warnings, report, imageFailed } = await resolveImagesForRow(
       draftId,
       row,
-      safeOwner
+      safeOwner,
+      existingDraft?.images ?? []
     );
     if (report) imageReports.push(report);
     const allWarnings = [
@@ -738,7 +1145,7 @@ export async function processSmartInventoryImport(
       rowWarnings.push({ sourceRowIndex: srcIdx, warnings: allWarnings });
     }
 
-    const draft = buildDraftRecord(
+    const built = buildDraftRecord(
       row,
       safeOwner,
       draftId,
@@ -746,7 +1153,44 @@ export async function processSmartInventoryImport(
       rowToNormalized(row),
       policy
     );
+    applyImportKey(built, match);
+
+    let draft: DealerDraftRecord;
+    let action: PersistAction;
+    if (existingDraft) {
+      draft = mergeImportListingFields(
+        existingDraft as unknown as Record<string, unknown>,
+        built as unknown as Record<string, unknown>,
+        {
+          preserveExistingImages: true,
+          imageFailed,
+          incomingImages: images.filter(isWorkingImageUrl),
+          placeholderUrl: PLACEHOLDER_IMAGE,
+        }
+      ) as unknown as DealerDraftRecord;
+      draft.id = existingDraft.id;
+      draft.createdAt = existingDraft.createdAt;
+      draft.dealerId = existingDraft.dealerId;
+      draft.updatedAt = new Date().toISOString();
+      if (match.importKey) {
+        draft.importKey = match.importKey;
+        draft.importKeyKind = match.keyKind;
+      }
+      action = "update";
+      updatedCount++;
+    } else {
+      draft = built;
+      action = "create";
+      createdCount++;
+    }
+
     toDraft.push(draft);
+    persistDrafts.push({ record: draft, action });
+    const nextCorpus = corpusWithoutId(corpus, draft.id);
+    corpus.length = 0;
+    corpus.push(...nextCorpus);
+    pushCorpusCandidate(corpus, draft, "draft");
+
     draftsMeta.push({
       id: draft.id,
       title: draft.title,
@@ -761,6 +1205,8 @@ export async function processSmartInventoryImport(
       imageDownloaded: report?.downloaded,
       imageFailed: report?.failed,
       bucket: "draft",
+      action: action === "update" ? "updated" : "created",
+      importKey: draft.importKey,
     });
   }
 
@@ -789,9 +1235,21 @@ export async function processSmartInventoryImport(
     void draftMeta;
   }
 
+  // Re-bind scanned duplicate metadata onto persist payloads.
+  const carById = new Map(dupChecked.cars.map((c) => [c.id, c]));
+  for (const item of persistCars) {
+    const scanned = carById.get(item.record.id);
+    if (scanned) item.record = scanned;
+  }
+  const draftById = new Map(dupChecked.drafts.map((d) => [d.id, d]));
+  for (const item of persistDrafts) {
+    const scanned = draftById.get(item.record.id);
+    if (scanned) item.record = scanned;
+  }
+
   const persistenceBackend = await persistImportedRecords(
-    dupChecked.cars,
-    dupChecked.drafts,
+    persistCars,
+    persistDrafts,
     options
   );
 
@@ -810,28 +1268,37 @@ export async function processSmartInventoryImport(
   devMarketplaceLog("smart-commit", {
     published: publishedCount,
     draft: draftCount,
+    updated: updatedCount,
+    created: createdCount,
+    heldForReview: heldForReviewCount,
     failed: failed.length,
     imagesDownloaded: imageStats.downloaded,
   });
 
   return {
-    success: importedCount > 0,
+    success: importedCount > 0 || heldForReviewCount > 0,
     importedCount,
     publishedCount,
     draftCount,
-    skippedCount: failed.length,
+    updatedCount,
+    createdCount,
+    heldForReviewCount,
+    skippedCount: failed.length + heldForReviewCount,
     warningCount,
     errorCount: failed.length,
     imported: importedMeta,
     drafts: draftsMeta,
     failed,
+    heldForReview,
     imageStats,
     rowWarnings,
     duplicateWarnings,
     persistenceBackend,
     message:
       importedCount > 0
-        ? `นำเข้า ${publishedCount} คัน → ตลาด, ${draftCount} คัน → Draft (รูป ${imageStats.downloaded}/${imageStats.totalSourceUrls})`
-        : "ไม่มีแถวที่นำเข้าได้",
+        ? `นำเข้า/อัปเดต ${publishedCount} คัน → ตลาด, ${draftCount} คัน → Draft (สร้าง ${createdCount}, อัปเดต ${updatedCount}, รอตรวจ ${heldForReviewCount}; รูป ${imageStats.downloaded}/${imageStats.totalSourceUrls})`
+        : heldForReviewCount > 0
+          ? `ไม่มีแถวที่นำเข้าได้ — รอตรวจ ${heldForReviewCount} แถว (ไม่สร้างซ้ำ)`
+          : "ไม่มีแถวที่นำเข้าได้",
   };
 }
