@@ -35,6 +35,7 @@ import AdminDashboardView from "./components/admin/AdminDashboardView";
 import InventoryImportView from "./components/admin/inventory-import/InventoryImportView";
 import DealerDraftInventoryView from "./components/admin/DealerDraftInventoryView";
 import AdminListingReportsView from "./components/admin/AdminListingReportsView";
+import AdminPendingListingsView from "./components/admin/AdminPendingListingsView";
 import AdminPilotUsersView from "./components/admin/AdminPilotUsersView";
 import AdminShadowSmokeDebugView from "./components/admin/AdminShadowSmokeDebugView";
 import DealerPortalView from "./components/dealer-portal/DealerPortalView";
@@ -91,6 +92,8 @@ export default function App() {
     "admin-dashboard",
     "inventory-import",
     "dealer-draft-inventory",
+    "admin-reports",
+    "admin-pending-listings",
     "admin-pilot-users",
   ]);
   const showFloatingChatButton = !hideFloatingChatViews.has(currentView);
@@ -312,6 +315,12 @@ export default function App() {
         return (
           <RequireAdmin>
             <AdminListingReportsView />
+          </RequireAdmin>
+        );
+      case "admin-pending-listings":
+        return (
+          <RequireAdmin>
+            <AdminPendingListingsView />
           </RequireAdmin>
         );
       case "admin-pilot-users":

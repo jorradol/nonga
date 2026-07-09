@@ -224,6 +224,15 @@ export default function AdminDashboardView() {
 
             <button
               type="button"
+              onClick={() => setView("admin-pending-listings")}
+              className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/15"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>คิวรออนุมัติประกาศเต็นท์</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setView("admin-pilot-users")}
               className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/15"
             >

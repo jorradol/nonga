@@ -10,7 +10,11 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { EmptyState } from "../shared/EmptyState";
-import { ListingStatusBadge } from "../shared/ListingStatusBadge";
+import {
+  DEALER_PENDING_REVIEW_GUIDANCE_TH,
+  ListingStatusBadge,
+  inventoryListingStatusVariant,
+} from "../shared/ListingStatusBadge";
 import { logTechnicalError, toUserFacingError } from "../../utils/userFacingErrors";
 import { useAppStore } from "../../store";
 import type { DealerApiHeaders, DealerInventoryCar } from "../../services/dealer/dealerApi";
@@ -160,6 +164,12 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
   };
 
   const toggleVisibility = async (c: DealerInventoryCar) => {
+    if (c.listingStatus === "pending_review") {
+      setError(
+        "ประกาศนี้อยู่ในสถานะรออนุมัติ — ยังไม่สามารถเปิดขึ้นตลาดเองได้ครับ รอผู้ดูแลตรวจสอบ"
+      );
+      return;
+    }
     const hide = c.listingStatus !== "hidden";
     const label = hide ? "ปิดประกาศ" : "แสดงในตลาด";
     if (
@@ -204,10 +214,10 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
         onConfirm={() => void confirmDelete()}
       />
 
-      <h1 className="text-xl sm:text-2xl font-bold">รถที่ลงขายแล้ว</h1>
+      <h1 className="text-xl sm:text-2xl font-bold">รถในคลังของเต็นท์</h1>
       <p className="text-xs text-slate-400">
-        รายการที่แสดงในตลาดรถ — แก้ไขข้อมูลและรูปภาพได้จากหน้านี้
-        คิวลูกค้าสนใจจริงจากแชทจะแสดงใต้แต่ละประกาศที่เปิดอยู่ในตลาด
+        รายการที่ส่งแล้ว — สถานะ「รออนุมัติ」ยังไม่ขึ้นตลาดจนกว่าผู้ดูแลจะอนุมัติ
+        ส่วน「ลงขายแล้ว」แสดงในตลาดรถ คิวลูกค้าสนใจจะแสดงใต้ประกาศที่เปิดอยู่ในตลาดเท่านั้น
       </p>
 
       {saveSuccess && (
@@ -246,8 +256,8 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
       ) : cars.length === 0 ? (
         <EmptyState
           icon={Car}
-          title="ยังไม่มีรถที่ลงขายในตลาด"
-          description="เมื่อลงขายประกาศจากเมนู «ยังไม่ลงขาย» รถจะมาแสดงที่นี่ หรือนำเข้ารายการจากเมนูนำเข้า"
+          title="ยังไม่มีรถในคลัง"
+          description="เมื่อส่งประกาศจากเมนู «ยังไม่ลงขาย» รถจะมาแสดงที่นี่ (สถานะรออนุมัติก่อนขึ้นตลาด) หรือนำเข้ารายการจากเมนูนำเข้า"
           secondaryActionLabel="ไปจัดการประกาศรอลงขาย"
           onSecondaryAction={() => {
             if (typeof window !== "undefined") {
@@ -299,27 +309,37 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                     {c.price.toLocaleString("th-TH")}
                   </p>
                   <ListingStatusBadge
-                    variant={
-                      c.listingStatus === "hidden" ? "hidden" : "published"
-                    }
+                    variant={inventoryListingStatusVariant(c.listingStatus)}
                     className="mt-1"
                   />
+                  {c.listingStatus === "pending_review" ? (
+                    <p className="text-[11px] text-violet-300/90 mt-1">
+                      {DEALER_PENDING_REVIEW_GUIDANCE_TH}
+                    </p>
+                  ) : null}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 shrink-0">
                   <button
                     type="button"
-                    title="ดูในตลาด"
+                    title={
+                      c.listingStatus === "pending_review"
+                        ? "รออนุมัติ — ยังไม่ขึ้นตลาด"
+                        : "ดูในตลาด"
+                    }
+                    disabled={c.listingStatus === "pending_review"}
                     onClick={() => {
+                      if (c.listingStatus === "pending_review") return;
                       setFilters({ search: c.title });
                       setView("marketplace");
                     }}
-                    className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-slate-700 text-slate-400 hover:text-orange-400"
+                    className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-slate-700 text-slate-400 hover:text-orange-400 disabled:opacity-40 disabled:hover:text-slate-400"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </button>
                   {editingId !== c.id && (
                     <>
+                      {c.listingStatus !== "pending_review" ? (
                       <button
                         type="button"
                         onClick={() => void toggleVisibility(c)}
@@ -336,6 +356,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                           <EyeOff className="w-4 h-4" />
                         )}
                       </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => openEdit(c)}
@@ -348,7 +369,7 @@ export function DealerInventoryPage({ apiHeaders }: Props) {
                 </div>
               </div>
 
-              {c.listingStatus !== "hidden" ? (
+              {c.listingStatus === "published" ? (
                 <ListingLeadQueueSection
                   listingId={c.id}
                   isListingOwnerContext

@@ -188,8 +188,12 @@ export function DealerDraftsPage({
     }
     try {
       await publishDealerDraft(apiHeaders, id);
+      setSaveSuccess(
+        "ส่งประกาศเข้ารออนุมัติแล้ว — ยังไม่แสดงในตลาดจนกว่าผู้ดูแลจะอนุมัติ ดูได้ที่เมนูรถในคลัง"
+      );
       await load();
       onPublished?.();
+      scrollToStatus();
     } catch (e) {
       if (e instanceof PublishDraftBlockedError) {
         showBlocked(

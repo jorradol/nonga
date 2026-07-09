@@ -31,6 +31,7 @@ export type RoutableAppView =
   | "boost"
   | "pilot-policy"
   | "admin-reports"
+  | "admin-pending-listings"
   | "admin-pilot-users"
   | "admin-shadow-smoke";
 
@@ -120,6 +121,7 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/admin/inventory-import") return "inventory-import";
   if (path === "/admin/draft-inventory") return "dealer-draft-inventory";
   if (path === "/admin/reports") return "admin-reports";
+  if (path === "/admin/pending-listings") return "admin-pending-listings";
   if (path === "/admin/pilot-users") return "admin-pilot-users";
   if (path === "/admin/shadow-smoke") return "admin-shadow-smoke";
   if (path === "/admin/dashboard" || path === "/admin") return "admin-dashboard";
@@ -178,6 +180,8 @@ export function resolvePathnameForView(
       return "/admin/draft-inventory";
     case "admin-reports":
       return "/admin/reports";
+    case "admin-pending-listings":
+      return "/admin/pending-listings";
     case "admin-pilot-users":
       return "/admin/pilot-users";
     case "admin-shadow-smoke":

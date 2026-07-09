@@ -5,6 +5,7 @@ export type ListingStatusVariant =
   | "needs-review"
   | "needs-images"
   | "ready-publish"
+  | "pending-review"
   | "published"
   | "hidden";
 
@@ -28,6 +29,10 @@ const STYLES: Record<
     label: "พร้อมลงขาย",
     className: "bg-emerald-500/15 text-emerald-200 border-emerald-500/30",
   },
+  "pending-review": {
+    label: "รออนุมัติ",
+    className: "bg-violet-500/15 text-violet-200 border-violet-500/30",
+  },
   published: {
     label: "ลงขายแล้ว",
     className: "bg-green-500/15 text-green-200 border-green-500/30",
@@ -37,6 +42,18 @@ const STYLES: Record<
     className: "bg-slate-500/15 text-slate-300 border-slate-500/30",
   },
 };
+
+/** Map inventory listingStatus → dealer-facing badge (v22.34). */
+export function inventoryListingStatusVariant(
+  listingStatus: string | null | undefined
+): ListingStatusVariant {
+  if (listingStatus === "pending_review") return "pending-review";
+  if (listingStatus === "hidden") return "hidden";
+  return "published";
+}
+
+export const DEALER_PENDING_REVIEW_GUIDANCE_TH =
+  "ประกาศนี้ส่งให้ผู้ดูแลตรวจสอบแล้ว ยังไม่แสดงในตลาด";
 
 interface Props {
   variant: ListingStatusVariant;
