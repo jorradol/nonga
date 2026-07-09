@@ -1,0 +1,23 @@
+{
+  "version": "v22.17",
+  "execution_type": "CONTROLLED STAGING IMAGE DURABILITY + PLATE-IN-IMAGE PRIVACY REVIEW / THOR AUTO IMPORTED LISTINGS ONLY / NO PRODUCTION / NO PUBLIC / NO REAL LEAD / NO DEALER-FACING SEND",
+  "branch": "feature/chat-image-attachment-v1",
+  "baseline_head": "6eeda6224e3dd8ca98cc53b3da78af118e35ddb0",
+  "image_404_root_cause": "csv_import_wrote_ephemeral_local_storage_listings_paths_under_imageBackend_file_on_cloud_run",
+  "image_backend_decision": "firebase-storage",
+  "plate_in_image_privacy_decision": "require_owner_plate_safe_images_before_public_or_revenue_use",
+  "checks": {
+    "durable_import_image_repository_routing": "PASS",
+    "graceful_image_fallback_placeholder": "PASS",
+    "plate_in_image_privacy_warning": "PASS",
+    "public_dto_no_full_plate_vin_phone": "PASS",
+    "no_real_lead": "PASS",
+    "no_dealer_facing_send": "PASS"
+  },
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "real_lead_created": false,
+  "dealer_facing_send_performed": false,
+  "pilot_run_started": false,
+  "final_recommendation": "PASS — Thor Auto imported listings are ready for controlled staging revenue-safe pilot review with durable image serving and plate-in-image privacy risk handled, while production/public/real lead/dealer-facing actions remain blocked."
+}

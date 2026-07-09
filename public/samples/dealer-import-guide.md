@@ -70,12 +70,20 @@ https://example.com/car2.jpg
 
 ### พฤติกรรมระบบหลังนำเข้า
 
-1. ระบบ **ดาวน์โหลดรูปจาก URL อัตโนมัติ** เข้า `data/listing-images/`
-2. Marketplace แสดงรูปจาก `/storage/listings/{carId}/...` — **ไม่ใช้ hotlink เดิม**
-3. ถ้าดาวน์โหลดบางรูปไม่สำเร็จ → **คำเตือนเท่านั้น** แถวยังนำเข้าได้
-4. ถ้าไม่มี URL รูปเลย → คำเตือน + ใช้รูป placeholder
+1. ระบบ **ดาวน์โหลดรูปจาก URL อัตโนมัติ** (รวม Google Drive ที่เปิดสิทธิ์ดูได้) ผ่าน image storage repository
+2. เมื่อ `NONGA_IMAGE_BACKEND=firebase-storage` รูปถูกเก็บใน Firebase Storage และ marketplace/detail/chat ใช้ URL ที่ทนทานข้าม Cloud Run instance
+3. เมื่อ `NONGA_IMAGE_BACKEND=file` รูปอยู่ที่ `data/listing-images/` และเสิร์ฟที่ `/storage/listings/{carId}/...` — **ไม่ทนทานบน Cloud Run** (เหมาะกับ local เท่านั้น)
+4. **ไม่ใช้ hotlink** แหล่งภายนอกเป็นรูปหลักหลังนำเข้าสำเร็จ
+5. ถ้าดาวน์โหลดบางรูปไม่สำเร็จ → **คำเตือนเท่านั้น** แถวยังนำเข้าได้ และใช้ placeholder เมื่อไม่มีรูปที่เก็บสำเร็จ
+6. ถ้าไม่มี URL รูปเลย → คำเตือน + ใช้รูป placeholder
 
 สูงสุด **12 รูป** ต่อคัน
+
+### ความเป็นส่วนตัวของป้ายทะเบียนในรูป (สำคัญ)
+
+- การปิดทะเบียนในฟิลด์ข้อความ/API สาธารณะ **ไม่** ปิดป้ายที่มองเห็นในภาพ
+- ก่อนเปิดสาธารณะหรือรอบรายได้ ต้องใช้รูปที่ **เบลอ / ครอป / ปิดป้าย** (plate-safe)
+- ห้ามถือว่า text masking อย่างเดียวเพียงพอสำหรับ plate-in-image privacy
 
 ---
 

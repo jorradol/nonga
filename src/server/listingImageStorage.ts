@@ -11,6 +11,7 @@ import {
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
+import { normalizeDealerId } from "../utils/dealerIdentity";
 import { devMarketplaceLog } from "./marketplaceInventory";
 import {
   LISTING_PLACEHOLDER_IMAGE,
@@ -20,6 +21,12 @@ import {
   googleDriveFileDownloadUrl,
   parseGoogleDriveFileId,
 } from "../utils/inventoryImport/imageLinkExtractor";
+import {
+  createImageStorageRepository,
+  resolveImageStorageBackend,
+  type ImageStorageRepository,
+  type NongaImageBackend,
+} from "./repositories/imageStorageRepository";
 
 const LISTING_IMAGES_ROOT = path.resolve(process.cwd(), "data/listing-images");
 const MAX_IMAGES_PER_CAR = 12;
@@ -27,6 +34,12 @@ const DOWNLOAD_TIMEOUT_MS = 25_000;
 const MAX_BYTES = 3 * 1024 * 1024;
 
 const PLACEHOLDER_IMAGE = LISTING_PLACEHOLDER_IMAGE;
+
+export interface DownloadListingImagesOptions {
+  dealerId?: string;
+  /** Inject repository for tests; defaults to createImageStorageRepository(). */
+  repository?: ImageStorageRepository;
+}
 
 export interface ImageDownloadItemResult {
   sourceUrl: string;
@@ -199,14 +212,25 @@ function hashSlug(input: string): string {
   return createHash("sha1").update(input).digest("hex").slice(0, 10);
 }
 
+function mimeFromContentType(ct: string | null, sourceUrl: string): string {
+  if (ct?.includes("png")) return "image/png";
+  if (ct?.includes("webp")) return "image/webp";
+  if (ct?.includes("gif")) return "image/gif";
+  if (ct?.includes("jpeg") || ct?.includes("jpg")) return "image/jpeg";
+  const ext = extFromContentType(ct, sourceUrl);
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  return "image/jpeg";
+}
+
 async function downloadOneImage(
   carId: string,
   sourceUrl: string,
-  index: number
+  index: number,
+  dealerId: string,
+  repository: ImageStorageRepository
 ): Promise<ImageDownloadItemResult> {
-  const carDir = path.join(LISTING_IMAGES_ROOT, carId);
-  ensureDir(carDir);
-
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
@@ -250,13 +274,19 @@ async function downloadOneImage(
       return { sourceUrl, status: "failed", error: "ไฟล์ใหญ่เกินไป" };
     }
 
-    const ext = extFromContentType(contentType, sourceUrl);
-    const filename = `${String(index + 1).padStart(2, "0")}-${hashSlug(sourceUrl)}${ext}`;
-    const fullPath = path.join(carDir, filename);
-    fs.writeFileSync(fullPath, buffer);
+    const mimeType = mimeFromContentType(contentType, sourceUrl);
+    const imageId = `${String(index + 1).padStart(2, "0")}-${hashSlug(sourceUrl)}`;
+    const uploaded = await repository.uploadListingImage(dealerId, carId, {
+      buffer,
+      mimeType,
+      imageId,
+      seed: sourceUrl,
+      sortOrder: index,
+      targetType: "listing",
+      originalFileName: imageId,
+    });
 
-    const storedUrl = `/storage/listings/${carId}/${filename}`;
-    return { sourceUrl, status: "ok", storedUrl };
+    return { sourceUrl, status: "ok", storedUrl: uploaded.storedUrl };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "download failed";
     return { sourceUrl, status: "failed", error: msg };
@@ -264,13 +294,16 @@ async function downloadOneImage(
 }
 
 /**
- * ดาวน์โหลดรูปจาก URL ภายนอก → เก็บใน data/listing-images
+ * ดาวน์โหลดรูปจาก URL ภายนอก (รวม Google Drive) แล้วเก็บผ่าน image storage repository
+ * — file backend: /storage/listings/...
+ * — firebase-storage backend: durable Firebase Storage URLs
  * ไม่ throw — คืน warning ต่อรูปที่ล้มเหลว
  */
 export async function downloadListingImagesForCar(
   carId: string,
   sourceRowIndex: number,
-  sourceUrls: string[]
+  sourceUrls: string[],
+  options: DownloadListingImagesOptions = {}
 ): Promise<RowImageDownloadReport> {
   const unique = [
     ...new Set(
@@ -288,6 +321,10 @@ export async function downloadListingImagesForCar(
   const items: ImageDownloadItemResult[] = [];
   const warnings: string[] = [];
   const storedUrls: string[] = [];
+  const dealerId = normalizeDealerId(options.dealerId || "thor-auto");
+  const backend: NongaImageBackend =
+    options.repository?.backend ?? resolveImageStorageBackend();
+  const repository = options.repository ?? createImageStorageRepository(backend);
 
   if (unique.length === 0) {
     warnings.push("ไม่มีรูปภาพในไฟล์");
@@ -303,8 +340,20 @@ export async function downloadListingImagesForCar(
     };
   }
 
+  if (backend === "file") {
+    warnings.push(
+      "imageBackend=file — รูปที่นำเข้าอาจไม่ทนทานบน Cloud Run; staging ควรใช้ firebase-storage"
+    );
+  }
+
   for (let i = 0; i < unique.length; i++) {
-    const result = await downloadOneImage(carId, unique[i], i);
+    const result = await downloadOneImage(
+      carId,
+      unique[i],
+      i,
+      dealerId,
+      repository
+    );
     items.push(result);
     if (result.status === "ok" && result.storedUrl) {
       storedUrls.push(result.storedUrl);
@@ -315,9 +364,16 @@ export async function downloadListingImagesForCar(
     }
   }
 
+  if (storedUrls.length === 0 && unique.length > 0) {
+    warnings.push(
+      "ไม่มีรูปที่เก็บสำเร็จ — จะใช้ placeholder และไม่ hotlink แหล่งภายนอก"
+    );
+  }
+
   devMarketplaceLog("image-download-row", {
     carId,
     sourceRowIndex,
+    backend,
     downloaded: storedUrls.length,
     failed: unique.length - storedUrls.length,
   });

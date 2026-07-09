@@ -37,6 +37,10 @@ import {
   isForbiddenRawKey,
   isSensitiveRegistrationKey,
 } from "../utils/inventoryImport/import/forbiddenRawKeys";
+import {
+  PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING,
+  evaluatePlateInImagePrivacyReadiness,
+} from "../utils/vehicleImagePlatePrivacy";
 import type { InventoryRepository } from "./repositories/inventoryRepository";
 
 const PLACEHOLDER_IMAGE =
@@ -553,24 +557,35 @@ function validateDraftRow(
   return { ok: true };
 }
 
+function isReusableStoredListingImageUrl(url: string, carId: string): boolean {
+  const u = String(url ?? "").trim();
+  if (!u) return false;
+  if (isLocalListingImageUrl(u)) {
+    return extractStorageListingId(u) === carId;
+  }
+  // Durable Firebase Storage URLs already persisted for this listing id.
+  if (/^https?:\/\/firebasestorage\.googleapis\.com\//i.test(u)) {
+    return u.includes(carId);
+  }
+  return false;
+}
+
 async function resolveImagesForRow(
   carId: string,
-  row: CommitImportRowInput
+  row: CommitImportRowInput,
+  owner: CommitImportOwner = {}
 ): Promise<{
   images: string[];
   warnings: string[];
   report: RowImageDownloadReport | null;
 }> {
-  const existingLocal = (row.images ?? []).filter((u) => {
-    const url = String(u);
-    return (
-      isLocalListingImageUrl(url) && extractStorageListingId(url) === carId
-    );
-  });
-  if (existingLocal.length > 0) {
+  const existingStored = (row.images ?? []).filter((u) =>
+    isReusableStoredListingImageUrl(String(u), carId)
+  );
+  if (existingStored.length > 0) {
     return {
-      images: sanitizeListingImagesForId(existingLocal, carId),
-      warnings: [],
+      images: sanitizeListingImagesForId(existingStored, carId),
+      warnings: [PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING],
       report: null,
     };
   }
@@ -580,15 +595,22 @@ async function resolveImagesForRow(
   }
 
   const sourceUrls = row.sourceImageUrls ?? row.images ?? [];
+  const dealerId = resolveDealerIdForImport(owner, row);
   const report = await downloadListingImagesForCar(
     carId,
     row.sourceRowIndex ?? 0,
-    sourceUrls
+    sourceUrls,
+    { dealerId }
   );
   const resolved = resolveStoredImagesForListing(report);
+  const platePrivacy = evaluatePlateInImagePrivacyReadiness({
+    hasSourceOrStoredImages:
+      sourceUrls.length > 0 || resolved.images.length > 0,
+    ownerAttestedPlateSafeImages: false,
+  });
   return {
     images: sanitizeListingImagesForId(resolved.images, carId),
-    warnings: resolved.warnings,
+    warnings: [...resolved.warnings, ...platePrivacy.warnings],
     report,
   };
 }
@@ -646,7 +668,11 @@ export async function processSmartInventoryImport(
     }
 
     const carId = `car-import-${baseId}-p${i}`;
-    const { images, warnings, report } = await resolveImagesForRow(carId, row);
+    const { images, warnings, report } = await resolveImagesForRow(
+      carId,
+      row,
+      safeOwner
+    );
     if (report) imageReports.push(report);
     const allWarnings = [
       ...warnings,
@@ -690,7 +716,11 @@ export async function processSmartInventoryImport(
 
     const draftId =
       row.commitDraftId?.trim() || `draft-import-${baseId}-d${i}`;
-    const { images, warnings, report } = await resolveImagesForRow(draftId, row);
+    const { images, warnings, report } = await resolveImagesForRow(
+      draftId,
+      row,
+      safeOwner
+    );
     if (report) imageReports.push(report);
     const allWarnings = [
       ...warnings,

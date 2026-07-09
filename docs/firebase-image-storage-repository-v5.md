@@ -190,8 +190,10 @@ Done:
 
 Not done:
 
-- Existing image files are not migrated to Firebase Storage.
-- Bulk remote image download still writes through existing local file helper until Step 2S/2T.
+- Bulk remote image download for CSV/inventory import now routes through `createImageStorageRepository()` (Step 2S/2T gap closed for import download path).
+  - `NONGA_IMAGE_BACKEND=file` → local `/storage/listings/...` (not durable on Cloud Run).
+  - `NONGA_IMAGE_BACKEND=firebase-storage` → durable Firebase Storage URLs for marketplace/detail/chat.
+- Existing historical local files are still not auto-migrated; re-import or run the migration script for old `/storage/listings/` rows.
 - Draft publish still copies local files with `migrateListingImagesToCarId()` while default backend is file.
 - Existing `images`, `sourceImageUrls`, and `imageMetadata` fields remain as-is.
 

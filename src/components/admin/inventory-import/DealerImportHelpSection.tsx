@@ -78,16 +78,24 @@ export function DealerImportHelpSection({
           <ImageIcon className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
           <span>
             หลายรูปต่อคัน: คั่น URL ด้วย <strong className="text-slate-300">comma (,)</strong>{" "}
-            หรือขึ้นบรรทัดใหม่ — หลัง Confirm Import รูปจะอยู่ที่{" "}
-            <code className="text-orange-300/90">/storage/listings/...</code> ไม่ใช่
+            หรือขึ้นบรรทัดใหม่ — หลัง Confirm Import ระบบดาวน์โหลดจาก Google Drive/URL
+            แล้วเก็บใน image storage (staging ใช้ Firebase Storage เมื่อ{" "}
+            <code className="text-orange-300/90">imageBackend=firebase-storage</code>) ไม่ใช่
             hotlink เดิม
           </span>
         </li>
         <li className="flex items-start gap-2 sm:col-span-2">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
           <span>
-            ถ้าดาวน์โหลดรูปไม่สำเร็จหรือไม่มีรูป — แสดงคำเตือนเท่านั้น{" "}
+            ถ้าดาวน์โหลดรูปไม่สำเร็จหรือไม่มีรูป — แสดงคำเตือน + ใช้ placeholder{" "}
             <strong className="text-slate-300">ไม่ทำให้ทั้งแถวนำเข้าล้ม</strong>
+          </span>
+        </li>
+        <li className="flex items-start gap-2 sm:col-span-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <span>
+            <strong className="text-slate-300">ป้ายในรูป:</strong> การปิดทะเบียนในข้อความ
+            ไม่ปิดป้ายที่มองเห็นในภาพ — ใช้รูปที่เบลอ/ครอปป้ายก่อนเปิดสาธารณะหรือรอบรายได้
           </span>
         </li>
       </ul>
