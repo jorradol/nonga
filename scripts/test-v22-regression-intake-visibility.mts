@@ -18,8 +18,15 @@ function assert(condition: unknown, message: string): void {
 
 async function main() {
   const prevNodeEnv = process.env.NODE_ENV;
+  const prevAppUrl = process.env.APP_URL;
+  const prevService = process.env.K_SERVICE;
+  const prevDeployEnv = process.env.NONGA_DEPLOY_ENV;
   const prevForceHidden = process.env.NONGA_THOR_IMPORT_FORCE_HIDDEN;
-  process.env.NODE_ENV = "development";
+  // Mirror staging Cloud Run: NODE_ENV=production but staging host/service.
+  process.env.NODE_ENV = "production";
+  process.env.APP_URL = "https://a.nongbot.org";
+  process.env.K_SERVICE = "nonga-staging";
+  process.env.NONGA_DEPLOY_ENV = "staging";
   delete process.env.NONGA_THOR_IMPORT_FORCE_HIDDEN;
 
   const owner = {
@@ -150,6 +157,12 @@ async function main() {
     if (publishedId) removeMarketplaceCar(publishedId);
     if (draftId) removeDealerDraft(draftId);
     process.env.NODE_ENV = prevNodeEnv;
+    if (prevAppUrl == null) delete process.env.APP_URL;
+    else process.env.APP_URL = prevAppUrl;
+    if (prevService == null) delete process.env.K_SERVICE;
+    else process.env.K_SERVICE = prevService;
+    if (prevDeployEnv == null) delete process.env.NONGA_DEPLOY_ENV;
+    else process.env.NONGA_DEPLOY_ENV = prevDeployEnv;
     if (prevForceHidden == null) {
       delete process.env.NONGA_THOR_IMPORT_FORCE_HIDDEN;
     } else {

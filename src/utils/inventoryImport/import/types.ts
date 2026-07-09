@@ -156,4 +156,7 @@ export interface ImportCommitResult {
     warnings: string[];
   }[];
   message?: string;
+  requestId?: string;
+  errorCode?: string;
+  persistenceBackend?: "file-direct" | "file" | "firestore";
 }

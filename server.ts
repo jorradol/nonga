@@ -422,6 +422,9 @@ app.patch("/api/admin/listing-reports/:id", async (req, res) => {
 
 // 2b. API: Smart bulk commit — published + draft buckets
 app.post("/api/admin/inventory-import/commit", async (req, res) => {
+  const requestId = `imp-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
   const { rows, published, drafts, owner } = req.body ?? {};
   const publishRows = Array.isArray(published)
     ? published
@@ -433,6 +436,8 @@ app.post("/api/admin/inventory-import/commit", async (req, res) => {
   if (publishRows.length === 0 && draftRows.length === 0) {
     return res.status(400).json({
       success: false,
+      requestId,
+      errorCode: "IMPORT_EMPTY_PAYLOAD",
       message: "ไม่มีแถวที่พร้อมนำเข้า",
       importedCount: 0,
       publishedCount: 0,
@@ -454,16 +459,31 @@ app.post("/api/admin/inventory-import/commit", async (req, res) => {
     );
 
     if (!result.success) {
-      return res.status(400).json(result);
+      return res.status(400).json({
+        ...result,
+        requestId,
+        errorCode: result.errorCode ?? "IMPORT_NO_ROWS_COMMITTED",
+      });
     }
 
-    return res.json(result);
+    return res.json({ ...result, requestId });
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Bulk import failed";
-    console.error("[inventory-import/commit]", err);
+    const errorCode =
+      err instanceof Error &&
+      typeof (err as Error & { errorCode?: string }).errorCode === "string"
+        ? (err as Error & { errorCode?: string }).errorCode
+        : "IMPORT_COMMIT_FAILED";
+    console.error("[inventory-import/commit]", {
+      requestId,
+      errorCode,
+      message,
+    });
     return res.status(500).json({
       success: false,
+      requestId,
+      errorCode,
       message,
       importedCount: 0,
       publishedCount: 0,

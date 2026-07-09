@@ -704,6 +704,9 @@ export function registerDealerPortalRoutes(
   app.post("/api/dealer/import/commit", async (req, res) => {
     const ctx = scopeOr403(req, res);
     if (!ctx) return;
+    const requestId = `imp-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
     const { published = [], drafts = [] } = req.body ?? {};
     const profile = getDealerProfile(ctx.dealerId);
     const owner = {
@@ -721,12 +724,32 @@ export function registerDealerPortalRoutes(
         { inventoryRepository }
       );
       if (!result.success) {
-        return res.status(400).json(result);
+        return res.status(400).json({
+          ...result,
+          requestId,
+          errorCode: result.errorCode ?? "IMPORT_NO_ROWS_COMMITTED",
+        });
       }
-      return res.json(result);
+      return res.json({ ...result, requestId });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Import failed";
-      res.status(500).json({ success: false, message });
+      const errorCode =
+        err instanceof Error &&
+        typeof (err as Error & { errorCode?: string }).errorCode === "string"
+          ? (err as Error & { errorCode?: string }).errorCode
+          : "IMPORT_COMMIT_FAILED";
+      console.error("[dealer/import/commit]", {
+        requestId,
+        errorCode,
+        message,
+        dealerId: ctx.dealerId,
+      });
+      res.status(500).json({
+        success: false,
+        requestId,
+        errorCode,
+        message,
+      });
     }
   });
 

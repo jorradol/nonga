@@ -52,6 +52,50 @@ interface ImportPolicy {
   blockForbiddenRawKeys: boolean;
 }
 
+/**
+ * Staging Cloud Run images set NODE_ENV=production for Node runtime hardening,
+ * but Thor Auto controlled import must still run on staging. Block only true
+ * production deploy targets — never treat staging hosts/services as production.
+ */
+export function isTrueProductionImportRuntime(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const deployEnv = String(
+    env.NONGA_DEPLOY_ENV ?? env.NONGA_RUNTIME_ENV ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  if (
+    deployEnv === "staging" ||
+    deployEnv === "dev" ||
+    deployEnv === "development" ||
+    deployEnv === "local"
+  ) {
+    return false;
+  }
+  if (deployEnv === "production" || deployEnv === "prod") {
+    return true;
+  }
+
+  const service = String(env.K_SERVICE ?? "").trim().toLowerCase();
+  if (service.includes("staging")) {
+    return false;
+  }
+
+  const appUrl = String(env.APP_URL ?? "").trim().toLowerCase();
+  if (
+    appUrl.includes("a.nongbot.org") ||
+    appUrl.includes("nonga-ce93c.web.app") ||
+    appUrl.includes("nonga-staging") ||
+    appUrl.includes("localhost") ||
+    appUrl.includes("127.0.0.1")
+  ) {
+    return false;
+  }
+
+  return String(env.NODE_ENV ?? "").trim().toLowerCase() === "production";
+}
+
 function resolveImportPolicy(
   owner: CommitImportOwner,
   input: SmartCommitInput
@@ -256,6 +300,8 @@ export interface CommitImportResultPayload {
   }[];
   persistenceBackend?: "file-direct" | "file" | "firestore";
   message?: string;
+  requestId?: string;
+  errorCode?: string;
 }
 
 export interface CommitImportOptions {
@@ -562,10 +608,13 @@ export async function processSmartInventoryImport(
   options: CommitImportOptions = {}
 ): Promise<CommitImportResultPayload> {
   const policy = resolveImportPolicy(owner, input);
-  if (policy.thorControlledStagingGuard && process.env.NODE_ENV === "production") {
-    throw new Error(
+  if (policy.thorControlledStagingGuard && isTrueProductionImportRuntime()) {
+    const err = new Error(
       "Thor Auto controlled import is restricted to staging only; production import is blocked"
     );
+    (err as Error & { errorCode?: string }).errorCode =
+      "THOR_IMPORT_PRODUCTION_BLOCKED";
+    throw err;
   }
   const safeOwner = sanitizeOwnerForPolicy(owner, policy);
 

@@ -298,7 +298,11 @@ export default function InventoryImportView({
         "ระบบยังไม่พร้อมบันทึกข้อมูลใน staging กรุณาแจ้งผู้ดูแลระบบ";
       setImportPhase("error");
       setCommitResult(null);
-      setImportError(toUserFacingError(err, fallbackMessage));
+      const requestId =
+        err instanceof Error
+          ? (err as Error & { requestId?: string }).requestId
+          : undefined;
+      setImportError(toUserFacingError(err, fallbackMessage, { requestId }));
     }
   }, [smartPrep, ownerContext, fetchCars, canCommitImport, commitDisabledMessage]);
 

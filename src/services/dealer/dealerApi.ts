@@ -307,14 +307,42 @@ export async function commitDealerImport(
   drafts: MarketplaceImportPayload[],
   owner: ImportOwnerContext
 ): Promise<ImportCommitResult> {
+  const fallbackMessage =
+    "ระบบยังไม่พร้อมบันทึกข้อมูลใน staging กรุณาแจ้งผู้ดูแลระบบ";
   const res = await fetch("/api/dealer/import/commit", {
     method: "POST",
     headers: await headers(h),
     body: JSON.stringify({ published, drafts, owner }),
   });
-  const body = await res.json();
+  let body: ImportCommitResult & { error?: string };
+  try {
+    body = await res.json();
+  } catch {
+    throw new Error(`ไม่สามารถอ่านผลลัพธ์จากเซิร์ฟเวอร์ได้ (${res.status})`);
+  }
   if (!res.ok || !body.success) {
-    throw new Error(body.message ?? "นำเข้าล้มเหลว");
+    const rowLevel =
+      Array.isArray(body.failed) && body.failed.length > 0
+        ? body.failed
+            .slice(0, 3)
+            .map((row) => `แถว ${row.sourceRowIndex}: ${row.message}`)
+            .join(" · ")
+        : null;
+    const technical =
+      rowLevel ?? body.message ?? body.error ?? `นำเข้าล้มเหลว (${res.status})`;
+    logTechnicalError("dealer-import-commit", technical, {
+      status: res.status,
+      requestId: body.requestId,
+      errorCode: body.errorCode,
+    });
+    const err = new Error(
+      toUserFacingMessage(technical, fallbackMessage, {
+        requestId: body.requestId,
+      })
+    ) as Error & { requestId?: string; errorCode?: string };
+    err.requestId = body.requestId;
+    err.errorCode = body.errorCode;
+    throw err;
   }
   return body;
 }
