@@ -1,4 +1,4 @@
-/** ข้อความนำผลค้นหา Marketplace — โทนเป็นมิตร ข้อมูลจริง 100% */
+/** ข้อความนำผลค้นหา Marketplace — โทนเซลส์มืออาชีพ อบอุ่น น่าเชื่อถือ ข้อมูลจริง 100% */
 
 import type { ChatCarCardData } from "../../../types";
 import { detectBuyerRefinement } from "./chatPilotBuyerFollowUp";
@@ -6,12 +6,20 @@ import {
   buildRefinementFollowUpReplyCopy,
   buildRefinementNoContextCopy,
 } from "./chatRefinementReplyCopy";
-import type { ChatCarSummary, ChatSearchCriteria } from "./marketplaceChatSearch";
+import {
+  resolveChatListingTransmission,
+  type ChatCarSummary,
+  type ChatSearchCriteria,
+} from "./marketplaceChatSearch";
 import {
   buildSelectedCarOpening,
   buildStableSeed,
   pickStableVariant,
 } from "./thaiSalesCopyVariation";
+import {
+  assertNoHallucinatedVehicleClaim,
+  buildGeneralModelContextBlock,
+} from "./vehicleModelContext";
 
 /** Optional tone accent — sparingly, never a default inventory suffix. */
 function maybeOptionalInventoryCheer(seed: string): string {
@@ -57,26 +65,29 @@ function budgetPhrase(criteria: ChatSearchCriteria): string {
     : "";
 }
 
-/** Soft follow-up after inventory cards — buyer-focused, not UI instruction. */
+/**
+ * Soft conversion CTA — viewing / test drive / seller follow-up invite.
+ * Does not create a lead, does not ask for phone aggressively, no UI button instructions.
+ */
 function inventorySoftFollowUp(count: number, seed = "search"): string {
   if (count <= 0) return "";
   if (count === 1) {
     return pickStableVariant(seed, "search.soft.single", [
-      "ถ้าสนใจ น้องเอช่วยสรุปราคา ไมล์ จุดเด่น และความเหมาะกับการใช้งานให้ต่อได้ครับ",
-      "ถ้าอยากให้ช่วยไล่จุดเด่นหรือเทียบกับรุ่นใกล้เคียง บอกน้องเอได้เลยครับ",
-      "สนใจคันนี้ไหมครับ ถ้าอยากให้น้องเอสรุปสั้น ๆ จากข้อมูลประกาศจริง บอกได้เลย",
+      "ถ้าสนใจคันนี้ น้องเอช่วยประสานนัดดูรถ ทดลองขับ หรือคุยเรื่องไฟแนนซ์เบื้องต้นกับผู้ขายให้ต่อได้ครับ",
+      "อยากให้น้องเอช่วยสรุปจุดเด่นสั้น ๆ หรือนัดดูรถจริงไหมครับ — บอกได้เลย",
+      "ถ้าถูกใจ น้องเอช่วยต่อให้ถึงขั้นนัดชมรถหรือทดลองขับได้ครับ โดยไม่ต้องรีบตัดสินใจ",
     ]);
   }
   if (count <= 3) {
     return pickStableVariant(seed, "search.soft.multi", [
-      "ถ้าต้องการคันที่คุ้มสุด ไมล์น้อยสุด หรือราคาดีสุด น้องเอช่วยคัดให้ได้ครับ",
-      "อยากให้น้องเอช่วยเทียบสั้น ๆ ตามงบหรือการใช้งานไหมครับ",
-      "ถ้าบอกโจทย์เพิ่ม เช่น คุมงบ / ไมล์น้อย / ใช้งานเมือง น้องเอช่วยคัดให้ต่อได้ครับ",
+      "ถ้าสนใจคันไหนเป็นพิเศษ น้องเอช่วยเทียบให้ชัด หรือประสานนัดดูรถ/ทดลองขับกับผู้ขายให้ต่อได้ครับ",
+      "อยากให้น้องเอช่วยคัดคันที่คุ้มสุด ไมล์น้อยสุด หรือเหมาะครอบครัว แล้วต่อนัดชมรถไหมครับ",
+      "ถ้าบอกโจทย์เพิ่ม เช่น คุมงบ / ไมล์น้อย / ใช้งานเมือง น้องเอช่วยคัดแล้วประสานติดต่อกลับอย่างสุภาพให้ได้ครับ",
     ]);
   }
   return pickStableVariant(seed, "search.soft.more", [
-    "น้องเอคัดมาให้ดูก่อนชุดแรกครับ ถ้ายังไม่ตรงใจ บอกโจทย์เพิ่มได้ เดี๋ยวช่วยคัดต่อ",
-    "ถ้าอยากดูชุดถัดไปหรืออยากให้น้องเอคัดตามงบ/ไมล์ บอกได้เลยครับ",
+    "น้องเอคัดมาให้ดูก่อนชุดแรกครับ ถ้าสนใจคันไหน บอกได้เลย เดี๋ยวช่วยประสานนัดดูรถหรือทดลองขับต่อ",
+    "ถ้าอยากดูชุดถัดไป หรืออยากให้น้องเอคัดตามงบ/ไมล์แล้วช่วยนัดชมรถ บอกได้เลยครับ",
   ]);
 }
 
@@ -192,21 +203,21 @@ function summarizeOneLine(c: ChatCarSummary): string {
 function buildUsageSuitability(c: ChatCarSummary): string {
   const body = safeBodyClass(c.bodyClassLabel);
   if (body.includes("SUV") || body.includes("Crossover")) {
-    return `คันนี้เป็น ${body} ใช้งานครอบครัวได้ดี เหมาะกับคนที่อยากได้รถนั่งสบาย พื้นที่เยอะ และภาพลักษณ์ดี`;
+    return `คันนี้เป็น ${body} — เหมาะกับครอบครัวที่อยากได้นั่งสบาย พื้นที่เยอะ และภาพลักษณ์ดี`;
   }
   if (body.includes("MPV")) {
-    return `คันนี้เป็น ${body} / รถครอบครัว เหมาะกับคนที่ต้องการที่นั่งเยอะและการใช้งานอเนกประสงค์`;
+    return `คันนี้เป็น ${body} / รถครอบครัว — เหมาะกับคนที่ต้องการที่นั่งเยอะและการใช้งานอเนกประสงค์`;
   }
   if (body.includes("Sedan") || body.includes("ซีดาน")) {
-    return `คันนี้เป็นซีดานขับสบาย นั่งหลังสบาย ภาพลักษณ์ดี และดูเป็นผู้ใหญ่กว่ารถเล็กทั่วไป`;
+    return `คันนี้เป็นซีดานนั่งสบาย — เหมาะกับใช้งานเมือง คนทำงาน หรือครอบครัวเล็กที่เน้นความสุภาพ`;
   }
   if (body.includes("Hatchback")) {
-    return `คันนี้เป็น ${body} กะทัดรัด เหมาะกับขับในเมืองและใช้งานประจำวัน`;
+    return `คันนี้เป็น ${body} กะทัดรัด — เหมาะกับขับในเมืองและใช้งานประจำวัน`;
   }
   if (body.includes("Pickup") || body.includes("กระบะ")) {
-    return `คันนี้เป็น ${body} เหมาะกับการบรรทุกและใช้งานหนัก`;
+    return `คันนี้เป็น ${body} — เหมาะกับการบรรทุกและใช้งานหนัก`;
   }
-  return `คันนี้เป็นตัวเลือกที่น่าดูต่อจากข้อมูลในตลาดตอนนี้`;
+  return `คันนี้เป็นตัวเลือกที่น่าสนใจจากข้อมูลในตลาดตอนนี้`;
 }
 
 /** Compact selling-point line from safe public fields only. */
@@ -214,18 +225,30 @@ function buildSafeSellingPoints(c: ChatCarSummary): string {
   const parts: string[] = [];
   if (c.price > 0) parts.push(`ราคา ${formatPrice(c.price)} บาท`);
   if (c.mileage > 0) parts.push(`ไมล์ ${formatPrice(c.mileage)} กม.`);
+  if (c.year > 0) parts.push(`ปี ${c.year}`);
   if (c.color) parts.push(`สี${c.color}`);
-  const gear = (c.transmission ?? "").trim();
-  if (gear && gear.length <= 24) parts.push(`เกียร์${gear}`);
+  const gear = resolveChatListingTransmission(c)?.trim() ?? "";
+  if (gear && gear.length <= 24) {
+    parts.push(gear.startsWith("เกียร์") ? gear : `เกียร์${gear}`);
+  }
   const condition = (c.condition ?? "").trim();
   if (
     condition &&
     condition.length <= 40 &&
-    !/(ทะเบียน|VIN|vin|โทร|เบอร์|ที่อยู่|importKey)/i.test(condition)
+    !/(ทะเบียน|VIN|vin|โทร|เบอร์|ที่อยู่|importKey|เกียร์|AT|MT|CVT)/i.test(condition)
   ) {
     parts.push(`สภาพ${condition}`);
   }
-  return parts.join(" ");
+  const desc = (c.description ?? "").trim();
+  if (
+    desc &&
+    desc.length >= 8 &&
+    desc.length <= 80 &&
+    !/(ทะเบียน|VIN|vin|โทร|เบอร์|ที่อยู่|importKey|ไม่เคยชน|ไม่เคยน้ำท่วม)/i.test(desc)
+  ) {
+    parts.push(`จุดเด่นจากประกาศ: ${desc}`);
+  }
+  return parts.join(" · ");
 }
 
 function buildRelativeTrait(
@@ -239,21 +262,76 @@ function buildRelativeTrait(
     withMileage.length >= 2
       ? [...withMileage].sort((a, b) => a.mileage - b.mileage)[0]
       : null;
-  if (c.id === cheapest.id) return "จุดเด่นคือคุมงบได้ดีในชุดนี้";
+  const newest = [...shown].sort((a, b) => b.year - a.year)[0];
+  const body = safeBodyClass(c.bodyClassLabel);
+
+  if (c.id === cheapest.id) return "มุมคุ้มค่า / คุมงบได้ดีในชุดนี้";
   if (lowestMileage && c.id === lowestMileage.id) {
-    return "จุดเด่นคือเลขไมล์น้อยกว่าในชุดนี้";
+    return "มุมไมล์น้อยกว่าในชุดนี้ — น่าดูถ้าเน้นความสดของรถ";
   }
-  return "จุดเด่นคือเป็นอีกตัวเลือกที่เทียบกันได้จากราคาและไมล์";
+  if (
+    newest &&
+    c.id === newest.id &&
+    shown.some((o) => o.year !== c.year)
+  ) {
+    return "มุมปีใหม่กว่าในชุดนี้";
+  }
+  if (body.includes("SUV") || body.includes("MPV") || body.includes("Crossover")) {
+    return "มุมครอบครัว / พื้นที่ใช้สอย";
+  }
+  if (body.includes("Sedan") || body.includes("ซีดาน")) {
+    return "มุมนั่งสบาย / ใช้งานเมือง";
+  }
+  return "อีกตัวเลือกที่เทียบกันได้จากราคาและไมล์";
+}
+
+function buildBuyerCompareGuide(shown: ChatCarSummary[]): string {
+  if (shown.length < 2) return "";
+  const cheapest = [...shown].sort((a, b) => a.price - b.price)[0];
+  const withMileage = shown.filter((x) => x.mileage > 0);
+  const lowestMileage =
+    withMileage.length >= 2
+      ? [...withMileage].sort((a, b) => a.mileage - b.mileage)[0]
+      : null;
+  const familyish = shown.find((c) =>
+    /SUV|MPV|Crossover/i.test(safeBodyClass(c.bodyClassLabel))
+  );
+  const comfort = shown.find((c) =>
+    /Sedan|ซีดาน|SUV|MPV/i.test(safeBodyClass(c.bodyClassLabel))
+  );
+
+  const tips: string[] = [];
+  if (cheapest) {
+    tips.push(`ถ้าเน้นคุ้มงบ ลองโฟกัส ${carLabel(cheapest)} ก่อน`);
+  }
+  if (lowestMileage && lowestMileage.id !== cheapest?.id) {
+    tips.push(`ถ้าเน้นไมล์น้อย ${carLabel(lowestMileage)} น่าสนใจ`);
+  }
+  if (familyish) {
+    tips.push(`ถ้าเน้นครอบครัว ${carLabel(familyish)} เข้าทางโจทย์`);
+  } else if (comfort && comfort.id !== cheapest?.id) {
+    tips.push(`ถ้าเน้นนั่งสบาย ${carLabel(comfort)} คุ้มพิจารณา`);
+  }
+  if (tips.length === 0) return "";
+  return `ช่วยตัดสินใจสั้น ๆ: ${tips.join(" · ")} — อิงจากข้อมูลประกาศจริงเท่านั้นครับ`;
 }
 
 function buildSingleCarNarrative(c: ChatCarSummary): string {
   const facts = buildSafeSellingPoints(c);
   const usage = buildUsageSuitability(c);
+  const modelCtx = buildGeneralModelContextBlock({
+    brand: c.brand,
+    model: c.model,
+    year: c.year,
+    bodyClassLabel: c.bodyClassLabel,
+  });
   const cardNote =
-    "ถ้าดูจากข้อมูลในตลาด น้องเอแสดงการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นของรถคันนี้ครับ";
-  return [usage, facts ? `จากข้อมูลที่มี — ${facts}` : "", cardNote]
+    "น้องเอแนบการ์ดรถไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นจากประกาศ — ดูประกอบการตัดสินใจได้เลยครับ";
+  const text = [usage, facts ? `จากข้อมูลประกาศ — ${facts}` : "", modelCtx, cardNote]
     .filter(Boolean)
     .join("\n");
+  assertNoHallucinatedVehicleClaim(text);
+  return text;
 }
 
 function buildMultiCarNarratives(cars: ChatCarSummary[]): string {
@@ -263,13 +341,23 @@ function buildMultiCarNarratives(cars: ChatCarSummary[]): string {
     const trait = buildRelativeTrait(c, shown);
     return `${i + 1}. ${oneLine}${trait ? ` — ${trait}` : ""}`;
   });
-  const modelHint =
+  const modelCtx =
     cars[0] != null
-      ? buildUsageSuitability(cars[0]).replace(/^คันนี้/, "โดยรุ่นนี้")
+      ? buildGeneralModelContextBlock({
+          brand: cars[0].brand,
+          model: cars[0].model,
+          year: cars[0].year,
+          bodyClassLabel: cars[0].bodyClassLabel,
+        })
       : "";
+  const compareGuide = buildBuyerCompareGuide(shown);
   const compareHelp =
-    "จากข้อมูลที่มี น้องเอช่วยเทียบให้ต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ สี สภาพ และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด หรือใช้งานประจำวัน น้องเอช่วยคัดให้ได้ครับ";
-  return [modelHint, lines.join("\n"), compareHelp].filter(Boolean).join("\n\n");
+    "น้องเอช่วยเทียบต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ สี และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด ครอบครัว หรือนั่งสบาย บอกได้เลยครับ";
+  const text = [modelCtx, lines.join("\n"), compareGuide, compareHelp]
+    .filter(Boolean)
+    .join("\n\n");
+  assertNoHallucinatedVehicleClaim(text);
+  return text;
 }
 
 /** @deprecated kept for callers/tests that expect role bullets — delegates to multi narrative */
@@ -305,13 +393,15 @@ function buildFoundIntro(
       `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คันครับ`,
       `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คันในตลาดครับ`,
     ]);
-    return [
+    const text = [
       `${opener}${cheer}`,
       buildSingleCarNarrative(cars[0]),
       inventorySoftFollowUp(1, seed),
     ]
       .filter(Boolean)
       .join("\n\n");
+    assertNoHallucinatedVehicleClaim(text);
+    return text;
   }
 
   const typeHint =
@@ -322,13 +412,15 @@ function buildFoundIntro(
     `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คันครับ`,
     `มีครับ เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ครับ`,
   ]);
-  return [
+  const text = [
     `${opener}${cheer}`,
     buildMultiCarNarratives(cars),
     inventorySoftFollowUp(cars.length, seed),
   ]
     .filter(Boolean)
     .join("\n\n");
+  assertNoHallucinatedVehicleClaim(text);
+  return text;
 }
 
 function buildAlternativeIntro(
@@ -466,7 +558,7 @@ export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {
     buildSelectedCarOpening(car),
     `ราคา ${formatPrice(car.price)} บาท${mileage}${color} (${car.bodyClassLabel})`,
     traitText,
-    `ถ้าอยากให้น้องเอสรุปจุดเด่นหรือเทียบกับคันอื่นจากข้อมูลประกาศจริง บอกได้เลยครับ`,
+    `ถ้าสนใจคันนี้ น้องเอช่วยประสานนัดดูรถ ทดลองขับ หรือคุยไฟแนนซ์เบื้องต้นกับผู้ขายให้ต่อได้ครับ`,
   ]
     .filter(Boolean)
     .join("\n\n");

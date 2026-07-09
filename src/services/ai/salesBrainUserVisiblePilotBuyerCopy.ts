@@ -19,6 +19,10 @@ import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
 import { resolveCarCardsFromSessionContext } from "./chat/chatPilotSessionContext";
 import { buildListingComparisonInsight } from "./chat/chatSearchReplyCopy";
 import { buildPilotRefinementFollowUpReplyCopy } from "./chat/chatRefinementReplyCopy";
+import {
+  buildGeneralModelContextBlock,
+  assertNoHallucinatedVehicleClaim,
+} from "./chat/vehicleModelContext";
 
 export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2h";
 
@@ -29,6 +33,9 @@ const LISTING_DISCLAIMER =
 
 const PARTIAL_DATA_NOTE =
   "น้องเอยังมีข้อมูลจากประกาศเท่าที่ระบบแสดงนะครับ ยังฟันธงละเอียดไม่ได้ แต่ช่วยเทียบแนวใช้งานเบื้องต้นให้ก่อนได้ครับ";
+
+const SOFT_VIEWING_CTA =
+  "ถ้าสนใจคันไหน น้องเอช่วยประสานนัดดูรถ ทดลองขับ หรือคุยไฟแนนซ์เบื้องต้นกับผู้ขายให้ต่อได้ครับ";
 
 /** Safe reply when follow-up compare/refine has no recent cards in context */
 export function buildPilotFollowUpNoContextCopy(): string {
@@ -129,14 +136,25 @@ function buildRichBuyerSearchFromCards(
       c.mileage != null && c.mileage > 0
         ? ` ไมล์ ${formatPrice(c.mileage)} กม.`
         : "";
-    return [
+    const modelCtx = buildGeneralModelContextBlock({
+      brand: c.brand,
+      model: c.model,
+      year: c.year,
+      bodyClassLabel: c.bodyClassLabel,
+    });
+    const text = [
       `${options.budgetLead}มีครับ เจอ ${c.brand} ${c.model} ปี ${c.year} อยู่ 1 คันในตลาดตอนนี้ครับ`,
       `คันนี้${pilotUsageAngle(c)}`,
-      `จากข้อมูลที่มี — ราคา ${formatPrice(c.price)} บาท${mileage}`,
-      "ถ้าดูจากข้อมูลในตลาด น้องเอแสดงการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นของรถคันนี้ครับ",
-      "ถ้าต้องการ น้องเอช่วยดูต่อได้ว่าคันนี้คุ้มไหมเมื่อเทียบกับงบและการใช้งานของคุณ",
+      `จากข้อมูลประกาศ — ราคา ${formatPrice(c.price)} บาท${mileage}`,
+      modelCtx,
+      "น้องเอแนบการ์ดรถไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นจากประกาศครับ",
+      SOFT_VIEWING_CTA,
       LISTING_DISCLAIMER,
-    ].join("\n\n");
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    assertNoHallucinatedVehicleClaim(text);
+    return text;
   }
 
   const label = `${shown[0]!.brand} ${shown[0]!.model}`;
@@ -151,14 +169,25 @@ function buildRichBuyerSearchFromCards(
     options.hasMoreCars || cards.length > 3
       ? " ถ้ายังไม่ถูกใจ บอกเงื่อนไขเพิ่มได้ครับ"
       : "";
+  const modelCtx = buildGeneralModelContextBlock({
+    brand: shown[0]!.brand,
+    model: shown[0]!.model,
+    year: shown[0]!.year,
+    bodyClassLabel: shown[0]!.bodyClassLabel,
+  });
 
-  return [
+  const text = [
     `${options.budgetLead}มีครับ เจอ ${label} อยู่ ${cards.length} คันในตลาดตอนนี้ครับ`,
-    `โดยรุ่นนี้${pilotUsageAngle(shown[0]!)}`,
+    modelCtx || `โดยรุ่นนี้${pilotUsageAngle(shown[0]!)}`,
     lines.join("\n"),
-    `จากข้อมูลที่มี น้องเอช่วยเทียบให้ต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด หรือใช้งานประจำวัน น้องเอช่วยคัดให้ได้ครับ${moreHint}`,
+    `จากข้อมูลประกาศ น้องเอช่วยเทียบให้ต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด ครอบครัว หรือนั่งสบาย น้องเอช่วยคัดให้ได้ครับ${moreHint}`,
+    SOFT_VIEWING_CTA,
     LISTING_DISCLAIMER,
-  ].join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  assertNoHallucinatedVehicleClaim(text);
+  return text;
 }
 
 export function buildBuyerSearchPilotCopy(input: {
@@ -186,11 +215,11 @@ export function buildBuyerSearchPilotCopy(input: {
 
   // Count-only fallback (no card fields available) — still avoid shallow UI CTAs.
   if (count === 1) {
-    return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ 1 คันในตลาดตอนนี้ครับ น้องเอแสดงการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นของรถคันนี้ครับ ถ้าอยากให้น้องเอสรุปจุดเด่นหรือเทียบกับรุ่นใกล้เคียง บอกได้เลยครับ\n\n${LISTING_DISCLAIMER}`;
+    return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ 1 คันในตลาดตอนนี้ครับ น้องเอแนบการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นจากประกาศครับ ${SOFT_VIEWING_CTA}\n\n${LISTING_DISCLAIMER}`;
   }
 
   if (count === 2) {
-    return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ 2 คันในตลาดตอนนี้ครับ น้องเอแสดงการ์ดให้เทียบกันแล้ว ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด หรือใช้งานประจำวัน น้องเอช่วยคัดให้ได้ครับ\n\n${LISTING_DISCLAIMER}`;
+    return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ 2 คันในตลาดตอนนี้ครับ น้องเอแนบการ์ดให้เทียบกันแล้ว ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด ครอบครัว หรือนั่งสบาย น้องเอช่วยคัดให้ได้ครับ ${SOFT_VIEWING_CTA}\n\n${LISTING_DISCLAIMER}`;
   }
 
   const shown = Math.min(count, 3);
@@ -199,7 +228,7 @@ export function buildBuyerSearchPilotCopy(input: {
       ? " ถ้ายังไม่ถูกใจ บอกเงื่อนไขเพิ่มได้ครับ"
       : "";
 
-  return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ ${shown} คันในตลาดตอนนี้ครับ น้องเอแสดงการ์ดให้เทียบกันแล้ว ถ้าอยากได้ใช้งานคุ้ม ๆ หรือเน้นไมล์น้อย น้องเอช่วยเทียบให้ทีละคันได้ครับ${moreHint}\n\n${LISTING_DISCLAIMER}`;
+  return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ ${shown} คันในตลาดตอนนี้ครับ น้องเอแนบการ์ดให้เทียบกันแล้ว ถ้าอยากได้ใช้งานคุ้ม ๆ หรือเน้นไมล์น้อย น้องเอช่วยเทียบให้ทีละคันได้ครับ${moreHint} ${SOFT_VIEWING_CTA}\n\n${LISTING_DISCLAIMER}`;
 }
 
 export function buildBuyerComparePilotCopy(

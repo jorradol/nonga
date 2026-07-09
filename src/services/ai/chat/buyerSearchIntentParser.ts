@@ -161,6 +161,17 @@ export function parseBuyerSearchBudgetMax(message: string): number | undefined {
   }
 
   if (parsedPrice === 0) {
+    // Bare unit after under-budget: "งบไม่เกินล้าน" / "ไม่เกินแสน" → 1 unit
+    const bareUnit = processedText.match(
+      /(?:ไม่เกิน|ไม่เกิ|<=|<|ภายใต้|งบ(?:ไม่)?(?:เกิน)?|ราคา|ต่ำกว่า|ถูกกว่า|ถูกลง|น้อยกว่า)\s*(ล้าน|ล\.|million|แสน)\s*(?:บาท|฿)?/i
+    );
+    if (bareUnit) {
+      if (/แสน/i.test(bareUnit[1])) parsedPrice = 100_000;
+      else parsedPrice = 1_000_000;
+    }
+  }
+
+  if (parsedPrice === 0) {
     const plainBaht = processedText.match(
       /(?:ไม่เกิน|ไม่เกิ|งบ|ราคา|ต่ำกว่า|ถูกกว่า|ถูกลง|น้อยกว่า)\s*([\d,]{6,})\s*(?:บาท|฿)?/i
     );

@@ -423,6 +423,8 @@
     "test:v22.22": "npm run test:v22.22-staging-browser-chat-response-path",
     "test:v22.24-chat-assistant-message-persistence": "tsx scripts/test-v22.24-chat-assistant-message-persistence.mts",
     "test:v22.24": "npm run test:v22.24-chat-assistant-message-persistence",
+    "test:v22.25-professional-thai-car-sales-response": "tsx scripts/test-v22.25-professional-thai-car-sales-response.mts",
+    "test:v22.25": "npm run test:v22.25-professional-thai-car-sales-response",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
