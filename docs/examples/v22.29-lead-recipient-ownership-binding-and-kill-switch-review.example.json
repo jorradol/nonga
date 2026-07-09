@@ -1,0 +1,41 @@
+{
+  "version": "v22.29",
+  "execution_type": "CONTROLLED LEAD RECIPIENT OWNERSHIP BINDING REVIEW + LEAD CAPTURE KILL SWITCH DESIGN REVIEW / READ-ONLY FIRST / OWNER APPROVAL PREVIEW ONLY / NO REAL LEAD / NO DEALER-FACING SEND / NO PRODUCTION / NO PUBLIC",
+  "branch": "feature/chat-image-attachment-v1",
+  "staging_url": "https://a.nongbot.org",
+  "current_revisions": {
+    "cloud_run_revision": "nonga-staging-00188-tm7",
+    "hosting_asset": "assets/index-DqPChjiO.js"
+  },
+  "checks": {
+    "ownership_binding_inspection_completed": "PASS",
+    "thor_three_listings_dealer_id_thor_auto": "PASS",
+    "thor_three_listings_shared_owner_binding": "PASS",
+    "marketplace_count_13": "PASS",
+    "empty_owner_create_blocked": "PASS",
+    "buyer_cannot_override_recipient": "PASS",
+    "recipient_derived_from_listing_owner_only": "PASS",
+    "queue_acl_owner_or_matching_dealer_or_admin": "PASS",
+    "other_sellers_denied_foreign_queue": "PASS",
+    "phone_locked_until_manual_reveal": "PASS",
+    "no_automatic_dealer_push": "PASS",
+    "dedicated_lead_capture_kill_switch_exists": false,
+    "kill_switch_design_documented_not_implemented": "PASS",
+    "buyer_lead_unauth_401": "PASS",
+    "public_signup_enabled_false": "PASS",
+    "production_untouched": "PASS",
+    "public_not_enabled": "PASS",
+    "no_secrets_or_pii_in_report": "PASS",
+    "real_lead_created": false,
+    "dealer_facing_send_performed": false
+  },
+  "lead_capture_kill_switch_implemented": false,
+  "lead_capture_reliably_blocked_for_authenticated_users": false,
+  "approval_requested_this_step": false,
+  "owner_token_requested": false,
+  "owner_terminal_required": false,
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "public_signup_enabled": false,
+  "final_recommendation": "HOLD — ownership binding and queue isolation look directionally correct for listing-scoped routing (including Thor Auto dealerId: thor-auto), and unbound empty-owner creates are blocked, but lead capture cannot be reliably turned off for authenticated users because no dedicated kill switch exists. Do not approve controlled staging lead capture until a default-OFF kill switch is implemented and proven, and owner confirms recipient binding."
+}
