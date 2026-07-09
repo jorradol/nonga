@@ -1,9 +1,18 @@
-/** v5.4.8c–8d — warm buyer car pitch copy from scored listings (deterministic) */
+/** v5.4.8c–8d / v22.26 — warm buyer car pitch copy from scored listings (deterministic) */
 
 import type { BuyerSearchIntent } from "./buyerSearchIntentParser";
 import type { BuyerMarketplaceScoredCandidate } from "./buyerMarketplaceScoring";
 import type { BuyerMarketplaceScoringResult } from "./buyerMarketplaceScoring";
+import {
+  resolveChatListingTransmission,
+  type ChatInventoryCar,
+} from "./marketplaceChatSearch";
+import { BODY_CLASS_LABEL_TH, inferVehicleBodyClass } from "./vehicleBodyClassifier";
 import { buildStableSeed, pickStableVariant } from "./thaiSalesCopyVariation";
+import {
+  assertNoHallucinatedVehicleClaim,
+  buildGeneralModelContext,
+} from "./vehicleModelContext";
 
 const RANK_LABELS = ["คันแรก", "คันที่สอง", "คันที่สาม"] as const;
 
@@ -114,7 +123,7 @@ function buildWarmAngle(
     return "คันนี้เรียงมาเป็นลำดับแรกเพราะเข้าทางโจทย์ที่สุดในตลาดตอนนี้ — น่าดูต่อถ้าสเปกตรงใจ";
   }
 
-  return "อีกทางเลือกที่ยังน่าสนใจ — ลองเทียบกับคันอื่นในการ์ดด้านล่างดูครับ";
+  return "อีกทางเลือกที่ยังน่าสนใจ — ลองเทียบกับคันอื่นในชุดนี้ดูครับ";
 }
 
 function buildReasonWeave(ranked: BuyerMarketplaceScoredCandidate): string {
@@ -128,21 +137,115 @@ function buildReasonWeave(ranked: BuyerMarketplaceScoredCandidate): string {
   return ` (${r})`;
 }
 
-function buildClosingLine(
-  ranked: BuyerMarketplaceScoredCandidate,
-  options?: { compact?: boolean }
+function bodyLabelOf(car: ChatInventoryCar): string {
+  const cls = inferVehicleBodyClass(car);
+  return BODY_CLASS_LABEL_TH[cls] ?? "รถ";
+}
+
+function buildInventoryFactLine(car: ChatInventoryCar): string {
+  const parts: string[] = [];
+  if (car.price > 0) parts.push(`ราคา ${formatPrice(car.price)} บาท`);
+  const mileage = Number(car.mileage ?? 0);
+  if (mileage > 0) parts.push(`ไมล์ ${formatPrice(mileage)} กม.`);
+  if (car.year > 0) parts.push(`ปี ${car.year}`);
+  if (car.color) parts.push(`สี${car.color}`);
+  const gear = resolveChatListingTransmission(car)?.trim() ?? "";
+  if (gear && gear.length <= 24) {
+    parts.push(gear.startsWith("เกียร์") ? gear : `เกียร์${gear}`);
+  }
+  const condition = String(car.condition ?? "").trim();
+  if (
+    condition &&
+    condition.length <= 40 &&
+    !/(ทะเบียน|VIN|vin|โทร|เบอร์|ที่อยู่|importKey|เกียร์|AT|MT|CVT)/i.test(condition)
+  ) {
+    parts.push(`สภาพ${condition}`);
+  }
+  const desc = String(car.description ?? "").trim();
+  if (
+    desc &&
+    desc.length >= 8 &&
+    desc.length <= 72 &&
+    !/(ทะเบียน|VIN|vin|โทร|เบอร์|ที่อยู่|importKey|ไม่เคยชน|ไม่เคยน้ำท่วม)/i.test(desc)
+  ) {
+    parts.push(`จุดเด่นจากประกาศ: ${desc}`);
+  }
+  return parts.join(" · ");
+}
+
+function buildWhoItSuits(
+  intent: BuyerSearchIntent,
+  ranked: BuyerMarketplaceScoredCandidate
 ): string {
-  if (options?.compact) {
-    return "ถ้าสนใจ น้องเอช่วยประสานนัดดูรถหรือทดลองขับให้ต่อได้ครับ";
+  const body = String(ranked.car.bodyType ?? "").toLowerCase();
+  const label = bodyLabelOf(ranked.car);
+  if (hasTag(intent, ranked, "family") || (intent.seatsMin ?? 0) >= 7) {
+    return `เหมาะกับครอบครัวที่อยากได้${label}`;
   }
-  if (isOverBudgetCaution(ranked)) {
-    return "น้องเอแนะนำให้ดูรายละเอียดกับทดลองขับก่อนตัดสินใจครับ";
+  if (hasTag(intent, ranked, "city") || body === "sedan" || body === "hatchback") {
+    return `เหมาะกับใช้งานเมือง / ขับประจำวัน`;
   }
-  return "ถ้าตรวจสภาพและประวัติดูแลรักษาแล้วถูกใจ คันนี้ถือว่าน่าดูต่อ — น้องเอช่วยนัดชมรถให้ได้ครับ";
+  if (body === "suv" || body === "mpv" || /SUV|MPV|Crossover/i.test(label)) {
+    return `เหมาะกับครอบครัวหรือคนที่อยากได้นั่งสบายและพื้นที่ใช้สอย`;
+  }
+  if (intent.budgetMax != null && isInBudget(intent, ranked)) {
+    return `เหมาะกับคนที่คุมงบไม่เกิน ${formatPrice(intent.budgetMax)} บาท`;
+  }
+  return `เหมาะกับคนที่มองหารถใช้งานจริงในงบนี้`;
+}
+
+function buildCompareSummary(
+  intent: BuyerSearchIntent,
+  shown: BuyerMarketplaceScoredCandidate[]
+): string {
+  if (shown.length < 2) return "";
+  const byPrice = [...shown].sort((a, b) => a.car.price - b.car.price);
+  const cheapest = byPrice[0]!;
+  const withMileage = shown.filter((c) => Number(c.car.mileage ?? 0) > 0);
+  const lowestMileage =
+    withMileage.length >= 2
+      ? [...withMileage].sort(
+          (a, b) => Number(a.car.mileage ?? 0) - Number(b.car.mileage ?? 0)
+        )[0]
+      : null;
+  const familyish = shown.find((c) => {
+    const body = inferVehicleBodyClass(c.car);
+    return body === "suv" || body === "mpv";
+  });
+  const comfort = shown.find((c) => {
+    const body = inferVehicleBodyClass(c.car);
+    return body === "sedan" || body === "suv" || body === "mpv";
+  });
+
+  const tips: string[] = [];
+  tips.push(
+    `ถ้าเน้นคุ้มงบ ลองโฟกัส ${cheapest.car.brand} ${cheapest.car.model} ปี ${cheapest.car.year} ก่อน`
+  );
+  if (lowestMileage && lowestMileage.car.id !== cheapest.car.id) {
+    tips.push(
+      `ถ้าเน้นไมล์น้อย ${lowestMileage.car.brand} ${lowestMileage.car.model} ปี ${lowestMileage.car.year} น่าสนใจ`
+    );
+  }
+  if (familyish) {
+    tips.push(
+      `ถ้าเน้นครอบครัว ${familyish.car.brand} ${familyish.car.model} ปี ${familyish.car.year} เข้าทางโจทย์`
+    );
+  } else if (comfort && comfort.car.id !== cheapest.car.id) {
+    tips.push(
+      `ถ้าเน้นนั่งสบาย ${comfort.car.brand} ${comfort.car.model} ปี ${comfort.car.year} คุ้มพิจารณา`
+    );
+  }
+  if (intent.budgetMax != null) {
+    tips.push(`ทั้งชุดนี้อยู่ในกรอบงบไม่เกิน ${formatPrice(intent.budgetMax)} บาทตามข้อมูลประกาศ`);
+  }
+  const text = `สรุปช่วยตัดสินใจ: ${tips.join(" · ")} — อิงจากข้อมูลประกาศจริงเท่านั้นครับ`;
+  assertBuyerPitchSafe(text);
+  assertNoHallucinatedVehicleClaim(text);
+  return text;
 }
 
 /**
- * One warm pitch block for a scored listing (1–2 short sentences + headline).
+ * One professional sales pitch block for a scored listing (facts + why + who).
  */
 export function buildBuyerCarPitchLine(
   ranked: BuyerMarketplaceScoredCandidate,
@@ -152,19 +255,38 @@ export function buildBuyerCarPitchLine(
 ): string {
   const c = ranked.car;
   const label = rankLabel(index);
+  const title = `${c.brand} ${c.model} ปี ${c.year}`.trim();
   const headline = options?.compact
-    ? `${c.brand} ${c.model} ราคา ${formatPrice(c.price)} บาท`
-    : `${label} ${c.brand} ${c.model} ราคา ${formatPrice(c.price)} บาท`;
+    ? `${title} — ราคา ${formatPrice(c.price)} บาท`
+    : `${label}: ${title}`;
+  const facts = buildInventoryFactLine(c);
   const angle = buildWarmAngle(intent, ranked, index);
+  const who = buildWhoItSuits(intent, ranked);
+  const modelCtx = buildGeneralModelContext({
+    brand: c.brand,
+    model: c.model,
+    year: c.year,
+    bodyClassLabel: bodyLabelOf(c),
+  });
   const weave = options?.compact ? "" : buildReasonWeave(ranked);
-  const close = buildClosingLine(ranked, { compact: options?.compact });
-  let pitch = `${headline} — ${angle}${weave} ${close}`;
 
+  const lines = [
+    headline,
+    facts ? `จากข้อมูลประกาศ — ${facts}` : "",
+    `ทำไมน่าสนใจในงบนี้: ${angle}${weave}`,
+    who,
+    modelCtx
+      ? `ข้อมูลทั่วไปของรุ่น (ไม่ใช่การยืนยันสภาพคันนี้): ${modelCtx}`
+      : "",
+  ].filter(Boolean);
+
+  let pitch = lines.join("\n");
   if (options?.addCheer && options.isLastInBatch) {
     pitch += " ปังปุริเย่!";
   }
 
   assertBuyerPitchSafe(pitch);
+  assertNoHallucinatedVehicleClaim(pitch);
   return pitch.trim();
 }
 
@@ -272,7 +394,8 @@ function buildPitchOpener(
 }
 
 /**
- * Full scored-search intro: advisor opener + up to 3 warm pitches + closing + CTA hook.
+ * Full scored-search intro: opener + per-car sales explanations + compare + soft CTA.
+ * v22.26 — assistant text must explain each displayed car (cards alone are not enough).
  */
 export function buildScoredCarPitchCopy(
   message: string,
@@ -283,9 +406,8 @@ export function buildScoredCarPitchCopy(
     ctaLine: string;
     displayCount: number;
     /**
-     * v7.4 — when true, omit the per-car pitch lines from the text bubble because
-     * the grounded narrative is now fused onto each car card (fitReason). Keeps
-     * the answer connected to the cards instead of a separate wall of text.
+     * @deprecated v22.26 — multi-car answers always include per-car text.
+     * Kept for call-site compatibility; ignored when falsey or truthy.
      */
     omitPerCarPitch?: boolean;
   }
@@ -294,20 +416,19 @@ export function buildScoredCarPitchCopy(
     options.displayCount,
     scoring.candidates.length
   );
+  const shown = scoring.candidates.slice(0, displayCount);
   const parts: string[] = [
     buildPitchOpener(message, intent, displayCount, scoring.cautions),
   ];
 
-  if (!options.omitPerCarPitch) {
-    const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
-    for (let i = 0; i < displayCount; i++) {
-      parts.push(pitchLines[i]);
-    }
+  // Always include per-car sales explanations for displayed cars.
+  const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
+  for (let i = 0; i < displayCount; i++) {
+    parts.push(pitchLines[i]!);
   }
 
-  parts.push(
-    "อย่างไรก็ตาม ควรตรวจประวัติดูแลรักษาและทดลองขับก่อนตัดสินใจครับ — น้องเอไม่ได้การันตีสภาพจากข้อมูลในระบบเพียงอย่างเดียว"
-  );
+  const compare = buildCompareSummary(intent, shown);
+  if (compare) parts.push(compare);
 
   const budgetCaution = (scoring.cautions ?? []).find((c) =>
     /ยังไม่มีรถในงบ/.test(c)
@@ -318,7 +439,13 @@ export function buildScoredCarPitchCopy(
 
   parts.push(options.ctaLine);
 
+  // Concise safety note last — must not replace per-car explanations above.
+  parts.push(
+    "หมายเหตุสั้น ๆ: ควรตรวจสภาพจริง เอกสาร และทดลองขับก่อนตัดสินใจครับ — น้องเอสรุปจากข้อมูลประกาศเท่านั้น"
+  );
+
   const text = parts.join("\n\n");
   assertBuyerPitchSafe(text);
+  assertNoHallucinatedVehicleClaim(text);
   return text;
 }

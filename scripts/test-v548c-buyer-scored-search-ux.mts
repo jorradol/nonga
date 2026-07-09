@@ -203,18 +203,19 @@ ok(
   String(fuelFitReasons.length)
 );
 ok(
-  "fuel-text-no-pitch-wall",
-  !/คันแรก|คันที่สอง|คันที่สาม/.test(orchFuel?.text ?? ""),
-  orchFuel?.text.slice(0, 120)
+  "fuel-text-has-per-car-explanations",
+  /คันแรก|คันที่สอง|คันที่สาม/.test(orchFuel?.text ?? "") &&
+    /ราคา|ไมล์|จากข้อมูลประกาศ/.test(orchFuel?.text ?? ""),
+  orchFuel?.text.slice(0, 160)
 );
 ok(
-  "fuel-not-old-numbered-block",
-  !/^\s*\d+\.\s+Toyota/m.test(orchFuel?.text ?? ""),
-  ""
+  "fuel-text-has-compare-or-cta",
+  /สรุปช่วยตัดสินใจ|นัดดูรถ|ทดลองขับ|นัดชมรถ/.test(orchFuel?.text ?? ""),
+  orchFuel?.text.slice(-100)
 );
 ok(
-  "fuel-not-bullet-indent-block",
-  !/\n\s{3,}ราคาอยู่ในงบ/.test(orchFuel?.text ?? ""),
+  "fuel-not-old-ui-cta",
+  !/น้องเอจัดการ์ดไว้ด้านล่าง|กด 'ดูรายละเอียดในแชท'/.test(orchFuel?.text ?? ""),
   ""
 );
 assertNoForbidden(orchFuel?.text ?? "", "fuel");

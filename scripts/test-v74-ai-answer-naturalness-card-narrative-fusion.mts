@@ -145,11 +145,17 @@ const INVENTORY_YARIS: ChatInventoryCar[] = [
   ok("all ranked cards have fit reason", (reply?.allCarCards ?? []).every((c) => (c.fitReason ?? "").trim().length > 0));
   ok("fitReasons parallel array present", (reply?.fitReasons?.length ?? 0) === (reply?.allCarCards.length ?? -1));
   ok(
-    "text bubble has no per-car pitch wall",
-    !/คันแรก|คันที่สอง|คันที่สาม/.test(reply?.text ?? ""),
-    (reply?.text ?? "").slice(0, 100)
+    "text bubble includes per-car sales explanations",
+    /คันแรก|คันที่สอง|คันที่สาม/.test(reply?.text ?? "") &&
+      /ราคา|ไมล์|จากข้อมูลประกาศ/.test(reply?.text ?? ""),
+    (reply?.text ?? "").slice(0, 160)
   );
   ok("text still has warm opener (น้องเอ)", /น้องเอ/.test(reply?.text ?? ""));
+  ok(
+    "text has compare or soft CTA",
+    /สรุปช่วยตัดสินใจ|นัดดูรถ|ทดลองขับ|นัดชมรถ/.test(reply?.text ?? ""),
+    (reply?.text ?? "").slice(-120)
+  );
   // grounded across the whole reply (text + every card reason)
   const blob = [reply?.text ?? "", ...(reply?.allCarCards ?? []).map((c) => c.fitReason ?? "")].join("\n");
   ok("no forbidden claim across reply", !FORBIDDEN.test(blob));

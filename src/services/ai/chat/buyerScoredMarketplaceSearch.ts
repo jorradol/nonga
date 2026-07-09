@@ -99,9 +99,7 @@ function buildScoredSearchIntro(
     hasMore,
     ctaLine,
     displayCount,
-    // v7.4 — per-car narrative is fused onto each card (fitReason), so keep the
-    // text bubble to a warm opener + closing + soft follow-up instead of UI CTAs.
-    omitPerCarPitch: true,
+    // v22.26 — always include per-car sales explanations in assistant text.
   });
   assertSafeReplyText(text);
   assertBuyerPitchSafe(text);

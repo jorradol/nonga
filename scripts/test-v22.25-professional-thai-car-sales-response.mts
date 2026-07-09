@@ -187,11 +187,16 @@ async function main() {
     const reply = tryOrchestrateChatReplyCore("งบไม่เกินล้าน มีคันไหนน่าสนใจ", INVENTORY)!;
     ok("budget reply exists", Boolean(reply?.text));
     ok(
-      "budget helps decision",
-      /คุ้ม|ครอบครัว|ไมล์|ราคา|งบ|นัด|ทดลอง|คัด|เทียบ|City|Camry|CRV|Honda|Toyota/i.test(
-        reply.text
-      ) && reply.carCards.length >= 1,
-      reply.text.slice(0, 160)
+      "budget helps decision with per-car text",
+      /คันแรก/.test(reply.text) &&
+        /คันที่สอง/.test(reply.text) &&
+        /ราคา|ไมล์/.test(reply.text) &&
+        reply.carCards.length >= 1,
+      reply.text.slice(0, 200)
+    );
+    ok(
+      "budget compare summary",
+      /สรุปช่วยตัดสินใจ|คุ้มงบ|ไมล์น้อย|ครอบครัว/.test(reply.text)
     );
     ok("budget no overpromise finance/condition", !HALLUCINATION_RE.test(reply.text));
     ok("budget no old UI", !OLD_UI_RE.test(reply.text));
@@ -200,7 +205,7 @@ async function main() {
       "budget soft CTA or help",
       SOFT_CTA_RE.test(reply.text) || /คัด|เทียบ|บอกได้|นัด|ทดลอง/.test(reply.text)
     );
-    console.log("Budget:", reply.text.replace(/\n/g, " | "));
+    console.log("Budget:", reply.text.replace(/\n/g, " | ").slice(0, 400));
   }
 
   console.log("\n--- pilot path parity + cheer sparing ---");
