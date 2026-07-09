@@ -424,44 +424,48 @@ export function buildSearchFoundOpener(
     typeHint?: string;
   }
 ): string {
+  // Neutral buyer-facing openers only — no UI CTAs, no default "ลุง", no routine cheer.
   if (slot === "single") {
     return pickStableVariant(seed, "search.single", [
-      `เจอแล้วครับ ในตลาด Nong A มี ${payload.label ?? "รถที่ตรงเงื่อนไข"} ${payload.budgetPart ?? ""}`.trim(),
-      `มีรถที่ตรงเงื่อนไข 1 คันครับ — ${payload.label ?? ""} ${payload.budgetPart ?? ""}`.trim(),
-      `ค้นเจอ 1 คันที่ตรงสเปกครับ ${payload.label ?? ""} ${payload.budgetPart ?? ""}`.trim(),
+      `มีครับ เจอ ${payload.label ?? "รถที่ตรงเงื่อนไข"} อยู่ 1 คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูครับ`.trim(),
+      `มีครับ เจอ ${payload.label ?? "รถที่ตรงเงื่อนไข"} ในตลาดตอนนี้ 1 คัน เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูก่อนนะครับ`.trim(),
+      `มีครับ — ${payload.label ?? "รถที่ตรงเงื่อนไข"} ตอนนี้มี 1 คัน เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูครับ`.trim(),
     ] as const);
   }
 
+  const count = payload.count ?? "";
+  const budgetPart = payload.budgetPart ?? "";
+  const typeHint = payload.typeHint ?? "รถ";
   const multiByStyle: Record<ThaiCopyStyle, readonly string[]> = {
     premium: [
-      `เจอ ${payload.count ?? ""} คันที่ตรงเงื่อนไข${payload.budgetPart ?? ""} ในตลาด Nong A ครับ`,
-      `มีตัวเลือก ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} ตามเงื่อนไขที่ค้นครับ`,
+      `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${count} คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
+      `มีครับ ตอนนี้มี ${count} คัน${budgetPart} ตามเงื่อนไขที่ค้น เดี๋ยวน้องเอแสดงข้อมูลให้เทียบสั้น ๆ ครับ`,
     ],
     honestOwner: [
-      `ค้นเจอ ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} จากข้อมูลจริงในระบบครับ`,
-      `มี ${payload.count ?? ""} คันที่ตรงสเปก${payload.budgetPart ?? ""} ครับ`,
+      `มีครับ เจอ ${count} คัน${budgetPart} จากข้อมูลจริงในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
+      `มีครับ เจอ ${count} คัน${budgetPart} ในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้เลือกดูครับ`,
     ],
     valueEase: [
-      `ในงบ${payload.budgetPart ? payload.budgetPart.replace(/^ใน/, "") : ""} มี ${payload.count ?? ""} คันที่น่าดูต่อครับ`,
-      `เจอ ${payload.count ?? ""} คันคุ้มค่า${payload.budgetPart ?? ""} ตามข้อมูลในระบบ`,
+      `มีครับ ในงบ${budgetPart ? budgetPart.replace(/^ใน/, "") : ""} มี ${count} คันที่น่าดูต่อ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
+      `มีครับ เจอ ${count} คันคุ้มค่า${budgetPart} ตามข้อมูลในระบบ เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
     ],
     familyMpv: [
-      `มี ${payload.typeHint ?? "รถ"} ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} ที่น่าสนใจครับ`,
-      payload.typeHint === "หลายแนว"
-        ? `เจอ ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} มีหลายแนวให้เลือกครับ`
-        : `เจอ ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} สำหรับมุมครอบครัว/อเนกประสงค์`,
+      `มีครับ เจอ ${typeHint} ${count} คัน${budgetPart} ที่น่าสนใจ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
+      typeHint === "หลายแนว"
+        ? `มีครับ เจอ ${count} คัน${budgetPart} มีหลายแนวให้เลือก เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`
+        : `มีครับ เจอ ${count} คัน${budgetPart} สำหรับมุมครอบครัว/อเนกประสงค์ เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
     ],
     urbanWorker: [
-      `มีตัวเลือก ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} สำหรับใช้งานประจำวันครับ`,
-      `ค้นเจอ ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} ตามเงื่อนไขครับ`,
+      `มีครับ เจอตัวเลือก ${count} คัน${budgetPart} สำหรับใช้งานประจำวัน เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
+      `มีครับ เจอ ${count} คัน${budgetPart} ตามเงื่อนไข เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
     ],
     dealerPro: [
-      `ในระบบมี ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} ตรงเงื่อนไขครับ`,
-      `พบ ${payload.count ?? ""} รายการ${payload.budgetPart ?? ""} จากข้อมูลในระบบ`,
+      `มีครับ ในระบบมี ${count} คัน${budgetPart} ตามเงื่อนไข เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
+      `มีครับ พบ ${count} รายการ${budgetPart} จากข้อมูลในระบบ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
     ],
     gentleHook: [
-      `เจอทั้งหมด ${payload.count ?? ""} คันครับ ${payload.typeHint ? `มี ${payload.typeHint}` : ""}${payload.budgetPart ?? ""}`.trim(),
-      `มี ${payload.typeHint ?? "ตัวเลือก"} ${payload.count ?? ""} คัน${payload.budgetPart ?? ""} ที่เข้าเงื่อนไขครับ`,
+      `มีครับ เจอทั้งหมด ${count} คัน${budgetPart} เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
+      `มีครับ เจอ ${typeHint} ${count} คัน${budgetPart} ที่เข้าเงื่อนไข เดี๋ยวน้องเอแสดงข้อมูลให้เลือกดูครับ`,
     ],
   };
 

@@ -68,7 +68,7 @@ console.log("\n--- Honda CRV 2019 exact match ---");
   ok("crv reply exists", Boolean(reply?.text));
   ok(
     "crv natural opener",
-    /มีครับ/.test(reply.text) && /Honda|CRV|CR-V/i.test(reply.text),
+    /มีครับ/.test(reply.text) && /Honda|CRV|CR-V/i.test(reply.text) && !/ลุง/.test(reply.text),
     reply.text.slice(0, 80)
   );
   ok("crv singular count", /1\s*คัน/.test(reply.text));
@@ -83,7 +83,7 @@ console.log("\n--- Toyota Camry 2019 multi-match ---");
 {
   const reply = tryOrchestrateChatReply("มี Toyota Camry 2019 ไหมครับ", INVENTORY)!;
   ok("camry reply exists", Boolean(reply?.text));
-  ok("camry natural opener", /มีครับ|เจอ/.test(reply.text));
+  ok("camry natural opener", /มีครับ/.test(reply.text) && !/ลุง/.test(reply.text));
   ok("camry multi count", /2\s*คัน/.test(reply.text));
   ok(
     "camry compare/help wording",
@@ -114,7 +114,7 @@ console.log("\n--- no match ---");
 console.log("\n--- legacy intro path parity ---");
 {
   const legacy = runMarketplaceChatSearch("มี Honda CRV 2019 ไหมครับ", INVENTORY)!;
-  ok("legacy intro natural", /มีครับ/.test(legacy.introText), legacy.introText.slice(0, 80));
+  ok("legacy intro natural", /มีครับ/.test(legacy.introText) && !/ลุง/.test(legacy.introText), legacy.introText.slice(0, 80));
   ok("legacy intro no UI", !UI_INSTRUCTION_RE.test(legacy.introText));
   ok("legacy intro no cheer", !ROUTINE_CHEER_RE.test(legacy.introText));
 }

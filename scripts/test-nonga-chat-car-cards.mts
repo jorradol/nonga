@@ -268,7 +268,7 @@ async function main() {
   // Single car tone
   const single = runMarketplaceChatSearch("มี Suzuki Ertiga ไหม", INVENTORY_SUV_ALT)!;
   ok("single-found", single.primary.length === 1, "");
-  ok("single-friendly-opener", /มีครับ/.test(single.introText), single.introText.slice(0, 80));
+  ok("single-friendly-opener", /มีครับ/.test(single.introText) && !/ลุง/.test(single.introText), single.introText.slice(0, 80));
   ok(
     "single-no-routine-cheer-or-ui",
     !/ปังปุริเย่|กด 'ดูรายละเอียดในแชท'|จัดการ์ดไว้ด้านล่าง/.test(single.introText),
