@@ -1,5 +1,6 @@
 import type { MarketplaceCarRecord } from "../server/marketplaceInventory";
 import { maskLicensePlate } from "./vehicleRegistrationPrivacy";
+import { toPublicDealerSlug } from "./dealerIdentity";
 
 /** Private seller / listing contact fields — never expose on unauthenticated marketplace APIs */
 export const PUBLIC_LISTING_REDACTED_CONTACT_FIELDS = [
@@ -64,6 +65,15 @@ export const PUBLIC_LISTING_REDACTED_INTERNAL_FIELDS = [
   "licensePlateFull",
 ] as const;
 
+/**
+ * Internal ownership / partition identifiers — never public-facing.
+ * Use dealerDisplayName / sellerDisplayName / dealerSlug instead.
+ */
+export const PUBLIC_LISTING_REDACTED_OWNERSHIP_ID_FIELDS = [
+  "ownerId",
+  "dealerId",
+] as const;
+
 /** Duplicate-detection metadata — internal matching signals only. */
 export const PUBLIC_LISTING_REDACTED_DUPLICATE_FIELDS = [
   "duplicateStatus",
@@ -114,6 +124,33 @@ function deleteKeysOnRecord(
   }
 }
 
+function applySafePublicSellerDisplayFields(
+  next: Record<string, unknown>,
+  source: Record<string, unknown>
+): void {
+  const showroom = String(source.showroomName ?? "").trim();
+  const ownerName = String(source.ownerName ?? "").trim();
+  const dealerSlug = toPublicDealerSlug(
+    typeof source.dealerId === "string" ? source.dealerId : undefined
+  );
+
+  if (showroom) {
+    next.dealerDisplayName = showroom;
+  }
+  if (ownerName || showroom) {
+    next.sellerDisplayName = showroom || ownerName;
+  }
+  if (dealerSlug) {
+    next.dealerSlug = dealerSlug;
+  }
+  // sellerType: dealer when dealer partition exists, else member/private
+  if (source.dealerId || dealerSlug) {
+    next.sellerType = "dealer";
+  } else if (!next.sellerType) {
+    next.sellerType = "member";
+  }
+}
+
 function redactPublicListingRecord(
   record: Record<string, unknown>
 ): Record<string, unknown> {
@@ -125,6 +162,8 @@ function redactPublicListingRecord(
   if (!String(next.licensePlateMasked ?? "").trim() && fullPlate) {
     next.licensePlateMasked = maskLicensePlate(fullPlate, province);
   }
+
+  applySafePublicSellerDisplayFields(next, record);
 
   for (const key of PUBLIC_LISTING_REDACTED_CONTACT_FIELDS) {
     if (key in next) {
@@ -141,6 +180,7 @@ function redactPublicListingRecord(
   deleteKeysOnRecord(next, PUBLIC_LISTING_REDACTED_PRICE_INTERNAL_FIELDS);
   deleteKeysOnRecord(next, PUBLIC_LISTING_REDACTED_INTERNAL_FIELDS);
   deleteKeysOnRecord(next, PUBLIC_LISTING_REDACTED_DUPLICATE_FIELDS);
+  deleteKeysOnRecord(next, PUBLIC_LISTING_REDACTED_OWNERSHIP_ID_FIELDS);
 
   if (typeof next.description === "string") {
     next.description = sanitizePublicListingDescription(next.description);

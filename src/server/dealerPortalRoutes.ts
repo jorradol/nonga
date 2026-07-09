@@ -21,6 +21,13 @@ import {
 } from "./dealerAccess";
 import { processSmartInventoryImport } from "./inventoryImportCommit";
 import {
+  DEALER_SELF_APPROVE_FORBIDDEN_MESSAGE,
+  DEALER_SUBMITTED_FOR_REVIEW_MESSAGE,
+  assertCanPublishDealerListingToMarketplace,
+  dealerListingStatusAfterSubmit,
+} from "../utils/dealerListingApprovalGate";
+import { canonicalDealerOwnerId } from "../utils/dealerIdentity";
+import {
   fetchPreviewProxy,
   importSelectedPasteImages,
   probePasteImageCandidates,
@@ -245,7 +252,10 @@ export function registerDealerPortalRoutes(
       ctx.dealerId
     );
     const drafts = await inventoryRepository.drafts.listByDealer(ctx.dealerId);
-    const published = cars.filter((c) => c.listingStatus !== "hidden").length;
+    const published = cars.filter((c) => c.listingStatus === "published").length;
+    const pendingReview = cars.filter(
+      (c) => c.listingStatus === "pending_review"
+    ).length;
     const hidden = cars.filter((c) => c.listingStatus === "hidden").length;
     const noImages = cars.filter(
       (c) =>
@@ -265,6 +275,7 @@ export function registerDealerPortalRoutes(
       success: true,
       data: {
         published,
+        pendingReview,
         hidden,
         draft: drafts.filter((d) => d.status === "draft").length,
         needsReview: drafts.filter((d) => d.status === "needs_review").length,
@@ -353,12 +364,37 @@ export function registerDealerPortalRoutes(
       return res.status(404).json({ success: false, message: "ไม่พบรถ" });
     }
     const hidden = Boolean(req.body?.hidden);
+    // v22.32 — dealers may hide, but cannot self-approve to marketplace published
+    if (!hidden) {
+      const gate = assertCanPublishDealerListingToMarketplace({
+        isAdmin: ctx.isAdmin,
+        isDealerScopedListing: true,
+      });
+      if (!gate.ok) {
+        return res.status(403).json({
+          success: false,
+          error: "dealer_self_approve_forbidden",
+          message: gate.message,
+        });
+      }
+    }
+    const nextStatus = hidden
+      ? "hidden"
+      : ctx.isAdmin
+        ? "published"
+        : dealerListingStatusAfterSubmit();
     const updated = await inventoryRepository.listings.updateVisibility(
       ctx.dealerId,
       req.params.id,
-      hidden ? "hidden" : "published"
+      nextStatus
     );
-    res.json({ success: true, data: updated });
+    res.json({
+      success: true,
+      data: updated,
+      ...(nextStatus === "pending_review"
+        ? { message: DEALER_SUBMITTED_FOR_REVIEW_MESSAGE }
+        : {}),
+    });
   });
 
   app.delete("/api/dealer/inventory/:id", async (req, res) => {
@@ -623,7 +659,12 @@ export function registerDealerPortalRoutes(
         }
         return res.status(400).json({ success: false, message: result.error });
       }
-      res.json({ success: true, data: result.car });
+      res.json({
+        success: true,
+        data: result.car,
+        message: DEALER_SUBMITTED_FOR_REVIEW_MESSAGE,
+        listingStatus: result.car?.listingStatus ?? "pending_review",
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "ลงขายไม่สำเร็จ";
       res.status(500).json({ success: false, message });
@@ -711,7 +752,7 @@ export function registerDealerPortalRoutes(
     const profile = getDealerProfile(ctx.dealerId);
     const owner = {
       dealerId: ctx.dealerId,
-      ownerId: `owner-${ctx.dealerId}`,
+      ownerId: canonicalDealerOwnerId(ctx.dealerId),
       ownerName: profile?.ownerName ?? req.body?.owner?.ownerName ?? "",
       ownerPhone: profile?.phone ?? req.body?.owner?.ownerPhone ?? "",
       showroomName: profile?.showroomName ?? req.body?.owner?.showroomName,
@@ -721,7 +762,11 @@ export function registerDealerPortalRoutes(
       const result = await processSmartInventoryImport(
         { published, drafts },
         owner,
-        { inventoryRepository }
+        {
+          inventoryRepository,
+          // v22.32 — dealer import cannot land directly on public marketplace
+          requireOwnerApprovalBeforePublic: !ctx.isAdmin,
+        }
       );
       if (!result.success) {
         return res.status(400).json({

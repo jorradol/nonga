@@ -118,8 +118,21 @@ ok(
   dealerDto.showroomName === "Thor Auto Premium"
 );
 ok(
-  "dealerId preserved for showroom routing",
-  dealerDto.dealerId === "dealer-thor-auto"
+  "internal dealerId omitted from public DTO",
+  !("dealerId" in (dealerDto as unknown as Record<string, unknown>))
+);
+ok(
+  "internal ownerId omitted from public DTO",
+  !("ownerId" in (dealerDto as unknown as Record<string, unknown>))
+);
+ok(
+  "safe dealerDisplayName present",
+  (dealerDto as unknown as Record<string, unknown>).dealerDisplayName ===
+    "Thor Auto Premium"
+);
+ok(
+  "safe dealerSlug for thor",
+  (dealerDto as unknown as Record<string, unknown>).dealerSlug === "thor-auto"
 );
 
 const list = toPublicMarketplaceCarDtoList([

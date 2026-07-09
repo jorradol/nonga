@@ -7,7 +7,10 @@ import {
   removeDealerDraft,
 } from "./dealerDraftInventory";
 import { inferMarketplaceCategoryType } from "../utils/marketplaceCarMapper";
-import { normalizeDealerId } from "../utils/dealerIdentity";
+import {
+  canonicalDealerOwnerId,
+  normalizeDealerId,
+} from "../utils/dealerIdentity";
 import {
   scanCarAgainstCorpus,
   duplicateFieldsFromMeta,
@@ -19,6 +22,7 @@ import {
   type PublishRequiredFieldKey,
   publishGuardVehicleImageMessage,
 } from "../utils/dealerPublishGuard";
+import { dealerListingStatusAfterSubmit } from "../utils/dealerListingApprovalGate";
 
 export type PublishDraftFailure =
   | { error: string }
@@ -90,7 +94,7 @@ export async function publishDealerDraftToMarketplace(
     imageMetadata: draft.imageMetadata,
     description: draft.description?.trim() || draft.title || "",
     dealerId: normalizeDealerId(draft.dealerId),
-    ownerId: `owner-${normalizeDealerId(draft.dealerId)}`,
+    ownerId: canonicalDealerOwnerId(draft.dealerId),
     ownerName: draft.ownerName,
     ownerPhone: draft.phone,
     showroomName: draft.showroomName,
@@ -99,7 +103,8 @@ export async function publishDealerDraftToMarketplace(
     licensePlateFull: draft.licensePlateFull,
     licensePlate: draft.licensePlateFull ?? draft.licensePlate,
     isSold: false,
-    listingStatus: "published",
+    // v22.32 — dealer submit enters pending_review; not marketplace-visible
+    listingStatus: dealerListingStatusAfterSubmit(),
     createdAt: new Date().toISOString(),
     boosted: false,
     featured: false,

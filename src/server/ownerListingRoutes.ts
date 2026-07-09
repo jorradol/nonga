@@ -18,6 +18,12 @@ import type { InventoryRepository } from "./repositories/inventoryRepository";
 import { validateMemberListingRecordReadyToPublish } from "../services/listings/memberListingPublishGuard";
 import { cancelPendingSaleAndRelist } from "../services/leads/listingSaleOutcome";
 import { CANCEL_PENDING_SALE_GUARD_FAIL_MESSAGE } from "../services/leads/listingSaleCopy";
+import {
+  DEALER_SELF_APPROVE_FORBIDDEN_MESSAGE,
+  DEALER_SUBMITTED_FOR_REVIEW_MESSAGE,
+  assertCanPublishDealerListingToMarketplace,
+  dealerListingStatusAfterSubmit,
+} from "../utils/dealerListingApprovalGate";
 
 export type OwnerListingRoutesDeps = {
   inventoryRepository: InventoryRepository;
@@ -271,7 +277,19 @@ export function registerOwnerListingRoutes(
     const { car, scope } = access;
 
     const hidden = Boolean(req.body?.hidden);
+    const isDealerScoped = Boolean(resolveCarDealerId(car));
     if (!hidden) {
+      const gate = assertCanPublishDealerListingToMarketplace({
+        isAdmin: scope.isAdmin,
+        isDealerScopedListing: isDealerScoped,
+      });
+      if (!gate.ok) {
+        return res.status(403).json({
+          success: false,
+          error: "dealer_self_approve_forbidden",
+          message: gate.message ?? DEALER_SELF_APPROVE_FORBIDDEN_MESSAGE,
+        });
+      }
       const guard = validateMemberListingRecordReadyToPublish(car);
       if (guard.ok === false) {
         return res.status(422).json({
@@ -286,9 +304,17 @@ export function registerOwnerListingRoutes(
       }
     }
 
+    const nextStatus = hidden
+      ? "hidden"
+      : isDealerScoped && !scope.isAdmin
+        ? dealerListingStatusAfterSubmit()
+        : "published";
+
     const patch: Partial<MarketplaceCarRecord> = {
-      listingStatus: hidden ? "hidden" : "published",
-      ...(hidden ? {} : toPublishConsentPatch(req.body)),
+      listingStatus: nextStatus,
+      ...(hidden || nextStatus === "pending_review"
+        ? {}
+        : toPublishConsentPatch(req.body)),
     };
     const updated = await deps.inventoryRepository.listings.updateListing(
       listingRepoScope(scope, car),
@@ -298,7 +324,13 @@ export function registerOwnerListingRoutes(
     if (!updated) {
       return deny(res, 404, "ไม่พบประกาศ");
     }
-    res.json({ success: true, data: updated });
+    res.json({
+      success: true,
+      data: updated,
+      ...(nextStatus === "pending_review"
+        ? { message: DEALER_SUBMITTED_FOR_REVIEW_MESSAGE }
+        : {}),
+    });
   });
 
   app.delete("/api/cars/:id", async (req, res) => {

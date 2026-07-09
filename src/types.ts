@@ -21,7 +21,7 @@ export interface Car {
   licensePlateMasked?: string;
   isSold: boolean;
   /** published = ตลาด; hidden = ซ่อน */
-  listingStatus?: "published" | "hidden";
+  listingStatus?: "published" | "hidden" | "pending_review";
   /** v5.6H — pending_sale = ซ่อนจากตลาดชั่วคราวหลังปิดดีล */
   saleStatus?: ListingSaleStatus;
   pendingSaleAt?: string;

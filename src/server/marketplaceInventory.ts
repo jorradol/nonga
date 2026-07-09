@@ -29,10 +29,14 @@ export interface MarketplaceCarRecord {
   ownerPhone: string;
   showroomName?: string;
   isSold: boolean;
-  /** รหัสเต็นท์ — ใช้แยกข้อมูล (เช่น thor-auto) */
+  /** รหัสเต็นท์ — ใช้แยกข้อมูล (เช่น thor-auto); internal — not public DTO */
   dealerId?: string;
-  /** published = ตลาด; hidden = ซ่อนจากตลาด */
-  listingStatus?: "published" | "hidden";
+  /**
+   * published = ตลาด;
+   * hidden = ซ่อนจากตลาด;
+   * pending_review = dealer-submitted, awaiting owner/admin approval (not public)
+   */
+  listingStatus?: "published" | "hidden" | "pending_review";
   /** v5.6H — sale pipeline; pending_sale hides from public marketplace */
   saleStatus?: ListingSaleStatus;
   pendingSaleAt?: string;
@@ -77,7 +81,10 @@ export interface MarketplaceCarRecord {
 }
 
 export function isPublishedListing(car: MarketplaceCarRecord): boolean {
-  return !car.listingStatus || car.listingStatus === "published";
+  // Legacy rows with missing listingStatus remain visible.
+  // pending_review and hidden are never marketplace-public.
+  if (!car.listingStatus) return true;
+  return car.listingStatus === "published";
 }
 
 export function isVisibleOnMarketplace(car: MarketplaceCarRecord): boolean {
@@ -200,7 +207,7 @@ export function updateMarketplaceCar(
 
 export function setMarketplaceCarListingStatus(
   id: string,
-  listingStatus: "published" | "hidden"
+  listingStatus: "published" | "hidden" | "pending_review"
 ): MarketplaceCarRecord | null {
   return updateMarketplaceCar(id, { listingStatus });
 }

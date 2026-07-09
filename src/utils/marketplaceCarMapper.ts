@@ -94,7 +94,11 @@ export function normalizeMarketplaceCar(raw: Record<string, unknown>): Car {
       : undefined,
     isSold: Boolean(raw.isSold),
     listingStatus:
-      raw.listingStatus === "hidden" ? "hidden" : "published",
+      raw.listingStatus === "hidden"
+        ? "hidden"
+        : raw.listingStatus === "pending_review"
+          ? "pending_review"
+          : "published",
     saleStatus:
       raw.saleStatus === "pending_sale" ||
       raw.saleStatus === "sold" ||

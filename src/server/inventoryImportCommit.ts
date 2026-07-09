@@ -68,6 +68,8 @@ interface ImportPolicy {
   allowPrivateContactFields: boolean;
   allowOwnerAddressInDescription: boolean;
   forceNoPublicListingActivation: boolean;
+  /** v22.32 — dealer-path import must not land as marketplace-public */
+  requireOwnerApprovalBeforePublic: boolean;
   blockForbiddenRawKeys: boolean;
 }
 
@@ -117,7 +119,8 @@ export function isTrueProductionImportRuntime(
 
 function resolveImportPolicy(
   owner: CommitImportOwner,
-  input: SmartCommitInput
+  input: SmartCommitInput,
+  options: CommitImportOptions = {}
 ): ImportPolicy {
   const dealerSet = new Set<string>();
   const addDealer = (value: unknown) => {
@@ -149,6 +152,8 @@ function resolveImportPolicy(
     allowPrivateContactFields: !thorControlled,
     allowOwnerAddressInDescription: !thorControlled,
     forceNoPublicListingActivation: thorForceHidden,
+    requireOwnerApprovalBeforePublic:
+      options.requireOwnerApprovalBeforePublic === true,
     blockForbiddenRawKeys: thorControlled,
   };
 }
@@ -335,6 +340,12 @@ export interface CommitImportResultPayload {
 
 export interface CommitImportOptions {
   inventoryRepository?: InventoryRepository;
+  /**
+   * When true (dealer self-import), newly created rows use pending_review
+   * instead of published. Existing listingStatus is preserved on upsert so
+   * live Thor marketplace rows are not accidentally hidden.
+   */
+  requireOwnerApprovalBeforePublic?: boolean;
 }
 
 type PersistAction = "create" | "update";
@@ -622,7 +633,11 @@ function buildCarRecord(
       ? String(row.showroomName)
       : owner.showroomName,
     isSold: false,
-    listingStatus: policy.forceNoPublicListingActivation ? "hidden" : "published",
+    listingStatus: policy.forceNoPublicListingActivation
+      ? "hidden"
+      : policy.requireOwnerApprovalBeforePublic
+        ? "pending_review"
+        : "published",
     createdAt: new Date().toISOString(),
     boosted: false,
     featured: false,
@@ -883,7 +898,7 @@ export async function processSmartInventoryImport(
   owner: CommitImportOwner = {},
   options: CommitImportOptions = {}
 ): Promise<CommitImportResultPayload> {
-  const policy = resolveImportPolicy(owner, input);
+  const policy = resolveImportPolicy(owner, input, options);
   if (policy.thorControlledStagingGuard && isTrueProductionImportRuntime()) {
     const err = new Error(
       "Thor Auto controlled import is restricted to staging only; production import is blocked"
@@ -1028,6 +1043,9 @@ export async function processSmartInventoryImport(
       car.createdAt = existing.createdAt;
       car.dealerId = existing.dealerId ?? built.dealerId;
       car.ownerId = existing.ownerId || built.ownerId;
+      // Never demote/promote existing marketplace visibility on upsert —
+      // preserves live Thor published rows (marketplace count 13).
+      car.listingStatus = existing.listingStatus ?? built.listingStatus;
       if (match.importKey) {
         car.importKey = match.importKey;
         car.importKeyKind = match.keyKind;

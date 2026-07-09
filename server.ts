@@ -423,6 +423,57 @@ app.patch("/api/admin/listing-reports/:id", async (req, res) => {
   return res.json({ success: true, data: updatedReport });
 });
 
+// v22.32 — Admin approve dealer listing pending_review → marketplace published
+app.post("/api/admin/listings/:id/approve", async (req, res) => {
+  const listing = await inventoryRepository.listings.getById(req.params.id);
+  if (!listing) {
+    return res.status(404).json({ success: false, message: "ไม่พบประกาศ" });
+  }
+  const dealerId = resolveCarDealerId(listing);
+  if (!dealerId) {
+    return res.status(400).json({
+      success: false,
+      message: "ประกาศนี้ไม่ใช่รายการของเต็นท์",
+    });
+  }
+  if (
+    listing.listingStatus === "published" &&
+    !listing.isSold
+  ) {
+    return res.json({
+      success: true,
+      data: listing,
+      message: "ประกาศนี้อยู่ในตลาดแล้ว",
+    });
+  }
+  const updated = await inventoryRepository.listings.updateListing(
+    dealerId,
+    listing.id,
+    { listingStatus: "published" }
+  );
+  if (!updated) {
+    return res.status(500).json({
+      success: false,
+      message: "อนุมัติไม่สำเร็จ",
+    });
+  }
+  return res.json({
+    success: true,
+    data: updated,
+    message: "อนุมัติประกาศแล้ว — แสดงในตลาดได้",
+  });
+});
+
+app.get("/api/admin/listings/pending-review", async (_req, res) => {
+  const all = await inventoryRepository.listings.listAll();
+  const pending = all.filter((c) => c.listingStatus === "pending_review");
+  return res.json({
+    success: true,
+    count: pending.length,
+    data: pending,
+  });
+});
+
 // 2b. API: Smart bulk commit — published + draft buckets
 app.post("/api/admin/inventory-import/commit", async (req, res) => {
   const requestId = `imp-${Date.now().toString(36)}-${Math.random()

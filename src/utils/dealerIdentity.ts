@@ -124,3 +124,35 @@ export function ownerContextToImportOwner(ctx: DealerOwnerContext) {
     address: ctx.address,
   };
 }
+
+/**
+ * Canonical portal ownerId for a dealer partition.
+ * Lead routing uses listing.ownerId → sellerId; ACL also matches dealerId.
+ *
+ * Compatibility (do not migrate live Thor rows without owner approval):
+ * - Portal / dealer-created: `owner-{dealerId}` (e.g. owner-thor-auto)
+ * - Staging Thor imports may still use a Firebase uid as ownerId while
+ *   dealerId remains `thor-auto`. Queue manage works via dealerId match.
+ */
+export function canonicalDealerOwnerId(dealerId: string): string {
+  return `owner-${normalizeDealerId(dealerId)}`;
+}
+
+/** Safe public dealer slug — never a Firebase uid or owner- prefix internal id. */
+export function toPublicDealerSlug(
+  dealerId: string | null | undefined
+): string | undefined {
+  const normalized = normalizeDealerId(String(dealerId ?? "").trim());
+  if (!normalized) return undefined;
+  if (normalized === THOR_AUTO_DEALER_ID || isSimulatedThorDealerId(normalized)) {
+    return "thor-auto";
+  }
+  // Opaque Firebase-style uids are not safe public dealer identifiers.
+  if (/^[A-Za-z0-9]{20,}$/.test(normalized) && !normalized.includes("-")) {
+    return undefined;
+  }
+  if (normalized.startsWith("owner-") || normalized.startsWith("dealer-")) {
+    return stripDealerOwnerPrefix(normalized) || undefined;
+  }
+  return normalized;
+}

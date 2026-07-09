@@ -21,16 +21,20 @@ import {
   type DealerDraftRecord,
 } from "../dealerDraftInventory";
 import { publishDealerDraftToMarketplace } from "../publishDraftListing";
-import { normalizeDealerId } from "../../utils/dealerIdentity";
+import {
+  canonicalDealerOwnerId,
+  normalizeDealerId,
+} from "../../utils/dealerIdentity";
 import { inferMarketplaceCategoryType } from "../../utils/marketplaceCarMapper";
 import {
   validateDraftForPublish,
   publishGuardVehicleImageMessage,
 } from "../../utils/dealerPublishGuard";
+import { dealerListingStatusAfterSubmit } from "../../utils/dealerListingApprovalGate";
 import { sanitizeFirestoreDocument } from "../firestoreDocumentSanitize.ts";
 
 export type NongaDataBackend = "file" | "firestore";
-export type ListingVisibility = "published" | "hidden";
+export type ListingVisibility = "published" | "hidden" | "pending_review";
 
 export interface ListingRepository {
   listPublished(): Promise<MarketplaceCarRecord[]>;
@@ -450,7 +454,7 @@ export class FirestoreInventoryRepository implements InventoryRepository {
       imageMetadata: draft.imageMetadata,
       description: draft.description?.trim() || draft.title || "",
       dealerId: normalizeScope(draft.dealerId),
-      ownerId: `owner-${normalizeScope(draft.dealerId)}`,
+      ownerId: canonicalDealerOwnerId(draft.dealerId),
       ownerName: draft.ownerName,
       ownerPhone: draft.phone,
       showroomName: draft.showroomName,
@@ -459,7 +463,8 @@ export class FirestoreInventoryRepository implements InventoryRepository {
       licensePlateFull: draft.licensePlateFull,
       licensePlate: draft.licensePlateFull ?? draft.licensePlate,
       isSold: false,
-      listingStatus: "published",
+      // v22.32 — dealer submit enters pending_review; not marketplace-visible
+      listingStatus: dealerListingStatusAfterSubmit(),
       createdAt: new Date().toISOString(),
       boosted: false,
       featured: false,

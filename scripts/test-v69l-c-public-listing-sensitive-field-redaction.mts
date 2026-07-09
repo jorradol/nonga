@@ -108,7 +108,19 @@ ok("safe field model preserved", raw.model === "Corolla");
 ok("safe field year preserved", raw.year === 2021);
 ok("safe field price preserved", raw.price === 650_000);
 ok("safe field images preserved", Array.isArray(raw.images) && raw.images.length === 1);
-ok("dealerId preserved for showroom routing", raw.dealerId === "dealer-synthetic-test");
+ok("internal dealerId omitted from public DTO", !("dealerId" in raw));
+ok("internal ownerId omitted from public DTO", !("ownerId" in raw));
+ok(
+  "safe dealerDisplayName present",
+  raw.dealerDisplayName === "Synthetic Showroom"
+);
+ok("safe sellerType dealer", raw.sellerType === "dealer");
+ok(
+  "safe dealerSlug mapped",
+  raw.dealerSlug === "dealer-synthetic-test" ||
+    raw.dealerSlug === "synthetic-test" ||
+    typeof raw.dealerSlug === "string"
+);
 
 const desc = String(raw.description ?? "");
 ok("description VIN fragment removed", !desc.includes(FAKE_VIN));

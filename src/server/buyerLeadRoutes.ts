@@ -61,6 +61,12 @@ export function registerBuyerLeadRoutes(
           message: "ประกาศนี้ไม่พร้อมรับลีดในขณะนี้ครับ",
         });
       }
+      if (listing.listingStatus === "pending_review") {
+        return res.status(400).json({
+          success: false,
+          message: "ประกาศนี้ยังรออนุมัติ ยังไม่เปิดรับลีดครับ",
+        });
+      }
 
       const result = await createConsentedBuyerLead({
         input: body,
