@@ -28,6 +28,7 @@ import type { PilotBuyerSessionContext } from "./chat/chatPilotSessionContext";
 import {
   sanitizePilotSessionContext,
   pilotSessionCardsToChatCarCards,
+  buildPilotSessionContextFromCarCards,
 } from "./chat/chatPilotSessionContext";
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
 import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
@@ -272,14 +273,32 @@ export function resolvePilotOrchestrationHint(
   pilotSessionContext?: PilotBuyerSessionContext
 ): UserVisiblePilotOrchestrationHint {
   const sessionCards = pilotSessionContext?.recentCarCards ?? [];
-  const orchestratedCount = orchestrated.carCards?.length ?? 0;
+  const orchestratedCards = orchestrated.carCards ?? [];
+  const orchestratedCount = orchestratedCards.length;
   const sessionCount = sessionCards.length;
-  const useSession = sessionCount > 0 && (sessionCount >= orchestratedCount || orchestratedCount === 0);
+  // Prefer freshly orchestrated cards for inventory answers so pilot copy can
+  // summarize make/model/price/mileage — not only a count-based template.
+  const useOrchestratedCards = orchestratedCount > 0;
+  const useSession =
+    !useOrchestratedCards &&
+    sessionCount > 0 &&
+    (sessionCount >= orchestratedCount || orchestratedCount === 0);
+  const recentCarCards = useOrchestratedCards
+    ? buildPilotSessionContextFromCarCards(orchestratedCards)?.recentCarCards
+    : useSession
+      ? sessionCards
+      : undefined;
 
   return {
-    carCardCount: useSession ? sessionCount : orchestratedCount,
+    carCardCount: useOrchestratedCards
+      ? orchestratedCount
+      : useSession
+        ? sessionCount
+        : orchestratedCount,
     hasMoreCars: orchestrated.hasMoreCars,
-    ...(useSession ? { recentCarCards: sessionCards } : {}),
+    ...(recentCarCards && recentCarCards.length > 0
+      ? { recentCarCards }
+      : {}),
     ...(pilotSessionContext?.lastSearchBudgetMax != null
       ? { lastSearchBudgetMax: pilotSessionContext.lastSearchBudgetMax }
       : {}),

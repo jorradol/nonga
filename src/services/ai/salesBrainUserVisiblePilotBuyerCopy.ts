@@ -95,34 +95,111 @@ function inferUseAngle(card: PilotGroundedCarCard): string {
   return parts.slice(0, 2).join(" และ ");
 }
 
+function pilotUsageAngle(card: PilotGroundedCarCard): string {
+  const body = String(card.bodyClassLabel ?? "");
+  if (/SUV|Crossover/i.test(body)) {
+    return "เป็น SUV/Crossover ใช้งานครอบครัวได้ดี เหมาะกับคนที่อยากได้รถนั่งสบาย พื้นที่เยอะ และภาพลักษณ์ดี";
+  }
+  if (/MPV/i.test(body)) {
+    return "เป็น MPV / รถครอบครัว เหมาะกับคนที่ต้องการที่นั่งเยอะและการใช้งานอเนกประสงค์";
+  }
+  if (/Sedan|ซีดาน/i.test(body)) {
+    return "เป็นซีดานขับสบาย นั่งหลังสบาย ภาพลักษณ์ดี และดูเป็นผู้ใหญ่กว่ารถเล็กทั่วไป";
+  }
+  if (/Hatchback/i.test(body)) {
+    return "เป็น Hatchback กะทัดรัด เหมาะกับขับในเมืองและใช้งานประจำวัน";
+  }
+  if (/Pickup|กระบะ/i.test(body)) {
+    return "เป็นกระบะ เหมาะกับการบรรทุกและใช้งานหนัก";
+  }
+  return inferUseAngle(card);
+}
+
+/** Rich inventory summary when pilot path is active — uses safe card fields only. */
+function buildRichBuyerSearchFromCards(
+  cards: PilotGroundedCarCard[],
+  options: { budgetLead: string; hasMoreCars?: boolean }
+): string {
+  const shown = cards.slice(0, 3);
+  if (shown.length === 0) return "";
+
+  if (shown.length === 1) {
+    const c = shown[0]!;
+    const mileage =
+      c.mileage != null && c.mileage > 0
+        ? ` ไมล์ ${formatPrice(c.mileage)} กม.`
+        : "";
+    return [
+      `${options.budgetLead}มีครับ เจอ ${c.brand} ${c.model} ปี ${c.year} อยู่ 1 คันในตลาดตอนนี้ครับ`,
+      `คันนี้${pilotUsageAngle(c)}`,
+      `จากข้อมูลที่มี — ราคา ${formatPrice(c.price)} บาท${mileage}`,
+      "ถ้าดูจากข้อมูลในตลาด น้องเอแสดงการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นของรถคันนี้ครับ",
+      "ถ้าต้องการ น้องเอช่วยดูต่อได้ว่าคันนี้คุ้มไหมเมื่อเทียบกับงบและการใช้งานของคุณ",
+      LISTING_DISCLAIMER,
+    ].join("\n\n");
+  }
+
+  const label = `${shown[0]!.brand} ${shown[0]!.model}`;
+  const lines = shown.map((c, i) => {
+    const mileage =
+      c.mileage != null && c.mileage > 0
+        ? ` ไมล์ ${formatPrice(c.mileage)} กม.`
+        : "";
+    return `${i + 1}. ${c.brand} ${c.model} ปี ${c.year} — ราคา ${formatPrice(c.price)} บาท${mileage}`;
+  });
+  const moreHint =
+    options.hasMoreCars || cards.length > 3
+      ? " ถ้ายังไม่ถูกใจ บอกเงื่อนไขเพิ่มได้ครับ"
+      : "";
+
+  return [
+    `${options.budgetLead}มีครับ เจอ ${label} อยู่ ${cards.length} คันในตลาดตอนนี้ครับ`,
+    `โดยรุ่นนี้${pilotUsageAngle(shown[0]!)}`,
+    lines.join("\n"),
+    `จากข้อมูลที่มี น้องเอช่วยเทียบให้ต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด หรือใช้งานประจำวัน น้องเอช่วยคัดให้ได้ครับ${moreHint}`,
+    LISTING_DISCLAIMER,
+  ].join("\n\n");
+}
+
 export function buildBuyerSearchPilotCopy(input: {
   userMessage: string;
   carCardCount: number;
   hasMoreCars?: boolean;
   budgetMax?: number;
+  /** When present, summarize matched cars (signed-in pilot path). */
+  recentCarCards?: PilotGroundedCarCard[];
 }): string {
   const budgetLead = formatBudgetPhrase(input.budgetMax);
-  const count = Math.max(0, input.carCardCount);
+  const cards = (input.recentCarCards ?? []).slice(0, 5);
+  const count = Math.max(0, cards.length > 0 ? cards.length : input.carCardCount);
 
   if (count === 0) {
-    return `${budgetLead}ตอนนี้น้องเอยังไม่เจอรถที่ตรงเงื่อนไขครบในระบบครับ ลองบอกยี่ห้อ รุ่น ปี หรือสไตล์การใช้งานเพิ่มได้ เช่น “เอาประหยัดน้ำมัน” หรือ “เอารถครอบครัว” น้องเอจะช่วยคัดให้ใหม่ครับ\n\n${LISTING_DISCLAIMER}`;
+    return `${budgetLead}ตอนนี้ยังไม่เจอรุ่นนี้ในตลาดครับ แต่ถ้ารับรุ่นใกล้เคียงได้ น้องเอช่วยหาแบรนด์ใกล้กัน ปีใกล้กัน งบใกล้กัน หรือรถประเภทเดียวกันให้ได้ครับ\n\n${LISTING_DISCLAIMER}`;
   }
 
+  if (cards.length > 0) {
+    return buildRichBuyerSearchFromCards(cards, {
+      budgetLead,
+      hasMoreCars: input.hasMoreCars,
+    });
+  }
+
+  // Count-only fallback (no card fields available) — still avoid shallow UI CTAs.
   if (count === 1) {
-    return `${budgetLead}น้องเอคัดมาให้ 1 คันที่น่าดูต่อก่อนครับ ลองกดดูรายละเอียดในการ์ดด้านล่างก่อน แล้วถามต่อได้เลย เช่น “สรุปจุดดึงของคันนี้” หรือ “ช่วยดูว่าผ่อนเบื้องต้นประมาณไหน”\n\n${LISTING_DISCLAIMER}`;
+    return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ 1 คันในตลาดตอนนี้ครับ น้องเอแสดงการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นของรถคันนี้ครับ ถ้าอยากให้น้องเอสรุปจุดเด่นหรือเทียบกับรุ่นใกล้เคียง บอกได้เลยครับ\n\n${LISTING_DISCLAIMER}`;
   }
 
   if (count === 2) {
-    return `${budgetLead}น้องเอคัดมาให้ 2 คันที่น่าเล่นก่อนครับ แต่ละคันเหมาะคนละแนว ลองกดดูคันที่ถูกใจก่อน หรือพิมพ์ว่า “เทียบคันที่ 1 กับ 2” เดี๋ยวน้องเอช่วยสรุปข้อดีและข้อควรเช็กให้ครับ\n\n${LISTING_DISCLAIMER}`;
+    return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ 2 คันในตลาดตอนนี้ครับ น้องเอแสดงการ์ดให้เทียบกันแล้ว ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด หรือใช้งานประจำวัน น้องเอช่วยคัดให้ได้ครับ\n\n${LISTING_DISCLAIMER}`;
   }
 
   const shown = Math.min(count, 3);
   const moreHint =
     input.hasMoreCars || count > 3
-      ? " ถ้ายังไม่ถูกใจ กดดูเพิ่มหรือบอกเงื่อนไขใหม่ได้ครับ"
+      ? " ถ้ายังไม่ถูกใจ บอกเงื่อนไขเพิ่มได้ครับ"
       : "";
 
-  return `${budgetLead}น้องเอคัดมาให้ ${shown} คันที่น่าเล่นก่อนนะครับ แต่ละคันเหมาะคนละสไตล์ ถ้าอยากได้ใช้งานคุ้ม ๆ ดูแลง่าย ให้เริ่มดูคันแรกก่อน แต่ถ้าเน้นความสด/ความสวย/ความคุ้มราคา น้องเอช่วยเทียบให้ทีละคันได้ครับ\n\nลองกดดูคันที่ถูกใจที่สุดก่อน หรือพิมพ์ว่า “เทียบคันที่ 1 กับ 2” เดี๋ยวน้องเอช่วยสรุปข้อดี-ข้อควรเช็ก และแนะนำคันที่น่าไปต่อให้ครับ${moreHint}\n\n${LISTING_DISCLAIMER}`;
+  return `${budgetLead}มีครับ เจอรถที่ตรงเงื่อนไขอยู่ ${shown} คันในตลาดตอนนี้ครับ น้องเอแสดงการ์ดให้เทียบกันแล้ว ถ้าอยากได้ใช้งานคุ้ม ๆ หรือเน้นไมล์น้อย น้องเอช่วยเทียบให้ทีละคันได้ครับ${moreHint}\n\n${LISTING_DISCLAIMER}`;
 }
 
 export function buildBuyerComparePilotCopy(
@@ -416,6 +493,7 @@ export function buildPilotBuyerUserVisibleCopy(
         carCardCount: sessionCount,
         hasMoreCars: input.hasMoreCars,
         budgetMax: intent.budgetMax ?? input.lastSearchBudgetMax,
+        recentCarCards: sessionCards,
       }),
       pilotPathActive: true,
     };

@@ -424,12 +424,13 @@ export function buildSearchFoundOpener(
     typeHint?: string;
   }
 ): string {
-  // Neutral buyer-facing openers only — no UI CTAs, no default "ลุง", no routine cheer.
+  // Neutral buyer-facing openers only — no UI CTAs, no default "ลุง".
+  // Rich car summaries are appended by chatSearchReplyCopy (not in this opener).
   if (slot === "single") {
     return pickStableVariant(seed, "search.single", [
-      `มีครับ เจอ ${payload.label ?? "รถที่ตรงเงื่อนไข"} อยู่ 1 คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูครับ`.trim(),
-      `มีครับ เจอ ${payload.label ?? "รถที่ตรงเงื่อนไข"} ในตลาดตอนนี้ 1 คัน เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูก่อนนะครับ`.trim(),
-      `มีครับ — ${payload.label ?? "รถที่ตรงเงื่อนไข"} ตอนนี้มี 1 คัน เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูครับ`.trim(),
+      `มีครับ เจอ ${payload.label ?? "รถที่ตรงเงื่อนไข"} อยู่ 1 คันในตลาดตอนนี้ครับ`.trim(),
+      `มีครับ เจอ ${payload.label ?? "รถที่ตรงเงื่อนไข"} ในตลาดตอนนี้ 1 คันครับ`.trim(),
+      `มีครับ — ${payload.label ?? "รถที่ตรงเงื่อนไข"} ตอนนี้มี 1 คันในตลาดครับ`.trim(),
     ] as const);
   }
 
@@ -438,34 +439,34 @@ export function buildSearchFoundOpener(
   const typeHint = payload.typeHint ?? "รถ";
   const multiByStyle: Record<ThaiCopyStyle, readonly string[]> = {
     premium: [
-      `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${count} คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
-      `มีครับ ตอนนี้มี ${count} คัน${budgetPart} ตามเงื่อนไขที่ค้น เดี๋ยวน้องเอแสดงข้อมูลให้เทียบสั้น ๆ ครับ`,
+      `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${count} คันในตลาดตอนนี้ครับ`,
+      `มีครับ ตอนนี้มี ${count} คัน${budgetPart} ตามเงื่อนไขที่ค้นครับ`,
     ],
     honestOwner: [
-      `มีครับ เจอ ${count} คัน${budgetPart} จากข้อมูลจริงในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
-      `มีครับ เจอ ${count} คัน${budgetPart} ในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้เลือกดูครับ`,
+      `มีครับ เจอ ${count} คัน${budgetPart} จากข้อมูลจริงในตลาดตอนนี้ครับ`,
+      `มีครับ เจอ ${count} คัน${budgetPart} ในตลาดตอนนี้ครับ`,
     ],
     valueEase: [
-      `มีครับ ในงบ${budgetPart ? budgetPart.replace(/^ใน/, "") : ""} มี ${count} คันที่น่าดูต่อ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
-      `มีครับ เจอ ${count} คันคุ้มค่า${budgetPart} ตามข้อมูลในระบบ เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
+      `มีครับ ในงบ${budgetPart ? budgetPart.replace(/^ใน/, "") : ""} มี ${count} คันที่น่าดูต่อครับ`,
+      `มีครับ เจอ ${count} คันคุ้มค่า${budgetPart} ตามข้อมูลในระบบครับ`,
     ],
     familyMpv: [
-      `มีครับ เจอ ${typeHint} ${count} คัน${budgetPart} ที่น่าสนใจ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
+      `มีครับ เจอ ${typeHint} ${count} คัน${budgetPart} ที่น่าสนใจครับ`,
       typeHint === "หลายแนว"
-        ? `มีครับ เจอ ${count} คัน${budgetPart} มีหลายแนวให้เลือก เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`
-        : `มีครับ เจอ ${count} คัน${budgetPart} สำหรับมุมครอบครัว/อเนกประสงค์ เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
+        ? `มีครับ เจอ ${count} คัน${budgetPart} มีหลายแนวให้เลือกครับ`
+        : `มีครับ เจอ ${count} คัน${budgetPart} สำหรับมุมครอบครัว/อเนกประสงค์ครับ`,
     ],
     urbanWorker: [
-      `มีครับ เจอตัวเลือก ${count} คัน${budgetPart} สำหรับใช้งานประจำวัน เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
-      `มีครับ เจอ ${count} คัน${budgetPart} ตามเงื่อนไข เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
+      `มีครับ เจอตัวเลือก ${count} คัน${budgetPart} สำหรับใช้งานประจำวันครับ`,
+      `มีครับ เจอ ${count} คัน${budgetPart} ตามเงื่อนไขครับ`,
     ],
     dealerPro: [
-      `มีครับ ในระบบมี ${count} คัน${budgetPart} ตามเงื่อนไข เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
-      `มีครับ พบ ${count} รายการ${budgetPart} จากข้อมูลในระบบ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
+      `มีครับ ในระบบมี ${count} คัน${budgetPart} ตามเงื่อนไขครับ`,
+      `มีครับ พบ ${count} รายการ${budgetPart} จากข้อมูลในระบบครับ`,
     ],
     gentleHook: [
-      `มีครับ เจอทั้งหมด ${count} คัน${budgetPart} เดี๋ยวน้องเอแสดงข้อมูลให้ดูครับ`,
-      `มีครับ เจอ ${typeHint} ${count} คัน${budgetPart} ที่เข้าเงื่อนไข เดี๋ยวน้องเอแสดงข้อมูลให้เลือกดูครับ`,
+      `มีครับ เจอทั้งหมด ${count} คัน${budgetPart} ครับ`,
+      `มีครับ เจอ ${typeHint} ${count} คัน${budgetPart} ที่เข้าเงื่อนไขครับ`,
     ],
   };
 

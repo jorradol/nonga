@@ -15,8 +15,9 @@ function ok(name: string, pass: boolean, detail = "") {
 }
 
 const OLD_UI_RE =
-  /ค้นเจอ 1 คันที่ตรงสเปกครับ|เจอ 2 คันที่ตรงเงื่อนไข|น้องเอจัดการ์ดไว้ด้านล่างให้แล้ว|กด 'ดูรายละเอียดในแชท'|ปังปุริเย่!/;
+  /ค้นเจอ 1 คันที่ตรงสเปกครับ|เจอ 2 คันที่ตรงเงื่อนไข|น้องเอจัดการ์ดไว้ด้านล่างให้แล้ว|กด 'ดูรายละเอียดในแชท'|เดี๋ยวน้องเอแสดงข้อมูลรถให้ดู/;
 const DEFAULT_LUNG_RE = /ครับลุง|มีครับลุง|ถ้าลุง|แต่ถ้าลุง/;
+const ROUTINE_CHEER_RE = /ปังปุริเย่/;
 const FIREBASE =
   "https://firebasestorage.googleapis.com/v0/b/nonga-ce93c.firebasestorage.app/o/listing-images%2Fthor-auto%2Fcar-import-prior%2F01.jpg?alt=media&token=test-token-not-secret";
 
@@ -78,7 +79,11 @@ async function main() {
       !replyCopy.includes("น้องเอจัดการ์ดไว้ด้านล่างให้แล้ว") &&
         !replyCopy.includes("กด 'ดูรายละเอียดในแชท'")
     );
-    ok("reply copy has no routine cheer on inventory", !/ปังปุริเย่!/.test(replyCopy));
+    ok(
+      "reply copy optional cheer helper (not global ban)",
+      replyCopy.includes("maybeOptionalInventoryCheer") &&
+        replyCopy.includes("ปังปุริเย่!")
+    );
     ok(
       "reply copy has no default ลุง address",
       !/มีครับลุง|ถ้าลุง|ครับลุง/.test(replyCopy)
@@ -105,6 +110,11 @@ async function main() {
     ok("crv core reply", Boolean(crv?.text));
     ok("crv natural", /มีครับ/.test(crv.text) && /Honda|CRV/i.test(crv.text));
     ok("crv singular", /1\s*คัน/.test(crv.text));
+    ok(
+      "crv useful summary beyond found-count",
+      /ราคา|ไมล์|บาท|เหมาะ|SUV|ครอบครัว/.test(crv.text) && !/เดี๋ยวน้องเอแสดงข้อมูลรถให้ดู/.test(crv.text),
+      crv.text.slice(0, 160)
+    );
     ok("crv no old UI", !OLD_UI_RE.test(crv.text), crv.text.slice(0, 120));
     ok("crv no default ลุง", !DEFAULT_LUNG_RE.test(crv.text), crv.text.slice(0, 80));
     ok("crv cards+image", crv.carCards.length === 1 && crv.carCards[0]?.hasImage === true);
@@ -113,6 +123,11 @@ async function main() {
     const camry = tryOrchestrateChatReply("มี Toyota Camry 2019 ไหมครับ", INVENTORY)!;
     ok("camry natural", /มีครับ/.test(camry.text) && /2\s*คัน/.test(camry.text));
     ok("camry compare help", /เทียบ|คัด|คุ้ม|ไมล์|ราคา|งบ/.test(camry.text));
+    ok(
+      "camry per-car details",
+      /1\.\s*.*Camry[\s\S]*2\.\s*.*Camry/i.test(camry.text) && /ราคา/.test(camry.text),
+      camry.text.slice(0, 200)
+    );
     ok("camry no old UI", !OLD_UI_RE.test(camry.text));
     ok("camry no default ลุง", !DEFAULT_LUNG_RE.test(camry.text));
     ok("camry cards+images", camry.carCards.length === 2 && camry.carCards.every((c) => c.hasImage));
@@ -123,6 +138,14 @@ async function main() {
     ok("no-match no old UI", !OLD_UI_RE.test(none.text));
     ok("no-match no default ลุง", !DEFAULT_LUNG_RE.test(none.text));
     console.log("No-match:", none.text.replace(/\n/g, " | "));
+
+    const cheerSamples = [crv.text, camry.text, none.text];
+    const cheerHits = cheerSamples.filter((t) => ROUTINE_CHEER_RE.test(t)).length;
+    ok(
+      "cheer not on every inventory lookup",
+      cheerHits < cheerSamples.length,
+      `cheerCount=${cheerHits}/${cheerSamples.length}`
+    );
   }
 
   console.log("\n--- live staging Hosting bundle + marketplace ---");
@@ -168,10 +191,22 @@ async function main() {
     })) as ChatInventoryCar[];
     const liveCrv = tryOrchestrateChatReplyCore("มี Honda CRV 2019 ไหมครับ", liveInv)!;
     const liveCamry = tryOrchestrateChatReplyCore("มี Toyota Camry 2019 ไหมครับ", liveInv)!;
+    const liveNone = tryOrchestrateChatReplyCore("มี Ferrari F40 ไหมครับ", liveInv)!;
     ok("live CRV path no old UI", !OLD_UI_RE.test(liveCrv.text), liveCrv.text.slice(0, 100));
+    ok(
+      "live CRV rich summary",
+      /ราคา|ไมล์|บาท|เหมาะ|SUV|ครอบครัว/.test(liveCrv.text),
+      liveCrv.text.slice(0, 160)
+    );
     ok("live CRV path no default ลุง", !DEFAULT_LUNG_RE.test(liveCrv.text));
     ok("live Camry path no old UI", !OLD_UI_RE.test(liveCamry.text), liveCamry.text.slice(0, 100));
+    ok(
+      "live Camry rich compare",
+      /เทียบ|คัด|ราคา|ไมล์/.test(liveCamry.text) && /1\./.test(liveCamry.text),
+      liveCamry.text.slice(0, 160)
+    );
     ok("live Camry path no default ลุง", !DEFAULT_LUNG_RE.test(liveCamry.text));
+    ok("live no-match helpful", /ยังไม่เจอ|ใกล้เคียง/.test(liveNone.text));
     ok("live CRV has card+image", liveCrv.carCards.length >= 1 && liveCrv.carCards[0]?.hasImage === true);
     ok(
       "live Camry cards have images",
@@ -179,6 +214,7 @@ async function main() {
     );
     console.log("LIVE CRV:", liveCrv.text.replace(/\n/g, " | "));
     console.log("LIVE Camry:", liveCamry.text.replace(/\n/g, " | "));
+    console.log("LIVE No-match:", liveNone.text.replace(/\n/g, " | "));
   }
 
   console.log("\n--- privacy / lead boundaries ---");

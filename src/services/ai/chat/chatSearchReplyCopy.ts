@@ -13,6 +13,18 @@ import {
   pickStableVariant,
 } from "./thaiSalesCopyVariation";
 
+/** Optional tone accent — sparingly, never a default inventory suffix. */
+function maybeOptionalInventoryCheer(seed: string): string {
+  const roll = pickStableVariant(seed, "search.cheer", [
+    "no",
+    "no",
+    "no",
+    "no",
+    "yes",
+  ] as const);
+  return roll === "yes" ? " ปังปุริเย่!" : "";
+}
+
 export interface CarHighlightFacts {
   id: string;
   brand: string;
@@ -176,57 +188,94 @@ function summarizeOneLine(c: ChatCarSummary): string {
   return `${carLabel(c)} ราคา ${formatPrice(c.price)} บาท${mileage}${color} (${body})`;
 }
 
+/** Buyer-facing usage angle from safe body-class only — no invented history. */
+function buildUsageSuitability(c: ChatCarSummary): string {
+  const body = safeBodyClass(c.bodyClassLabel);
+  if (body.includes("SUV") || body.includes("Crossover")) {
+    return `คันนี้เป็น ${body} ใช้งานครอบครัวได้ดี เหมาะกับคนที่อยากได้รถนั่งสบาย พื้นที่เยอะ และภาพลักษณ์ดี`;
+  }
+  if (body.includes("MPV")) {
+    return `คันนี้เป็น ${body} / รถครอบครัว เหมาะกับคนที่ต้องการที่นั่งเยอะและการใช้งานอเนกประสงค์`;
+  }
+  if (body.includes("Sedan") || body.includes("ซีดาน")) {
+    return `คันนี้เป็นซีดานขับสบาย นั่งหลังสบาย ภาพลักษณ์ดี และดูเป็นผู้ใหญ่กว่ารถเล็กทั่วไป`;
+  }
+  if (body.includes("Hatchback")) {
+    return `คันนี้เป็น ${body} กะทัดรัด เหมาะกับขับในเมืองและใช้งานประจำวัน`;
+  }
+  if (body.includes("Pickup") || body.includes("กระบะ")) {
+    return `คันนี้เป็น ${body} เหมาะกับการบรรทุกและใช้งานหนัก`;
+  }
+  return `คันนี้เป็นตัวเลือกที่น่าดูต่อจากข้อมูลในตลาดตอนนี้`;
+}
+
+/** Compact selling-point line from safe public fields only. */
+function buildSafeSellingPoints(c: ChatCarSummary): string {
+  const parts: string[] = [];
+  if (c.price > 0) parts.push(`ราคา ${formatPrice(c.price)} บาท`);
+  if (c.mileage > 0) parts.push(`ไมล์ ${formatPrice(c.mileage)} กม.`);
+  if (c.color) parts.push(`สี${c.color}`);
+  const gear = (c.transmission ?? "").trim();
+  if (gear && gear.length <= 24) parts.push(`เกียร์${gear}`);
+  const condition = (c.condition ?? "").trim();
+  if (
+    condition &&
+    condition.length <= 40 &&
+    !/(ทะเบียน|VIN|vin|โทร|เบอร์|ที่อยู่|importKey)/i.test(condition)
+  ) {
+    parts.push(`สภาพ${condition}`);
+  }
+  return parts.join(" ");
+}
+
+function buildRelativeTrait(
+  c: ChatCarSummary,
+  shown: ChatCarSummary[]
+): string {
+  if (shown.length < 2) return "";
+  const cheapest = [...shown].sort((a, b) => a.price - b.price)[0];
+  const withMileage = shown.filter((x) => x.mileage > 0);
+  const lowestMileage =
+    withMileage.length >= 2
+      ? [...withMileage].sort((a, b) => a.mileage - b.mileage)[0]
+      : null;
+  if (c.id === cheapest.id) return "จุดเด่นคือคุมงบได้ดีในชุดนี้";
+  if (lowestMileage && c.id === lowestMileage.id) {
+    return "จุดเด่นคือเลขไมล์น้อยกว่าในชุดนี้";
+  }
+  return "จุดเด่นคือเป็นอีกตัวเลือกที่เทียบกันได้จากราคาและไมล์";
+}
+
+function buildSingleCarNarrative(c: ChatCarSummary): string {
+  const facts = buildSafeSellingPoints(c);
+  const usage = buildUsageSuitability(c);
+  const cardNote =
+    "ถ้าดูจากข้อมูลในตลาด น้องเอแสดงการ์ดไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นของรถคันนี้ครับ";
+  return [usage, facts ? `จากข้อมูลที่มี — ${facts}` : "", cardNote]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildMultiCarNarratives(cars: ChatCarSummary[]): string {
+  const shown = cars.slice(0, 3);
+  const lines = shown.map((c, i) => {
+    const oneLine = summarizeOneLine(c);
+    const trait = buildRelativeTrait(c, shown);
+    return `${i + 1}. ${oneLine}${trait ? ` — ${trait}` : ""}`;
+  });
+  const modelHint =
+    cars[0] != null
+      ? buildUsageSuitability(cars[0]).replace(/^คันนี้/, "โดยรุ่นนี้")
+      : "";
+  const compareHelp =
+    "จากข้อมูลที่มี น้องเอช่วยเทียบให้ต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ สี สภาพ และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด หรือใช้งานประจำวัน น้องเอช่วยคัดให้ได้ครับ";
+  return [modelHint, lines.join("\n"), compareHelp].filter(Boolean).join("\n\n");
+}
+
+/** @deprecated kept for callers/tests that expect role bullets — delegates to multi narrative */
 function buildCarRolesSummary(shownCars: ChatCarSummary[]): string {
   if (shownCars.length === 0) return "";
-  
-  const sortedByPrice = [...shownCars].sort((a, b) => a.price - b.price);
-  const cheapest = sortedByPrice[0];
-  
-  const withMileage = shownCars.filter((c) => c.mileage > 0);
-  const lowestMileage = withMileage.length > 0
-    ? [...withMileage].sort((a, b) => a.mileage - b.mileage)[0]
-    : null;
-    
-  const newest = [...shownCars].sort((a, b) => b.year - a.year)[0];
-  const oldest = [...shownCars].sort((a, b) => a.year - b.year)[0];
-
-  const bullets = shownCars.map((c) => {
-    const traits: string[] = [];
-    
-    const isCheapest = c.id === cheapest.id && shownCars.length > 1;
-    const isLowestMileage = lowestMileage && c.id === lowestMileage.id && shownCars.length > 1;
-    const isNewest = c.id === newest.id && newest.year > oldest.year && shownCars.length > 1;
-    
-    const body = safeBodyClass(c.bodyClassLabel);
-    
-    if (isCheapest) {
-      traits.push("เด่นเรื่องราคาเริ่มต้นต่ำ เหมาะกับคนคุมงบ");
-    } else if (isLowestMileage) {
-      traits.push("เด่นเรื่องเลขไมล์น้อยกว่าในชุดนี้");
-    } else if (isNewest) {
-      traits.push("เด่นเรื่องปีใหม่กว่า");
-    }
-    
-    if (traits.length === 0) {
-      if (body.includes("SUV") || body.includes("Crossover")) {
-        traits.push(`เป็น ${body} ในงบ เหมาะกับคนอยากได้รถอเนกประสงค์`);
-      } else if (body.includes("MPV")) {
-        traits.push(`เป็น ${body} / รถครอบครัว เหมาะกับคนต้องการที่นั่งและการใช้งานอเนกประสงค์`);
-      } else if (body.includes("Sedan")) {
-        traits.push(`เป็น ${body} ขับขี่คล่องตัว เหมาะกับการใช้งานทั่วไป`);
-      } else if (body.includes("Hatchback")) {
-        traits.push(`เป็น ${body} กะทัดรัด เหมาะกับขับในเมือง`);
-      } else if (body.includes("Pickup") || body.includes("กระบะ")) {
-        traits.push(`เป็น ${body} เหมาะกับการบรรทุกและใช้งานหนัก`);
-      } else {
-        traits.push("เป็นอีกตัวเลือกที่น่าสนใจในงบนี้");
-      }
-    }
-    
-    return `• ${carLabel(c)} — ${traits[0]}`;
-  });
-  
-  return bullets.join("\n");
+  return buildMultiCarNarratives(shownCars);
 }
 
 function buildFoundIntro(
@@ -248,25 +297,38 @@ function buildFoundIntro(
           .join(" ")
       : carLabel(cars[0]);
   const budgetPart = budget ? ` ใน${budget}` : "";
+  const cheer = maybeOptionalInventoryCheer(seed);
 
   if (cars.length === 1) {
     const opener = pickStableVariant(seed, "search.natural.single", [
-      `มีครับ เจอ ${carLabel(cars[0])} อยู่ 1 คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูครับ`,
-      `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คัน เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูก่อนนะครับ`,
-      `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คัน เดี๋ยวน้องเอแสดงข้อมูลรถให้ดูครับ`,
+      `มีครับ เจอ ${carLabel(cars[0])} อยู่ 1 คันในตลาดตอนนี้ครับ`,
+      `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คันครับ`,
+      `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คันในตลาดครับ`,
     ]);
-    return `${opener}\n\n${inventorySoftFollowUp(1, seed)}`;
+    return [
+      `${opener}${cheer}`,
+      buildSingleCarNarrative(cars[0]),
+      inventorySoftFollowUp(1, seed),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   const typeHint =
     opts?.bodyTypeHint ??
     (criteria.suvOnly ? "SUV/Crossover" : label || "รุ่นที่ถาม");
   const opener = pickStableVariant(seed, "search.natural.multi", [
-    `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${cars.length} คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้เทียบกันครับ`,
-    `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คัน เดี๋ยวน้องเอแสดงข้อมูลให้เทียบสั้น ๆ ครับ`,
-    `มีครับ เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ เดี๋ยวน้องเอแสดงข้อมูลให้เลือกดูครับ`,
+    `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${cars.length} คันในตลาดตอนนี้ครับ`,
+    `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คันครับ`,
+    `มีครับ เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ครับ`,
   ]);
-  return `${opener}\n\n${inventorySoftFollowUp(cars.length, seed)}`;
+  return [
+    `${opener}${cheer}`,
+    buildMultiCarNarratives(cars),
+    inventorySoftFollowUp(cars.length, seed),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function buildAlternativeIntro(

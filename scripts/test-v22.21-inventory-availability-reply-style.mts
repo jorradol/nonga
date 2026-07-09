@@ -2,6 +2,7 @@
  * v22.21 — Inventory availability reply style (natural Thai sales assistant)
  * npm run test:v22.21-inventory-availability-reply-style
  */
+import { readFileSync } from "node:fs";
 import { tryOrchestrateChatReply } from "../src/services/ai/chat/chatSearchOrchestrator.ts";
 import { runMarketplaceChatSearch } from "../src/services/ai/chat/marketplaceChatSearch.ts";
 import type { ChatInventoryCar } from "../src/services/ai/chat/marketplaceChatSearch.ts";
@@ -72,8 +73,18 @@ console.log("\n--- Honda CRV 2019 exact match ---");
     reply.text.slice(0, 80)
   );
   ok("crv singular count", /1\s*คัน/.test(reply.text));
+  ok(
+    "crv useful summary beyond found-count",
+    /ราคา|ไมล์|บาท|กม|SUV|ครอบครัว|เหมาะ/.test(reply.text) &&
+      !/เดี๋ยวน้องเอแสดงข้อมูลรถให้ดู/.test(reply.text),
+    reply.text.slice(0, 160)
+  );
   ok("crv no UI instruction", !UI_INSTRUCTION_RE.test(reply.text), reply.text.slice(0, 120));
-  ok("crv no routine cheer", !ROUTINE_CHEER_RE.test(reply.text));
+  ok(
+    "crv cheer not replacing details",
+    !ROUTINE_CHEER_RE.test(reply.text) ||
+      (/ราคา|ไมล์/.test(reply.text) && reply.text.indexOf("ปัง") > 40)
+  );
   ok("crv card payload present", reply.carCards.length === 1);
   ok("crv card has durable image", reply.carCards[0]?.hasImage === true);
   console.log("CRV sample:", reply.text.replace(/\n/g, " | "));
@@ -90,8 +101,19 @@ console.log("\n--- Toyota Camry 2019 multi-match ---");
     /เทียบ|คัด|คุ้ม|ไมล์|ราคา|งบ|ใช้งาน/.test(reply.text),
     reply.text.slice(0, 120)
   );
+  ok(
+    "camry per-car safe details",
+    /1\.\s*.*Camry[\s\S]*2\.\s*.*Camry/i.test(reply.text) &&
+      /ราคา/.test(reply.text) &&
+      /ไมล์/.test(reply.text),
+    reply.text.slice(0, 200)
+  );
   ok("camry no UI instruction", !UI_INSTRUCTION_RE.test(reply.text));
-  ok("camry no routine cheer", !ROUTINE_CHEER_RE.test(reply.text));
+  ok(
+    "camry cheer not replacing details",
+    !ROUTINE_CHEER_RE.test(reply.text) ||
+      (/ราคา|ไมล์/.test(reply.text) && reply.text.indexOf("ปัง") > 40)
+  );
   ok("camry cards present", reply.carCards.length === 2);
   ok(
     "camry cards have images",
@@ -106,9 +128,31 @@ console.log("\n--- no match ---");
   ok("no-match reply exists", Boolean(reply?.text));
   ok("no-match helpful alternative", /ยังไม่เจอ|ยังไม่มี|ใกล้เคียง|งบใกล้|ปีใกล้/.test(reply.text));
   ok("no-match no UI instruction", !UI_INSTRUCTION_RE.test(reply.text));
-  ok("no-match no routine cheer", !ROUTINE_CHEER_RE.test(reply.text));
+  ok("no-match no default ลุง", !/ลุง/.test(reply.text));
   ok("no-match no cards", reply.carCards.length === 0);
   console.log("No-match sample:", reply.text.replace(/\n/g, " | "));
+}
+
+console.log("\n--- optional cheer is sparing, not global ban ---");
+{
+  const replyCopy = readFileSync("src/services/ai/chat/chatSearchReplyCopy.ts", "utf8");
+  ok(
+    "inventory cheer is optional helper",
+    replyCopy.includes("maybeOptionalInventoryCheer") &&
+      replyCopy.includes('"no"') &&
+      replyCopy.includes("ปังปุริเย่!")
+  );
+  const samples = [
+    tryOrchestrateChatReply("มี Honda CRV 2019 ไหมครับ", INVENTORY)!.text,
+    tryOrchestrateChatReply("มี Toyota Camry 2019 ไหมครับ", INVENTORY)!.text,
+    tryOrchestrateChatReply("มี Ferrari F40 ไหมครับ", INVENTORY)!.text,
+  ];
+  const withCheer = samples.filter((t) => ROUTINE_CHEER_RE.test(t)).length;
+  ok(
+    "cheer not hardcoded on every inventory lookup",
+    withCheer < samples.length,
+    `cheerCount=${withCheer}/${samples.length}`
+  );
 }
 
 console.log("\n--- legacy intro path parity ---");
@@ -116,7 +160,10 @@ console.log("\n--- legacy intro path parity ---");
   const legacy = runMarketplaceChatSearch("มี Honda CRV 2019 ไหมครับ", INVENTORY)!;
   ok("legacy intro natural", /มีครับ/.test(legacy.introText) && !/ลุง/.test(legacy.introText), legacy.introText.slice(0, 80));
   ok("legacy intro no UI", !UI_INSTRUCTION_RE.test(legacy.introText));
-  ok("legacy intro no cheer", !ROUTINE_CHEER_RE.test(legacy.introText));
+  ok(
+    "legacy intro has useful summary",
+    /ราคา|ไมล์|เหมาะ|SUV|ครอบครัว/.test(legacy.introText)
+  );
 }
 
 console.log("\n--- privacy / lead / dealer send ---");

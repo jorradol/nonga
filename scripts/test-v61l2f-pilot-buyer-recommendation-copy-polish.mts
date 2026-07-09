@@ -127,17 +127,29 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
   });
   ok("three cars no marker", assertNoPilotDebugMarker(three));
   ok("three cars thai pitch", assertThaiPitch(three));
-  ok("three cars has compare cta", /เทียบคันที่ 1 กับ 2/.test(three));
-  ok("three cars has tap cta", /กดดูคันที่ถูกใจ/.test(three));
+  ok("three cars has compare help", /เทียบ|คัด|ไมล์|คุ้ม/.test(three));
+  ok("three cars no old UI tap CTA", !/กดดูคันที่ถูกใจ|ดูรายละเอียดในแชท/.test(three));
 
   const one = buildBuyerSearchPilotCopy({ userMessage: BUYER_MSG, carCardCount: 1 });
   ok("one car pitch", one.includes("1 คัน"));
+  ok("one car useful summary", /ราคา|ไมล์|จุดเด่น|การ์ด/.test(one));
 
   const two = buildBuyerSearchPilotCopy({ userMessage: BUYER_MSG, carCardCount: 2 });
   ok("two car pitch", two.includes("2 คัน"));
+  ok("two car compare help", /เทียบ|คัด/.test(two));
 
   const zero = buildBuyerSearchPilotCopy({ userMessage: BUYER_MSG, carCardCount: 0 });
-  ok("zero cars guidance", /ยังไม่เจอรถ|ไม่เจอรถ/i.test(zero));
+  ok("zero cars guidance", /ยังไม่เจอ|ใกล้เคียง/i.test(zero));
+
+  const richOne = buildBuyerSearchPilotCopy({
+    userMessage: "มี Honda CRV 2019 ไหมครับ",
+    carCardCount: 1,
+    recentCarCards: SAMPLE_CARDS.slice(0, 1),
+  });
+  ok(
+    "rich one-car summary uses safe fields",
+    /ราคา/.test(richOne) && /1 คัน/.test(richOne) && !/ลุง/.test(richOne)
+  );
 
   const compare = buildBuyerComparePilotCopy({ a: 1, b: 2 }, SAMPLE_CARDS);
   ok("compare copy thai", assertThaiPitch(compare));
@@ -175,7 +187,48 @@ console.log("=== v6.1L.2f Pilot Buyer Recommendation Copy Polish ===\n");
   ok("allowlisted no debug marker", assertNoPilotDebugMarker(resolved.userVisibleText));
   ok("allowlisted thai pitch", assertThaiPitch(resolved.userVisibleText));
   ok("allowlisted buyer search intent", resolved.pilotIntent === "buyer.search");
-  ok("allowlisted has cta", /กดดูคันที่ถูกใจ|เทียบคันที่ 1 กับ 2/.test(resolved.userVisibleText));
+  ok(
+    "allowlisted has compare/help wording",
+    /เทียบ|คัด|ไมล์|คุ้ม|การ์ด/.test(resolved.userVisibleText)
+  );
+  ok(
+    "allowlisted no old UI tap CTA",
+    !/กดดูคันที่ถูกใจ|ดูรายละเอียดในแชท|จัดการ์ดไว้ด้านล่าง/.test(
+      resolved.userVisibleText
+    )
+  );
+}
+
+// --- buyer.search pilot copy with card fields keeps rich summary ---
+{
+  const polished = buildPilotBuyerUserVisibleCopy({
+    userMessage: "มี Honda CRV 2019 ไหมครับ",
+    intent: "buyer.search",
+    carCardCount: 1,
+    recentCarCards: [
+      {
+        index: 1,
+        brand: "Honda",
+        model: "CRV",
+        year: 2019,
+        price: 599000,
+        mileage: 82000,
+        bodyClassLabel: "SUV / Crossover",
+      },
+    ],
+  });
+  ok("rich pilot active", polished?.pilotPathActive === true);
+  ok(
+    "rich pilot summarizes car fields",
+    Boolean(
+      polished &&
+        /Honda|CRV/i.test(polished.text) &&
+        /ราคา/.test(polished.text) &&
+        /599/.test(polished.text) &&
+        !/ลุง/.test(polished.text)
+    ),
+    polished?.text.slice(0, 120) ?? "null"
+  );
 }
 
 // --- guest / non-allowlisted legacy ---
