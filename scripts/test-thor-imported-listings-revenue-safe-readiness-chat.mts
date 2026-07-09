@@ -31,8 +31,20 @@ async function main() {
     showroomName: String(c.showroomName ?? ""),
   }));
 
+  const marketplaceCount = Number(body.count ?? inventory.length);
+  assert(
+    marketplaceCount === 13,
+    `marketplace count should stay 13 after upsert/re-import, got ${marketplaceCount}`
+  );
   const thor = inventory.filter((c) => c.id.startsWith("car-import-"));
   assert(thor.length === 3, `expected 3 Thor imports, got ${thor.length}`);
+  const fingerprints = new Set(
+    thor.map((c) => `${c.brand}|${c.model}|${c.year}`.toLowerCase())
+  );
+  assert(
+    fingerprints.size === 3,
+    `Thor cars must be unique by brand/model/year, got ${fingerprints.size}`
+  );
 
   const queries = [
     "มี Mazda CX-30 ไหม",
@@ -45,6 +57,14 @@ async function main() {
     const cards = summariesToCarCards(result.primary, result.alternatives);
     const hit = cards.find((c) => String(c.id).startsWith("car-import-"));
     assert(Boolean(hit), `chat card missing for query: ${q}`);
+    assert(
+      hit?.hasImage === true && Boolean(hit?.imageUrl),
+      `chat card must show durable image for ${hit?.id} (hasImage=${hit?.hasImage})`
+    );
+    assert(
+      /^https:\/\/firebasestorage\.googleapis\.com\//i.test(String(hit?.imageUrl ?? "")),
+      `chat card imageUrl must be durable Firebase Storage for ${hit?.id}`
+    );
     const payload = JSON.stringify(cards);
     assert(!/"licensePlateFull"/.test(payload), "chat cards must hide full plate");
     assert(!/"vin"\s*:/.test(payload), "chat cards must hide vin");
@@ -52,6 +72,7 @@ async function main() {
       !/"ownerPhone"\s*:\s*"[^"]+"/.test(payload),
       "chat cards must not echo owner phone"
     );
+    assert(!/"importKey"\s*:/.test(payload), "chat cards must hide importKey");
     console.log(
       "PASS chat-retrieve",
       q,
@@ -60,7 +81,8 @@ async function main() {
       hit?.brand,
       hit?.model,
       "hasImage=",
-      hit?.hasImage
+      hit?.hasImage,
+      "imageHost=firebasestorage"
     );
   }
 

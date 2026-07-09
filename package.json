@@ -415,6 +415,8 @@
     "test:v22.19-import-upsert-duplicate-prevention": "tsx scripts/test-v22.19-import-upsert-duplicate-prevention.mts",
     "test:v22.19": "npm run test:v22.19-import-upsert-duplicate-prevention",
     "test:v22.19A-staging-thor-duplicate-cleanup": "node scripts/validate-v22.19A-staging-thor-duplicate-cleanup-execution-record.mjs",
+    "test:v22.20-chat-card-image-source-consistency": "tsx scripts/test-v22.20-chat-card-image-source-consistency.mts",
+    "test:v22.20": "npm run test:v22.20-chat-card-image-source-consistency",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",

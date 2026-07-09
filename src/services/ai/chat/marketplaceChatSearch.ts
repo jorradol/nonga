@@ -2,10 +2,7 @@
 
 import {
   collectListingImageCandidates,
-  extractStorageListingId,
-  isLocalListingImageUrl,
   isValidListingImageUrl,
-  listingImageUrlReferencesListing,
   normalizeListingImageDisplayUrl,
 } from "../../../utils/listingImages";
 import {
@@ -33,6 +30,12 @@ export interface ChatInventoryCar {
   bodyType?: string;
   description?: string;
   images?: string[];
+  /** Legacy / alternate image fields — same merge order as marketplace */
+  imageUrls?: string | string[];
+  imageUrl?: string;
+  coverImage?: string;
+  gallery?: string[];
+  primaryImage?: string;
   showroomName?: string;
   ownerName?: string;
   isSold?: boolean;
@@ -140,22 +143,17 @@ function resolveListingImage(car: ChatInventoryCar): {
   return { hasImage: false };
 }
 
-/** รูป listing ที่ใช้ในแชท — local path หรือ https จาก API (ไม่ใส่ placeholder) */
+/**
+ * Chat card images — same candidate order + validity rules as marketplace/detail
+ * (`collectListingImageCandidates` + `isValidListingImageUrl`), without Unsplash
+ * placeholder fallback. Accepts durable Firebase Storage HTTPS URLs even when the
+ * object path still references a merged/prior listing id (post-dedup image copy).
+ */
 export function resolveChatListingImageUrls(car: ChatInventoryCar): string[] {
   const urls: string[] = [];
   for (const raw of collectListingImageCandidates(car)) {
     const url = String(raw ?? "").trim();
     if (!isValidListingImageUrl(url, car.id)) continue;
-    if (isLocalListingImageUrl(url) && extractStorageListingId(url) !== car.id) {
-      continue;
-    }
-    if (
-      /^https?:\/\//i.test(url) &&
-      /listing-images|firebasestorage\.googleapis\.com/i.test(url) &&
-      !listingImageUrlReferencesListing(url, car.id)
-    ) {
-      continue;
-    }
     const displayUrl = normalizeListingImageDisplayUrl(url);
     if (!urls.includes(displayUrl)) urls.push(displayUrl);
   }

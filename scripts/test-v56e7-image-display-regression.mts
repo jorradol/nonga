@@ -83,6 +83,84 @@ const LOCAL = "/storage/listings/car-test-e7/01.webp";
 }
 
 {
+  // Post-dedup: durable Firebase object path may still reference a prior listing id.
+  const mergedPathUrl = FIREBASE.replace("car-test-e7", "car-import-prior-dup-p2");
+  const chatUrls = resolveChatListingImageUrls({
+    id: "car-import-canonical-p2",
+    title: "MAZDA CX-30",
+    brand: "MAZDA",
+    model: "CX-30",
+    year: 2022,
+    price: 1,
+    images: [mergedPathUrl],
+    type: "used",
+    isSold: false,
+    listingStatus: "published",
+  });
+  const marketplacePrimary = getListingPrimaryImage({
+    id: "car-import-canonical-p2",
+    images: [mergedPathUrl],
+  });
+  ok(
+    "chat accepts durable firebase after image merge (path id may differ)",
+    chatUrls.length === 1 && chatUrls[0] === mergedPathUrl,
+    String(chatUrls.length)
+  );
+  ok(
+    "chat and marketplace share same primary durable url",
+    chatUrls[0] === marketplacePrimary,
+    marketplacePrimary.slice(0, 48)
+  );
+}
+
+{
+  const coverOnly = resolveChatListingImageUrls({
+    id: "car-cover-fallback",
+    title: "Cover fallback",
+    brand: "Honda",
+    model: "CRV",
+    year: 2019,
+    price: 1,
+    images: [],
+    coverImage: FIREBASE.replace("car-test-e7", "car-cover-fallback"),
+    type: "used",
+    isSold: false,
+    listingStatus: "published",
+  });
+  ok(
+    "chat falls back to coverImage when images[] empty",
+    coverOnly.length === 1,
+    String(coverOnly.length)
+  );
+}
+
+{
+  const limited = resolveChatListingImageUrls({
+    id: "car-import-mazda-limited",
+    title: "MAZDA CX-30",
+    brand: "MAZDA",
+    model: "CX-30",
+    year: 2022,
+    price: 799000,
+    images: [
+      FIREBASE.replace("car-test-e7", "car-import-prior-dup-p2"),
+      FIREBASE.replace("car-test-e7", "car-import-prior-dup-p2").replace(
+        "photo.jpg",
+        "02.jpg"
+      ),
+    ],
+    type: "used",
+    isSold: false,
+    listingStatus: "published",
+  });
+  ok(
+    "mazda-style limited image count still yields chat card image",
+    limited.length === 2,
+    String(limited.length)
+  );
+}
+
+{
   const legacyLocal = "/storage/listings/car-legacy-fields/01.webp";
   const norm = normalizeMarketplaceCar({
     id: "car-legacy-fields",

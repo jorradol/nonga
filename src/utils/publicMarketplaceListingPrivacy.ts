@@ -6,6 +6,8 @@ export const PUBLIC_LISTING_REDACTED_CONTACT_FIELDS = [
   "ownerPhone",
   "ownerEmail",
   "ownerLine",
+  "ownerAddress",
+  "address",
   "contactPhone",
   "contactEmail",
   "contactLine",

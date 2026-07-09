@@ -110,6 +110,7 @@ function ChatCarImageGallery({
           alt={alt}
           className="w-full h-full object-cover"
           loading="lazy"
+          referrerPolicy="no-referrer"
         />
         {imageUrls.length > 1 && (
           <span className="absolute bottom-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-slate-200">
@@ -131,7 +132,13 @@ function ChatCarImageGallery({
               }`}
               aria-label={`รูปที่ ${index + 1}`}
             >
-              <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              <img
+                src={url}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
             </button>
           ))}
           {overflowCount > 0 && (
