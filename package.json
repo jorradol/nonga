@@ -402,6 +402,8 @@
     "test:v22.12": "node scripts/validate-v22.12-existing-inventory-web-intake-flow-confirmation-thor-auto.mjs",
     "test:v22.12A": "node scripts/validate-v22.12A-safe-guard-patch-existing-inventory-web-intake-flow-thor-auto.mjs",
     "test:v22.13": "node scripts/validate-v22.13-controlled-thor-auto-existing-web-intake-owner-run.mjs",
+    "test:v22.14": "node scripts/validate-v22.14-step3-thor-auto-real-csv-staging-import-pass-record.mjs",
+    "test:v22.15": "node scripts/validate-v22.15-revenue-safe-staging-pilot-readiness-packet.mjs",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
     "test:thor-csv-column-mapping": "tsx scripts/test-thor-csv-column-mapping.mts",
