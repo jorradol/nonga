@@ -6,7 +6,7 @@ const FIXTURE_PATH =
   "docs/examples/v22.17-staging-image-durability-plate-in-image-privacy-review.example.json";
 
 const EXPECTED_RECOMMENDATION =
-  "PASS — Thor Auto imported listings are ready for controlled staging revenue-safe pilot review with durable image serving and plate-in-image privacy risk handled, while production/public/real lead/dealer-facing actions remain blocked.";
+  "NEED REVIEW — staging image backend and CSV import path are fixed for durable Firebase Storage serving, and plate-in-image privacy policy/warnings are in place, but existing Thor imported listings still reference ephemeral /storage/listings paths until owner-browser Confirm Import re-run; production/public/real lead/dealer-facing remain blocked.";
 
 let failures = 0;
 
@@ -39,6 +39,9 @@ check("no production boundary", /no production deploy/i.test(doc));
 check("no real lead boundary", /no real lead/i.test(doc));
 check("no dealer-facing boundary", /no dealer-facing send/i.test(doc));
 check("expected recommendation present", doc.includes(EXPECTED_RECOMMENDATION));
+check("deploy revision recorded", /nonga-staging-00181-5k6/i.test(doc));
+check("health firebase-storage recorded", /imageBackend:firebase-storage|imageBackend.*firebase-storage/i.test(doc));
+check("owner re-import required recorded", /Confirm Import re-run|owner-browser/i.test(doc));
 
 check("fixture version v22.17", fixture.version === "v22.17");
 check(
@@ -48,6 +51,10 @@ check(
 check(
   "fixture plate privacy PASS",
   fixture.checks.plate_in_image_privacy_warning === "PASS"
+);
+check(
+  "fixture existing rows NEED_REVIEW",
+  fixture.checks.existing_thor_rows_rewritten_to_firebase_urls === "NEED_REVIEW"
 );
 check("fixture no production", fixture.production_deploy_performed === false);
 check("fixture no public", fixture.public_enable_performed === false);

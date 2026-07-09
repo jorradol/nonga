@@ -12,12 +12,14 @@
     "plate_in_image_privacy_warning": "PASS",
     "public_dto_no_full_plate_vin_phone": "PASS",
     "no_real_lead": "PASS",
-    "no_dealer_facing_send": "PASS"
+    "no_dealer_facing_send": "PASS",
+    "staging_image_backend_firebase_storage": "PASS",
+    "existing_thor_rows_rewritten_to_firebase_urls": "NEED_REVIEW"
   },
   "production_deploy_performed": false,
   "public_enable_performed": false,
   "real_lead_created": false,
   "dealer_facing_send_performed": false,
   "pilot_run_started": false,
-  "final_recommendation": "PASS — Thor Auto imported listings are ready for controlled staging revenue-safe pilot review with durable image serving and plate-in-image privacy risk handled, while production/public/real lead/dealer-facing actions remain blocked."
+  "final_recommendation": "NEED REVIEW — staging image backend and CSV import path are fixed for durable Firebase Storage serving, and plate-in-image privacy policy/warnings are in place, but existing Thor imported listings still reference ephemeral /storage/listings paths until owner-browser Confirm Import re-run; production/public/real lead/dealer-facing remain blocked."
 }
