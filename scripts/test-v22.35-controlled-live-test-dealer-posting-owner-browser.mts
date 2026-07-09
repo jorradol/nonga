@@ -170,8 +170,8 @@ ok(
 );
 ok(
   "drafts toast pending copy",
-  draftsUi.includes("ส่งประกาศเข้ารออนุมัติแล้ว") &&
-    draftsUi.includes("ยังไม่แสดงในตลาด")
+  draftsUi.includes("รอผู้ดูแลอนุมัติ") &&
+    draftsUi.includes("ก่อนแสดงในตลาด")
 );
 ok(
   "admin UI approve + hold",

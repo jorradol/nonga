@@ -16,6 +16,10 @@ const FRIENDLY_BY_PATTERN: { test: RegExp; message: string }[] = [
   { test: /network|failed to fetch|fetch/i, message: "เชื่อมต่อระบบไม่สำเร็จ รบกวนลองใหม่อีกครั้งครับ" },
   { test: /timeout/i, message: "ระบบตอบช้าเกินไป รบกวนลองใหม่อีกครั้งครับ" },
   {
+    test: /Missing admin API token for server mode|admin API token|Invalid admin token/i,
+    message: "ระบบยังไม่พร้อมส่งรายการ กรุณาแจ้งผู้ดูแลระบบ",
+  },
+  {
     test: /restricted to staging only|production import is blocked/i,
     message:
       "ระบบยังไม่พร้อมบันทึกข้อมูลใน staging กรุณาแจ้งผู้ดูแลระบบ",
@@ -37,11 +41,11 @@ export function toUserFacingMessage(
 ): string {
   const raw = (technical ?? "").trim();
   if (!raw) return appendRequestId(fallback, options?.requestId);
-  if (/token|mock|debug|dealerId|api key|endpoint|firestore/i.test(raw)) {
-    return appendRequestId(fallback, options?.requestId);
-  }
   for (const { test, message } of FRIENDLY_BY_PATTERN) {
     if (test.test(raw)) return appendRequestId(message, options?.requestId);
+  }
+  if (/token|mock|debug|dealerId|api key|endpoint|firestore/i.test(raw)) {
+    return appendRequestId(fallback, options?.requestId);
   }
   if (/ไม่สำเร็จ|ล้มเหลว|ผิดพลาด|ไม่มี|ราคา|ปีรถ|brand|model/i.test(raw)) {
     return appendRequestId(raw, options?.requestId);

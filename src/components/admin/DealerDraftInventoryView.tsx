@@ -10,10 +10,15 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../../store";
 import { DuplicateReviewSection } from "../duplicate/DuplicateReviewSection";
-import { adminAuthHeaders } from "../../utils/apiAuthHeaders";
+import { adminAuthHeadersAsync } from "../../utils/apiAuthHeaders";
 import { normalizeDealerId } from "../../utils/dealerIdentity";
+import {
+  DEALER_PUBLISH_SYSTEM_NOT_READY_MESSAGE,
+  DEALER_SUBMITTED_FOR_REVIEW_MESSAGE,
+} from "../../utils/dealerListingApprovalGate";
 import { validateDraftForPublish } from "../../utils/dealerPublishGuard";
 import { PublishBlockedModal } from "../dealer-portal/PublishBlockedModal";
+import { logTechnicalError, toUserFacingError } from "../../utils/userFacingErrors";
 
 interface DraftRecord {
   id: string;
@@ -40,6 +45,7 @@ export default function DealerDraftInventoryView() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<DraftRecord>>({});
   const [publishing, setPublishing] = useState(false);
@@ -55,13 +61,16 @@ export default function DealerDraftInventoryView() {
     try {
       const res = await fetch(
         `/api/admin/draft-inventory?dealerId=${encodeURIComponent(dealerId)}`,
-        { headers: adminAuthHeaders() }
+        { headers: await adminAuthHeadersAsync() }
       );
       const body = await res.json();
       if (!res.ok) throw new Error(body.message ?? "โหลดไม่สำเร็จ");
       setDrafts(body.data ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "โหลด draft ล้มเหลว");
+      logTechnicalError("DealerDraftInventoryView.load", err);
+      setError(
+        toUserFacingError(err, DEALER_PUBLISH_SYSTEM_NOT_READY_MESSAGE)
+      );
     } finally {
       setLoading(false);
     }
@@ -78,29 +87,38 @@ export default function DealerDraftInventoryView() {
 
   const saveDraft = async () => {
     if (!editingId) return;
-    const res = await fetch(`/api/admin/draft-inventory/${editingId}`, {
-      method: "PATCH",
-      headers: adminAuthHeaders(),
-      body: JSON.stringify({
-        brand: form.brand,
-        model: form.model,
-        year: form.year,
-        price: form.price,
-        mileage: form.mileage,
-        fuelType: form.fuelType,
-        description: form.description,
-        title: form.title,
-      }),
-    });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.message ?? "บันทึกไม่สำเร็จ");
-    setEditingId(null);
-    await loadDrafts();
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/draft-inventory/${editingId}`, {
+        method: "PATCH",
+        headers: await adminAuthHeadersAsync(),
+        body: JSON.stringify({
+          brand: form.brand,
+          model: form.model,
+          year: form.year,
+          price: form.price,
+          mileage: form.mileage,
+          fuelType: form.fuelType,
+          description: form.description,
+          title: form.title,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message ?? "บันทึกไม่สำเร็จ");
+      setEditingId(null);
+      await loadDrafts();
+    } catch (err) {
+      logTechnicalError("DealerDraftInventoryView.save", err);
+      setError(
+        toUserFacingError(err, DEALER_PUBLISH_SYSTEM_NOT_READY_MESSAGE)
+      );
+    }
   };
 
   const publishDraft = async (id: string) => {
     setPublishing(true);
     setError(null);
+    setNotice(null);
     const draft = drafts.find((d) => d.id === id);
     if (draft) {
       const guard = validateDraftForPublish({
@@ -123,7 +141,7 @@ export default function DealerDraftInventoryView() {
     try {
       const res = await fetch(`/api/admin/draft-inventory/${id}/publish`, {
         method: "POST",
-        headers: adminAuthHeaders(),
+        headers: await adminAuthHeadersAsync(),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -139,11 +157,16 @@ export default function DealerDraftInventoryView() {
         }
         throw new Error(body.message ?? "เผยแพร่ไม่สำเร็จ");
       }
+      // Approval gate: draft publish enters pending_review — never imply already live.
+      setNotice(DEALER_SUBMITTED_FOR_REVIEW_MESSAGE);
       setEditingId(null);
       await loadDrafts();
       await fetchCars();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เผยแพร่ล้มเหลว");
+      logTechnicalError("DealerDraftInventoryView.publish", err);
+      setError(
+        toUserFacingError(err, DEALER_PUBLISH_SYSTEM_NOT_READY_MESSAGE)
+      );
     } finally {
       setPublishing(false);
     }
@@ -184,6 +207,10 @@ export default function DealerDraftInventoryView() {
           <h1 className="text-2xl font-display font-bold">คลังรถรอแก้ไข</h1>
           <p className="text-sm text-slate-400 mt-1">
             รถที่นำเข้าแล้วแต่ยังไม่แสดงในตลาด — เติมข้อมูลแล้วกด Publish
+            เพื่อส่งเข้ารออนุมัติ (ยังไม่ขึ้นตลาดจนกว่าผู้ดูแลจะอนุมัติ)
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            เต็นท์ควรใช้เมนู Dealer Portal → ยังไม่ลงขาย สำหรับลงขายด้วยบัญชีดีลเลอร์
           </p>
         </div>
         <button
@@ -195,6 +222,12 @@ export default function DealerDraftInventoryView() {
           รีเฟรช
         </button>
       </div>
+
+      {notice && (
+        <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-200 text-sm">
+          {notice}
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">

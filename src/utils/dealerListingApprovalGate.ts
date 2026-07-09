@@ -17,8 +17,13 @@ export type DealerListingApprovalStatus =
 export const DEALER_SELF_APPROVE_FORBIDDEN_MESSAGE =
   "ประกาศของเต็นท์ต้องรอเจ้าของระบบอนุมัติก่อนลงตลาดครับ";
 
+/** Dealer-facing success after submit — must NOT imply already live on marketplace. */
 export const DEALER_SUBMITTED_FOR_REVIEW_MESSAGE =
-  "ส่งประกาศเข้ารออนุมัติแล้ว — ยังไม่แสดงในตลาดจนกว่าเจ้าของระบบจะอนุมัติ";
+  "ส่งรายการเรียบร้อยแล้ว รถของคุณอยู่ระหว่างรอผู้ดูแลอนุมัติ ก่อนแสดงในตลาด";
+
+/** Safe Thai when dealer/admin browser hits a miswired admin-token-only client path. */
+export const DEALER_PUBLISH_SYSTEM_NOT_READY_MESSAGE =
+  "ระบบยังไม่พร้อมส่งรายการ กรุณาแจ้งผู้ดูแลระบบ";
 
 /** Default status when a dealer submits a listing for marketplace. */
 export function dealerListingStatusAfterSubmit(): typeof DEALER_LISTING_STATUS_PENDING_REVIEW {

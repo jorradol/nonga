@@ -4,7 +4,7 @@ import { DuplicateBadge } from "./DuplicateBadge";
 import type { DuplicateReviewAction } from "../../utils/duplicateDetection/types";
 import type { DealerApiHeaders } from "../../services/dealer/dealerApi";
 import {
-  adminAuthHeaders,
+  adminAuthHeadersAsync,
   dealerAuthHeadersAsync,
 } from "../../utils/apiAuthHeaders";
 
@@ -41,7 +41,7 @@ async function fetchGroups(
     headers:
       apiBase === "dealer" && headers
         ? await dealerAuthHeadersAsync(headers.dealerId, headers.role)
-        : adminAuthHeaders(),
+        : await adminAuthHeadersAsync(),
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body.message ?? "โหลดไม่สำเร็จ");
@@ -67,7 +67,7 @@ async function submitReview(
     headers:
       apiBase === "dealer" && headers
         ? await dealerAuthHeadersAsync(headers.dealerId, headers.role)
-        : adminAuthHeaders(),
+        : await adminAuthHeadersAsync(),
     body: JSON.stringify(payload),
   });
   const body = await res.json();

@@ -126,7 +126,8 @@ ok(
 const draftsUi = read("src/components/dealer-portal/DealerDraftsPage.tsx");
 ok(
   "drafts success mentions pending approval",
-  draftsUi.includes("ส่งประกาศเข้ารออนุมัติแล้ว")
+  draftsUi.includes("รอผู้ดูแลอนุมัติ") ||
+    draftsUi.includes("ส่งประกาศเข้ารออนุมัติแล้ว")
 );
 
 const adminUi = read("src/components/admin/AdminPendingListingsView.tsx");

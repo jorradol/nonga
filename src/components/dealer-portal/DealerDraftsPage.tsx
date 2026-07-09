@@ -189,7 +189,7 @@ export function DealerDraftsPage({
     try {
       await publishDealerDraft(apiHeaders, id);
       setSaveSuccess(
-        "ส่งประกาศเข้ารออนุมัติแล้ว — ยังไม่แสดงในตลาดจนกว่าผู้ดูแลจะอนุมัติ ดูได้ที่เมนูรถในคลัง"
+        "ส่งรายการเรียบร้อยแล้ว รถของคุณอยู่ระหว่างรอผู้ดูแลอนุมัติ ก่อนแสดงในตลาด — ดูสถานะ「รออนุมัติ」ได้ที่เมนูรถในคลัง"
       );
       await load();
       onPublished?.();
