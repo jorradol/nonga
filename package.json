@@ -442,6 +442,8 @@
     "test:v22.30": "npm run test:v22.30-lead-capture-kill-switch-implementation",
     "test:v22.32-dealer-posting-approval-gate-public-dto-cleanup": "tsx scripts/test-v22.32-dealer-posting-approval-gate-public-dto-cleanup.mts",
     "test:v22.32": "npm run test:v22.32-dealer-posting-approval-gate-public-dto-cleanup",
+    "test:v22.33-controlled-dealer-posting-owner-preview": "tsx scripts/test-v22.33-controlled-dealer-posting-owner-preview.mts",
+    "test:v22.33": "npm run test:v22.33-controlled-dealer-posting-owner-preview",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
