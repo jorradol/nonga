@@ -1,0 +1,25 @@
+{
+  "version": "v22.18",
+  "execution_type": "CONTROLLED STAGING SELLER-PROVIDED IMAGE CONSENT POLICY UPDATE + OWNER RE-IMPORT READINESS / THOR AUTO IMPORTED LISTINGS ONLY / NO PRODUCTION / NO PUBLIC / NO REAL LEAD / NO DEALER-FACING SEND",
+  "branch": "feature/chat-image-attachment-v1",
+  "baseline_head": "00bd4362375a3d38f9ad8234cf6b4499a70bb9c1",
+  "policy_decision": "seller_provided_images_allowed_with_publish_rights_and_listing_consent_even_if_plate_visible",
+  "automated_plate_blur_required": false,
+  "manual_plate_blur_required": false,
+  "durable_image_backend": "firebase-storage",
+  "checks": {
+    "seller_provided_images_allowed_with_visible_plate": "PASS",
+    "seller_consent_right_to_publish_wording": "PASS",
+    "no_automated_plate_blur_required": "PASS",
+    "public_dto_blocks_full_plate_vin_phone_address_text": "PASS",
+    "no_real_lead": "PASS",
+    "no_dealer_facing_send": "PASS",
+    "owner_browser_confirm_import_reimport_still_required": "NEED_REVIEW"
+  },
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "real_lead_created": false,
+  "dealer_facing_send_performed": false,
+  "pilot_run_started": false,
+  "final_recommendation": "NEED REVIEW — seller-provided image consent policy is aligned with owner decision, durable Firebase Storage image backend remains ready, and owner-browser Confirm Import re-run is still required so Thor rows receive durable Firebase Storage image URLs."
+}

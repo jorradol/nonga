@@ -38,8 +38,8 @@ import {
   isSensitiveRegistrationKey,
 } from "../utils/inventoryImport/import/forbiddenRawKeys";
 import {
-  PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING,
-  evaluatePlateInImagePrivacyReadiness,
+  SELLER_PROVIDED_IMAGE_CONSENT_NOTICE,
+  evaluateSellerProvidedImageConsent,
 } from "../utils/vehicleImagePlatePrivacy";
 import type { InventoryRepository } from "./repositories/inventoryRepository";
 
@@ -585,7 +585,7 @@ async function resolveImagesForRow(
   if (existingStored.length > 0) {
     return {
       images: sanitizeListingImagesForId(existingStored, carId),
-      warnings: [PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING],
+      warnings: [SELLER_PROVIDED_IMAGE_CONSENT_NOTICE],
       report: null,
     };
   }
@@ -603,14 +603,15 @@ async function resolveImagesForRow(
     { dealerId }
   );
   const resolved = resolveStoredImagesForListing(report);
-  const platePrivacy = evaluatePlateInImagePrivacyReadiness({
+  const imageConsent = evaluateSellerProvidedImageConsent({
     hasSourceOrStoredImages:
       sourceUrls.length > 0 || resolved.images.length > 0,
-    ownerAttestedPlateSafeImages: false,
+    // Confirm Import itself is the seller/owner consent action for this flow.
+    sellerConfirmedPublishRightsAndListingConsent: true,
   });
   return {
     images: sanitizeListingImagesForId(resolved.images, carId),
-    warnings: [...resolved.warnings, ...platePrivacy.warnings],
+    warnings: [...resolved.warnings, ...imageConsent.warnings],
     report,
   };
 }

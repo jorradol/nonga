@@ -1,72 +1,126 @@
 /**
- * Plate-in-image privacy policy helpers.
+ * Seller-provided vehicle image consent + plate-in-image policy (v2).
  *
- * Text-field masking (licensePlateMasked) does NOT hide a full plate that is
- * visually present inside cover/gallery photos. Public / revenue-facing use
- * requires owner/dealer plate-safe (blurred/cropped/masked) source images.
+ * Owner decision (v22.18): sellers are NOT required to blur/crop plates in
+ * photos before submitting images to Nong A. Seller-provided images may be
+ * displayed when the seller confirms publish rights and consents to listing use,
+ * even if a plate is visible in the photo.
+ *
+ * System-controlled text fields / public DTOs must still never expose full
+ * license plate, VIN, phone, address, or other sensitive PII.
+ *
+ * No automated plate blur is required in this slice.
  */
 
+export const SELLER_PROVIDED_IMAGE_CONSENT_POLICY_ID =
+  "seller-provided-image-consent-v1" as const;
+
+/** @deprecated Prefer SELLER_PROVIDED_IMAGE_CONSENT_POLICY_ID */
 export const PLATE_IN_IMAGE_PRIVACY_POLICY_ID =
-  "plate-in-image-privacy-v1" as const;
+  SELLER_PROVIDED_IMAGE_CONSENT_POLICY_ID;
 
+export const SELLER_PROVIDED_IMAGE_CONSENT_NOTICE =
+  "รูปที่ผู้ขายส่งสามารถแสดงได้ตามที่ส่งมา หากผู้ขายยืนยันว่ามีสิทธิ์เผยแพร่และยินยอมให้ใช้เพื่อประกาศขาย แม้ในภาพอาจเห็นป้ายทะเบียน — ระบบยังไม่เปิดเผยทะเบียนเต็ม/VIN/เบอร์โทร/ที่อยู่ในช่องข้อความที่ระบบควบคุม";
+
+/** @deprecated Prefer SELLER_PROVIDED_IMAGE_CONSENT_NOTICE */
 export const PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING =
-  "รูปต้นทางอาจมีป้ายทะเบียนเต็มในภาพ — การปิดทะเบียนในข้อความไม่ปิดป้ายในรูป ต้องใช้รูปที่เบลอ/ครอปป้ายก่อนเปิดสาธารณะหรือรอบรายได้";
+  SELLER_PROVIDED_IMAGE_CONSENT_NOTICE;
 
-export const PLATE_IN_IMAGE_PRIVACY_PUBLIC_BLOCK_REASON =
-  "plate_visible_in_source_images_unattested";
+export const SELLER_IMAGE_CONSENT_CONFIRM_BULLETS = [
+  "ผู้ขายยืนยันว่ามีสิทธิ์เผยแพร่รูปภาพรถที่ส่งเข้าระบบ",
+  "ผู้ขายยินยอมให้แสดงรูปเพื่อการประกาศขาย",
+  "รูปอาจแสดงตามที่ส่งมา แม้ในภาพอาจเห็นป้ายทะเบียน",
+  "ระบบยังปิดทะเบียนเต็ม / VIN / เบอร์โทร / ที่อยู่ในช่องข้อความและ API สาธารณะที่ระบบควบคุม",
+] as const;
 
-export type PlateInImagePrivacyStatus =
+export type SellerProvidedImageConsentStatus =
   | "not_applicable"
-  | "needs_owner_plate_safe_images"
-  | "owner_attested_plate_safe";
+  | "seller_provided_images_allowed_with_consent"
+  | "seller_consented_publish_rights";
 
-export interface PlateInImagePrivacyInput {
+/** @deprecated Prefer SellerProvidedImageConsentStatus */
+export type PlateInImagePrivacyStatus = SellerProvidedImageConsentStatus;
+
+export interface SellerProvidedImageConsentInput {
   /** Listing has cover/gallery/source image URLs (not placeholder-only). */
   hasSourceOrStoredImages: boolean;
   /**
-   * Owner/dealer attested that published images are plate-blurred / plate-safe.
-   * Default false — attestation is explicit and never inferred from text masking.
+   * Seller/owner confirmed publish rights + listing-use consent for images.
+   * Confirm Import UI presents this as part of the confirmation action.
    */
+  sellerConfirmedPublishRightsAndListingConsent?: boolean;
+}
+
+/** @deprecated Prefer SellerProvidedImageConsentInput */
+export interface PlateInImagePrivacyInput {
+  hasSourceOrStoredImages: boolean;
+  /** @deprecated No longer used — blur/plate-safe attestation is not required. */
   ownerAttestedPlateSafeImages?: boolean;
+  sellerConfirmedPublishRightsAndListingConsent?: boolean;
 }
 
-export interface PlateInImagePrivacyResult {
-  policyId: typeof PLATE_IN_IMAGE_PRIVACY_POLICY_ID;
-  status: PlateInImagePrivacyStatus;
-  /** Text masking alone is insufficient when images may show a plate. */
+export interface SellerProvidedImageConsentResult {
+  policyId: typeof SELLER_PROVIDED_IMAGE_CONSENT_POLICY_ID;
+  status: SellerProvidedImageConsentStatus;
+  /** Text masking still does not alter pixels inside photos. */
   textMaskingDoesNotCoverImagePlates: true;
-  /** Block public-facing / revenue pilot until plate-safe images are attested. */
-  blocksPublicFacingUse: boolean;
+  /** Visible plate in seller photos does not block display under this policy. */
+  blocksPublicFacingUse: false;
+  /** Automated plate blur is not required in this slice. */
+  requiresAutomatedPlateBlur: false;
+  /** Seller-provided images may be shown as submitted when consent applies. */
+  sellerProvidedImagesAllowedEvenIfPlateVisible: true;
   warnings: string[];
+  consentBullets: readonly string[];
 }
 
-export function evaluatePlateInImagePrivacyReadiness(
-  input: PlateInImagePrivacyInput
-): PlateInImagePrivacyResult {
-  const attested = input.ownerAttestedPlateSafeImages === true;
+/** @deprecated Prefer SellerProvidedImageConsentResult */
+export type PlateInImagePrivacyResult = SellerProvidedImageConsentResult;
+
+export function evaluateSellerProvidedImageConsent(
+  input: SellerProvidedImageConsentInput
+): SellerProvidedImageConsentResult {
   if (!input.hasSourceOrStoredImages) {
     return {
-      policyId: PLATE_IN_IMAGE_PRIVACY_POLICY_ID,
+      policyId: SELLER_PROVIDED_IMAGE_CONSENT_POLICY_ID,
       status: "not_applicable",
       textMaskingDoesNotCoverImagePlates: true,
       blocksPublicFacingUse: false,
+      requiresAutomatedPlateBlur: false,
+      sellerProvidedImagesAllowedEvenIfPlateVisible: true,
       warnings: [],
+      consentBullets: SELLER_IMAGE_CONSENT_CONFIRM_BULLETS,
     };
   }
-  if (attested) {
-    return {
-      policyId: PLATE_IN_IMAGE_PRIVACY_POLICY_ID,
-      status: "owner_attested_plate_safe",
-      textMaskingDoesNotCoverImagePlates: true,
-      blocksPublicFacingUse: false,
-      warnings: [],
-    };
-  }
+
+  const consented =
+    input.sellerConfirmedPublishRightsAndListingConsent === true;
+
   return {
-    policyId: PLATE_IN_IMAGE_PRIVACY_POLICY_ID,
-    status: "needs_owner_plate_safe_images",
+    policyId: SELLER_PROVIDED_IMAGE_CONSENT_POLICY_ID,
+    status: consented
+      ? "seller_consented_publish_rights"
+      : "seller_provided_images_allowed_with_consent",
     textMaskingDoesNotCoverImagePlates: true,
-    blocksPublicFacingUse: true,
-    warnings: [PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING],
+    blocksPublicFacingUse: false,
+    requiresAutomatedPlateBlur: false,
+    sellerProvidedImagesAllowedEvenIfPlateVisible: true,
+    warnings: [SELLER_PROVIDED_IMAGE_CONSENT_NOTICE],
+    consentBullets: SELLER_IMAGE_CONSENT_CONFIRM_BULLETS,
   };
+}
+
+/**
+ * Compatibility wrapper for v22.17 call sites.
+ * Plate-safe / blur attestation is ignored — seller consent policy applies.
+ */
+export function evaluatePlateInImagePrivacyReadiness(
+  input: PlateInImagePrivacyInput
+): SellerProvidedImageConsentResult {
+  return evaluateSellerProvidedImageConsent({
+    hasSourceOrStoredImages: input.hasSourceOrStoredImages,
+    sellerConfirmedPublishRightsAndListingConsent:
+      input.sellerConfirmedPublishRightsAndListingConsent === true ||
+      input.ownerAttestedPlateSafeImages === true,
+  });
 }

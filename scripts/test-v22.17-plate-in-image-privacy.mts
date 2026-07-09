@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import {
-  evaluatePlateInImagePrivacyReadiness,
-  PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING,
-  PLATE_IN_IMAGE_PRIVACY_POLICY_ID,
+  evaluateSellerProvidedImageConsent,
+  SELLER_PROVIDED_IMAGE_CONSENT_NOTICE,
 } from "../src/utils/vehicleImagePlatePrivacy.ts";
 import { PILOT_POLICY_DOCUMENTS } from "../src/content/pilotPolicyContent.ts";
 import { readFileSync } from "node:fs";
@@ -12,39 +11,38 @@ function ok(name: string): void {
 }
 
 function main() {
-  const none = evaluatePlateInImagePrivacyReadiness({
+  // Keep v22.17 script green under the new consent policy (no blur gate).
+  const none = evaluateSellerProvidedImageConsent({
     hasSourceOrStoredImages: false,
   });
   assert.equal(none.status, "not_applicable");
   assert.equal(none.blocksPublicFacingUse, false);
   ok("no images => plate-in-image not applicable");
 
-  const needs = evaluatePlateInImagePrivacyReadiness({
+  const needs = evaluateSellerProvidedImageConsent({
     hasSourceOrStoredImages: true,
-    ownerAttestedPlateSafeImages: false,
+    sellerConfirmedPublishRightsAndListingConsent: false,
   });
-  assert.equal(needs.policyId, PLATE_IN_IMAGE_PRIVACY_POLICY_ID);
-  assert.equal(needs.status, "needs_owner_plate_safe_images");
-  assert.equal(needs.blocksPublicFacingUse, true);
-  assert.equal(needs.textMaskingDoesNotCoverImagePlates, true);
-  assert.ok(needs.warnings.includes(PLATE_IN_IMAGE_PRIVACY_IMPORT_WARNING));
-  ok("source images without attestation block public-facing use");
+  assert.equal(needs.blocksPublicFacingUse, false);
+  assert.equal(needs.sellerProvidedImagesAllowedEvenIfPlateVisible, true);
+  assert.ok(needs.warnings.includes(SELLER_PROVIDED_IMAGE_CONSENT_NOTICE));
+  ok("source images without blur attestation do not block public-facing use");
 
-  const attested = evaluatePlateInImagePrivacyReadiness({
+  const attested = evaluateSellerProvidedImageConsent({
     hasSourceOrStoredImages: true,
-    ownerAttestedPlateSafeImages: true,
+    sellerConfirmedPublishRightsAndListingConsent: true,
   });
-  assert.equal(attested.status, "owner_attested_plate_safe");
+  assert.equal(attested.status, "seller_consented_publish_rights");
   assert.equal(attested.blocksPublicFacingUse, false);
-  ok("owner plate-safe attestation clears public-facing block");
+  ok("seller consent status recorded without blur requirement");
 
   const listingPolicy = JSON.stringify(PILOT_POLICY_DOCUMENTS.listing);
-  assert.match(listingPolicy, /plate-in-image|ป้ายในรูป|เบลอ\/ครอป/i);
-  assert.match(listingPolicy, /ข้อความไม่ปิดป้ายในรูป|text masking/i);
+  assert.match(listingPolicy, /seller-provided image consent|ยินยอมให้แสดงรูป|ป้ายในรูป|เบลอ/i);
+  assert.match(listingPolicy, /ข้อความ|VIN|เบอร์โทร/);
   ok("pilot listing policy documents plate-in-image warning");
 
   const guide = readFileSync("public/samples/dealer-import-guide.md", "utf8");
-  assert.match(guide, /ป้ายทะเบียนในรูป|plate-safe|เบลอ/);
+  assert.match(guide, /ป้ายทะเบียน|สิทธิ์เผยแพร่|ยินยอม/);
   assert.match(guide, /firebase-storage|Firebase Storage/);
   ok("dealer import guide warns plate-in-image and durable storage");
 

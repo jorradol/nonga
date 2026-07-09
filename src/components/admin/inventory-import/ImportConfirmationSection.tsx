@@ -130,6 +130,24 @@ export function ImportConfirmationSection({
         )}
 
         {phase !== "success" && (
+          <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-700/80 space-y-2">
+            <p className="text-xs font-semibold text-slate-200">
+              การยืนยันรูปภาพจากผู้ขาย (Confirm Import)
+            </p>
+            <ul className="text-[11px] text-slate-400 space-y-1.5 list-disc pl-4">
+              <li>ผู้ขายยืนยันว่ามีสิทธิ์เผยแพร่รูปภาพรถที่ส่งเข้าระบบ</li>
+              <li>ผู้ขายยินยอมให้แสดงรูปเพื่อการประกาศขาย</li>
+              <li>
+                รูปอาจแสดงตามที่ส่งมา แม้ในภาพอาจเห็นป้ายทะเบียน — ไม่บังคับเบลอ/ครอปป้ายก่อนนำเข้า
+              </li>
+              <li>
+                ระบบยังปิดทะเบียนเต็ม / VIN / เบอร์โทร / ที่อยู่ในช่องข้อความและ API สาธารณะที่ระบบควบคุม
+              </li>
+            </ul>
+          </div>
+        )}
+
+        {phase !== "success" && (
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

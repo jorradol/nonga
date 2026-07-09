@@ -94,8 +94,9 @@ export function DealerImportHelpSection({
         <li className="flex items-start gap-2 sm:col-span-2">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
           <span>
-            <strong className="text-slate-300">ป้ายในรูป:</strong> การปิดทะเบียนในข้อความ
-            ไม่ปิดป้ายที่มองเห็นในภาพ — ใช้รูปที่เบลอ/ครอปป้ายก่อนเปิดสาธารณะหรือรอบรายได้
+            <strong className="text-slate-300">รูปจากผู้ขาย:</strong> กด Confirm Import
+            หมายถึงยืนยันสิทธิ์เผยแพร่และยินยอมให้แสดงรูปเพื่อประกาศขาย — รูปอาจแสดงตามที่ส่งมา
+            แม้เห็นป้ายในภาพได้ ระบบยังปิดทะเบียนเต็ม/VIN/เบอร์โทร/ที่อยู่ในช่องข้อความ
           </span>
         </li>
       </ul>

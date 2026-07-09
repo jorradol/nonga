@@ -182,9 +182,10 @@ async function main() {
     hasSourceOrStoredImages: true,
     ownerAttestedPlateSafeImages: false,
   });
-  assert.equal(platePolicy.blocksPublicFacingUse, true);
-  assert.equal(platePolicy.textMaskingDoesNotCoverImagePlates, true);
-  ok("plate-in-image privacy blocks public-facing use until owner attestation");
+  assert.equal(platePolicy.blocksPublicFacingUse, false);
+  assert.equal(platePolicy.sellerProvidedImagesAllowedEvenIfPlateVisible, true);
+  assert.equal(platePolicy.requiresAutomatedPlateBlur, false);
+  ok("seller-provided images allowed even if plate may be visible (no blur gate)");
 
   // Boundary reminders for this controlled staging slice
   assert.equal(false, false); // no real lead / dealer-facing send in this unit path
