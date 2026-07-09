@@ -532,6 +532,9 @@ export function summaryToChatCarCardData(
 ): import("../../../types").ChatCarCardData {
   const imageUrls = resolveChatListingImageUrls(c);
   const heroUrl = imageUrls[0];
+  const transmission = resolveChatListingTransmission(c);
+  const description = c.description?.trim() || "";
+  // Omit undefined optional fields so Firestore chat history writes succeed.
   return {
     id: c.id,
     brand: c.brand,
@@ -539,16 +542,16 @@ export function summaryToChatCarCardData(
     year: c.year,
     price: c.price,
     mileage: c.mileage,
-    color: c.color,
-    fuelType: c.fuelType,
-    condition: c.condition,
-    transmission: resolveChatListingTransmission(c),
-    description: c.description?.trim() || undefined,
+    ...(c.color ? { color: c.color } : {}),
+    ...(c.fuelType ? { fuelType: c.fuelType } : {}),
+    ...(c.condition ? { condition: c.condition } : {}),
+    ...(transmission ? { transmission } : {}),
+    ...(description ? { description } : {}),
     bodyClass: c.bodyClass,
     bodyClassLabel: c.bodyClassLabel,
-    showroomName: c.showroomName,
-    imageUrl: heroUrl,
-    imageUrls,
+    ...(c.showroomName ? { showroomName: c.showroomName } : {}),
+    ...(heroUrl ? { imageUrl: heroUrl } : {}),
+    ...(imageUrls.length > 0 ? { imageUrls } : {}),
     hasImage: imageUrls.length > 0,
     detailPath: formatCarDetailPath(c.id),
     matchKind,

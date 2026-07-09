@@ -103,6 +103,21 @@ function stripTransientAttachmentFields(
   return rest;
 }
 
+/** Client-safe strip of nested undefined before Firestore writes. */
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === undefined) return value;
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item)) as T;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (nested === undefined) continue;
+    out[key] = stripUndefinedDeep(nested);
+  }
+  return out as T;
+}
+
 export function sanitizeChatMessageForStorage(message: ChatMessage): ChatMessage {
   const pendingListingCard = normalizePendingListingCardData(
     message.pendingListingCard
@@ -416,9 +431,16 @@ function sessionToFirestoreData(session: ChatSession) {
   };
 }
 
+/** Exported for persistence tests — same payload written to Firestore. */
+export function messageToFirestoreDataForTest(message: ChatMessage) {
+  return messageToFirestoreData(message);
+}
+
 function messageToFirestoreData(message: ChatMessage) {
   const safe = sanitizeChatMessageForStorage(message);
-  return {
+  // Strip nested undefined (e.g. carCards.color) — Firestore rejects them and
+  // previously caused AI inventory replies to fall back to local-only storage.
+  return stripUndefinedDeep({
     messageId: safe.id,
     sender: safe.sender,
     text: safe.text,
@@ -458,7 +480,24 @@ function messageToFirestoreData(message: ChatMessage) {
     ...(safe.attachments && safe.attachments.length > 0
       ? { attachments: safe.attachments }
       : {}),
-  };
+  });
+}
+
+/** Merge Firestore + local by id so local-only AI replies (failed FS writes) rehydrate. */
+export function mergeChatMessagesById(
+  primary: ChatMessage[],
+  secondary: ChatMessage[]
+): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const msg of secondary) {
+    byId.set(msg.id, msg);
+  }
+  for (const msg of primary) {
+    byId.set(msg.id, msg);
+  }
+  return [...byId.values()].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt)
+  );
 }
 
 async function loadFirestoreSessions(scope: ChatHistoryScope): Promise<ChatSession[]> {
@@ -535,9 +574,15 @@ export async function loadChatMessages(
     return localSession ? localSnapshot.messages[sessionId] ?? [] : [];
   }
 
+  const localMessages = localSession
+    ? localSnapshot.messages[sessionId] ?? []
+    : [];
+
   try {
     const session = (await loadFirestoreSessions(scope)).find((item) => item.id === sessionId);
-    if (!session || !sessionMatchesScope(session, scope)) return [];
+    if (!session || !sessionMatchesScope(session, scope)) {
+      return localMessages;
+    }
 
     const msgQuery = query(
       collection(db, CHAT_SESSIONS_COLLECTION, sessionId, "messages"),
@@ -545,9 +590,10 @@ export async function loadChatMessages(
     );
     const msgSnap = await getDocs(msgQuery);
     if (msgSnap.docs.length > 0) {
-      return msgSnap.docs.map((docSnap) =>
+      const firestoreMessages = msgSnap.docs.map((docSnap) =>
         normalizeMessage({ id: docSnap.id, ...docSnap.data() })
       );
+      return mergeChatMessagesById(firestoreMessages, localMessages);
     }
 
     const legacyQuery = query(
@@ -558,14 +604,13 @@ export async function loadChatMessages(
     const legacyMessages = legacySnap.docs.map((docSnap) =>
       normalizeMessage({ id: docSnap.id, ...docSnap.data() })
     );
-    return legacyMessages.length > 0
-      ? legacyMessages
-      : localSession
-        ? localSnapshot.messages[sessionId] ?? []
-        : [];
+    if (legacyMessages.length > 0) {
+      return mergeChatMessagesById(legacyMessages, localMessages);
+    }
+    return localMessages;
   } catch (err) {
     console.warn("[chat-history] Firestore message read failed; using local history", err);
-    return localSession ? localSnapshot.messages[sessionId] ?? [] : [];
+    return localMessages;
   }
 }
 

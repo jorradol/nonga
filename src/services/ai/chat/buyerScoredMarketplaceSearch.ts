@@ -201,10 +201,10 @@ export function tryBuyerScoredMarketplaceReply(
   // v7.4 — narrative fusion: attach a grounded, guarded fit reason to each card.
   // fitReasons are parallel to scoring.candidates → parallel to baseCards order.
   const fitReasons = buildAllCardFitReasons(intent, scoring);
-  const allCarCards = baseCards.map((card, i) => ({
-    ...card,
-    fitReason: fitReasons[i] ?? undefined,
-  }));
+  const allCarCards = baseCards.map((card, i) => {
+    const fitReason = fitReasons[i];
+    return fitReason ? { ...card, fitReason } : card;
+  });
   const initialCards = allCarCards.slice(0, 3);
   const hasMore = allCarCards.length > 3;
   const displayCount = initialCards.length;

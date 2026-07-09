@@ -421,6 +421,8 @@
     "test:v22.21": "npm run test:v22.21-inventory-availability-reply-style",
     "test:v22.22-staging-browser-chat-response-path": "tsx scripts/test-v22.22-staging-browser-chat-response-path.mts",
     "test:v22.22": "npm run test:v22.22-staging-browser-chat-response-path",
+    "test:v22.24-chat-assistant-message-persistence": "tsx scripts/test-v22.24-chat-assistant-message-persistence.mts",
+    "test:v22.24": "npm run test:v22.24-chat-assistant-message-persistence",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
