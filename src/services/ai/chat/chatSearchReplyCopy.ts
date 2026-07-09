@@ -8,10 +8,8 @@ import {
 } from "./chatRefinementReplyCopy";
 import type { ChatCarSummary, ChatSearchCriteria } from "./marketplaceChatSearch";
 import {
-  buildSearchFoundOpener,
   buildSelectedCarOpening,
   buildStableSeed,
-  inferThaiCopyStyle,
   pickStableVariant,
 } from "./thaiSalesCopyVariation";
 
@@ -47,21 +45,27 @@ function budgetPhrase(criteria: ChatSearchCriteria): string {
     : "";
 }
 
-function cardCta(hasMore = false, seed = "search"): string {
-  const moreCtas = [
-    "ผมเลือกตัวที่น่าสนใจจากราคาและเลขไมล์มาให้ 3 คันแรกก่อน ลองดูจากการ์ดด้านล่างได้เลยครับ ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' ได้เลยครับ",
-    "น้องเอคัด 3 คันเด็ดๆ มาให้ดูก่อนครับ ถ้าอยากดูคันอื่นในชุดนี้ กด 'ดูเพิ่ม' ได้เลย",
-    "จัดมาให้ชม 3 คันแรกก่อนครับ สนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลย หรือถ้าอยากดูตัวเลือกอื่น กด 'ดูเพิ่ม' ได้เลยครับ",
-  ];
-
-  const normalCtas = [
-    "ลองดูการ์ดรถด้านล่างได้เลยครับ ถ้าถูกใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลรถเพิ่มเติมได้เลยครับ",
-    "สนใจคันไหนเป็นพิเศษ กด 'ดูรายละเอียดในแชท' ที่การ์ดด้านล่างเพื่อดูสเปกและรูปเพิ่มได้เลยครับ",
-    "เลื่อนดูการ์ดรถด้านล่างได้เลยครับ ถูกใจคันไหน กด 'ดูรายละเอียดในแชท' ดูข้อมูลเพิ่มได้ทันทีครับ",
-  ];
-
-  const slot = hasMore ? "search.cta.more" : "search.cta.normal";
-  return pickStableVariant(seed, slot, hasMore ? moreCtas : normalCtas);
+/** Soft follow-up after inventory cards — buyer-focused, not UI instruction. */
+function inventorySoftFollowUp(count: number, seed = "search"): string {
+  if (count <= 0) return "";
+  if (count === 1) {
+    return pickStableVariant(seed, "search.soft.single", [
+      "ถ้าลุงอยากดูต่อ น้องเอช่วยสรุปราคา ไมล์ จุดเด่น และความเหมาะกับการใช้งานให้ได้เลยครับ",
+      "ถ้าอยากให้ช่วยไล่จุดเด่นหรือเทียบกับรุ่นใกล้เคียง บอกน้องเอได้เลยครับ",
+      "สนใจคันนี้ไหมครับ ถ้าอยากให้น้องเอสรุปสั้น ๆ จากข้อมูลประกาศจริง บอกได้เลย",
+    ]);
+  }
+  if (count <= 3) {
+    return pickStableVariant(seed, "search.soft.multi", [
+      "ถ้าลุงเน้นคันคุ้มสุด ไมล์น้อยสุด หรือราคาดีสุด บอกน้องเอได้ เดี๋ยวช่วยคัดให้ครับ",
+      "อยากให้น้องเอช่วยเทียบสั้น ๆ ตามงบหรือการใช้งานไหมครับ",
+      "ถ้าบอกโจทย์เพิ่ม เช่น คุมงบ / ไมล์น้อย / ใช้งานเมือง น้องเอช่วยคัดให้ต่อได้ครับ",
+    ]);
+  }
+  return pickStableVariant(seed, "search.soft.more", [
+    "น้องเอคัดมาให้ดูก่อนชุดแรกครับ ถ้ายังไม่ตรงใจ บอกโจทย์เพิ่มได้ เดี๋ยวช่วยคัดต่อ",
+    "ถ้าอยากดูชุดถัดไปหรืออยากให้น้องเอคัดตามงบ/ไมล์ บอกได้เลยครับ",
+  ]);
 }
 
 /** วิเคราะห์จุดเด่นจากราคา / ไมล์ / ปี — ไม่แต่งข้อมูลนอก field */
@@ -237,62 +241,32 @@ function buildFoundIntro(
     criteria.model,
     criteria.maxPrice,
   ]);
-  const style = inferThaiCopyStyle({
-    brand: cars[0]?.brand,
-    model: cars[0]?.model,
-    price: cars[0]?.price,
-    bodyClassLabel: cars[0]?.bodyClassLabel,
-  });
-
-  const uniqueBodyTypes = Array.from(new Set(cars.map(c => safeBodyClass(c.bodyClassLabel)))).filter(b => b !== "รถ");
-  const isMultiType = uniqueBodyTypes.length > 1;
-
-  let typeHint = opts?.bodyTypeHint;
-  if (!typeHint) {
-    if (criteria.suvOnly) {
-      typeHint = "SUV/Crossover";
-    } else if (isMultiType) {
-      typeHint = "หลายแนว";
-    } else if (uniqueBodyTypes.length === 1) {
-      typeHint = uniqueBodyTypes[0];
-    } else {
-      typeHint = "รถ";
-    }
-  }
-
-  const budgetPart = budget ? `ใน${budget}` : "";
+  const label =
+    criteria.brand || criteria.model
+      ? [criteria.brand, criteria.model, criteria.year != null ? `ปี ${criteria.year}` : null]
+          .filter(Boolean)
+          .join(" ")
+      : carLabel(cars[0]);
+  const budgetPart = budget ? ` ใน${budget}` : "";
 
   if (cars.length === 1) {
-    const opener = buildSearchFoundOpener(style, seed, "single", {
-      label: carLabel(cars[0]),
-      budgetPart,
-    });
-    return `${opener}\n\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจ กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ ปังปุริเย่!`;
+    const opener = pickStableVariant(seed, "search.natural.single", [
+      `มีครับลุง เจอ ${carLabel(cars[0])} อยู่ 1 คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงการ์ดรถให้ดูครับ`,
+      `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คัน เดี๋ยวน้องเอโชว์การ์ดให้ดูก่อนนะครับ`,
+      `มีครับลุง — ${carLabel(cars[0])} ตอนนี้มี 1 คัน เดี๋ยวน้องเอเปิดการ์ดให้ดูครับ`,
+    ]);
+    return `${opener}\n\n${inventorySoftFollowUp(1, seed)}`;
   }
 
-  let opener = "";
-  if (isMultiType && !criteria.suvOnly) {
-    opener = buildSearchFoundOpener(style, seed, "multi", {
-      count: cars.length,
-      budgetPart,
-      typeHint: "หลายแนว",
-    });
-  } else {
-    opener = buildSearchFoundOpener(style, seed, "multi", {
-      count: cars.length,
-      budgetPart,
-      typeHint,
-    });
-  }
-
-  const shownCount = Math.min(cars.length, 3);
-  const showMoreText = cars.length > 3 ? ` ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' เพื่อดูคันอื่นได้ครับ` : "";
-
-  if (cars.length <= 3) {
-    return `${opener}\n\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`;
-  }
-
-  return `${opener}\n\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรูป ราคา ไมล์ และรายละเอียดจากการ์ดได้เลย${showMoreText}`;
+  const typeHint =
+    opts?.bodyTypeHint ??
+    (criteria.suvOnly ? "SUV/Crossover" : label || "รุ่นที่ถาม");
+  const opener = pickStableVariant(seed, "search.natural.multi", [
+    `มีครับลุง เจอ ${typeHint}${budgetPart} อยู่ ${cars.length} คันในตลาดตอนนี้ เดี๋ยวน้องเอแสดงการ์ดให้เทียบกันครับ`,
+    `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คัน เดี๋ยวน้องเอเปิดการ์ดให้เทียบสั้น ๆ ครับ`,
+    `มีครับลุง เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ เดี๋ยวน้องเอแสดงการ์ดให้เลือกดูครับ`,
+  ]);
+  return `${opener}\n\n${inventorySoftFollowUp(cars.length, seed)}`;
 }
 
 function buildAlternativeIntro(
@@ -313,22 +287,11 @@ function buildAlternativeIntro(
     `ค้นดูแล้วยังไม่พบ SUV แท้ที่ตรงกับ${budget ? ` ${budget}` : "เงื่อนไข"}ครับ`,
   ];
 
-  const shownCount = Math.min(alternatives.length, 3);
-  const showMoreText = alternatives.length > 3 ? ` ถ้ายังไม่ถูกใจ กด 'ดูเพิ่ม' เพื่อดูคันอื่นได้ครับ` : "";
-
-  if (alternatives.length <= 3) {
-    return [
-      pickStableVariant(seed, "search.alt.open", altOpeners),
-      `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
-      `\nน้องเอจัดการ์ดไว้ด้านล่างให้แล้ว ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`
-    ].join("\n");
-  }
-
   return [
     pickStableVariant(seed, "search.alt.open", altOpeners),
-    `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — ผมแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
-    `\nน้องเอแสดง ${shownCount} คันแรกไว้ในการ์ดด้านล่างแล้วครับ ลองดูรายละเอียดจากการ์ดได้เลย${showMoreText}`
-  ].join("\n");
+    `แต่มีทางเลือกใกล้เคียงที่ยังอยู่ในงบให้พิจารณา ${alternatives.length} คัน — น้องเอแยกไว้ให้ชัดว่าเป็นทางเลือกแทน ไม่ใช่ SUV แท้นะครับ`,
+    inventorySoftFollowUp(alternatives.length, seed),
+  ].join("\n\n");
 }
 
 function buildEmptyIntro(criteria: ChatSearchCriteria): string {
@@ -341,37 +304,31 @@ function buildEmptyIntro(criteria: ChatSearchCriteria): string {
   ]
     .filter(Boolean)
     .join(" ");
-
-  const emptyOpeners = [
-    `ตอนนี้ยังไม่เจอรถที่ตรงกับ${cond ? ` ${cond}` : " เงื่อนไขที่ถาม"} ในตลาด Nong A ครับ`,
-    `ค้นดูแล้วยังไม่มีรถที่ตรงกับ${cond ? ` ${cond}` : " เงื่อนไขนี้"}ครับ`,
-    `ยังไม่พบรถสเปกนี้${cond ? ` (${cond})` : ""} ในระบบตอนนี้ครับ`,
-  ];
   const seed = buildStableSeed([cond, "empty"]);
 
-  return [
-    pickStableVariant(seed, "search.empty", emptyOpeners),
-    `น้องเอค้นจากรายการจริงในระบบเท่านั้น — ไม่ได้แต่งรายการขึ้นมา`,
-    `ลองปรับงบ ยี่ห้อ รุ่น หรือปีรถ แล้วถามใหม่ได้เลยครับ`,
-  ].join("\n\n");
+  return pickStableVariant(seed, "search.empty", [
+    `ตอนนี้ยังไม่เจอรุ่นนี้ในตลาดครับลุง แต่ถ้าลุงรับรุ่นใกล้เคียงได้ น้องเอช่วยหา SUV/ซีดานปีใกล้กัน งบใกล้กัน หรือแบรนด์ใกล้เคียงให้ได้ครับ`,
+    `ยังไม่เจอ${cond ? ` ${cond}` : " ตามที่ถาม"} ในตลาดตอนนี้ครับลุง ถ้ารับรุ่นใกล้เคียง น้องเอช่วยหาปีใกล้กันหรืองบใกล้กันให้ได้ครับ`,
+    `ตอนนี้ยังไม่มีคันที่ตรงเป๊ะครับลุง แต่บอกงบหรือแนวรถที่รับได้ได้เลย น้องเอช่วยหาทางเลือกใกล้เคียงให้ครับ`,
+  ]);
 }
 
 function buildNotFoundIntro(criteria: ChatSearchCriteria): string {
-  const label = [criteria.brand, criteria.model, budgetPhrase(criteria)]
+  const label = [
+    criteria.brand,
+    criteria.model,
+    criteria.year != null ? `ปี ${criteria.year}` : null,
+    budgetPhrase(criteria),
+  ]
     .filter(Boolean)
     .join(" ");
-
-  const notFoundOpeners = [
-    `ตอนนี้ยังไม่เจอรถที่ตรงกับ "${label || "เงื่อนไขที่ถาม"}" ในตลาด Nong A ครับ`,
-    `ค้นดูแล้วยังไม่มีรถ "${label || "เงื่อนไขที่ถาม"}" ในระบบครับ`,
-    `ยังไม่พบรถที่ตรงกับ "${label || "เงื่อนไขที่ถาม"}" ครับ`,
-  ];
   const seed = buildStableSeed([label, "notfound"]);
 
-  return [
-    pickStableVariant(seed, "search.notfound", notFoundOpeners),
-    `น้องเอค้นจากรายการจริงเท่านั้น — ถ้าสนใจรุ่นใกล้เคียง ลองถามยี่ห้อหรืองบใหม่ได้ครับ`,
-  ].join("\n\n");
+  return pickStableVariant(seed, "search.notfound", [
+    `ตอนนี้ยังไม่เจอรุ่นนี้ในตลาดครับลุง แต่ถ้าลุงรับรุ่นใกล้เคียงได้ น้องเอช่วยหา SUV/ซีดานปีใกล้กัน งบใกล้กัน หรือแบรนด์ใกล้เคียงให้ได้ครับ`,
+    `ยังไม่เจอ${label ? ` ${label}` : " ตามที่ถาม"} ในตลาดตอนนี้ครับลุง ถ้ารับรุ่นใกล้เคียง น้องเอช่วยหาปีใกล้กันหรืองบใกล้กันให้ได้ครับ`,
+    `ตอนนี้ยังไม่มีคันที่ตรงเป๊ะครับลุง แต่บอกงบหรือแนวรถที่รับได้ได้เลย น้องเอช่วยหาทางเลือกใกล้เคียงให้ครับ`,
+  ]);
 }
 
 export function buildMarketplaceSearchIntroCopy(
@@ -422,7 +379,7 @@ export function buildCompareReplyCopy(cars: ChatCarCardData[]): string {
     `เปรียบเทียบ ${cars.length} คันจากข้อมูลจริงในระบบครับ:`,
     lines.join("\n"),
     insight ? `\n${insight}` : "",
-    `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้น — ถ้าสนใจคันไหน กด 'ดูรายละเอียดในแชท' เพื่อดูสเปกและรูปเพิ่มได้เลยครับ`,
+    `\n${inventorySoftFollowUp(cars.length, cars[0]?.id ?? "compare")}`,
   ].filter(Boolean).join("\n");
 }
 
@@ -447,8 +404,7 @@ export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {
     buildSelectedCarOpening(car),
     `ราคา ${formatPrice(car.price)} บาท${mileage}${color} (${car.bodyClassLabel})`,
     traitText,
-    `ถ้าสนใจคันนี้ กด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลจากระบบได้เลยครับ`,
-    `ถ้าต้องการ น้องเอช่วยเทียบคันนี้กับคันอื่นให้ได้ครับ`,
+    `ถ้าอยากให้น้องเอสรุปจุดเด่นหรือเทียบกับคันอื่นจากข้อมูลประกาศจริง บอกได้เลยครับ`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -480,11 +436,10 @@ export function buildFollowUpReplyCopy(
 
   return [
     `จากข้อมูลที่มี ${c.brand} ${c.model} ปี ${c.year} ตอนนี้:`,
-    `\nน้องเอสรุปจากข้อมูลที่ลงประกาศจริงเท่านั้น — ดูรูปและรายละเอียดเพิ่มจากการ์ดด้านล่างได้เลยครับ`,
-    cardCta(false, c.id),
+    inventorySoftFollowUp(1, c.id),
     altNote,
   ]
     .filter(Boolean)
-    .join("\n")
+    .join("\n\n")
     .replace(/\n\n\n/g, "\n\n");
 }

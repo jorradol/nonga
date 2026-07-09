@@ -40,10 +40,6 @@ export interface BuyerScoredMarketplaceReply {
   hasMoreCars?: boolean;
 }
 
-function formatPrice(n: number): string {
-  return n.toLocaleString("th-TH");
-}
-
 function assertSafeReplyText(text: string): void {
   if (FORBIDDEN_REPLY_CLAIM.test(text)) {
     throw new Error(`Forbidden claim in buyer scored search reply: ${text.slice(0, 80)}`);
@@ -83,23 +79,28 @@ function buildScoredSearchIntro(
   displayCount: number
 ): string {
   const seed = buildStableSeed([message, "buyerScored", String(scoring.candidates.length)]);
-  const ctas = hasMore
+  const softFollowUps = hasMore
     ? [
-        "น้องเอจัดการ์ดด้านล่างให้แล้ว กด 'ดูรายละเอียดในแชท' หรือกด 'ดูเพิ่ม' เพื่อดูตัวเลือกอื่นได้ครับ",
-        "ลองดูการ์ดรถด้านล่างก่อนนะครับ สนใจคันไหนกดดูรายละเอียดในแชท หรือกดดูเพิ่มได้",
+        "น้องเอคัดมาให้ดูก่อนชุดแรกครับ ถ้ายังไม่ตรงใจ บอกโจทย์เพิ่มได้ เดี๋ยวช่วยคัดต่อ",
+        "ถ้าอยากดูชุดถัดไปหรืออยากให้น้องเอคัดตามงบ/ไมล์ บอกได้เลยครับ",
       ]
-    : [
-        "ลองดูการ์ดรถด้านล่างได้เลยครับ สนใจคันไหนกด 'ดูรายละเอียดในแชท' เพื่อดูข้อมูลเพิ่มได้ครับ",
-        "น้องเอจัดการ์ดไว้ด้านล่างแล้ว กดดูรายละเอียดในแชทได้เลยครับ",
-      ];
-  const ctaLine = pickStableVariant(seed, "buyerScored.cta", ctas);
+    : displayCount >= 2
+      ? [
+          "ถ้าลุงเน้นคันคุ้มสุด ไมล์น้อยสุด หรือราคาดีสุด บอกน้องเอได้ เดี๋ยวช่วยคัดให้ครับ",
+          "อยากให้น้องเอช่วยเทียบสั้น ๆ ตามงบหรือการใช้งานไหมครับ",
+        ]
+      : [
+          "ถ้าลุงอยากดูต่อ น้องเอช่วยสรุปราคา ไมล์ จุดเด่น และความเหมาะกับการใช้งานให้ได้เลยครับ",
+          "ถ้าอยากให้ช่วยไล่จุดเด่นหรือเทียบกับรุ่นใกล้เคียง บอกน้องเอได้เลยครับ",
+        ];
+  const ctaLine = pickStableVariant(seed, "buyerScored.soft", softFollowUps);
 
   const text = buildScoredCarPitchCopy(message, intent, scoring, {
     hasMore,
     ctaLine,
     displayCount,
     // v7.4 — per-car narrative is fused onto each card (fitReason), so keep the
-    // text bubble to a warm opener + closing + CTA instead of a wall of pitches.
+    // text bubble to a warm opener + closing + soft follow-up instead of UI CTAs.
     omitPerCarPitch: true,
   });
   assertSafeReplyText(text);
@@ -108,22 +109,30 @@ function buildScoredSearchIntro(
 }
 
 function buildNoMatchReply(intent: BuyerSearchIntent): string {
-  const parts = [
-    "ตอนนี้ยังไม่เจอรถที่ตรงกับเงื่อนไขในตลาด Nong A ครับ",
-    "น้องเอค้นจากรายการจริงเท่านั้น — ไม่ได้แต่งรายการขึ้นมา",
-  ];
-  if (intent.budgetMax != null) {
-    parts.push(
-      `ลองปรับงบ ยี่ห้อ/รุ่น หรือประเภทรถ (เช่น ขยายงบจาก ${formatPrice(intent.budgetMax)} บาท) แล้วถามใหม่ได้ครับ`
-    );
-  } else {
-    parts.push(
-      "ลองบอกงบประมาณ ยี่ห้อ หรือประเภทรถเพิ่ม (เช่น รถเมือง / ครอบครัว 7 ที่นั่ง) แล้วน้องเอช่วยค้นใหม่ได้ครับ"
-    );
-  }
-  const text = parts.join("\n\n");
+  const seed = buildStableSeed([
+    intent.budgetMax != null ? String(intent.budgetMax) : "none",
+    "buyerScored.empty",
+  ]);
+  const text = pickStableVariant(seed, "buyerScored.empty", [
+    "ตอนนี้ยังไม่เจอรุ่นนี้ในตลาดครับลุง แต่ถ้าลุงรับรุ่นใกล้เคียงได้ น้องเอช่วยหา SUV/ซีดานปีใกล้กัน งบใกล้กัน หรือแบรนด์ใกล้เคียงให้ได้ครับ",
+    "ยังไม่เจอตามที่ถามในตลาดตอนนี้ครับลุง ถ้ารับรุ่นใกล้เคียง น้องเอช่วยหาปีใกล้กันหรืองบใกล้กันให้ได้ครับ",
+    "ตอนนี้ยังไม่มีคันที่ตรงเป๊ะครับลุง แต่บอกงบหรือแนวรถที่รับได้ได้เลย น้องเอช่วยหาทางเลือกใกล้เคียงให้ครับ",
+  ]);
   assertSafeReplyText(text);
   return text;
+}
+
+/** Brand/model availability lookup — natural sales wording, not scored pitch + UI CTA. */
+function isBrandModelAvailabilityLookup(message: string): boolean {
+  const criteria = parseMarketplaceSearchQuery(message);
+  if (!criteria) return false;
+  const hasBrandModel = Boolean(criteria.brand?.trim() || criteria.model?.trim());
+  if (!hasBrandModel) return false;
+  // Budget / usage searches stay on scored path.
+  if (criteria.maxPrice != null || criteria.minPrice != null) return false;
+  if (criteria.suvOnly || criteria.pickupOnly || criteria.familyUse) return false;
+  if (criteria.sevenSeats || criteria.commercialUse) return false;
+  return true;
 }
 
 function toSummaries(
@@ -147,6 +156,22 @@ export function tryBuyerScoredMarketplaceReply(
 ): BuyerScoredMarketplaceReply | null {
   const intent = parseBuyerSearchIntent(message);
   if (!intent.isVehicleSearch) return null;
+
+  // Exact brand/model availability ("มี Honda CRV 2019 ไหม") → natural inventory copy.
+  if (isBrandModelAvailabilityLookup(message)) {
+    const legacy = runMarketplaceChatSearch(message, inventory);
+    if (legacy) {
+      const allCarCards = summariesToCarCards(legacy.primary, legacy.alternatives);
+      const initialCards = allCarCards.slice(0, 3);
+      assertSafeReplyText(legacy.introText);
+      return {
+        text: legacy.introText,
+        carCards: initialCards,
+        allCarCards,
+        hasMoreCars: allCarCards.length > 3,
+      };
+    }
+  }
 
   const { pool, criteriaBrandModel } = narrowInventoryByBrandModel(
     inventory,

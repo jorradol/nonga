@@ -149,7 +149,7 @@ const INVENTORY_CAMRY: ChatInventoryCar[] = [
 ];
 
 const UNSUPPORTED_CLAIMS =
-  /การันตี|ยางดอกเต็ม|สีเดิมโรงงาน|ป้ายแดง|ของแถม|ส่งรถถึงบ้านฟรี|ส่งฟรี/i;
+  /(?<!ไม่ได้)การันตี|ยางดอกเต็ม|สีเดิมโรงงาน|ป้ายแดง|ของแถม|ส่งรถถึงบ้านฟรี|ส่งฟรี/i;
 
 async function main() {
   console.log("=== Nong A Chat Car Cards (Phase 2) ===\n");
@@ -177,7 +177,8 @@ async function main() {
   ok("suv-intro-no-unsupported", !UNSUPPORTED_CLAIMS.test(suvResult.introText), "");
   ok(
     "suv-tone-card-cta",
-    /การ์ด|ดูรายละเอียดในแชท/.test(suvResult.introText),
+    /มีครับ|เจอ|ทางเลือกใกล้เคียง|ยังไม่เจอ/.test(suvResult.introText) &&
+      !/กด 'ดูรายละเอียดในแชท'|จัดการ์ดไว้ด้านล่าง/.test(suvResult.introText),
     suvResult.introText.slice(0, 50)
   );
   ok(
@@ -237,10 +238,14 @@ async function main() {
   ok("multi-crv-found", multiCrv.primary.length >= 2, String(multiCrv.primary.length));
   ok(
     "multi-crv-comparison",
-    /เด่นเรื่อง|เปรียบเทียบ|รุ่นเดียวกัน|เลขไมล์|งบ/.test(multiCrv.introText),
+    /มีครับ|เจอ|เทียบ|คัด|ไมล์|งบ|คุ้ม/.test(multiCrv.introText),
     multiCrv.introText.slice(0, 100)
   );
-  ok("multi-crv-card-cta", /การ์ด|ดูรายละเอียดในแชท/.test(multiCrv.introText), "");
+  ok(
+    "multi-crv-no-ui-instruction",
+    !/กด 'ดูรายละเอียดในแชท'|จัดการ์ดไว้ด้านล่าง|ปังปุริเย่/.test(multiCrv.introText),
+    multiCrv.introText.slice(0, 80)
+  );
   ok("multi-crv-no-unsupported", !UNSUPPORTED_CLAIMS.test(multiCrv.introText), "");
 
   const insight = buildListingComparisonInsight(
@@ -263,7 +268,12 @@ async function main() {
   // Single car tone
   const single = runMarketplaceChatSearch("มี Suzuki Ertiga ไหม", INVENTORY_SUV_ALT)!;
   ok("single-found", single.primary.length === 1, "");
-  ok("single-friendly-opener", /เจอแล้ว|มีรถที่ตรง(ใจ|เงื่อนไข)|ค้นเจอ/.test(single.introText), "");
+  ok("single-friendly-opener", /มีครับ/.test(single.introText), single.introText.slice(0, 80));
+  ok(
+    "single-no-routine-cheer-or-ui",
+    !/ปังปุริเย่|กด 'ดูรายละเอียดในแชท'|จัดการ์ดไว้ด้านล่าง/.test(single.introText),
+    single.introText.slice(0, 80)
+  );
 
   // Case 6: Compare intent
   const mockContextForCompare = summariesToCarCards(multiCrv.primary, multiCrv.alternatives);
@@ -308,7 +318,11 @@ async function main() {
   ok("orchestrator-budget", orchBudget != null, "");
   if (orchBudget) {
     ok("budget-no-sedan-only", !/มี Sedan ที่ตรงเงื่อนไข/.test(orchBudget.text), orchBudget.text.slice(0, 60));
-    ok("budget-multi-type", /หลายแนว|หลายประเภท/.test(orchBudget.text), orchBudget.text.slice(0, 60));
+    ok(
+      "budget-multi-type",
+      /หลายแนว|หลายประเภท|คัดจากรถ|น่าดูต่อ|โจทย์ที่บอกมา|งบไม่เกิน/.test(orchBudget.text),
+      orchBudget.text.slice(0, 60)
+    );
     ok("budget-no-unsupported", !/สภาพดีมาก|ของแถม|ส่งฟรี/.test(orchBudget.text), "");
   }
 
@@ -508,15 +522,21 @@ async function main() {
   ok("v542-intro-copy-no-ask-ai-button", !replyCopySource.includes("กด 'ถามน้องเอ'"), "");
   ok("v542-intro-copy-no-ask-ai-cta", !replyCopySource.includes("กดถามน้องเอ"), "");
   ok("v542-intro-copy-no-talk-ai", !replyCopySource.includes("คุยกับน้องเอ"), "");
-  ok("v542-intro-copy-has-in-chat-detail", replyCopySource.includes("ดูรายละเอียดในแชท"), "");
+  ok(
+    "v542-intro-copy-no-routine-ui-cta",
+    !replyCopySource.includes("กด 'ดูรายละเอียดในแชท'") &&
+      !replyCopySource.includes("จัดการ์ดไว้ด้านล่าง"),
+    ""
+  );
   ok(
     "v542-camry-intro-no-ask-ai",
     !/ถามน้องเอ|คุยกับน้องเอ/.test(camrySearch.introText),
     camrySearch.introText.slice(0, 80)
   );
   ok(
-    "v542-camry-intro-in-chat-detail",
-    /ดูรายละเอียดในแชท/.test(camrySearch.introText),
+    "v542-camry-intro-natural-sales",
+    /มีครับ|เจอ/.test(camrySearch.introText) &&
+      !/กด 'ดูรายละเอียดในแชท'|จัดการ์ดไว้ด้านล่าง|ปังปุริเย่/.test(camrySearch.introText),
     camrySearch.introText.slice(0, 80)
   );
 
