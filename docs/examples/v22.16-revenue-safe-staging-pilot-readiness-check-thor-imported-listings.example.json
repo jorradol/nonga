@@ -1,0 +1,40 @@
+{
+  "version": "v22.16",
+  "label": "v22.16 revenue-safe staging pilot readiness check thor imported listings",
+  "execution_type": "CONTROLLED STAGING REVENUE-SAFE PILOT READINESS CHECK / THOR AUTO IMPORTED LISTINGS ONLY / NO PRODUCTION / NO PUBLIC / NO REAL LEAD / NO DEALER-FACING SEND",
+  "branch": "feature/chat-image-attachment-v1",
+  "baseline_commit": "97fecea",
+  "staging_url": "https://a.nongbot.org",
+  "checks": {
+    "marketplace_list_shows_imported_thor_cars": "PASS",
+    "listing_detail_keeps_data_after_refresh": "PASS",
+    "listing_detail_keeps_images_after_refresh": "NEED_REVIEW",
+    "chat_card_retrieves_imported_persisted_listings": "PASS",
+    "cover_gallery_display_when_drive_access_allowed": "NEED_REVIEW",
+    "license_plate_masked_text_api": "PASS",
+    "full_plate_not_echoed_marketplace_chat_json": "PASS",
+    "no_phone_vin_full_plate_in_public_api_fields": "PASS",
+    "photo_content_may_still_show_physical_plate": "NEED_REVIEW",
+    "no_real_lead_created": "PASS",
+    "no_dealer_facing_send_triggered": "PASS",
+    "public_signup_remains_disabled": "PASS"
+  },
+  "observed": {
+    "marketplace_total_count": 13,
+    "thor_import_count": 3,
+    "data_backend": "firestore",
+    "image_backend": "file",
+    "public_signup_enabled": false,
+    "unauthenticated_buyer_lead_status": 401,
+    "thor_storage_image_probe_status": 404
+  },
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "real_lead_created": false,
+  "dealer_facing_send_performed": false,
+  "owner_token_requested": false,
+  "step_3_completed": true,
+  "step_4_status": "not_started",
+  "pilot_run_started": false,
+  "final_recommendation": "NEED REVIEW — Thor Auto imported listings are visible and chat-retrievable on staging with privacy/lead boundaries intact, but durable cover/gallery image serving under the current file image backend remains unreliable and should be reviewed before revenue-safe pilot execution."
+}
