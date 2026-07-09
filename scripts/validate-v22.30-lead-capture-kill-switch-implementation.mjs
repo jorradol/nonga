@@ -70,9 +70,20 @@ check(
 check("fixture version", fixture.version === "v22.30");
 check("fixture default false", fixture.default_when_unset === false);
 check("fixture not enabled", fixture.enabled_this_step === false);
+check("fixture live false", fixture.live_lead_capture_enabled === false);
+check(
+  "fixture revision",
+  fixture.current_revisions?.cloud_run_revision === "nonga-staging-00189-9jl"
+);
+check(
+  "fixture hosting",
+  fixture.current_revisions?.hosting_asset === "assets/index-DxKBQ6yE.js"
+);
 check("fixture no real lead", fixture.checks.real_lead_created === false);
 check("fixture recommendation", fixture.final_recommendation === EXPECTED_RECOMMENDATION);
 check("fixture no approval", fixture.approval_requested_this_step === false);
+check("doc records revision", /nonga-staging-00189-9jl/.test(doc));
+check("doc records hosting asset", /assets\/index-DxKBQ6yE\.js/.test(doc));
 
 if (failures > 0) {
   console.log(`\nFAIL v22.30 validator (${failures})`);

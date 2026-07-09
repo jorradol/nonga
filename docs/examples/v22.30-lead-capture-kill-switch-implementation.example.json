@@ -3,9 +3,16 @@
   "execution_type": "CONTROLLED LEAD CAPTURE KILL SWITCH IMPLEMENTATION / STAGING SAFETY GUARD ONLY / DEFAULT OFF / NO REAL LEAD / NO DEALER-FACING SEND / NO PRODUCTION / NO PUBLIC",
   "branch": "feature/chat-image-attachment-v1",
   "staging_url": "https://a.nongbot.org",
+  "current_revisions": {
+    "cloud_run_revision": "nonga-staging-00189-9jl",
+    "hosting_asset": "assets/index-DxKBQ6yE.js",
+    "image_tag": "v20260709-lead-kill-switch-44c3094",
+    "cloud_build_id": "7ddef888-e810-42e5-9d83-63ef4b86963a"
+  },
   "env_flag": "NONGA_LEAD_CAPTURE_ENABLED",
   "default_when_unset": false,
   "enabled_this_step": false,
+  "live_lead_capture_enabled": false,
   "checks": {
     "kill_switch_implemented": "PASS",
     "default_off": "PASS",

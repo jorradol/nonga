@@ -72,18 +72,11 @@ async function main() {
   check("health 200", healthRes.status === 200);
   check("health ok", health.ok === true);
   check("publicSignupEnabled false", health.publicSignupEnabled === false);
-  // After deploy: must be false. Before deploy may be undefined — treat undefined as not-yet-deployed.
-  if (health.leadCaptureEnabled === undefined) {
-    console.log(
-      "INFO leadCaptureEnabled not yet on live health (pre-deploy or old revision)"
-    );
-  } else {
-    check(
-      "live leadCaptureEnabled false",
-      health.leadCaptureEnabled === false,
-      `leadCaptureEnabled=${health.leadCaptureEnabled}`
-    );
-  }
+  check(
+    "live leadCaptureEnabled false",
+    health.leadCaptureEnabled === false,
+    `leadCaptureEnabled=${health.leadCaptureEnabled}`
+  );
 
   const leadRes = await fetch(`${STAGING}/api/buyer-leads`, {
     method: "POST",
