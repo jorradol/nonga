@@ -1,0 +1,38 @@
+{
+  "version": "v22.28",
+  "execution_type": "CONTROLLED LEAD SYSTEM CONFIGURATION REVIEW / OWNER APPROVAL PREVIEW ONLY / READ-ONLY FIRST / NO REAL LEAD / NO DEALER-FACING SEND / NO PRODUCTION / NO PUBLIC",
+  "branch": "feature/chat-image-attachment-v1",
+  "staging_url": "https://a.nongbot.org",
+  "current_revisions": {
+    "cloud_run_revision": "nonga-staging-00188-tm7",
+    "hosting_asset": "assets/index-DqPChjiO.js"
+  },
+  "checks": {
+    "lead_config_inspection_completed": "PASS",
+    "buyer_lead_unauth_401": "PASS",
+    "public_signup_enabled_false": "PASS",
+    "marketplace_count_13": "PASS",
+    "no_automatic_dealer_push": "PASS",
+    "contact_reveal_locked_on_create": "PASS",
+    "lead_backend_default_memory": "PASS",
+    "consent_version_v56c1_documented": "PASS",
+    "production_untouched": "PASS",
+    "public_not_enabled": "PASS",
+    "no_secrets_or_pii_in_report": "PASS",
+    "simulated_lead_artifact_created": false,
+    "simulated_lead_cleanup_status": "none_required"
+  },
+  "lead_create_auth_required": true,
+  "dealer_facing_send_automatic": false,
+  "dealer_facing_reveal_manual": true,
+  "dedicated_authenticated_lead_kill_switch": false,
+  "real_lead_created": false,
+  "dealer_facing_send_performed": false,
+  "production_deploy_performed": false,
+  "public_enable_performed": false,
+  "public_signup_enabled": false,
+  "owner_token_requested": false,
+  "owner_terminal_required": false,
+  "approval_requested_this_step": false,
+  "final_recommendation": "NEED REVIEW — lead system configuration review completed; design, consent wording, and safety locks are documented for owner review. Real lead creation, dealer-facing push, public, and production remain locked. Do not treat this packet as authorization to enable real lead capture."
+}
