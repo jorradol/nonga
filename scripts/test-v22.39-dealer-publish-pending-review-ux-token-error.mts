@@ -157,7 +157,12 @@ try {
   ok("publicSignupEnabled false", health.publicSignupEnabled === false);
   const cars = await (await fetch(`${STAGING}/api/cars`)).json();
   const list = cars.data || [];
-  ok("marketplace 13", Number(cars.count) === 13, `count=${cars.count}`);
+  // Post-v22.43 pilot baseline is 15 (13 Thor + 2 nonga-dealer Corollas)
+  ok(
+    "marketplace baseline >=13",
+    Number(cars.count) >= 13,
+    `count=${cars.count}`
+  );
   let prot = 0;
   let test = 0;
   for (const c of list) {

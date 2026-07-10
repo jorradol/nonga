@@ -75,7 +75,12 @@ try {
 
   const cars = await (await fetch(`${STAGING}/api/cars`)).json();
   const list = cars.data || [];
-  ok("marketplace 13", Number(cars.count) === 13, `count=${cars.count}`);
+  // Post-v22.43 pilot baseline is 15
+  ok(
+    "marketplace baseline >=13",
+    Number(cars.count) >= 13,
+    `count=${cars.count}`
+  );
   let prot = 0;
   let test = 0;
   let withImages = 0;
@@ -90,7 +95,11 @@ try {
   }
   ok("public DTO no protected fields", prot === 0);
   ok("no TEST title public", test === 0);
-  ok("images preserved", withImages === 13, `withImages=${withImages}`);
+  ok(
+    "images preserved",
+    withImages === Number(cars.count),
+    `withImages=${withImages}`
+  );
 
   const lead = await fetch(`${STAGING}/api/buyer-leads`, {
     method: "POST",

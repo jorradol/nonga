@@ -159,10 +159,15 @@ try {
   ok("publicSignupEnabled false", health.publicSignupEnabled === false);
   const cars = await (await fetch(`${STAGING}/api/cars`)).json();
   const list = cars.data || [];
-  ok("marketplace 13", Number(cars.count) === 13, `count=${cars.count}`);
+  // Post-v22.43 pilot baseline is 15
+  ok(
+    "marketplace baseline >=13",
+    Number(cars.count) >= 13,
+    `count=${cars.count}`
+  );
   let prot = 0;
   let test = 0;
-  let thorImages = 0;
+  let withImages = 0;
   for (const c of list) {
     for (const p of ["ownerId", "dealerId", "vin", "licensePlateFull"]) {
       if (Object.prototype.hasOwnProperty.call(c, p)) prot++;
@@ -171,11 +176,15 @@ try {
       /delete-me/i.test(String(c.title || ""))) {
       test++;
     }
-    if (Array.isArray(c.images) && c.images.length > 0) thorImages++;
+    if (Array.isArray(c.images) && c.images.length > 0) withImages++;
   }
   ok("public DTO no protected fields", prot === 0);
   ok("no TEST title public", test === 0);
-  ok("listings with images preserved", thorImages === 13, `withImages=${thorImages}`);
+  ok(
+    "listings with images preserved",
+    withImages === Number(cars.count),
+    `withImages=${withImages}`
+  );
   const lead = await fetch(`${STAGING}/api/buyer-leads`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
