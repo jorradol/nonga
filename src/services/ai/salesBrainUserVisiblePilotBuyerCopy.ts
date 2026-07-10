@@ -31,6 +31,10 @@ import {
   extractStatedMileageFromMessage,
   resolveCarsByMileageFact,
 } from "./chat/chatBuyerFactsQa";
+import {
+  appendOptionalSalesToneAccent,
+  buildStableSeed,
+} from "./chat/thaiSalesCopyVariation";
 import type { ChatCarCardData } from "../../types";
 
 export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2h";
@@ -281,6 +285,22 @@ export function buildBuyerComparePilotCopy(
       ? `ได้ครับ น้องเอเทียบจาก 2 คันที่เพิ่งคัดให้ก่อนนะครับ`
       : `ได้ครับ น้องเอช่วยเทียบจากรถที่เพิ่งแสดงให้ก่อนครับ`;
 
+  const seed = buildStableSeed([
+    carA.brand,
+    carA.model,
+    carA.year,
+    carB.brand,
+    carB.model,
+    carB.year,
+    "pilot-compare",
+  ]);
+  // v22.60 — optional accent on clear-choice close only; never on failed/missing compare
+  const positiveClose = appendOptionalSalesToneAccent(
+    "ถ้าอยากเน้นมุมใดเป็นพิเศษ เช่น ประหยัดน้ำมัน ครอบครัว หรือผ่อนเบื้องต้น บอกน้องเอได้ครับ",
+    seed,
+    "clear_compare"
+  );
+
   const body = [
     lead,
     "",
@@ -288,7 +308,7 @@ export function buildBuyerComparePilotCopy(
     `คันที่ ${pair.b} (${formatCarLine(carB)}) — ${inferUseAngle(carB)}`,
     insight ? `\n${insight}` : "",
     "",
-    "ถ้าอยากเน้นมุมใดเป็นพิเศษ เช่น ประหยัดน้ำมัน ครอบครัว หรือผ่อนเบื้องต้น บอกน้องเอได้ครับ",
+    positiveClose,
     "แต่ยังเป็นการเทียบจากข้อมูลประกาศในระบบนะครับ ก่อนตัดสินใจควรดูสภาพจริง เลขไมล์ เอกสาร และประวัติการดูแลอีกครั้งครับ",
     "",
     LISTING_DISCLAIMER,

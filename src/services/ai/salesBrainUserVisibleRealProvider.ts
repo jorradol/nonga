@@ -43,6 +43,9 @@ import {
   hasCardAnswerConsistencyFailure,
   isNamedInventoryCompareIntent,
 } from "./chat/inventoryBackedCompare";
+import {
+  isSalesToneAccentContextExcluded,
+} from "./chat/thaiSalesCopyVariation";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
@@ -227,6 +230,10 @@ export const USER_VISIBLE_GUESSED_CUSTOMER_ADDRESS_PATTERNS: RegExp[] = [
   /(?:^|[\s,.])น้อง(?:ครับ|ค่ะ|[\s,.]|$)/,
 ];
 
+/**
+ * v22.60 — optional accent term retained for docs/tests.
+ * Misuse (spam / unsafe context) is enforced by hasForbiddenBrandVoiceTerm.
+ */
 export const USER_VISIBLE_FORBIDDEN_BRAND_VOICE_TERMS = ["ปังปุริเย่"] as const;
 
 export const USER_VISIBLE_GENERAL_KNOWLEDGE_DISCLAIMER_MARKERS = [
@@ -670,8 +677,19 @@ export function hasGuessedCustomerAddressTerm(text: string): boolean {
   return false;
 }
 
+/**
+ * v22.60 — allow a single trailing `ปังปุริเย่!` on positive answers;
+ * reject spam, mid-sentence use, unsafe context, or any other ปังปุริเย่ form.
+ */
 export function hasForbiddenBrandVoiceTerm(text: string): boolean {
-  return USER_VISIBLE_FORBIDDEN_BRAND_VOICE_TERMS.some((term) => text.includes(term));
+  const body = String(text ?? "").trim();
+  if (!body.includes("ปังปุริเย่")) return false;
+  const rawCount = (body.match(/ปังปุริเย่/g) ?? []).length;
+  if (rawCount > 1) return true;
+  if (isSalesToneAccentContextExcluded(body)) return true;
+  // Only the optional end accent form is permitted in polished output.
+  if (/ปังปุริเย่!\s*$/.test(body)) return false;
+  return true;
 }
 
 /** Reject answers dominated by Latin/English when user-visible reply must be Thai. */
@@ -1230,7 +1248,8 @@ function buildUserVisibleBuyerSystemInstruction(
   return [
     `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสอง Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
     `โหมดคุณภาพภาษาไทย ${USER_VISIBLE_THAI_UX_TUNING_SLICE_ID}: ตอบให้เป็นเซลส์รถมือสองมืออาชีพ — อบอุ่น น่าเชื่อถือ มีเสน่ห์ ใช้งานได้จริง ไม่หุ่นยนต์ ไม่กันเองเกินไป ไม่ยัดเยียด.`,
-    "ตอบภาษาไทย สุภาพ อบอุ่น — เรียก คุณลูกค้า หรือไม่เรียกขาน ห้ามเดา ลุง/ป้า/เฮีย/เจ๊ ห้ามใช้ ปังปุริเย่.",
+    "ตอบภาษาไทย สุภาพ อบอุ่น — เรียก คุณลูกค้า หรือไม่เรียกขาน ห้ามเดา ลุง/ป้า/เฮีย/เจ๊.",
+    "โทนเสริม (v22.60): อนุญาตใช้ ปังปุริเย่! ได้เพียงครั้งเดียวท้ายคำตอบ เมื่อเป็นจังหวะบวกชัด (เจอรถตรงเงื่อนไข / เทียบแล้วเลือกได้ชัด / สนใจดูรถ-ทดลองขับ) — ห้ามใส่ต้นคำตอบ ห้ามใส่ทุกคำตอบ ห้ามซ้ำ และห้ามใช้เมื่อไม่เจอรถ ข้อผิดพลาด ความเสี่ยงไมล์/อุบัติเหตุ/เอกสาร/PDPA Lead/PII หรือคำเตือนตรวจสภาพเป็นหลัก ถ้าไม่แน่ใจให้ละไว้ ห้ามสร้าง ปังปุริเย่! ซ้ำกับ draft ที่มีอยู่แล้ว.",
     "",
     `[สัญญาคำตอบ] ตอบเป็น JSON object เท่านั้น มี field เดียว "${USER_VISIBLE_STRUCTURED_OUTPUT_FIELD}" — ใส่คำตอบภาษาไทยที่ลูกค้าเห็นใน ${USER_VISIBLE_STRUCTURED_OUTPUT_FIELD} จบด้วย ครับ หรือ ค่ะ`,
     "ตอบเฉพาะคำตอบสุดท้าย — ห้ามแสดงแผน เหตุผล markdown หรือข้อความภาษาอังกฤษ (ยกเว้นชื่อรถ/เทคนิค เช่น Honda HR-V, Hybrid, CVT, EV).",

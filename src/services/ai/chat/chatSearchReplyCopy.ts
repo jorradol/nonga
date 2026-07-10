@@ -12,8 +12,10 @@ import {
   type ChatSearchCriteria,
 } from "./marketplaceChatSearch";
 import {
+  appendOptionalSalesToneAccent,
   buildSelectedCarOpening,
   buildStableSeed,
+  maybeOptionalSalesToneAccent,
   pickStableVariant,
 } from "./thaiSalesCopyVariation";
 import {
@@ -21,16 +23,12 @@ import {
   buildGeneralModelContextBlock,
 } from "./vehicleModelContext";
 
-/** Optional tone accent — sparingly, never a default inventory suffix. */
+/**
+ * v22.60 — thin alias over shared optional sales-tone accent.
+ * Kept for existing source guards (v22.21/v22.22/v22.25).
+ */
 function maybeOptionalInventoryCheer(seed: string): string {
-  const roll = pickStableVariant(seed, "search.cheer", [
-    "no",
-    "no",
-    "no",
-    "no",
-    "yes",
-  ] as const);
-  return roll === "yes" ? " ปังปุริเย่!" : "";
+  return maybeOptionalSalesToneAccent(seed, "exact_found");
 }
 
 export interface CarHighlightFacts {
@@ -525,7 +523,6 @@ function buildFoundIntro(
           .join(" ")
       : carLabel(cars[0]);
   const budgetPart = budget ? ` ใน${budget}` : "";
-  const cheer = maybeOptionalInventoryCheer(seed);
   const exactModelYear =
     Boolean(criteria.model?.trim()) && criteria.year != null;
 
@@ -537,13 +534,18 @@ function buildFoundIntro(
           `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คันครับ`,
           `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คันในตลาดครับ`,
         ]);
-    const text = [
-      `${opener}${cheer}`,
-      buildSingleCarNarrative(cars[0], criteria),
-      inventorySoftFollowUp(1, seed),
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+    // v22.60 — optional accent near end only (never opener / never every answer)
+    const text = appendOptionalSalesToneAccent(
+      [
+        opener,
+        buildSingleCarNarrative(cars[0], criteria),
+        inventorySoftFollowUp(1, seed),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      seed,
+      "exact_found"
+    );
     assertNoHallucinatedVehicleClaim(text);
     return text;
   }
@@ -558,13 +560,17 @@ function buildFoundIntro(
         `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คันครับ`,
         `มีครับ เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ครับ`,
       ]);
-  const text = [
-    `${opener}${cheer}`,
-    buildMultiCarNarratives(cars, criteria),
-    inventorySoftFollowUp(cars.length, seed),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const text = appendOptionalSalesToneAccent(
+    [
+      opener,
+      buildMultiCarNarratives(cars, criteria),
+      inventorySoftFollowUp(cars.length, seed),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+    seed,
+    "exact_found"
+  );
   assertNoHallucinatedVehicleClaim(text);
   return text;
 }
@@ -709,20 +715,31 @@ export function buildCompareReplyCopy(cars: ChatCarCardData[]): string {
   }));
 
   const insight = buildListingComparisonInsight(highlights);
+  const seed = buildStableSeed([
+    cars[0]?.id,
+    cars[1]?.id,
+    "compare",
+    cars.length,
+  ]);
 
   const lines = cars.map((c, i) => {
     const mileage = c.mileage > 0 ? ` ไมล์ ${formatPrice(c.mileage)} กม.` : "";
     return `${i + 1}. ${c.brand} ${c.model} ปี ${c.year} — ราคา ${formatPrice(c.price)} บาท${mileage} (${c.bodyClassLabel})`;
   });
 
-  return [
-    `เปรียบเทียบ ${cars.length} คันจากข้อมูลจริงในระบบครับ:`,
-    lines.join("\n"),
-    insight ? `\n${insight}` : "",
-    `\n${inventorySoftFollowUp(cars.length, cars[0]?.id ?? "compare")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // v22.60 — optional end accent on clear two-car choice moments only
+  return appendOptionalSalesToneAccent(
+    [
+      `เปรียบเทียบ ${cars.length} คันจากข้อมูลจริงในระบบครับ:`,
+      lines.join("\n"),
+      insight ? `\n${insight}` : "",
+      `\n${inventorySoftFollowUp(cars.length, cars[0]?.id ?? "compare")}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    seed,
+    "clear_compare"
+  );
 }
 
 export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {

@@ -117,9 +117,13 @@ async function main() {
         !scored.includes("น้องเอจัดการ์ดไว้ด้านล่าง")
     );
     ok("no default ลุง in reply copy", !/มีครับลุง|ถ้าลุง|ครับลุง/.test(replyCopy));
+    const variation = readFileSync("src/services/ai/chat/thaiSalesCopyVariation.ts", "utf8");
     ok(
       "cheer remains optional helper",
-      replyCopy.includes("maybeOptionalInventoryCheer") && replyCopy.includes('"no"')
+      (replyCopy.includes("maybeOptionalInventoryCheer") ||
+        replyCopy.includes("appendOptionalSalesToneAccent")) &&
+        (variation.includes("maybeOptionalSalesToneAccent") || replyCopy.includes('"no"')) &&
+        variation.includes('"no"')
     );
     ok(
       "gemini system allows general model context framing",
@@ -127,8 +131,10 @@ async function main() {
         realProvider.includes("ควรตรวจสอบรายละเอียดกับผู้ขายอีกครั้ง")
     );
     ok(
-      "gemini still bans ลุง and routine ปังปุริเย่ in user-visible polish",
-      realProvider.includes("ห้ามเดา ลุง") && realProvider.includes("ห้ามใช้ ปังปุริเย่")
+      "gemini still bans ลุง; ปังปุริเย่ is optional controlled accent (v22.60)",
+      realProvider.includes("ห้ามเดา ลุง") &&
+        realProvider.includes("อนุญาตใช้ ปังปุริเย่!") &&
+        !realProvider.includes("ห้ามใช้ ปังปุริเย่")
     );
   }
 

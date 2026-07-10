@@ -496,3 +496,90 @@ export function buildSelectedCarOpening(car: ChatCarCardData, seed = car.id): st
 export function openingFingerprint(text: string): string {
   return text.trim().slice(0, 48);
 }
+
+/** v22.60 — optional Nong A sales-tone accent (not a response system). */
+export const OPTIONAL_SALES_TONE_ACCENT = "ปังปุริเย่!";
+
+export type SalesToneAccentMoment =
+  | "exact_found"
+  | "clear_compare"
+  | "positive_progress";
+
+export function countSalesToneAccent(text: string): number {
+  return (String(text ?? "").match(/ปังปุริเย่!?/g) ?? []).length;
+}
+
+/**
+ * Context where the accent must never be added (independent of whether it is present).
+ */
+export function isSalesToneAccentContextExcluded(text: string): boolean {
+  const body = String(text ?? "");
+  if (
+    /ยังไม่เจอ|ยังไม่มีคันที่ตรง|ค้นดูแล้วยังไม่พบ|เทียบคันเดิมกับตัวเองไม่ได้|ข้อมูลเทียบซ้ำกัน/.test(
+      body
+    )
+  ) {
+    return true;
+  }
+  if (
+    /ยินยอม|เบอร์โทร|กรอกเบอร์|ส่ง lead|ผู้ขายจะโทร|ข้อมูลส่วนบุคคล|PDPA/i.test(body)
+  ) {
+    return true;
+  }
+  if (
+    /อุบัติเหตุ|ประวัติชน|ไมล์ผิดปกติ|เลขไมล์(?:คันนี้)?(?:ค่อนข้าง)?(?:สูง|เยอะ)|ควรให้ช่างตรวจ/.test(
+      body
+    )
+  ) {
+    return true;
+  }
+  if (/ข้อผิดพลาด|ไม่สามารถตอบ|ระบบขัดข้อง|fail-?closed|error\b/i.test(body)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * True when the phrase is present and inappropriate
+ * (no-match, lead/PII, mileage-risk, error, or more than once).
+ */
+export function isSalesToneAccentMisused(text: string): boolean {
+  const body = String(text ?? "");
+  const count = countSalesToneAccent(body);
+  if (count > 1) return true;
+  if (count === 0) return false;
+  return isSalesToneAccentContextExcluded(body);
+}
+
+/**
+ * Optional end accent — ~1/5 via seeded roll. Prefer omit when uncertain.
+ * Call only from positive buyer-progress paths (exact found / clear compare).
+ */
+export function maybeOptionalSalesToneAccent(
+  seed: string,
+  moment: SalesToneAccentMoment = "positive_progress"
+): string {
+  const roll = pickStableVariant(seed, `salesTone.${moment}`, [
+    "no",
+    "no",
+    "no",
+    "no",
+    "yes",
+  ] as const);
+  return roll === "yes" ? ` ${OPTIONAL_SALES_TONE_ACCENT}` : "";
+}
+
+/** Append at most once near the end; never duplicates; skips excluded contexts. */
+export function appendOptionalSalesToneAccent(
+  text: string,
+  seed: string,
+  moment: SalesToneAccentMoment
+): string {
+  const trimmed = String(text ?? "").trimEnd();
+  if (!trimmed) return text;
+  if (countSalesToneAccent(trimmed) > 0) return trimmed;
+  if (isSalesToneAccentContextExcluded(trimmed)) return trimmed;
+  const accent = maybeOptionalSalesToneAccent(seed, moment);
+  if (!accent) return trimmed;
+  return `${trimmed}${accent}`;
+}
