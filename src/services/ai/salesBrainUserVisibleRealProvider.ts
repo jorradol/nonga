@@ -373,7 +373,11 @@ export function detectUserVisibleBuyerScenario(
   if (isPilotBuyerEvFollowUp(t)) return "ev";
   if (isPilotBuyerGeneralKnowledgeFollowUp(t)) return "generalKnowledge";
   if (isPilotBuyerCardInsightFollowUp(t)) {
-    if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(t)) {
+    if (
+      /เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน|คันนี้เหมาะ|เหมาะกับใช้(?:งาน)?ครอบครัว|เหมาะกับครอบครัว|เหมาะ(?:กับ(?:การ)?ใช้งาน)?ไหม|เหมาะมั้ย/i.test(
+        t
+      )
+    ) {
       return "fit";
     }
     return "summarize";
@@ -406,7 +410,9 @@ function buildScenarioAnswerGuidance(
     case "summarize":
       return "สรุปคันเดียวแบบอ่านง่าย: เปิดด้วยจุดเด่นหลัก แล้วเหตุผลสนับสนุนสั้น ๆ จาก listing เท่านั้น ห้ามแต่งสภาพหรือประวัติ";
     case "fit":
-      return "อธิบายว่าเหมาะกับใครจากข้อมูล listing แบบนุ่มนวลและไม่ฟันธงเกินข้อมูล";
+      return cardCount <= 1
+        ? "อธิบายว่าคันเดียวนี้เหมาะกับใคร/ใช้งานแบบไหนจากข้อมูล listing แบบนุ่มนวล — ห้ามดึงรถคันอื่น ปีอื่น หรือเข้าโหมดเปรียบเทียบ ห้ามแนะนำให้พิมพ์เทียบคันที่ 1 กับ 2"
+        : "อธิบายว่าเหมาะกับใครจากข้อมูล listing แบบนุ่มนวลและไม่ฟันธงเกินข้อมูล";
     case "generalKnowledge":
       return [
         "สรุปคำตอบตรงคำถามก่อน แล้วแยก จากข้อมูลในประกาศนี้ กับ จากความรู้ทั่วไปของรุ่นนี้",
@@ -824,6 +830,14 @@ export function evaluateRealProviderOutputSafety(
   if (scenario === "compare" && hasCompareIdentityFailure(trimmed, options?.pilotOrchestration)) {
     return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
   }
+  // v22.61 — single-car fit must not invent a second listing/year comparison
+  if (
+    scenario === "fit" &&
+    (options?.pilotOrchestration?.recentCarCards?.length ?? carCardCount) <= 1 &&
+    hasSingleCarFitCompareLeak(trimmed, options?.pilotOrchestration)
+  ) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
   if (
     hasCardAnswerConsistencyFailure(
       trimmed,
@@ -1040,6 +1054,39 @@ export function hasUngroundedVehicleModelMention(
       (m) => m.includes(tokenLc) || tokenLc.includes(m)
     );
     if (!grounded) return true;
+  }
+  return false;
+}
+
+/**
+ * v22.61 — single-car fit answers must not leak into compare mode
+ * (second year, "เทียบคันที่ 1 กับ 2", two-card framing).
+ */
+export function hasSingleCarFitCompareLeak(
+  text: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/เทียบคันที่\s*1\s*กับ\s*2|เปรียบเทียบคันที่|คันที่\s*1[\s\S]+คันที่\s*2/i.test(t)) {
+    return true;
+  }
+  if (/ขอเทียบจาก|ช่วยเทียบให้|เข้าโหมดเปรียบเทียบ/i.test(t)) {
+    return true;
+  }
+  const cards = pilotOrchestration?.recentCarCards ?? [];
+  const groundedYears = [
+    ...new Set(cards.map((c) => c.year).filter((y) => y > 1980)),
+  ];
+  if (groundedYears.length === 1) {
+    const only = groundedYears[0]!;
+    const yearMentions = [...t.matchAll(/\b(20\d{2})\b/g)].map((m) =>
+      Number(m[1])
+    );
+    const foreign = yearMentions.filter((y) => y !== only);
+    if (foreign.length > 0 && /เทียบ|เปรียบเทียบ|คันที่\s*2|อีกคัน/i.test(t)) {
+      return true;
+    }
   }
   return false;
 }

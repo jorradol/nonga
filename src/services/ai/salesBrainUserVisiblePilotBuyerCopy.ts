@@ -546,6 +546,24 @@ export function buildPilotBuyerUserVisibleCopy(
     };
   }
 
+  // v22.61 — active-vehicle fit BEFORE multi-car family refinement
+  if (isPilotBuyerCardInsightFollowUp(input.userMessage) && sessionCount > 0) {
+    if (
+      /เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน|คันนี้เหมาะ|เหมาะกับใช้(?:งาน)?ครอบครัว|เหมาะกับครอบครัว|เหมาะ(?:กับ(?:การ)?ใช้งาน)?ไหม|เหมาะมั้ย/i.test(
+        input.userMessage
+      )
+    ) {
+      return {
+        text: buildBuyerFitPilotCopy(sessionCards),
+        pilotPathActive: true,
+      };
+    }
+    return {
+      text: buildBuyerSummarizePilotCopy(sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
   if (refinement && sessionCount > 0) {
     return {
       text: buildBuyerRefinementPilotCopy(refinement, sessionCards),
@@ -589,19 +607,6 @@ export function buildPilotBuyerUserVisibleCopy(
     }
     return {
       text: buildBuyerComparePilotCopy(pair, sessionCards),
-      pilotPathActive: true,
-    };
-  }
-
-  if (isPilotBuyerCardInsightFollowUp(input.userMessage) && sessionCount > 0) {
-    if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(input.userMessage)) {
-      return {
-        text: buildBuyerFitPilotCopy(sessionCards),
-        pilotPathActive: true,
-      };
-    }
-    return {
-      text: buildBuyerSummarizePilotCopy(sessionCards),
       pilotPathActive: true,
     };
   }

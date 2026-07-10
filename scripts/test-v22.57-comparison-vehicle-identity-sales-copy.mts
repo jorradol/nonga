@@ -379,15 +379,26 @@ function run(): void {
     resolveInventoryBackedComparePair(compareMsg, inventory, []).ok === false
   );
 
-  // --- Family still passes ---
-  ok("family refinement still detected", detectBuyerRefinement(familyMsg) === "family");
+  // --- Family still passes (v22.61: active-vehicle fit, not multi-car refine) ---
+  ok(
+    "active-vehicle family is fit not multi-car refine",
+    detectBuyerRefinement(familyMsg) == null
+  );
+  ok(
+    "explicit family refine cue still detected",
+    detectBuyerRefinement("เอาแบบครอบครัว") === "family"
+  );
   withSessionContext([corolla2020], () => {
     const family = tryOrchestrateChatReplyCore(familyMsg, inventory, {
       chatSessionId: SESSION,
     });
     ok(
       "family follow-up still grounded",
-      Boolean(family?.text) && (family?.carCards?.length ?? 0) >= 1
+      Boolean(family?.text) &&
+        (family?.carCards?.length ?? 0) === 1 &&
+        family?.carCards?.[0]?.year === 2020 &&
+        !/2021/.test(family?.text ?? "") &&
+        !/เทียบคันที่\s*1\s*กับ\s*2/i.test(family?.text ?? "")
     );
   });
 

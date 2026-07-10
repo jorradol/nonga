@@ -166,6 +166,20 @@ function pilotToChatCard(c: PilotGroundedCarCard): ChatCarCardData {
 
 export function buildFamilyRefineReplyCopy(cards: ChatCarCardData[]): string {
   if (cards.length === 0) return buildRefinementNoContextCopy("family");
+  // v22.61 — single-card refine must not push compare CTA / two-car framing
+  if (cards.length === 1) {
+    const c = cards[0]!;
+    return [
+      "ถ้าเน้นรถครอบครัว จากข้อมูลประกาศของคันที่เพิ่งดูอยู่นะครับ",
+      "",
+      carLine(c),
+      "",
+      "แนะนำดูประเภทรถ จำนวนที่นั่ง และเลขไมล์เทียบปีจากข้อมูลประกาศครับ",
+      "ข้อมูลนี้มาจากประกาศในระบบเท่านั้น ควรดูสภาพจริงก่อนตัดสินใจครับ",
+      "",
+      LISTING_DISCLAIMER,
+    ].join("\n");
+  }
   const lines = cards.slice(0, 3).map((c, i) => `${i + 1}. ${carLine(c)}`);
   return [
     "ถ้าเน้นรถครอบครัว น้องเอขอเทียบจากข้อมูลประกาศที่มีตอนนี้ก่อนนะครับ",

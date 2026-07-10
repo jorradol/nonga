@@ -66,6 +66,7 @@ import {
 import {
   detectBuyerRefinement,
   extractNumberedComparePair,
+  isPilotBuyerCardInsightFollowUp,
 } from "./chatPilotBuyerFollowUp";
 import {
   buildInventoryBackedCompareReply,
@@ -74,6 +75,10 @@ import {
   resolveInventoryBackedComparePair,
 } from "./inventoryBackedCompare";
 import { wireShadowChatPath } from "../salesBrainShadowChatPath";
+import {
+  buildGeneralModelContextBlock,
+  assertNoHallucinatedVehicleClaim,
+} from "./vehicleModelContext";
 
 export interface OrchestratedChatReply {
   text: string;
@@ -86,6 +91,69 @@ export interface OrchestratedChatReply {
   savedDraftId?: string;
 }
 
+/** Prefer last-selected / first context card for active-vehicle follow-ups. */
+function resolveActiveContextualCar(
+  contextCars: ChatCarCardData[]
+): ChatCarCardData | null {
+  if (contextCars.length === 0) return null;
+  const selectedId = loadLastSelectedCarId();
+  if (selectedId) {
+    const hit = contextCars.find((c) => c.id === selectedId);
+    if (hit) return hit;
+  }
+  const viewed = loadRecentlyViewedCarIds();
+  if (viewed.length > 0) {
+    const hit = contextCars.find((c) => c.id === viewed[0]);
+    if (hit) return hit;
+  }
+  return contextCars[0] ?? null;
+}
+
+/**
+ * v22.61 — single-car family/suitability answer (never multi-car refine/compare).
+ */
+function buildActiveVehicleFitReplyCopy(
+  car: ChatCarCardData,
+  userMessage: string
+): string {
+  const familyAsk = /ครอบครัว|ใช้ครอบครัว/i.test(userMessage);
+  const mileage =
+    car.mileage > 0 ? ` ไมล์ ${car.mileage.toLocaleString("th-TH")} กม.` : "";
+  const body = car.bodyClassLabel ? ` (${car.bodyClassLabel})` : "";
+  const price = car.price.toLocaleString("th-TH");
+  const label = `${car.brand} ${car.model} ปี ${car.year}`;
+  const bodyHint = car.bodyClassLabel || "";
+  const familyAngle = /suv|crossover|mpv|pickup|อเนกประสงค์/i.test(bodyHint)
+    ? "จากประเภทรถในระบบ เหมาะกับมุมครอบครัว/พื้นที่ใช้สอยได้ดี"
+    : /sedan|ซีดาน|hatch/i.test(bodyHint)
+      ? "เป็นซีดานจากข้อมูลประกาศ — เหมาะกับครอบครัวเล็กหรือใช้งานประจำวันได้ ถ้าต้องการพื้นที่ท้าย/ที่นั่งเยอะมาก แนะนำดูสภาพจริงและทดลองขับก่อนครับ"
+      : "จากสเปกในประกาศ เหมาะกับผู้ที่มองหารถในกลุ่มนี้สำหรับใช้งานจริง";
+
+  const modelCtx = buildGeneralModelContextBlock({
+    brand: car.brand,
+    model: car.model,
+    year: car.year,
+    bodyClassLabel: car.bodyClassLabel,
+  });
+
+  const text = [
+    `จากข้อมูลประกาศของ ${label} น้องเอประเมินว่า`,
+    "",
+    `${label} — ราคา ${price} บาท${mileage}${body}`,
+    familyAsk
+      ? `เหมาะกับใช้ครอบครัวในมุมนี้ — ${familyAngle}`
+      : `เหมาะกับผู้ที่มองหารถในกลุ่มนี้ — ${familyAngle}`,
+    modelCtx,
+    "",
+    "ข้อมูลนี้มาจากประกาศในระบบเท่านั้น ควรดูสภาพจริงก่อนตัดสินใจครับ",
+    "นี่เป็นการแนะนำเบื้องต้นจากข้อมูลประกาศในระบบนะครับ ยังไม่ได้ตรวจสภาพรถจริง และไม่ได้ฟันธงว่าคันไหนเหมาะที่สุดโดยไม่มีข้อมูลเพิ่ม",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  assertNoHallucinatedVehicleClaim(text);
+  return text;
+}
+
 /** v6.1L.2g — keep last shown cards for compare/refine follow-ups (client sessionStorage) */
 function tryContextualBuyerFollowUp(
   message: string,
@@ -96,6 +164,19 @@ function tryContextualBuyerFollowUp(
   const comparePair = extractNumberedComparePair(message);
   const refinement = detectBuyerRefinement(message);
   const isCompare = isCompareIntent(message) || comparePair != null;
+
+  // v22.61 — active-vehicle fit/suitability must beat multi-car family refine.
+  // "คันนี้เหมาะกับใช้ครอบครัวไหม" → one Corolla 2020 card, never compare mode.
+  if (!isCompare && isPilotBuyerCardInsightFollowUp(message)) {
+    const active = resolveActiveContextualCar(contextCars);
+    if (active) {
+      return {
+        text: buildActiveVehicleFitReplyCopy(active, message),
+        carCards: [active],
+        skipGemini: true,
+      };
+    }
+  }
 
   if (!isCompare && !refinement) return null;
 

@@ -36,7 +36,14 @@ export function detectBuyerRefinement(message: string): BuyerRefinementKind | nu
   ) {
     return "fuel";
   }
-  if (/(?:^|\s)เอา(?:แบบ|)?(?:รถ)?ครอบครัว|รถครอบครัว|ครอบครัว|ใช้กับครอบครัว/i.test(message)) {
+  // v22.61 — bare "ครอบครัว" must NOT steal active-vehicle fit follow-ups
+  // (e.g. "คันนี้เหมาะกับใช้ครอบครัวไหม") into multi-car refine/compare framing.
+  // Keep only explicit refine cues: เอาแบบครอบครัว / รถครอบครัว / เน้นครอบครัว / etc.
+  if (
+    /(?:^|\s)เอา(?:แบบ|)?(?:รถ)?ครอบครัว|รถครอบครัว|ใช้กับครอบครัว|เน้น(?:รถ)?ครอบครัว|อยากได้(?:รถ)?ครอบครัว/i.test(
+      message
+    )
+  ) {
     return "family";
   }
   if (/(?:^|\s)เอา(?:แบบ|)?ผ่อนถูก|ผ่อนถูก|งวดเบา|ค่างวด(?:เบา|ถูก|น้อย)|ผ่อน\s*น้อย/i.test(
@@ -47,11 +54,24 @@ export function detectBuyerRefinement(message: string): BuyerRefinementKind | nu
   return null;
 }
 
+/**
+ * v22.61 — single active-vehicle suitability / fit follow-up.
+ * Must win over multi-car family refinement when user refers to คันนี้.
+ */
 export function isPilotBuyerCardInsightFollowUp(message: string): boolean {
   const t = message.trim();
+  if (!t) return false;
+  // Explicit compare always wins elsewhere — never treat as fit.
+  if (/เทียบ|เปรียบเทียบ|ต่างกันยังไง/i.test(t)) return false;
   if (/สรุป(?:จุดเด่น|จุดดึง)|จุดเด่น(?:ของ)?(?:คัน|รถ)/i.test(t)) return true;
   if (
-    /คันนี้เหมาะกับใคร|เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(
+    /คันนี้เหมาะกับใคร|เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(t)
+  ) {
+    return true;
+  }
+  // Owner Q2: คันนี้เหมาะกับใช้ครอบครัวไหม / เหมาะกับครอบครัวไหม
+  if (
+    /คันนี้เหมาะ|เหมาะกับใช้(?:งาน)?ครอบครัว|เหมาะกับครอบครัว|เหมาะ(?:กับ(?:การ)?ใช้งาน)?ไหม|เหมาะมั้ย/i.test(
       t
     )
   ) {
