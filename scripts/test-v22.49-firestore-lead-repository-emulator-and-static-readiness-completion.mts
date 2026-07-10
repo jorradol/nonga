@@ -218,11 +218,15 @@ try {
   ok("health ok", health.ok === true);
   ok("leadCaptureEnabled false", health.leadCaptureEnabled === false);
   ok("publicSignupEnabled false", health.publicSignupEnabled === false);
-  // Live staging not yet deployed with leadDataBackend — absence is OK for this packet.
+  // v22.49 packet left Staging on memory; v22.50 may report firestore after C2.
+  // This suite only requires capture OFF and a known backend value when present.
   ok(
-    "live lead backend still memory (env unset)",
-    health.leadDataBackend === undefined || health.leadDataBackend === "memory"
+    "live lead backend known or legacy-absent",
+    health.leadDataBackend === undefined ||
+      health.leadDataBackend === "memory" ||
+      health.leadDataBackend === "firestore"
   );
+  ok("live capture remains OFF regardless of backend", health.leadCaptureEnabled === false);
 
   const cars = await (await fetch(`${STAGING}/api/cars`)).json();
   const list = cars.data || [];
