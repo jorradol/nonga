@@ -111,6 +111,7 @@ function resolveActiveContextualCar(
 
 /**
  * v22.61 — single-car family/suitability answer (never multi-car refine/compare).
+ * v22.65 — family-ask wording only: conversational salesperson Thai; non-family path unchanged.
  */
 function buildActiveVehicleFitReplyCopy(
   car: ChatCarCardData,
@@ -123,6 +124,35 @@ function buildActiveVehicleFitReplyCopy(
   const price = car.price.toLocaleString("th-TH");
   const label = `${car.brand} ${car.model} ปี ${car.year}`;
   const bodyHint = car.bodyClassLabel || "";
+
+  // v22.65 — Q2 family-use only: natural spoken sales guidance for the active car.
+  if (familyAsk) {
+    const mileageLine =
+      car.mileage > 0
+        ? `ส่วนเลขไมล์ ${car.mileage.toLocaleString("th-TH")} กม. ยังต้องดูคู่กับปีรถ ประวัติการเช็กระยะ และสภาพจริงตอนชมรถครับ`
+        : "";
+    const bodyLine = /suv|crossover|mpv|pickup|อเนกประสงค์/i.test(bodyHint)
+      ? `จากประเภทรถในประกาศ คันนี้ช่วยเรื่องพื้นที่ใช้สอยได้ดีในมุมครอบครัว แต่ก่อนตัดสินใจแนะนำให้ลองนั่งครบทุกตำแหน่ง ดูพื้นที่สัมภาระ ช่วงล่าง และการขับขี่ว่าเข้ากับการใช้งานจริงไหมครับ`
+      : /sedan|ซีดาน|hatch/i.test(bodyHint)
+        ? `ตัวรถเป็นซีดาน จึงใช้งานประจำวันได้ค่อนข้างลงตัว โดยเฉพาะบ้านที่ใช้นั่งกันประมาณ 3–4 คน ขับไปทำงาน รับส่งลูก หรือเดินทางในเมืองเป็นหลัก แต่ก่อนตัดสินใจแนะนำให้ลองนั่งครบทุกตำแหน่ง ดูพื้นที่เบาะหลังและที่เก็บสัมภาระว่าพอกับการใช้งานจริงของครอบครัวไหมครับ`
+        : `จากข้อมูลประกาศ คันนี้น่าพิจารณาสำหรับใช้งานครอบครัว แต่ก่อนตัดสินใจแนะนำให้ลองนั่งครบทุกตำแหน่ง ดูพื้นที่สัมภาระ และทดลองขับให้เข้ากับการใช้งานจริงครับ`;
+
+    const text = [
+      `ถ้าใช้กับครอบครัว คันนี้ถือว่าเป็นตัวเลือกที่น่าดูครับ — ${label} ราคา ${price} บาท${
+        car.mileage > 0
+          ? ` ไมล์ตามประกาศ ${car.mileage.toLocaleString("th-TH")} กม.`
+          : ""
+      }`,
+      bodyLine,
+      mileageLine,
+      "ถ้าบอกได้ว่าปกตินั่งกี่คนและใช้เดินทางแบบไหน น้องเอช่วยประเมินให้เจาะจงขึ้นได้ครับ",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    assertNoHallucinatedVehicleClaim(text);
+    return text;
+  }
+
   const familyAngle = /suv|crossover|mpv|pickup|อเนกประสงค์/i.test(bodyHint)
     ? "จากประเภทรถในระบบ เหมาะกับมุมครอบครัว/พื้นที่ใช้สอยได้ดี"
     : /sedan|ซีดาน|hatch/i.test(bodyHint)
@@ -140,9 +170,7 @@ function buildActiveVehicleFitReplyCopy(
     `จากข้อมูลประกาศของ ${label} น้องเอประเมินว่า`,
     "",
     `${label} — ราคา ${price} บาท${mileage}${body}`,
-    familyAsk
-      ? `เหมาะกับใช้ครอบครัวในมุมนี้ — ${familyAngle}`
-      : `เหมาะกับผู้ที่มองหารถในกลุ่มนี้ — ${familyAngle}`,
+    `เหมาะกับผู้ที่มองหารถในกลุ่มนี้ — ${familyAngle}`,
     modelCtx,
     "",
     "ข้อมูลนี้มาจากประกาศในระบบเท่านั้น ควรดูสภาพจริงก่อนตัดสินใจครับ",
