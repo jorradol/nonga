@@ -107,7 +107,22 @@ ok(
   "firestore fails without admin creds message",
   /Firebase Admin credentials are required/.test(firestoreRepo)
 );
-ok("no deleteBuyerLead on interface", !/deleteBuyerLead/.test(factory));
+const ifaceStart = factory.indexOf("export interface BuyerLeadRepository");
+const ifaceEnd = factory.indexOf("}", ifaceStart);
+const ifaceBlock =
+  ifaceStart >= 0 && ifaceEnd > ifaceStart
+    ? factory.slice(ifaceStart, ifaceEnd + 1)
+    : "";
+ok(
+  "BuyerLeadRepository interface has no public delete",
+  ifaceBlock.includes("createBuyerLead") && !/delete/i.test(ifaceBlock)
+);
+ok(
+  "gated cleanup method name is controlled-only",
+  /deleteBuyerLeadByIdForControlledCleanup/.test(
+    read("src/server/repositories/buyerLeadRepositoryFirestore.ts")
+  )
+);
 
 // --- Kill switch / ownership / API contract ---
 ok("kill switch default OFF", isLeadCaptureEnabled({}) === false);
@@ -161,8 +176,8 @@ ok(
 
 const healthSrc = read("server.ts");
 ok(
-  "health does not claim leadDataBackend yet",
-  !/leadDataBackend/.test(healthSrc)
+  "health leadDataBackend is non-secret diagnostic",
+  /leadDataBackend:\s*getActiveBuyerLeadDataBackend/.test(healthSrc)
 );
 
 console.log("\n--- Staging read-only (capture OFF, no writes) ---\n");

@@ -39,6 +39,10 @@ export async function sellerSkipQueueLead(params: {
   }
 
   const leads = await listLeadsForListing(params.repository, params.listingId);
+  const owned = leads.find((l) => l.id === params.leadId);
+  if (owned && owned.sellerId !== params.sellerId) {
+    return { ok: false, status: 403, message: "ไม่มีสิทธิ์ข้ามลีดนี้ครับ" };
+  }
   const gate = assertSellerCanSkipBeforeReveal(leads, params.listingId, params.leadId);
   if (gate.ok === false) {
     if (gate.code === "not_found") {

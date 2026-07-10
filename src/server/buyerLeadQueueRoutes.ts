@@ -117,10 +117,11 @@ export function registerBuyerLeadQueueRoutes(
       if (!canManageBuyerLeadForListing(auth, listing)) {
         return res.status(403).json({ success: false, message: "ไม่มีสิทธิ์ข้ามลีดนี้ครับ" });
       }
+      const sellerId = resolveListingSellerId(listing);
       const result = await sellerSkipQueueLead({
         repository,
         listingId: lead.listingId,
-        sellerId: lead.sellerId,
+        sellerId,
         leadId,
         reason: String(body.reason ?? "").trim(),
         note: typeof body.note === "string" ? body.note : undefined,

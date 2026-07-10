@@ -19,6 +19,10 @@ import {
   BUYER_LEAD_CAPTURE_DISABLED_MESSAGE,
   isLeadCaptureEnabled,
 } from "./leadCaptureFlags";
+import {
+  BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
+  findActiveDuplicateBuyerLead,
+} from "./buyerLeadDuplicateGuard";
 
 export interface CreateBuyerLeadParams {
   input: BuyerLeadCreateInput;
@@ -39,6 +43,15 @@ export type CreateBuyerLeadResult =
       publicLead: ReturnType<typeof toPublicBuyerLead>;
       queuePosition: number;
       buyerMessage: string;
+      duplicate?: false;
+    }
+  | {
+      ok: true;
+      lead: BuyerLead;
+      publicLead: ReturnType<typeof toPublicBuyerLead>;
+      queuePosition: number;
+      buyerMessage: string;
+      duplicate: true;
     }
   | { ok: false; status: 400 | 403; message: string; errors?: string[] };
 
@@ -80,6 +93,27 @@ export async function createConsentedBuyerLead(
   const sellerId = resolveListingSellerId(params.listing);
   if (!sellerId) {
     return { ok: false, status: 400, message: "ไม่พบผู้ขายของประกาศนี้ครับ" };
+  }
+
+  // v22.49 — minimum active-duplicate guard (same buyer + listing + phone).
+  const existingForListing = await params.repository.listBuyerLeadsByListingId(
+    params.listing.id
+  );
+  const dup = findActiveDuplicateBuyerLead({
+    existing: existingForListing,
+    listingId: params.listing.id,
+    buyerUserId: params.buyerUserId,
+    contactPhone: params.input.contactPhone,
+  });
+  if (dup) {
+    return {
+      ok: true,
+      lead: dup,
+      publicLead: toPublicBuyerLead(dup, "buyer_self"),
+      queuePosition: dup.queuePosition,
+      buyerMessage: BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
+      duplicate: true,
+    };
   }
 
   const now = new Date().toISOString();
@@ -146,6 +180,7 @@ export async function createConsentedBuyerLead(
     publicLead: toPublicBuyerLead(saved, "buyer_self"),
     queuePosition: saved.queuePosition,
     buyerMessage: buyerSuccessMessageForQueue(saved.queuePosition),
+    duplicate: false,
   };
 }
 

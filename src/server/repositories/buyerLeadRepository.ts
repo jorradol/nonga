@@ -1,5 +1,5 @@
 /**
- * v5.6C / v5.6F — Buyer lead repository factory (memory default; optional Firestore).
+ * v5.6C / v5.6F / v22.49 — Buyer lead repository factory (memory default; optional Firestore).
  */
 
 import type { BuyerLead, LeadContactLog } from "../../services/leads/leadTypes";
@@ -50,6 +50,11 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
     this.logs.push(log);
     return log;
   }
+
+  /** Test-only: remove one lead from memory store. */
+  deleteBuyerLeadByIdForControlledCleanup(leadId: string): boolean {
+    return this.leads.delete(leadId.trim());
+  }
 }
 
 let singleton: BuyerLeadRepository | null = null;
@@ -68,10 +73,25 @@ export function createBuyerLeadRepository(
   return singleton;
 }
 
+/** Safe health/diagnostic value — never secrets. Reflects resolved backend selection. */
+export function getActiveBuyerLeadDataBackend(): BuyerLeadDataBackend {
+  if (singletonBackend) return singletonBackend;
+  return resolveBuyerLeadDataBackend();
+}
+
 /** For tests — reset in-memory store (forces memory backend). */
 export function resetBuyerLeadRepositoryForTests(): void {
   singleton = new InMemoryBuyerLeadRepository();
   singletonBackend = "memory";
+}
+
+/** For Emulator tests — inject a pre-built repository (e.g. Firestore Emulator). */
+export function setBuyerLeadRepositoryForTests(
+  repository: BuyerLeadRepository,
+  backend: BuyerLeadDataBackend
+): void {
+  singleton = repository;
+  singletonBackend = backend;
 }
 
 export function buyerLeadsCollectionName(): string {

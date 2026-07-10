@@ -1,6 +1,7 @@
 /**
- * v5.6F — Firestore buyer lead + contact log persistence (server Admin SDK only).
- * Enable with NONGA_LEAD_DATA_BACKEND=firestore. Does not change firestore.rules in v5.6F.
+ * v5.6F / v22.49 — Firestore buyer lead + contact log persistence (server Admin SDK only).
+ * Enable with NONGA_LEAD_DATA_BACKEND=firestore.
+ * Emulator: set FIRESTORE_EMULATOR_HOST (no live credentials required).
  */
 
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
@@ -15,6 +16,7 @@ interface FirestoreCollectionLike {
     id: string;
     set(data: Record<string, unknown>, opts?: { merge?: boolean }): Promise<void>;
     get(): Promise<{ exists: boolean; id: string; data(): Record<string, unknown> | undefined }>;
+    delete(): Promise<void>;
   };
   where(
     field: string,
@@ -29,13 +31,60 @@ interface FirestoreDbLike {
   collection(name: string): FirestoreCollectionLike;
 }
 
+/** Live / production project ids that must never be used without Emulator host. */
+const BLOCKED_LIVE_PROJECT_MARKERS = [
+  "nonga-ce93c",
+  "nonga-prod",
+  "nonga-production",
+] as const;
+
+export function assertBuyerLeadFirestoreEmulatorIsolation(
+  env: Partial<NodeJS.ProcessEnv> = process.env
+): void {
+  const host = String(env.FIRESTORE_EMULATOR_HOST ?? "").trim();
+  if (!host) {
+    throw new Error(
+      "FIRESTORE_EMULATOR_HOST is required for isolated buyer-lead Firestore tests"
+    );
+  }
+  const project =
+    env.FIREBASE_PROJECT_ID?.trim() ||
+    env.NONGA_FIREBASE_PROJECT_ID?.trim() ||
+    env.GOOGLE_CLOUD_PROJECT?.trim() ||
+    env.GCLOUD_PROJECT?.trim() ||
+    "";
+  const lower = project.toLowerCase();
+  for (const marker of BLOCKED_LIVE_PROJECT_MARKERS) {
+    if (lower === marker || lower.includes(marker)) {
+      throw new Error(
+        "Refusing buyer-lead Firestore access: live project marker detected without isolation"
+      );
+    }
+  }
+  if (project && !/^demo[-_]/i.test(project) && env.NONGA_LEAD_ALLOW_NON_DEMO_EMULATOR !== "1") {
+    throw new Error(
+      "Refusing buyer-lead Firestore access: project must be demo-* for Emulator tests"
+    );
+  }
+}
+
 function initializeBuyerLeadAdminApp() {
   if (getApps().length > 0) return getApps()[0];
+
+  const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST?.trim();
   const projectId =
     process.env.FIREBASE_PROJECT_ID?.trim() ||
     process.env.NONGA_FIREBASE_PROJECT_ID?.trim() ||
     process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
-    process.env.GCLOUD_PROJECT?.trim();
+    process.env.GCLOUD_PROJECT?.trim() ||
+    (emulatorHost ? "demo-nonga-v2249" : undefined);
+
+  // Emulator path: no service-account secrets required; Admin SDK talks to local emulator.
+  if (emulatorHost) {
+    assertBuyerLeadFirestoreEmulatorIsolation();
+    return initializeApp({ projectId: projectId || "demo-nonga-v2249" });
+  }
+
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
   if (serviceAccountJson) {
     return initializeApp({
@@ -107,9 +156,48 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
     await this.logsCol().doc(log.id).set(data as unknown as Record<string, unknown>);
     return log;
   }
+
+  /**
+   * Internal / Emulator / controlled-operator cleanup only.
+   * Deletes exactly one Lead document by id. Does not cascade unrelated docs.
+   * Gated by assertBuyerLeadTestCleanupAllowed().
+   */
+  async deleteBuyerLeadByIdForControlledCleanup(leadId: string): Promise<boolean> {
+    assertBuyerLeadTestCleanupAllowed();
+    const id = leadId.trim();
+    if (!id) return false;
+    const snap = await this.leadsCol().doc(id).get();
+    if (!snap.exists) return false;
+    await this.leadsCol().doc(id).delete();
+    return true;
+  }
+}
+
+/**
+ * Cleanup gate: Emulator host, or explicit NONGA_LEAD_TEST_CLEANUP=1 (never default-on).
+ * Production must not set the cleanup flag.
+ */
+export function assertBuyerLeadTestCleanupAllowed(
+  env: Partial<NodeJS.ProcessEnv> = process.env
+): void {
+  const emulator = Boolean(env.FIRESTORE_EMULATOR_HOST?.trim());
+  const explicit = env.NONGA_LEAD_TEST_CLEANUP === "1";
+  if (!emulator && !explicit) {
+    throw new Error(
+      "Buyer-lead targeted cleanup is disabled (requires Emulator or NONGA_LEAD_TEST_CLEANUP=1)"
+    );
+  }
+  if (emulator) {
+    assertBuyerLeadFirestoreEmulatorIsolation(env);
+  }
 }
 
 export function createFirestoreBuyerLeadRepository(): BuyerLeadRepository {
   const app = initializeBuyerLeadAdminApp();
   return new FirestoreBuyerLeadRepository(getFirestore(app) as unknown as FirestoreDbLike);
+}
+
+/** Test helper — inject Emulator Firestore without re-init races. */
+export function createFirestoreBuyerLeadRepositoryFromDb(db: FirestoreDbLike): FirestoreBuyerLeadRepository {
+  return new FirestoreBuyerLeadRepository(db);
 }
