@@ -22,6 +22,7 @@ import { handleBuyerLeadCaptureTurn } from "../src/services/leads/buyerLeadCaptu
 import {
   submitBuyerLeadFromModal,
 } from "../src/services/leads/buyerLeadCaptureHandler.ts";
+import { setLeadCaptureEnabledForTests } from "../src/services/leads/leadCaptureClientFlags.ts";
 import {
   BUYER_LEAD_MODAL_CONSENT_CONTACT,
   BUYER_LEAD_MODAL_CONSENT_PRIMARY,
@@ -45,6 +46,9 @@ function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
   if (!pass) process.exitCode = 1;
 }
+
+// Unit tests exercise ON-path capture UX; client override only.
+setLeadCaptureEnabledForTests(true);
 
 const sampleCar: ChatCarCardData = {
   id: "car-target-99",

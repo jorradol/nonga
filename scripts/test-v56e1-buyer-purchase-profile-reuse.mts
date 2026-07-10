@@ -19,6 +19,7 @@ import {
   handleBuyerLeadCaptureFromCarCard,
   handleBuyerLeadCaptureTurn,
 } from "../src/services/leads/buyerLeadCaptureHandler.ts";
+import { setLeadCaptureEnabledForTests } from "../src/services/leads/leadCaptureClientFlags.ts";
 import {
   buyerPurchaseProfileHasNoPhone,
   getBuyerPurchaseProfile,
@@ -37,6 +38,9 @@ function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
   if (!pass) process.exitCode = 1;
 }
+
+// Unit tests exercise ON-path capture UX; client override only.
+setLeadCaptureEnabledForTests(true);
 
 const carA: ChatCarCardData = {
   id: "car-profile-a",

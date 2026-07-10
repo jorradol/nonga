@@ -18,9 +18,16 @@ export const CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION = "แก้ไขข้�
 export const BUYER_LEAD_LOGIN_REQUIRED_REPLY =
   "ก่อนส่งข้อมูลให้ผู้ขาย กรุณาเข้าสู่ระบบก่อนนะครับ (รอบทดลองยังไม่เปิดสมัครเอง — ใช้บัญชีที่ทีมเชิญ) แล้วกดยืนยันในหน้าต่างสรุปอีกครั้งครับ";
 
-/** v22.30 — Soft notice when staging kill switch is OFF (flow still explorable). */
+/**
+ * v22.46 — Clear OFF-state notice (no PII collection invited).
+ * Backend kill switch remains authoritative; UI must not imply a lead was saved.
+ */
 export const BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT =
-  "หมายเหตุ: รอบ staging นี้ยังไม่เปิดส่งข้อมูลให้ผู้ขายจริง — ทดลองกรอก/ดูหน้าต่างสรุปได้ แต่ยังไม่มีการบันทึกลีดและไม่ส่งต่อให้ผู้ขายครับ";
+  "ระบบฝากข้อมูลให้ผู้ขายยังไม่เปิดใช้งานในขณะนี้ครับ — ยังไม่มีการบันทึกลีดและไม่ส่งต่อให้ผู้ขาย ลุงดูรายละเอียดรถหรือถามน้องเอเพิ่มเติมได้เลยครับ";
+
+/** v22.46 — Short reply when CTA/intent is used while capture is OFF (no draft started). */
+export const BUYER_LEAD_CAPTURE_UNAVAILABLE_REPLY =
+  "ระบบฝากข้อมูลให้ผู้ขายยังไม่เปิดใช้งานในขณะนี้ครับ\n\nยังไม่มีการบันทึกลีดและไม่ส่งต่อให้ผู้ขาย — ลุงดูรายละเอียดรถหรือถามน้องเอเพิ่มเติมได้เลยครับ";
 
 export const BUYER_LEAD_CANCEL_REPLY =
   "ยกเลิกการส่งข้อมูลให้ผู้ขายแล้วครับ ถ้าสนใจใหม่ พิมพ์ “ขอให้ผู้ขายติดต่อกลับ” ได้เลยครับ";

@@ -25,6 +25,12 @@ export const BUYER_LEAD_MODAL_SUBMIT_NETWORK_ERROR =
 export const BUYER_LEAD_MODAL_SUBMIT_NOT_READY_ERROR =
   "ยังไม่พร้อมส่งข้อมูล กรุณากรอกข้อมูลในแชทให้ครบก่อนครับ";
 
-/** v22.30 — Shown when global lead capture kill switch is OFF. */
+/**
+ * v22.46 — Shown when global lead capture kill switch is OFF.
+ * Do not invite phone/name entry while unavailable.
+ */
 export const BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT =
-  "รอบ staging นี้ยังไม่เปิดส่งข้อมูลให้ผู้ขาย — กดยืนยันจะไม่บันทึกลีดและไม่ส่งต่อให้ผู้ขาย";
+  "ระบบฝากข้อมูลให้ผู้ขายยังไม่เปิดใช้งานในขณะนี้ครับ — ยังไม่มีการบันทึกลีดและไม่ส่งต่อให้ผู้ขาย ลุงดูรายละเอียดรถหรือถามน้องเอเพิ่มเติมได้เลยครับ";
+
+export const BUYER_LEAD_MODAL_CAPTURE_DISABLED_TITLE =
+  "ยังไม่เปิดฝากข้อมูลให้ผู้ขาย";

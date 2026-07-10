@@ -7,6 +7,7 @@ import {
   BUYER_LEAD_MODAL_PHONE_INVALID_HINT,
   BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL,
   BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT,
+  BUYER_LEAD_MODAL_CAPTURE_DISABLED_TITLE,
 } from "../../services/leads/buyerLeadConsentModalCopy";
 import { normalizeThaiPhone } from "../../services/leads/buyerLeadValidation";
 import type { BuyerLeadModalPreview } from "../../services/leads/buyerLeadPreview";
@@ -16,7 +17,11 @@ export type BuyerLeadConsentModalProps = {
   preview: BuyerLeadModalPreview | null;
   isSubmitting: boolean;
   submitError?: string | null;
-  /** v22.30 — when false, show staging-disabled hint; backend still blocks create. */
+  /**
+   * v22.30/v22.46 — from /api/health only (fail-closed).
+   * When false, show unavailable state without requesting PII.
+   * Backend kill switch remains authoritative.
+   */
   leadCaptureEnabled?: boolean;
   onClose: () => void;
   onBackToEdit: () => void;
@@ -62,6 +67,7 @@ export function BuyerLeadConsentModal({
         aria-modal="true"
         aria-labelledby="buyer-lead-consent-title"
         data-testid="buyer-lead-consent-modal"
+        data-lead-capture-enabled={leadCaptureEnabled ? "true" : "false"}
       >
         <motion.div
           initial={{ opacity: 0 }}
@@ -82,10 +88,14 @@ export function BuyerLeadConsentModal({
                 id="buyer-lead-consent-title"
                 className="text-sm font-bold text-orange-300"
               >
-                ตรวจสอบก่อนส่งข้อมูลให้ผู้ขาย
+                {leadCaptureEnabled
+                  ? "ตรวจสอบก่อนส่งข้อมูลให้ผู้ขาย"
+                  : BUYER_LEAD_MODAL_CAPTURE_DISABLED_TITLE}
               </h2>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                สรุปข้อมูลที่น้องเอจะส่งต่อให้เจ้าของรถคันนี้
+                {leadCaptureEnabled
+                  ? "สรุปข้อมูลที่น้องเอจะส่งต่อให้เจ้าของรถคันนี้"
+                  : "ยังไม่เปิดรับฝากข้อมูลในรอบนี้"}
               </p>
             </div>
             <button
@@ -99,7 +109,22 @@ export function BuyerLeadConsentModal({
           </div>
 
           <div className="px-4 py-4 space-y-4">
-            {!preview ? (
+            {!leadCaptureEnabled ? (
+              <section
+                className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2"
+                data-testid="buyer-lead-capture-disabled-panel"
+              >
+                <p
+                  className="text-sm text-amber-50 leading-relaxed"
+                  data-testid="buyer-lead-capture-disabled-hint"
+                >
+                  {BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT}
+                </p>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  น้องเอไม่บันทึกลีดและไม่ส่งต่อให้ผู้ขายในขณะนี้ — ไม่ต้องกรอกเบอร์หรือข้อมูลส่วนตัวครับ
+                </p>
+              </section>
+            ) : !preview ? (
               <p className="text-sm text-slate-400">ไม่พบข้อมูลสรุป กรุณากรอกในแชทให้ครบก่อนครับ</p>
             ) : (
               <>
@@ -189,15 +214,6 @@ export function BuyerLeadConsentModal({
                   <p>{BUYER_LEAD_MODAL_CONSENT_PRIMARY}</p>
                   <p className="text-slate-400">{BUYER_LEAD_MODAL_CONSENT_CONTACT}</p>
                 </section>
-
-                {!leadCaptureEnabled ? (
-                  <p
-                    className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100 leading-relaxed"
-                    data-testid="buyer-lead-capture-disabled-hint"
-                  >
-                    {BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT}
-                  </p>
-                ) : null}
               </>
             )}
           </div>
@@ -212,35 +228,47 @@ export function BuyerLeadConsentModal({
                 {submitError}
               </p>
             ) : null}
-            <button
-              type="button"
-              disabled={!preview || !canConfirm || isSubmitting || !leadCaptureEnabled}
-              onClick={() => {
-                if (normalizedPhone) onConfirm(normalizedPhone);
-              }}
-              className="w-full min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
-              data-testid="buyer-lead-confirm-submit"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL}
-                </>
-              ) : leadCaptureEnabled ? (
-                "ยืนยันส่งข้อมูลให้ผู้ขาย"
-              ) : (
-                "ยังไม่เปิดส่งข้อมูลในรอบนี้"
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onBackToEdit}
-              disabled={isSubmitting}
-              className="w-full min-h-[40px] rounded-xl border border-slate-600 text-slate-200 text-sm font-semibold hover:bg-slate-800 cursor-pointer"
-              data-testid="buyer-lead-back-edit"
-            >
-              กลับไปแก้ไข
-            </button>
+            {leadCaptureEnabled ? (
+              <button
+                type="button"
+                disabled={!preview || !canConfirm || isSubmitting}
+                onClick={() => {
+                  if (normalizedPhone) onConfirm(normalizedPhone);
+                }}
+                className="w-full min-h-[44px] rounded-xl bg-orange-500 hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
+                data-testid="buyer-lead-confirm-submit"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {BUYER_LEAD_MODAL_SUBMIT_LOADING_LABEL}
+                  </>
+                ) : (
+                  "ยืนยันส่งข้อมูลให้ผู้ขาย"
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full min-h-[44px] rounded-xl bg-slate-700 text-slate-300 text-sm font-bold opacity-80 cursor-not-allowed"
+                data-testid="buyer-lead-confirm-submit"
+                data-lead-submit-disabled="true"
+              >
+                ยังไม่เปิดส่งข้อมูลในรอบนี้
+              </button>
+            )}
+            {leadCaptureEnabled ? (
+              <button
+                type="button"
+                onClick={onBackToEdit}
+                disabled={isSubmitting}
+                className="w-full min-h-[40px] rounded-xl border border-slate-600 text-slate-200 text-sm font-semibold hover:bg-slate-800 cursor-pointer"
+                data-testid="buyer-lead-back-edit"
+              >
+                กลับไปแก้ไข
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
@@ -248,7 +276,7 @@ export function BuyerLeadConsentModal({
               className="w-full min-h-[40px] rounded-xl text-slate-400 text-sm hover:text-slate-200 cursor-pointer"
               data-testid="buyer-lead-cancel"
             >
-              ยกเลิก
+              {leadCaptureEnabled ? "ยกเลิก" : "ปิด"}
             </button>
           </div>
         </motion.div>

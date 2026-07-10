@@ -56,6 +56,7 @@ export function BuyerLeadConsentModalHost() {
   }, [consentModalOpen, sessionId]);
 
   const handleConfirm = async (phone: string) => {
+    // Fail closed: never call API when health says OFF (backend still authoritative).
     if (!leadCaptureEnabled) {
       setSubmitError(BUYER_LEAD_MODAL_CAPTURE_DISABLED_HINT);
       return;

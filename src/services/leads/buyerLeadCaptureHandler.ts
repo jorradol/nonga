@@ -16,8 +16,11 @@ import {
   buildBuyerLeadStartFromCarReply,
   buildBuyerLeadSuccessReply,
   BUYER_LEAD_CANCEL_REPLY,
-  BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT,
+  BUYER_LEAD_CAPTURE_UNAVAILABLE_REPLY,
   BUYER_LEAD_FORBIDDEN_DOC_REPLY,
+  CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION,
+  CHAT_BUYER_LEAD_OPEN_MODAL_ACTION,
+  CHAT_BUYER_LEAD_USE_SAVED_PROFILE_ACTION,
 } from "./buyerLeadCaptureCopy";
 import { fetchLeadCaptureEnabled } from "./leadCaptureClientFlags";
 import {
@@ -26,6 +29,7 @@ import {
   getBuyerLeadCaptureContext,
   hasPartialBuyerLeadDraftFields,
   isBuyerLeadCancelIntent,
+  isBuyerLeadStartIntent,
   listMissingBuyerLeadFields,
   processBuyerLeadCaptureTurn,
   startBuyerLeadCaptureFromCar,
@@ -38,6 +42,22 @@ import {
 } from "./buyerLeadValidation";
 import type { ChatCarCardData } from "../../types";
 import { clearBuyerLeadTarget } from "../../utils/buyerLeadTarget";
+
+function isBuyerLeadUiActionMessage(message: string): boolean {
+  const t = message.trim();
+  return (
+    t === CHAT_BUYER_LEAD_OPEN_MODAL_ACTION ||
+    t === CHAT_BUYER_LEAD_USE_SAVED_PROFILE_ACTION ||
+    t === CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION ||
+    isBuyerLeadEditSavedProfileAction(message)
+  );
+}
+
+/** v22.46 — Clear in-progress draft when capture is OFF; never collect PII. */
+function clearBuyerLeadCaptureWhileUnavailable(sessionId: string): void {
+  clearBuyerLeadCaptureContext(sessionId);
+  clearBuyerLeadTarget();
+}
 
 export interface HandleBuyerLeadCaptureParams {
   sessionId: string;
@@ -66,6 +86,23 @@ export async function handleBuyerLeadCaptureTurn(
     clearBuyerLeadCaptureContext(params.sessionId);
     clearBuyerLeadTarget();
     return { handled: true, reply: BUYER_LEAD_CANCEL_REPLY };
+  }
+
+  // v22.46 — While kill switch is OFF, do not collect PII or open consent modal.
+  const captureOn = await fetchLeadCaptureEnabled();
+  if (!captureOn) {
+    const active = getBuyerLeadCaptureContext(params.sessionId);
+    const startOrContinue =
+      Boolean(active) ||
+      isBuyerLeadStartIntent(params.message) ||
+      isBuyerLeadUiActionMessage(params.message);
+    if (startOrContinue) {
+      clearBuyerLeadCaptureWhileUnavailable(params.sessionId);
+      return {
+        handled: true,
+        reply: BUYER_LEAD_CAPTURE_UNAVAILABLE_REPLY,
+      };
+    }
   }
 
   const turn = processBuyerLeadCaptureTurn({
@@ -114,12 +151,9 @@ export async function handleBuyerLeadCaptureTurn(
   }
 
   if (sessionCtx.stage === "ready_for_modal" && miss.length === 0) {
-    const captureOn = await fetchLeadCaptureEnabled();
     return {
       handled: true,
-      reply:
-        buildBuyerLeadReadySummaryReply(sessionCtx.fields) +
-        (captureOn ? "" : `\n\n${BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT}`),
+      reply: buildBuyerLeadReadySummaryReply(sessionCtx.fields),
       isBuyerLeadReady: true,
     };
   }
@@ -137,22 +171,24 @@ export async function handleBuyerLeadCaptureFromCarCard(params: {
   car: ChatCarCardData;
   buyerUserId?: string;
 }): Promise<{ reply: string; isBuyerLeadProfileReuse?: boolean }> {
+  // v22.46 — OFF: explain unavailable; do not start draft or ask for PII.
+  const captureOn = await fetchLeadCaptureEnabled();
+  if (!captureOn) {
+    clearBuyerLeadCaptureWhileUnavailable(params.sessionId);
+    return { reply: BUYER_LEAD_CAPTURE_UNAVAILABLE_REPLY };
+  }
+
   const ctx = startBuyerLeadCaptureFromCar(
     params.sessionId,
     params.car,
     params.buyerUserId
   );
-  const captureOn = await fetchLeadCaptureEnabled();
-  const disabledNote = captureOn
-    ? ""
-    : `\n\n${BUYER_LEAD_CAPTURE_DISABLED_CHAT_HINT}`;
   if (ctx.stage === "reuse_profile_choice") {
     return {
       reply:
         buildBuyerLeadStartFromCarReply(params.car) +
         "\n\n" +
-        buildBuyerLeadSavedProfileSummaryReply(ctx.fields) +
-        disabledNote,
+        buildBuyerLeadSavedProfileSummaryReply(ctx.fields),
       isBuyerLeadProfileReuse: true,
     };
   }
@@ -161,8 +197,7 @@ export async function handleBuyerLeadCaptureFromCarCard(params: {
     reply:
       buildBuyerLeadStartFromCarReply(params.car) +
       "\n\n" +
-      buildBuyerLeadCollectingPrompt(miss) +
-      disabledNote,
+      buildBuyerLeadCollectingPrompt(miss),
   };
 }
 
@@ -176,6 +211,16 @@ export async function submitBuyerLeadFromModal(params: {
   isSignedIn: boolean;
   buyerUserId?: string;
 }): Promise<SubmitBuyerLeadFromModalResult> {
+  // v22.46 — UI fail-closed; backend kill switch remains authoritative.
+  const captureOn = await fetchLeadCaptureEnabled({ force: true });
+  if (!captureOn) {
+    clearBuyerLeadCaptureWhileUnavailable(params.sessionId);
+    return {
+      ok: false,
+      message: BUYER_LEAD_CAPTURE_UNAVAILABLE_REPLY,
+    };
+  }
+
   const ctx = getBuyerLeadCaptureContext(params.sessionId);
   if (!ctx || ctx.stage !== "ready_for_modal") {
     return { ok: false, message: "ยังไม่พร้อมส่งข้อมูล กรุณากรอกข้อมูลในแชทให้ครบก่อนครับ" };

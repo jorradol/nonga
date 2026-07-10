@@ -10,6 +10,12 @@ interface InquireModalProps {
   isDarkMode?: boolean;
 }
 
+/**
+ * Marketplace detail inquire form — **legacy mock only**.
+ * v22.46: NOT the supported Buyer Lead path.
+ * Supported path: chat CTA → BuyerLeadConsentModal → consented buyer-lead API.
+ * This modal uses setTimeout simulation and must not be wired to real lead APIs.
+ */
 export default function InquireModal({ isOpen, onClose, car, isDarkMode = true }: InquireModalProps) {
   const [formData, setFormData] = useState({
     name: "",

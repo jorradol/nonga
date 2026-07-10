@@ -18,6 +18,7 @@ import {
   setBuyerLeadCaptureContextForTest,
 } from "../src/services/leads/buyerLeadCaptureFlow.ts";
 import { submitBuyerLeadFromModal } from "../src/services/leads/buyerLeadCaptureHandler.ts";
+import { setLeadCaptureEnabledForTests } from "../src/services/leads/leadCaptureClientFlags.ts";
 
 const repoRoot = resolve(import.meta.dirname ?? ".", "..");
 
@@ -29,6 +30,9 @@ function ok(name: string, pass: boolean, detail = "") {
 function read(rel: string): string {
   return readFileSync(resolve(repoRoot, rel), "utf8");
 }
+
+// Unit tests exercise ON-path UX; client flag override only (backend still authoritative).
+setLeadCaptureEnabledForTests(true);
 
 // --- HTTP error mapping ---
 ok(

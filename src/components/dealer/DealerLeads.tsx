@@ -10,6 +10,11 @@ import { useAnalytics } from "../../hooks/analytics/useAnalytics";
 import { useAppStore } from "../../store";
 import { LeadStatus, LeadEventType, ScoreTier } from "../../types/analytics";
 
+/**
+ * Legacy analytics CRM prototype — **not** the consented chat buyer-lead engine.
+ * v22.46: Supported Buyer Lead path is chat CTA → BuyerLeadConsentModal → consented buyer-lead API.
+ * Do not wire this component to the buyer-lead create endpoint or treat it as the active Lead system.
+ */
 export function DealerLeads() {
   const setView = useAppStore((state) => state.setView);
   const {
