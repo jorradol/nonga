@@ -38,6 +38,7 @@ import {
   isPilotBuyerFollowUpMessage,
   extractNumberedComparePair,
 } from "./chat/chatPilotBuyerFollowUp";
+import { parseMarketplaceSearchQuery } from "./chat/marketplaceChatSearch";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
@@ -793,6 +794,9 @@ export function evaluateRealProviderOutputSafety(
   if (hasForbiddenBrandVoiceTerm(trimmed)) {
     return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
   }
+  if (hasUngroundedVehicleModelMention(trimmed, options?.pilotOrchestration)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
   if (hasExcessiveNonThaiContent(trimmed, vehicleTerms)) {
     return { safe: false, unsafeReason: "non_thai_output", scenario, outputLength };
   }
@@ -879,6 +883,9 @@ const OWNER_ONLY_ALLOWED_ROLES: ReadonlySet<SalesBrainUserRole> = new Set([
 const DETERMINISTIC_BOUNDARY_PATTERNS: RegExp[] = [
   /ยืนยัน(?:ให้)?ส่งข้อมูล|ส่งข้อมูลให้ผู้ขาย|consent|lead/i,
   /เบอร์|เบอร์ติดต่อ|contact|phone|โทรศัพท์|line id/i,
+  /** v22.55 — Lead-slot / identity capture stays deterministic; never send to provider */
+  /ชื่อ(?:จริง)?\s*[:：]?\s*\S+|นามสกุล|ชื่อเล่น/i,
+  /ติดต่อได้|ให้ผู้ขายติดต่อ|ผู้ขาย(?:จะ)?(?:ติดต่อ|โทร)|สนใจ.*(?:ติดต่อ|โทรกลับ)/i,
   /vin|เลขตัวถัง|plate|ทะเบียน/i,
   /api\s*key|token|secret|credential|password/i,
   /เปิด\s*(?:production|public)|production|public route|buyer-facing/i,
@@ -887,6 +894,31 @@ const DETERMINISTIC_BOUNDARY_PATTERNS: RegExp[] = [
   /admin action|superadmin|revenue|settlement/i,
   /แต่งกลอน|แต่งเพลง|ดูดวง|ค้นเว็บ|off-topic/i,
 ];
+
+/** Common marketplace model tokens — used to reject ungrounded model recommendations. */
+const GROUNDED_MODEL_GUARD_TOKENS = [
+  "Camry",
+  "Corolla",
+  "Vios",
+  "Yaris",
+  "Altis",
+  "Civic",
+  "City",
+  "HR-V",
+  "CR-V",
+  "Fortuner",
+  "Hilux",
+  "D-Max",
+  "Navara",
+  "Almera",
+  "March",
+  "Jazz",
+  "Brio",
+  "Attrage",
+  "Xpander",
+  "Everest",
+  "Ranger",
+] as const;
 
 export function isOwnerOnlyControlledUxEnabled(
   readEnv: SalesBrainEnvReader = defaultEnvReader
@@ -903,6 +935,76 @@ export function hasDeterministicBoundaryBlock(message: string): boolean {
   return false;
 }
 
+/** v22.55 — exact brand/model/year ask detected from deterministic parser. */
+export function isExactModelYearInventoryAsk(message: string): boolean {
+  const criteria = parseMarketplaceSearchQuery(message);
+  return Boolean(criteria?.model?.trim() && criteria.year != null);
+}
+
+/**
+ * v22.55 — when user asks exact model+year, ground Gemini only on matching cards
+ * so it cannot invent Camry/Vios alternatives from a broader session set.
+ */
+export function narrowPilotOrchestrationForExactInventoryAsk(
+  userMessage: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): UserVisiblePilotOrchestrationHint | undefined {
+  if (!pilotOrchestration) return pilotOrchestration;
+  const criteria = parseMarketplaceSearchQuery(userMessage);
+  const model = criteria?.model?.trim().toLowerCase();
+  const year = criteria?.year;
+  if (!model || year == null) return pilotOrchestration;
+  const cards = pilotOrchestration.recentCarCards ?? [];
+  if (cards.length === 0) return pilotOrchestration;
+  const exact = cards.filter((c) => {
+    const cardModel = String(c.model ?? "").trim().toLowerCase();
+    return cardModel.includes(model) && Number(c.year) === year;
+  });
+  if (exact.length === 0) return pilotOrchestration;
+  return {
+    ...pilotOrchestration,
+    recentCarCards: exact,
+    carCardCount: exact.length,
+    hasMoreCars: false,
+  };
+}
+
+function buildExactInventoryAskPromptGuidance(userMessage: string): string {
+  const criteria = parseMarketplaceSearchQuery(userMessage);
+  if (!criteria?.model?.trim() || criteria.year == null) return "";
+  const label = [criteria.brand, criteria.model, `ปี ${criteria.year}`]
+    .filter(Boolean)
+    .join(" ");
+  return [
+    `ผู้ใช้ถามหา ${label} โดยตรง — เปิดด้วยการยืนยันว่ามี/ไม่มีคันที่ตรงรุ่นและปีนี้ก่อน`,
+    "อธิบายเฉพาะคันใน listing ที่ตรงรุ่น/ปี ห้ามแนะนำรุ่นอื่น (เช่น Camry / Vios) เว้นแต่ผู้ใช้ขอทางเลือกชัดเจน",
+    "ใช้ราคา/ไมล์/ปีจาก listing เท่านั้น ห้ามแต่งตัวเลข",
+  ].join(" ");
+}
+
+/** Reject answers that name marketplace models absent from the grounded card set. */
+export function hasUngroundedVehicleModelMention(
+  text: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): boolean {
+  const cards = pilotOrchestration?.recentCarCards ?? [];
+  if (cards.length === 0) return false;
+  const groundedModels = cards
+    .map((c) => String(c.model ?? "").trim().toLowerCase())
+    .filter(Boolean);
+  if (groundedModels.length === 0) return false;
+  for (const token of GROUNDED_MODEL_GUARD_TOKENS) {
+    const re = new RegExp(`\\b${token.replace(/-/g, "[-]?")}\\b`, "i");
+    if (!re.test(text)) continue;
+    const tokenLc = token.toLowerCase();
+    const grounded = groundedModels.some(
+      (m) => m.includes(tokenLc) || tokenLc.includes(m)
+    );
+    if (!grounded) return true;
+  }
+  return false;
+}
+
 export function detectOwnerControlledGeminiUxZone(
   message: string
 ): OwnerControlledGeminiUxZone | null {
@@ -910,7 +1012,17 @@ export function detectOwnerControlledGeminiUxZone(
   if (!text) return null;
   if (/เทียบ|เปรียบเทียบ|ต่างกันยังไง/i.test(text)) return "compare_car_types";
   if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(text)) return "car_fit_reason";
+  if (/ไมล์(?:เยอะ|น้อย|สูง|ต่ำ|มาก)|เลขไมล์/i.test(text)) return "car_fit_reason";
+  if (/ครอบครัว|ใช้งาน|ใช้ประจำ|ใช้ในเมือง|นั่ง(?:กี่|ได้กี่)/i.test(text)) {
+    return "car_fit_reason";
+  }
   if (/งบ|พื้นที่|โซน|ทำเล|ในเมือง|ต่างจังหวัด/i.test(text)) {
+    return "budget_location_explanation";
+  }
+  if (/คันนี้|คันนั้น|บริบท|ต่อเนื่อง|context/i.test(text)) {
+    return "same_chat_context_switching_wording";
+  }
+  if (/ผ่อน|ไฟแนนซ์|งวด|ดาวน์|ค่างวด/i.test(text)) {
     return "budget_location_explanation";
   }
   if (/ลงขาย|ร่างประกาศ|seller|listing/i.test(text)) return "seller_listing_tone_polish";
@@ -921,10 +1033,21 @@ export function detectOwnerControlledGeminiUxZone(
   if (/สีมงคล|lucky|ดวง|fun match/i.test(text)) {
     return "lucky_color_fun_match_disclaimer";
   }
-  if (/คันนี้|คันนั้น|บริบท|ต่อเนื่อง|context/i.test(text)) {
-    return "same_chat_context_switching_wording";
-  }
+  // v22.55 — exact availability / brand-model asks (Owner Corolla scenario)
   if (/มีรถอะไร|หารถ|search|ค้นหา/i.test(text)) return "natural_search_explanation";
+  if (
+    /มีรถ|มีไหม|หรือเปล่า|เจอ(?:รถ)?ไหม|(?:มี|เจอ).{0,40}ไหม/i.test(text)
+  ) {
+    return "natural_search_explanation";
+  }
+  if (
+    /(?:toyota|honda|mazda|nissan|isuzu|mitsubishi|ford|bmw|mercedes|โตโยต้า|ฮอนด้า|มาสด้า|นิสสัน)/i.test(
+      text
+    ) &&
+    /(?:corolla|camry|vios|civic|city|yaris|ativ|hr-?v|cr-?v|fortuner|altis|ดั๊ก)/i.test(text)
+  ) {
+    return "natural_search_explanation";
+  }
   return null;
 }
 
@@ -1026,6 +1149,7 @@ function buildUserVisibleBuyerSystemInstruction(
     pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
   const scenario = detectUserVisibleBuyerScenario(userMessage);
   const scenarioGuidance = buildScenarioAnswerGuidance(scenario, cardCount);
+  const exactAskGuidance = buildExactInventoryAskPromptGuidance(userMessage);
 
   return [
     `คุณคือน้องเอ ผู้ช่วยซื้อรถมือสอง Nong A (${USER_VISIBLE_BUYER_PROMPT_QUALITY_SLICE_ID}).`,
@@ -1038,14 +1162,15 @@ function buildUserVisibleBuyerSystemInstruction(
     "โครงสร้างคำตอบที่ต้องการ: (1) สรุปตรงคำถามก่อน (2) อธิบายรถจากข้อมูลประกาศจริง — ราคา ไมล์ ปี รุ่น สี เกียร์ จุดเด่นถ้ามี (3) ช่วยตัดสินใจด้วยมุมคุ้มค่า/ครอบครัว/นั่งสบายเมื่อมีหลายคัน (4) ใส่ข้อมูลทั่วไปของรุ่นได้เมื่อมีประโยชน์ โดยขึ้นต้นด้วย โดยทั่วไป และย้ำว่าไม่ใช่การยืนยันสภาพคันนี้ (5) ปิดท้ายด้วย soft CTA นัดดูรถ/ทดลองขับ/คุยไฟแนนซ์ โดยไม่สร้าง lead และไม่ขอเบอร์ก้าวร้าว.",
     "ความยาวเป้าหมาย 5-8 ประโยค กระชับแต่ไม่ห้วน หลีกเลี่ยงย่อหน้ายาวหรือรายการแข็งเกินไป.",
     scenarioGuidance,
+    exactAskGuidance,
     cardCount >= 2 ? "หลายคัน — อธิบายแต่ละคันต่างกัน ห้ามซ้ำแข็ง ช่วยเทียบมุมคุ้มค่า/ครอบครัว/นั่งสบายเมื่อเหมาะสม." : "",
     "จากข้อมูลในประกาศนี้เท่านั้น — ห้ามแต่งราคา/ปี/ไมล์/โปรโมชัน ห้ามแต่ง ไม่เคยชน / เจ้าของเดียว / ยางใหม่ / แบตใหม่ / ไม่น้ำท่วม / รับประกัน / อนุมัติไฟแนนซ์ / อัตราสิ้นเปลืองแน่นอน ถ้าไม่มีให้บอก ยังไม่มีข้อมูลนี้ในระบบ.",
     "จากความรู้ทั่วไปของรุ่นนี้ได้เฉพาะ insight ทั่วไป พร้อม disclaimer ข้อมูลทั่วไปนี้ไม่ใช่การยืนยันสภาพของรถคันนี้โดยตรง — ใช้คำว่า โดยทั่วไป / เหมาะกับ / ควรตรวจสอบรายละเอียดกับผู้ขายอีกครั้ง.",
     "รถไฟฟ้า/EV: พูดได้ว่าเป็นรถไฟฟ้าจาก fuelType ถ้ามี — ห้ามเดา kWh ระยะวิ่ง ค่าชาร์จ ประกันแบต ถ้า listing ไม่มี.",
-    "ไฟแนนซ์: ห้าม อนุมัติแน่นอน/การันตี/ผ่อนได้แน่นอน — ใช้ ประเมินเบื้องต้น ขึ้นอยู่กับเงื่อนไขไฟแนนซ์.",
-    "Lead/PII safety: ห้ามขอชื่อจริง เบอร์โทร หรือข้อมูลติดต่อในแชต ห้ามบอกว่าส่ง lead แล้ว หรือผู้ขายจะโทรกลับแน่นอน.",
+    "ไฟแนนซ์: ห้าม อนุมัติแน่นอน/การันตี/ผ่อนได้แน่นอน — ใช้ ประเมินเบื้องต้น ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ ทีมงานช่วยประสานรายละเอียด.",
+    "Lead/PII safety: ห้ามขอชื่อจริง เบอร์โทร หรือข้อมูลติดต่อในแชต ห้ามขอข้อมูลติดต่อในแชต ห้ามบอกว่าส่ง lead แล้ว หรือผู้ขายจะโทรกลับแน่นอน.",
     "ถ้าผู้ใช้สนใจ ใช้ถ้อยคำนี้: ถ้าสนใจคันนี้ เดี๋ยวน้องเอพาไปขั้นตอนยืนยันความสนใจอย่างปลอดภัยก่อนนะครับ หรือชวนนัดดูรถ/ทดลองขับแบบสุภาพ.",
-    "ย้ำว่าผู้ใช้เป็นคนกรอกเบอร์เองในขั้นตอนยืนยันสุดท้ายเท่านั้น และห้าม echo เบอร์ในคำตอบแชต.",
+    "ย้ำว่าผู้ใช้กรอกเบอร์เองในขั้นตอนยืนยัน และผู้ใช้เป็นคนกรอกเบอร์เองในขั้นตอนยืนยันสุดท้ายเท่านั้น และห้าม echo เบอร์ในคำตอบแชต.",
     "",
     `ตัวอย่าง: ${buildUserVisibleStructuredOutputJson("ได้ครับ จากงบประมาณนี้ น้องเอคัด Brand A ปี XXXX ราคา XXX,XXX บาท และ Brand B ปี XXXX ราคา XXX,XXX บาทไว้ให้ก่อนครับ โดยคันแรกเด่นเรื่องความคุ้มค่า ส่วนคันที่สองเด่นเรื่องความนั่งสบายสำหรับใช้งานทุกวันครับ โดยทั่วไปรุ่นนี้เหมาะกับใช้งานเมืองและครอบครัวเล็ก — ควรตรวจสอบรายละเอียดกับผู้ขายอีกครั้งครับ ก่อนตัดสินใจแนะนำเช็กสภาพจริง เอกสาร และเงื่อนไขไฟแนนซ์อีกครั้งนะครับ ถ้าสนใจคันไหน เดี๋ยวน้องเอพาไปขั้นตอนยืนยันความสนใจอย่างปลอดภัย หรือช่วยนัดดูรถ/ทดลองขับให้ได้ โดยคุณลูกค้าเป็นคนกรอกข้อมูลติดต่อเองในขั้นตอนนั้นครับ")}`,
   ]
@@ -1523,14 +1648,23 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     } as T;
   }
 
+  const groundedPilotOrchestration = narrowPilotOrchestrationForExactInventoryAsk(
+    input.userMessage,
+    input.pilotOrchestration
+  );
+  const groundedCarCardCount =
+    groundedPilotOrchestration?.recentCarCards?.length ??
+    groundedPilotOrchestration?.carCardCount ??
+    carCardCount;
+
   try {
     const vehicleTerms = extractVehicleEnglishAllowlistFromPilotOrchestration(
-      input.pilotOrchestration
+      groundedPilotOrchestration
     );
     const evaluateOutput = (text: string) =>
-      evaluateRealProviderOutputSafety(text, input.userMessage, carCardCount, {
+      evaluateRealProviderOutputSafety(text, input.userMessage, groundedCarCardCount, {
         allowedVehicleTerms: vehicleTerms,
-        pilotOrchestration: input.pilotOrchestration,
+        pilotOrchestration: groundedPilotOrchestration,
       });
 
     const processRawOutput = (raw: string) => {
@@ -1555,7 +1689,7 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     const real = await invokeUserVisibleRealProvider({
       userMessage: input.userMessage,
       userRole: input.userRole,
-      pilotOrchestration: input.pilotOrchestration,
+      pilotOrchestration: groundedPilotOrchestration,
       readEnv,
     });
     let { text, safety } = processRawOutput(resolveProviderRawOutput(real));

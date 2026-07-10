@@ -20,7 +20,10 @@ export type {
 export function redactPiiForSalesBrainLog(text: string): string {
   return text
     .replace(/0[689]\d[\d\s-]{7,}/g, "[phone-redacted]")
-    .replace(/[\w.+-]+@[\w.-]+\.\w+/g, "[email-redacted]");
+    .replace(/[\w.+-]+@[\w.-]+\.\w+/g, "[email-redacted]")
+    // v22.55 — strip display-name cues before any provider/log surface
+    .replace(/(ชื่อ(?:จริง)?\s*[:：]?\s*)([^\s,，]+(?:\s+[^\s,，]+)?)/gi, "$1[name-redacted]")
+    .replace(/\b\d{13}\b/g, "[id-redacted]");
 }
 
 function computeParamsHash(input: SalesBrainMockInput): string {
