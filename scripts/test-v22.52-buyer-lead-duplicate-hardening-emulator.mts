@@ -26,6 +26,30 @@ import {
   type FirestoreBuyerLeadRepository,
 } from "../src/server/repositories/buyerLeadRepositoryFirestore.ts";
 import { getFirestore } from "firebase-admin/firestore";
+import {
+  NONGA_LEAD_PILOT_LISTING_IDS_ENV,
+  NONGA_LEAD_PILOT_MAX_CREATED_ENV,
+  NONGA_LEAD_PILOT_EXPIRES_AT_ENV,
+  NONGA_LEAD_PILOT_STARTED_AT_ENV,
+  NONGA_LEAD_PILOT_DEALER_IDS_ENV,
+  NONGA_LEAD_PILOT_COUNTER_ID_ENV,
+  NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV,
+} from "../src/services/leads/leadPilotGuard.ts";
+
+function captureOnEnv(listingIds: string[], dealerIds: string[]): Record<string, string> {
+  const start = new Date();
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true",
+    [NONGA_LEAD_PILOT_LISTING_IDS_ENV]: listingIds.join(","),
+    [NONGA_LEAD_PILOT_DEALER_IDS_ENV]: dealerIds.join(","),
+    [NONGA_LEAD_PILOT_MAX_CREATED_ENV]: "20",
+    [NONGA_LEAD_PILOT_STARTED_AT_ENV]: start.toISOString(),
+    [NONGA_LEAD_PILOT_EXPIRES_AT_ENV]: end.toISOString(),
+    [NONGA_LEAD_PILOT_COUNTER_ID_ENV]: "v2252-emulator-test-counter",
+    [NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV]: "1",
+  };
+}
 
 let failures = 0;
 function ok(name: string, pass: boolean, detail = "") {
@@ -37,20 +61,39 @@ function ok(name: string, pass: boolean, detail = "") {
 }
 
 const SYNTH_PHONE = "0811111111";
-const captureOn = { [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true" };
 
 const listingA = {
   id: "listing-v2252-em-a",
   title: "Synthetic Emulator Listing A",
   price: 500_000,
   ownerId: "seller-v2252-em-a",
+  dealerId: "seller-v2252-em-a",
+  listingStatus: "published" as const,
+  isSold: false,
 };
 const listingB = {
   id: "listing-v2252-em-b",
   title: "Synthetic Emulator Listing B",
   price: 600_000,
   ownerId: "seller-v2252-em-b",
+  dealerId: "seller-v2252-em-b",
+  listingStatus: "published" as const,
+  isSold: false,
 };
+const concurrentListing = {
+  id: "listing-v2252-em-concurrent",
+  title: "Concurrent Listing",
+  price: 1,
+  ownerId: "seller-v2252-em-a",
+  dealerId: "seller-v2252-em-a",
+  listingStatus: "published" as const,
+  isSold: false,
+};
+
+const captureOn = captureOnEnv(
+  [listingA.id, listingB.id, concurrentListing.id],
+  [listingA.dealerId, listingB.dealerId]
+);
 
 console.log("=== v22.52 Firestore Emulator Duplicate Hardening ===\n");
 
@@ -175,12 +218,6 @@ try {
   ok("contact logs still one", (await countContactLogs(leadAId)) === 1);
 
   // Concurrent identical (same process, shared Emulator = multi-writer race)
-  const concurrentListing = {
-    id: "listing-v2252-em-concurrent",
-    title: "Concurrent Listing",
-    price: 1,
-    ownerId: "seller-v2252-em-a",
-  };
   const concurrent = await Promise.all(
     Array.from({ length: 10 }, () =>
       createConsentedBuyerLead({

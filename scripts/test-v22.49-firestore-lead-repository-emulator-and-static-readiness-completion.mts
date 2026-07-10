@@ -32,6 +32,30 @@ import {
 } from "../src/services/leads/buyerLeadDuplicateGuard.ts";
 import { BUYER_LEAD_CONSENT_VERSION } from "../src/services/leads/buyerLeadValidation.ts";
 import type { BuyerLead } from "../src/services/leads/leadTypes.ts";
+import {
+  NONGA_LEAD_PILOT_LISTING_IDS_ENV,
+  NONGA_LEAD_PILOT_MAX_CREATED_ENV,
+  NONGA_LEAD_PILOT_EXPIRES_AT_ENV,
+  NONGA_LEAD_PILOT_STARTED_AT_ENV,
+  NONGA_LEAD_PILOT_DEALER_IDS_ENV,
+  NONGA_LEAD_PILOT_COUNTER_ID_ENV,
+  NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV,
+} from "../src/services/leads/leadPilotGuard.ts";
+
+function captureOnEnv(listingId: string, dealerId: string): Record<string, string> {
+  const start = new Date();
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true",
+    [NONGA_LEAD_PILOT_LISTING_IDS_ENV]: listingId,
+    [NONGA_LEAD_PILOT_DEALER_IDS_ENV]: dealerId,
+    [NONGA_LEAD_PILOT_MAX_CREATED_ENV]: "20",
+    [NONGA_LEAD_PILOT_STARTED_AT_ENV]: start.toISOString(),
+    [NONGA_LEAD_PILOT_EXPIRES_AT_ENV]: end.toISOString(),
+    [NONGA_LEAD_PILOT_COUNTER_ID_ENV]: "v2249-static-test-counter",
+    [NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV]: "1",
+  };
+}
 
 const STAGING = "https://a.nongbot.org";
 const DOC = "docs/v22.49-firestore-lead-repository-emulator-and-static-readiness-completion.md";
@@ -132,8 +156,11 @@ const listing = {
   title: "Static Dup",
   price: 1,
   ownerId: "seller-static",
+  dealerId: "seller-static",
+  listingStatus: "published" as const,
+  isSold: false,
 };
-const envOn = { [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true" };
+const envOn = captureOnEnv(listing.id, listing.dealerId);
 const first = await createConsentedBuyerLead({
   repository: repo,
   buyerUserId: "buyer-static",

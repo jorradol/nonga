@@ -11,6 +11,8 @@ export const LEAD_ENGINE_COLLECTIONS = {
   leadContactLogs: "leadContactLogs",
   /** v22.52 — durable active-slot idempotency (Admin SDK only). */
   buyerLeadIdempotencyRecords: "buyerLeadIdempotencyRecords",
+  /** v22.53 — controlled Pilot created-count counter (Admin SDK only; no PII). */
+  buyerLeadPilotCounters: "buyerLeadPilotCounters",
   buyerPurchaseProfiles: "buyerPurchaseProfiles",
   dealOutcomes: "dealOutcomes",
   successFeeRecords: "successFeeRecords",

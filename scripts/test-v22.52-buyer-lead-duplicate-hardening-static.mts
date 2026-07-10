@@ -35,6 +35,30 @@ import { sellerSkipQueueLead } from "../src/services/leads/sellerSkipQueueServic
 import { getSellerMaskedQueueForListing } from "../src/services/leads/buyerLeadQueueService.ts";
 import { sellerMaskedQueueEntryHasNoFullPhone } from "../src/services/leads/sellerSkipQueuePolicy.ts";
 import { LEAD_ENGINE_COLLECTIONS } from "../src/services/leads/leadTypes.ts";
+import {
+  NONGA_LEAD_PILOT_LISTING_IDS_ENV,
+  NONGA_LEAD_PILOT_MAX_CREATED_ENV,
+  NONGA_LEAD_PILOT_EXPIRES_AT_ENV,
+  NONGA_LEAD_PILOT_STARTED_AT_ENV,
+  NONGA_LEAD_PILOT_DEALER_IDS_ENV,
+  NONGA_LEAD_PILOT_COUNTER_ID_ENV,
+  NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV,
+} from "../src/services/leads/leadPilotGuard.ts";
+
+function captureOnEnv(listingIds: string[], dealerIds: string[]): Record<string, string> {
+  const start = new Date();
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true",
+    [NONGA_LEAD_PILOT_LISTING_IDS_ENV]: listingIds.join(","),
+    [NONGA_LEAD_PILOT_DEALER_IDS_ENV]: dealerIds.join(","),
+    [NONGA_LEAD_PILOT_MAX_CREATED_ENV]: "20",
+    [NONGA_LEAD_PILOT_STARTED_AT_ENV]: start.toISOString(),
+    [NONGA_LEAD_PILOT_EXPIRES_AT_ENV]: end.toISOString(),
+    [NONGA_LEAD_PILOT_COUNTER_ID_ENV]: "v2252-static-test-counter",
+    [NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV]: "1",
+  };
+}
 
 const STAGING = "https://nonga-staging-dpf3rexexq-as.a.run.app";
 const PILOT_TITLES = ["Toyota Corolla 2020", "Toyota Corolla 2021"];
@@ -112,14 +136,23 @@ const listing = {
   title: "Synthetic A",
   price: 100,
   ownerId: "seller-v2252-a",
+  dealerId: "seller-v2252-a",
+  listingStatus: "published" as const,
+  isSold: false,
 };
 const listingB = {
   id: "listing-v2252-b",
   title: "Synthetic B",
   price: 200,
   ownerId: "seller-v2252-b",
+  dealerId: "seller-v2252-b",
+  listingStatus: "published" as const,
+  isSold: false,
 };
-const envOn = { [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true" };
+const envOn = captureOnEnv(
+  [listing.id, listingB.id, "listing-v2252-concurrent"],
+  [listing.dealerId, listingB.dealerId]
+);
 
 const blocked = await createConsentedBuyerLead({
   repository: repo,
@@ -227,7 +260,11 @@ const concurrent = await Promise.all(
     createConsentedBuyerLead({
       repository: repo,
       buyerUserId: "buyer-v2252-concurrent",
-      listing: { ...listing, id: "listing-v2252-concurrent" },
+      listing: {
+        ...listing,
+        id: "listing-v2252-concurrent",
+        dealerId: listing.dealerId,
+      },
       env: envOn,
       input: {
         listingId: "listing-v2252-concurrent",

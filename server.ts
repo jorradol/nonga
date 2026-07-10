@@ -49,6 +49,7 @@ import { registerOwnerListingRoutes } from "./src/server/ownerListingRoutes";
 import { registerRevenuePreviewRoutes } from "./src/server/revenuePreviewRoutes";
 import { registerBuyerLeadRoutes } from "./src/server/buyerLeadRoutes";
 import { isLeadCaptureEnabled } from "./src/services/leads/leadCaptureFlags";
+import { getLeadPilotHealthSnapshot } from "./src/services/leads/leadPilotGuard";
 import { getActiveBuyerLeadDataBackend } from "./src/server/repositories/buyerLeadRepository";
 import { registerBuyerLeadQueueRoutes } from "./src/server/buyerLeadQueueRoutes";
 import {
@@ -140,8 +141,9 @@ app.use(
 );
 
 app.get("/api/health", (_req, res) => {
-  // leadCaptureEnabled / leadDataBackend: non-secret diagnostics only.
-  // Never echo env names, project ids, credentials, or collection names.
+  // leadCaptureEnabled / leadDataBackend / pilot snapshot: non-secret diagnostics only.
+  // Never echo env names, project ids, credentials, listing IDs, or collection names.
+  const pilot = getLeadPilotHealthSnapshot();
   res.json({
     ok: true,
     service: "nonga",
@@ -151,6 +153,10 @@ app.get("/api/health", (_req, res) => {
       process.env.VITE_NONGA_PUBLIC_SIGNUP_ENABLED === "true",
     leadCaptureEnabled: isLeadCaptureEnabled(),
     leadDataBackend: getActiveBuyerLeadDataBackend(),
+    leadPilotConfigured: pilot.leadPilotConfigured,
+    leadPilotActive: pilot.leadPilotActive,
+    leadPilotMaxCreated: pilot.leadPilotMaxCreated,
+    leadPilotExpiresAt: pilot.leadPilotExpiresAt,
   });
 });
 

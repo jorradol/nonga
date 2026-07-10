@@ -18,13 +18,22 @@ export type BuyerLeadDataBackend = "memory" | "firestore";
 
 export type AtomicBuyerLeadCreateResult =
   | { kind: "created"; lead: BuyerLead; contactLog: LeadContactLog }
-  | { kind: "duplicate"; lead: BuyerLead };
+  | { kind: "duplicate"; lead: BuyerLead }
+  | { kind: "pilot_limit" };
 
 export interface AtomicBuyerLeadCreateParams {
   /** Lead draft without final queuePosition (computed atomically). id/createdAt set by caller. */
   lead: BuyerLead;
   contactLog: LeadContactLog;
   contactFingerprint: string;
+  /**
+   * v22.53 — optional durable Pilot created-count limit (increments only on new create).
+   * Duplicate replay must not increment.
+   */
+  pilotLimit?: {
+    counterId: string;
+    maxCreated: number;
+  };
 }
 
 export interface BuyerLeadRepository {
@@ -45,6 +54,8 @@ export interface BuyerLeadRepository {
     listingId: string;
     buyerUserId: string;
   }): Promise<void>;
+  /** v22.53 — read Pilot created-count counter (no PII). */
+  getPilotCreatedCount(counterId: string): Promise<number>;
 }
 
 export function resolveBuyerLeadDataBackend(
@@ -58,6 +69,7 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
   private readonly leads = new Map<string, BuyerLead>();
   private readonly logs: LeadContactLog[] = [];
   private readonly activeSlots = new Map<string, BuyerLeadActiveSlotRecord>();
+  private readonly pilotCounters = new Map<string, number>();
 
   async createBuyerLead(lead: BuyerLead): Promise<BuyerLead> {
     this.leads.set(lead.id, lead);
@@ -93,6 +105,10 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
     return this.leads.delete(leadId.trim());
   }
 
+  async getPilotCreatedCount(counterId: string): Promise<number> {
+    return this.pilotCounters.get(counterId.trim()) ?? 0;
+  }
+
   async createBuyerLeadAtomic(
     params: AtomicBuyerLeadCreateParams
   ): Promise<AtomicBuyerLeadCreateResult> {
@@ -108,6 +124,14 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
         return { kind: "duplicate", lead: existingLead };
       }
       // Stale slot pointing at withdrawn/missing lead → fall through to create.
+    }
+
+    if (params.pilotLimit) {
+      const current =
+        this.pilotCounters.get(params.pilotLimit.counterId.trim()) ?? 0;
+      if (current >= params.pilotLimit.maxCreated) {
+        return { kind: "pilot_limit" };
+      }
     }
 
     const existingLeads = [...this.leads.values()].filter(
@@ -135,6 +159,10 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
     this.leads.set(lead.id, lead);
     this.logs.push(contactLog);
     this.activeSlots.set(slotId, slot);
+    if (params.pilotLimit) {
+      const id = params.pilotLimit.counterId.trim();
+      this.pilotCounters.set(id, (this.pilotCounters.get(id) ?? 0) + 1);
+    }
     return { kind: "created", lead, contactLog };
   }
 

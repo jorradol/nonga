@@ -334,6 +334,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // v22.53 — Controlled Pilot created-count counters: Admin SDK only.
+    match /buyerLeadPilotCounters/{counterId} {
+      allow read, write: if false;
+    }
+
+    match /buyerLeadPilotCounters/{counterId}/{document=**} {
+      allow read, write: if false;
+    }
+
     match /buyerPurchaseProfiles/{buyerUserId} {
       allow read, write: if false;
     }

@@ -1,5 +1,5 @@
 /**
- * v5.6C / v22.52 — Buyer lead create/read (server-side core; importable from tests).
+ * v5.6C / v22.52 / v22.53 — Buyer lead create/read (server-side core; importable from tests).
  */
 
 import type { MarketplaceCarRecord } from "../../server/marketplaceInventory";
@@ -26,14 +26,22 @@ import {
 import {
   buildBuyerLeadContactFingerprint,
 } from "./buyerLeadIdempotencyModel";
+import {
+  BUYER_LEAD_PILOT_LIMIT_MESSAGE,
+  evaluatePilotCreateGate,
+  parseLeadPilotConfig,
+} from "./leadPilotGuard";
 
 export interface CreateBuyerLeadParams {
   input: BuyerLeadCreateInput;
   buyerUserId: string;
-  listing: Pick<MarketplaceCarRecord, "id" | "title" | "price" | "ownerId">;
+  listing: Pick<
+    MarketplaceCarRecord,
+    "id" | "title" | "price" | "ownerId" | "dealerId" | "listingStatus" | "isSold"
+  >;
   repository: BuyerLeadRepository;
   /**
-   * Optional env for kill-switch evaluation (tests).
+   * Optional env for kill-switch / Pilot evaluation (tests).
    * Production routes omit this → uses process.env (default OFF).
    */
   env?: Record<string, string | undefined>;
@@ -67,14 +75,12 @@ export function resolveListingSellerId(
 export async function createConsentedBuyerLead(
   params: CreateBuyerLeadParams
 ): Promise<CreateBuyerLeadResult> {
+  const env =
+    params.env ?? (process.env as Record<string, string | undefined>);
+
   // v22.30 — global kill switch (default OFF). Blocks even authenticated create.
   // Must run before any repository / idempotency write.
-  if (
-    !isLeadCaptureEnabled(
-      params.env ??
-        (process.env as Record<string, string | undefined>)
-    )
-  ) {
+  if (!isLeadCaptureEnabled(env)) {
     return {
       ok: false,
       status: 403,
@@ -100,6 +106,7 @@ export async function createConsentedBuyerLead(
   }
 
   // Soft pre-check (best-effort). Authoritative dedupe is createBuyerLeadAtomic.
+  // Duplicate replay must not consume a Pilot slot.
   const existingForListing = await params.repository.listBuyerLeadsByListingId(
     params.listing.id
   );
@@ -116,6 +123,26 @@ export async function createConsentedBuyerLead(
       queuePosition: softDup.queuePosition,
       buyerMessage: BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
       duplicate: true,
+    };
+  }
+
+  // v22.53 — Pilot gate (allowlist / dealer / window / soft count).
+  // Authoritative max is enforced inside createBuyerLeadAtomic via durable counter.
+  const pilotParsed = parseLeadPilotConfig(env);
+  const softPilotCount = pilotParsed.ok
+    ? await params.repository.getPilotCreatedCount(pilotParsed.config.counterId)
+    : 0;
+
+  const pilotGate = evaluatePilotCreateGate({
+    env,
+    listing: params.listing,
+    createdCount: softPilotCount,
+  });
+  if (!pilotGate.ok) {
+    return {
+      ok: false,
+      status: pilotGate.status,
+      message: pilotGate.message,
     };
   }
 
@@ -178,6 +205,10 @@ export async function createConsentedBuyerLead(
     lead,
     contactLog: log,
     contactFingerprint: buildBuyerLeadContactFingerprint(normalizedPhone),
+    pilotLimit: {
+      counterId: pilotGate.config.counterId,
+      maxCreated: pilotGate.config.maxCreated,
+    },
   });
 
   if (atomic.kind === "duplicate") {
@@ -188,6 +219,14 @@ export async function createConsentedBuyerLead(
       queuePosition: atomic.lead.queuePosition,
       buyerMessage: BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
       duplicate: true,
+    };
+  }
+
+  if (atomic.kind === "pilot_limit") {
+    return {
+      ok: false,
+      status: 403,
+      message: BUYER_LEAD_PILOT_LIMIT_MESSAGE,
     };
   }
 

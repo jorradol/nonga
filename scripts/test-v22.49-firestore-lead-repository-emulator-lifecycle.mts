@@ -20,10 +20,34 @@ import {
 import { sellerSkipQueueLead } from "../src/services/leads/sellerSkipQueueService.ts";
 import { sellerMaskedQueueEntryHasNoFullPhone } from "../src/services/leads/sellerSkipQueuePolicy.ts";
 import { NONGA_LEAD_CAPTURE_ENABLED_ENV } from "../src/services/leads/leadCaptureFlags.ts";
+import {
+  NONGA_LEAD_PILOT_LISTING_IDS_ENV,
+  NONGA_LEAD_PILOT_MAX_CREATED_ENV,
+  NONGA_LEAD_PILOT_EXPIRES_AT_ENV,
+  NONGA_LEAD_PILOT_STARTED_AT_ENV,
+  NONGA_LEAD_PILOT_DEALER_IDS_ENV,
+  NONGA_LEAD_PILOT_COUNTER_ID_ENV,
+  NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV,
+} from "../src/services/leads/leadPilotGuard.ts";
 import { LEAD_ENGINE_COLLECTIONS } from "../src/services/leads/leadTypes.ts";
 import {
   assertBuyerLeadTestCleanupAllowed,
 } from "../src/server/repositories/buyerLeadRepositoryFirestore.ts";
+
+function captureOnEnv(listingIds: string[], dealerIds: string[]): Record<string, string> {
+  const start = new Date();
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true",
+    [NONGA_LEAD_PILOT_LISTING_IDS_ENV]: listingIds.join(","),
+    [NONGA_LEAD_PILOT_DEALER_IDS_ENV]: dealerIds.join(","),
+    [NONGA_LEAD_PILOT_MAX_CREATED_ENV]: "20",
+    [NONGA_LEAD_PILOT_STARTED_AT_ENV]: start.toISOString(),
+    [NONGA_LEAD_PILOT_EXPIRES_AT_ENV]: end.toISOString(),
+    [NONGA_LEAD_PILOT_COUNTER_ID_ENV]: "v2249-emulator-test-counter",
+    [NONGA_LEAD_PILOT_TEST_RELAX_MAX_ENV]: "1",
+  };
+}
 
 let failures = 0;
 function ok(name: string, pass: boolean, detail = "") {
@@ -42,15 +66,24 @@ const listingA = {
   title: "Synthetic Emulator Listing A",
   price: 500_000,
   ownerId: "seller-v2249-a",
+  dealerId: "seller-v2249-a",
+  listingStatus: "published" as const,
+  isSold: false,
 };
 const listingB = {
   id: "listing-v2249-seller-b",
   title: "Synthetic Emulator Listing B",
   price: 600_000,
   ownerId: "seller-v2249-b",
+  dealerId: "seller-v2249-b",
+  listingStatus: "published" as const,
+  isSold: false,
 };
 
-const captureOn = { [NONGA_LEAD_CAPTURE_ENABLED_ENV]: "true" };
+const captureOn = captureOnEnv(
+  [listingA.id, listingB.id],
+  [listingA.dealerId, listingB.dealerId]
+);
 
 console.log("=== v22.49 Firestore Emulator Lead Lifecycle ===\n");
 

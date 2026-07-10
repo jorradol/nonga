@@ -182,8 +182,9 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
   }
 
   /**
-   * v22.52 — Atomic Lead + consent contact-log + active-slot create.
+   * v22.52 / v22.53 — Atomic Lead + consent contact-log + active-slot create.
    * Concurrent identical intents (multi-instance safe) produce one Lead.
+   * Optional Pilot counter increments only on new create (not duplicate).
    * Fail closed: transaction abort does not report success / partial writes.
    */
   async createBuyerLeadAtomic(
@@ -198,6 +199,11 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
       .doc(slotId) as DocumentReference;
     const leadsCol = firestore.collection(LEAD_ENGINE_COLLECTIONS.buyerLeads);
     const logsCol = firestore.collection(LEAD_ENGINE_COLLECTIONS.leadContactLogs);
+    const counterRef = params.pilotLimit
+      ? (firestore
+          .collection(LEAD_ENGINE_COLLECTIONS.buyerLeadPilotCounters)
+          .doc(params.pilotLimit.counterId.trim()) as DocumentReference)
+      : null;
 
     return firestore.runTransaction(async (tx) => {
       const slotSnap = await tx.get(slotRef);
@@ -216,6 +222,19 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
           }
         }
         // Stale active slot → fall through and reuse slot for a new Lead.
+      }
+
+      let nextPilotCount: number | null = null;
+      if (counterRef && params.pilotLimit) {
+        const counterSnap = await tx.get(counterRef);
+        const current = counterSnap.exists
+          ? Number((counterSnap.data() as { createdCount?: unknown }).createdCount ?? 0)
+          : 0;
+        const safeCurrent = Number.isFinite(current) && current >= 0 ? current : 0;
+        if (safeCurrent >= params.pilotLimit.maxCreated) {
+          return { kind: "pilot_limit" as const };
+        }
+        nextPilotCount = safeCurrent + 1;
       }
 
       // Queue position from current listing leads (transactional read).
@@ -263,9 +282,32 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
       tx.set(leadsCol.doc(lead.id), leadData);
       tx.set(logsCol.doc(contactLog.id), logData);
       tx.set(slotRef, slotData);
+      if (counterRef && nextPilotCount != null) {
+        tx.set(
+          counterRef,
+          sanitizeFirestoreDocument({
+            id: params.pilotLimit!.counterId.trim(),
+            createdCount: nextPilotCount,
+            maxCreated: params.pilotLimit!.maxCreated,
+            updatedAt: lead.createdAt,
+          }),
+          { merge: true }
+        );
+      }
 
       return { kind: "created" as const, lead, contactLog };
     });
+  }
+
+  async getPilotCreatedCount(counterId: string): Promise<number> {
+    const firestore = asFirestore(this.db);
+    const snap = await firestore
+      .collection(LEAD_ENGINE_COLLECTIONS.buyerLeadPilotCounters)
+      .doc(counterId.trim())
+      .get();
+    if (!snap.exists) return 0;
+    const n = Number((snap.data() as { createdCount?: unknown }).createdCount ?? 0);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
   }
 
   async releaseBuyerLeadActiveSlot(params: {
