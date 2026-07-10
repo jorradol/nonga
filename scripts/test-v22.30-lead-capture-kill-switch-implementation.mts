@@ -95,7 +95,8 @@ async function main() {
 
   const carsRes = await fetch(`${STAGING}/api/cars`);
   const carsJson = (await carsRes.json()) as { count?: number };
-  check("marketplace count 13", carsJson.count === 13, `count=${carsJson.count}`);
+  // Baseline advanced to 15 after v22.43 Thor Auto pilot; kill-switch packet only needs stable public count.
+  check("marketplace count 15", carsJson.count === 15, `count=${carsJson.count}`);
 
   console.log("\n--- doc validator ---\n");
   const validated = spawnSync(process.execPath, [VALIDATOR], {

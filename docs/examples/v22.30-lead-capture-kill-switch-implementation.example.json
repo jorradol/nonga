@@ -21,7 +21,7 @@
     "no_lead_row_when_off": "PASS",
     "empty_owner_still_blocked": "PASS",
     "public_signup_enabled_false": "PASS",
-    "marketplace_count_13": "PASS",
+    "marketplace_count_15": "PASS",
     "production_untouched": "PASS",
     "no_secrets_or_pii_in_report": "PASS",
     "real_lead_created": false,

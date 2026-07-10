@@ -472,6 +472,8 @@
     "test:v22.46": "npm run test:v22.46-existing-lead-ui-and-controlled-test-readiness-polish",
     "test:v22.47-exactly-one-synthetic-controlled-staging-lead-test": "tsx scripts/test-v22.47-exactly-one-synthetic-controlled-staging-lead-test.mts",
     "test:v22.47": "npm run test:v22.47-exactly-one-synthetic-controlled-staging-lead-test",
+    "test:v22.48-existing-durable-lead-storage-discovery-and-readiness-review": "tsx scripts/test-v22.48-existing-durable-lead-storage-discovery-and-readiness-review.mts",
+    "test:v22.48": "npm run test:v22.48-existing-durable-lead-storage-discovery-and-readiness-review",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
