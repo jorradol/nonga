@@ -79,6 +79,7 @@ export function hasIdenticalCompareFactSet(
 /**
  * Rehydrate session/pilot cards onto real inventory listings (server has no
  * sessionStorage). Prefer listingId, then brand/model/year + price/mileage.
+ * Restores public image metadata from the canonical listing.
  */
 export function rehydrateSessionCarsFromInventory(
   sessionCars: ChatCarCardData[],
@@ -120,6 +121,48 @@ export function rehydrateSessionCarsFromInventory(
     );
     const pick = exact[0] ?? candidates[0]!;
     return summaryToChatCarCardData(toChatCarSummary(pick), "exact");
+  });
+}
+
+/** True when a card carries at least one renderable public image URL. */
+export function chatCardHasRenderableImage(
+  car: Pick<ChatCarCardData, "imageUrl" | "imageUrls" | "hasImage">
+): boolean {
+  if ((car.imageUrls ?? []).some((u) => typeof u === "string" && u.trim())) {
+    return true;
+  }
+  return Boolean(car.hasImage && car.imageUrl?.trim());
+}
+
+/**
+ * v22.59 — when merging local + server cards for the same listing, never
+ * downgrade an image-complete card to an image-less duplicate.
+ */
+export function mergeChatCarCardsPreferImages(
+  preferredComplete: ChatCarCardData[] | undefined,
+  incoming: ChatCarCardData[]
+): ChatCarCardData[] {
+  if (!incoming.length) return preferredComplete?.slice() ?? [];
+  if (!preferredComplete?.length) return incoming;
+
+  return incoming.map((remote, index) => {
+    const local =
+      preferredComplete.find(
+        (c) =>
+          listingIdentityKey(c) &&
+          listingIdentityKey(c) === listingIdentityKey(remote)
+      ) ?? preferredComplete[index];
+    if (!local) return remote;
+    if (chatCardHasRenderableImage(remote)) return remote;
+    if (!chatCardHasRenderableImage(local)) return remote;
+    return {
+      ...remote,
+      ...(local.imageUrl?.trim() ? { imageUrl: local.imageUrl } : {}),
+      ...(local.imageUrls && local.imageUrls.length > 0
+        ? { imageUrls: local.imageUrls }
+        : {}),
+      hasImage: true,
+    };
   });
 }
 

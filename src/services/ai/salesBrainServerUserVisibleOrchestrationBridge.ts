@@ -259,15 +259,23 @@ function withSafeUserVisibleRuntimeDiagnostic(input: {
 
 function tryOrchestratedReplyFromPilotSession(
   message: string,
-  pilotSessionContext?: PilotBuyerSessionContext
+  pilotSessionContext?: PilotBuyerSessionContext,
+  inventory: ChatInventoryCar[] = []
 ): OrchestratedChatReply | null {
   const sessionCards = pilotSessionContext?.recentCarCards ?? [];
   if (sessionCards.length === 0 || !isPilotBuyerFollowUpMessage(message)) {
     return null;
   }
+  // v22.59 — rehydrate from inventory so follow-up cards keep public images
+  // (pilot session serialization intentionally omits image URLs).
+  const rawCards = pilotSessionCardsToChatCarCards(sessionCards);
+  const carCards =
+    inventory.length > 0
+      ? rehydrateSessionCarsFromInventory(rawCards, inventory)
+      : rawCards;
   return {
     text: "",
-    carCards: pilotSessionCardsToChatCarCards(sessionCards),
+    carCards,
     skipGemini: true,
   };
 }
@@ -319,6 +327,12 @@ function runPilotFollowUpBridgeWhenNoOrchestrator(
   }
 
   const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
+  const rawSessionCards =
+    sessionCards.length > 0 ? pilotSessionCardsToChatCarCards(sessionCards) : [];
+  const hydratedSessionCards =
+    rawSessionCards.length > 0
+      ? rehydrateSessionCarsFromInventory(rawSessionCards, input.inventory)
+      : [];
   const pilotOrchestration: UserVisiblePilotOrchestrationHint =
     sessionCards.length > 0
       ? {
@@ -349,9 +363,11 @@ function runPilotFollowUpBridgeWhenNoOrchestrator(
   const orchestrated: OrchestratedChatReply = {
     text,
     carCards:
-      sessionCards.length > 0
-        ? pilotSessionCardsToChatCarCards(sessionCards)
-        : [],
+      hydratedSessionCards.length > 0
+        ? hydratedSessionCards
+        : rawSessionCards.length > 0
+          ? rawSessionCards
+          : [],
     skipGemini: true,
   };
 
@@ -403,7 +419,8 @@ export function runUserVisibleOrchestrationBridge(
   if (!orchestrated && input.pilotSessionContext) {
     orchestrated = tryOrchestratedReplyFromPilotSession(
       input.userMessage,
-      input.pilotSessionContext
+      input.pilotSessionContext,
+      input.inventory
     );
   }
 

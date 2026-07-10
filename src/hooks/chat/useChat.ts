@@ -13,6 +13,7 @@ import {
   resolvePilotSessionContextForFollowUp,
   pilotSessionCardsToChatCarCards,
 } from "../../services/ai/chat/chatPilotSessionContext";
+import { mergeChatCarCardsPreferImages } from "../../services/ai/chat/inventoryBackedCompare";
 import { isPilotBuyerFollowUpMessage } from "../../services/ai/chat/chatPilotBuyerFollowUp";
 import { buildPilotFollowUpNoContextCopy } from "../../services/ai/salesBrainUserVisiblePilotBuyerCopy";
 import {
@@ -1658,18 +1659,23 @@ export function useChat() {
           if (orchestrated) {
             orchestrated.text = bridged.userVisibleText;
             // v22.58 — keep cards and text on the same canonical server set
+            // v22.59 — never let image-less server cards overwrite complete local cards
             if (bridged.carCards && bridged.carCards.length > 0) {
-              orchestrated.carCards = bridged.carCards;
+              orchestrated.carCards = mergeChatCarCardsPreferImages(
+                orchestrated.carCards,
+                bridged.carCards
+              );
             }
           } else if (isFollowUpPilot) {
+            const fallbackCards = pilotSessionContext
+              ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
+              : [];
             orchestrated = {
               text: bridged.userVisibleText,
               carCards:
                 bridged.carCards && bridged.carCards.length > 0
-                  ? bridged.carCards
-                  : pilotSessionContext
-                    ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
-                    : [],
+                  ? mergeChatCarCardsPreferImages(fallbackCards, bridged.carCards)
+                  : fallbackCards,
               skipGemini: true,
             };
           }
