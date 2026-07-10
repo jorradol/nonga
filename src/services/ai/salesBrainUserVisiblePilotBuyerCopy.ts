@@ -532,6 +532,14 @@ export function buildPilotBuyerUserVisibleCopy(
   const refinement = detectBuyerRefinement(input.userMessage);
   const followUp = isPilotBuyerFollowUpMessage(input.userMessage);
 
+  // v22.62 — named inventory compare ("เทียบกับ Corolla 2021") is resolved by
+  // inventoryBackedCompare + orchestrator. Always defer (null) so the chat path
+  // keeps the canonical-pair legacy text. Never emit no-context / numbered-slot
+  // instructions for an already-explicit named target.
+  if (isNamedInventoryCompareIntent(input.userMessage)) {
+    return null;
+  }
+
   if (followUp && sessionCount === 0) {
     return {
       text: buildPilotFollowUpNoContextCopy(),
@@ -593,11 +601,6 @@ export function buildPilotBuyerUserVisibleCopy(
   }
 
   if (isPilotBuyerDirectCompareFollowUp(input.userMessage) && sessionCount >= 2) {
-    // Named inventory compare must be resolved with inventory (orchestrator),
-    // not by inventing a second slot from a single session card.
-    if (isNamedInventoryCompareIntent(input.userMessage)) {
-      return null;
-    }
     const pair = comparePair ?? { a: 1, b: 2 };
     if (pair.a === pair.b) {
       return {
@@ -646,7 +649,7 @@ export function buildPilotBuyerUserVisibleCopy(
   }
 
   if (followUp && sessionCount > 0 && isPilotBuyerDirectCompareFollowUp(input.userMessage)) {
-    if (isNamedInventoryCompareIntent(input.userMessage) || sessionCount < 2) {
+    if (sessionCount < 2) {
       return {
         text: [
           "อยากให้เทียบกับรุ่นหรือปีไหนเป็นพิเศษครับ?",

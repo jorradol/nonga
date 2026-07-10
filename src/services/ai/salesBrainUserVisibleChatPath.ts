@@ -26,6 +26,7 @@ import {
   isPilotBuyerFinanceFollowUp,
   isPilotBuyerFollowUpMessage,
 } from "./chat/chatPilotBuyerFollowUp";
+import { isNamedInventoryCompareIntent } from "./chat/inventoryBackedCompare";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 export type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 
@@ -80,6 +81,23 @@ function shouldUseAskFollowUpInsteadOfPilotCopy(
   return !isPilotBuyerFinanceFollowUp(userMessage);
 }
 
+/**
+ * v22.62 — named inventory compare is resolved by the orchestrator
+ * (`buildInventoryBackedCompareReply`). Pilot copy intentionally returns null
+ * to defer; that must keep legacy pair text, never the generic
+ * "ยังไม่เห็นชุดรถล่าสุด / เทียบคันที่ 1 กับ 2" no-context fallback.
+ */
+function preferNamedCompareLegacyText(
+  userMessage: string,
+  legacy: string
+): string | null {
+  if (!isNamedInventoryCompareIntent(userMessage)) return null;
+  const t = legacy.trim();
+  if (!t) return null;
+  if (/ยังไม่เห็นชุดรถล่าสุด/i.test(t)) return null;
+  return t;
+}
+
 function buildPilotUserVisibleText(
   legacy: string,
   intent: string,
@@ -104,8 +122,20 @@ function buildPilotUserVisibleText(
   const cardCount =
     pilotOrchestration?.recentCarCards?.length ?? pilotOrchestration?.carCardCount ?? 0;
   const followUp = isPilotBuyerFollowUpMessage(userMessage);
+  const namedCompareLegacy = preferNamedCompareLegacyText(userMessage, legacy);
 
   if (polished) {
+    // Never let session-index / no-context pilot templates overwrite a valid
+    // inventory-backed named-compare answer already on the canonical pair.
+    if (
+      namedCompareLegacy &&
+      (/ยังไม่เห็นชุดรถล่าสุด|อยากให้เทียบกับรุ่นหรือปีไหน|เทียบคันที่\s*1\s*กับ\s*2/i.test(
+        polished.text
+      ) ||
+        !assertPilotCopySafe(polished.text, cardCount, userMessage))
+    ) {
+      return { text: namedCompareLegacy, pilotPathActive: true };
+    }
     if (!assertPilotCopySafe(polished.text, cardCount, userMessage)) {
       if (followUp) {
         return { text: buildPilotFollowUpNoContextCopy(), pilotPathActive: true };
@@ -113,6 +143,11 @@ function buildPilotUserVisibleText(
       return { text: legacy, pilotPathActive: false };
     }
     return polished;
+  }
+
+  // Named compare deferred (null) → keep orchestrator pair text.
+  if (namedCompareLegacy) {
+    return { text: namedCompareLegacy, pilotPathActive: true };
   }
 
   if (followUp) {
@@ -218,7 +253,12 @@ export function resolveUserVisibleChatResponse(
       isPilotBuyerFollowUpMessage(input.userMessage) &&
       !assertPilotFollowUpCopySafe(built.text, cardCount)
     ) {
-      const safeFollowUp = buildPilotFollowUpNoContextCopy();
+      // v22.62 — named compare fail-closed to pair legacy, not budget-search CTA.
+      const namedLegacy = preferNamedCompareLegacyText(
+        input.userMessage,
+        legacyUserVisibleText
+      );
+      const safeFollowUp = namedLegacy ?? buildPilotFollowUpNoContextCopy();
       return {
         userVisibleText: safeFollowUp,
         legacyUserVisibleText,

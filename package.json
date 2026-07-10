@@ -505,6 +505,8 @@
     "test:v22.60": "npm run test:v22.60-optional-sales-tone-accent",
     "test:v22.61-stateful-q1-q4-behavior-restoration": "tsx scripts/test-v22.61-stateful-q1-q4-behavior-restoration.mts",
     "test:v22.61": "npm run test:v22.61-stateful-q1-q4-behavior-restoration",
+    "test:v22.62-q4-named-compare-text-resolution": "tsx scripts/test-v22.62-q4-named-compare-text-resolution.mts",
+    "test:v22.62": "npm run test:v22.62-q4-named-compare-text-resolution",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
