@@ -460,6 +460,8 @@
     "test:v22.40": "npm run test:v22.40-dealer-portal-one-test-listing-pending-review-cleanup",
     "test:v22.41-staging-roll-v2239-dealer-pending-review-copy-proof": "tsx scripts/test-v22.41-staging-roll-v2239-dealer-pending-review-copy-proof.mts",
     "test:v22.41": "npm run test:v22.41-staging-roll-v2239-dealer-pending-review-copy-proof",
+    "test:v22.42-owner-browser-dealer-posting-flow-pass-closure": "tsx scripts/test-v22.42-owner-browser-dealer-posting-flow-pass-closure.mts",
+    "test:v22.42": "npm run test:v22.42-owner-browser-dealer-posting-flow-pass-closure",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",
