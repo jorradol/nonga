@@ -31,6 +31,7 @@ import {
   buildPilotSessionContextFromCarCards,
 } from "./chat/chatPilotSessionContext";
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
+import { isNamedInventoryCompareIntent } from "./chat/inventoryBackedCompare";
 import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 import {
@@ -370,8 +371,12 @@ export function runUserVisibleOrchestrationBridge(
 ): UserVisibleOrchestrationBridgeResult {
   const environment = resolveBridgeEnvironment(input.environment);
   const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
+  // v22.57 — named inventory compare needs orchestrator + inventory; do not
+  // short-circuit to session-only cards (that caused Corolla 2020 vs itself).
   const preferPilotSessionFirst =
-    sessionCards.length > 0 && isPilotBuyerFollowUpMessage(input.userMessage);
+    sessionCards.length > 0 &&
+    isPilotBuyerFollowUpMessage(input.userMessage) &&
+    !isNamedInventoryCompareIntent(input.userMessage);
 
   let orchestrated = preferPilotSessionFirst
     ? null
@@ -513,7 +518,7 @@ export async function handleChatUserVisibleOrchestratePost(
     }
     const { userMessage, attachedImageCount, pilotSessionContext } = parsed;
     const inventory = await deps.loadChatInventory();
-    const pilotOrchestration: UserVisiblePilotOrchestrationHint | undefined =
+    const pilotOrchestrationFromSession: UserVisiblePilotOrchestrationHint | undefined =
       pilotSessionContext?.recentCarCards?.length
         ? {
             carCardCount: pilotSessionContext.recentCarCards.length,
@@ -533,11 +538,21 @@ export async function handleChatUserVisibleOrchestratePost(
       pilotSessionContext,
     });
 
-    const pilotOrchestrationForRealProvider =
-      pilotOrchestration ??
-      (result.orchestrated
-        ? resolvePilotOrchestrationHint(result.orchestrated, pilotSessionContext)
-        : undefined);
+    const orchestratedHint = result.orchestrated
+      ? resolvePilotOrchestrationHint(result.orchestrated, pilotSessionContext)
+      : undefined;
+    // v22.57 — prefer freshly orchestrated compare/search cards over stale
+    // single-card session context when grounding Gemini.
+    const orchestratedCardCount = orchestratedHint?.recentCarCards?.length ?? 0;
+    const sessionCardCount = pilotOrchestrationFromSession?.recentCarCards?.length ?? 0;
+    const preferOrchestratedGrounding =
+      orchestratedCardCount >= 2 ||
+      (orchestratedCardCount > 0 && orchestratedCardCount >= sessionCardCount) ||
+      isNamedInventoryCompareIntent(userMessage);
+
+    const pilotOrchestrationForRealProvider = preferOrchestratedGrounding
+      ? orchestratedHint ?? pilotOrchestrationFromSession
+      : pilotOrchestrationFromSession ?? orchestratedHint;
 
     result = await maybeApplyUserVisibleRealProvider({
       bridgeResult: result,

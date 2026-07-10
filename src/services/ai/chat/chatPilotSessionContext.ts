@@ -196,7 +196,23 @@ export function resolveCarCardsFromSessionContext(
   indices: number[]
 ): PilotGroundedCarCard[] {
   const byIndex = new Map(cards.map((c) => [c.index, c]));
-  return indices
-    .map((idx) => byIndex.get(idx) ?? cards[idx - 1])
-    .filter((c): c is PilotGroundedCarCard => c != null);
+  const picked: PilotGroundedCarCard[] = [];
+  const seenKeys = new Set<string>();
+  for (const idx of indices) {
+    const card = byIndex.get(idx) ?? cards[idx - 1];
+    if (!card) continue;
+    // v22.57 — reject duplicate slot picks (e.g. {a:1,b:1} self-compare)
+    const key = [
+      card.index,
+      card.brand,
+      card.model,
+      card.year,
+      card.price,
+      card.mileage ?? 0,
+    ].join("|");
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    picked.push(card);
+  }
+  return picked;
 }

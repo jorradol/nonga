@@ -374,6 +374,52 @@ function buildSingleCarNarrative(
   c: ChatCarSummary,
   criteria?: ChatSearchCriteria
 ): string {
+  const exactModelYear =
+    Boolean(criteria?.model?.trim()) && criteria?.year != null;
+  const body = safeBodyClass(c.bodyClassLabel);
+  const price = c.price > 0 ? `ราคา ${formatPrice(c.price)} บาท` : "";
+  const mileage =
+    c.mileage > 0 ? `เลขไมล์ตามประกาศ ${formatPrice(c.mileage)} กม.` : "";
+  const dealer = c.showroomName?.trim() ? `จาก ${c.showroomName.trim()}` : "";
+
+  // v22.57 — salesperson tone: weave facts into buyer value, one next step,
+  // avoid rigid field dumps / repeated disclaimer blocks on exact matches.
+  if (exactModelYear) {
+    const appealParts: string[] = [];
+    if (/Sedan|ซีดาน/i.test(body)) {
+      appealParts.push(
+        "เป็นซีดานนั่งสบาย เหมาะกับใช้งานเมืองหรือครอบครัวเล็กที่อยากได้รถสุภาพ ขับประจำวัน"
+      );
+    } else if (/SUV|Crossover|MPV/i.test(body)) {
+      appealParts.push(
+        `เป็น${body} ที่ช่วยเรื่องพื้นที่ใช้สอย — น่าสนใจถ้าเน้นครอบครัวหรือนั่งหลายคน`
+      );
+    } else if (body) {
+      appealParts.push(`เป็น${body} ที่ตรงรุ่นและปีที่ถาม`);
+    }
+    if (c.price > 0 && c.price < 500_000) {
+      appealParts.push("ช่วงราคานี้ช่วยคุมงบได้ชัด");
+    } else if (c.price > 0) {
+      appealParts.push("ราคาตามประกาศช่วยตั้งกรอบตัดสินใจได้ทันที");
+    }
+    if (c.mileage > 0) {
+      appealParts.push(
+        "เลขไมล์ควรดูคู่กับปีรถและสภาพจริงตอนชมรถ — ยังไม่ฟันธงสภาพจากตัวเลขอย่างเดียว"
+      );
+    }
+
+    const factLine = [price, mileage, dealer].filter(Boolean).join(" · ");
+    const text = [
+      appealParts.join(" "),
+      factLine ? `สรุปจากประกาศ: ${factLine}` : "",
+      "ถ้าสนใจ น้องเอช่วยไล่ต่อได้ว่าเหมาะกับใช้งานแบบไหน หรือนัดดูรถ/ทดลองขับกับผู้ขายได้ครับ",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    assertNoHallucinatedVehicleClaim(text);
+    return text;
+  }
+
   const facts = buildSafeSellingPoints(c);
   const usage = buildUsageSuitability(c);
   const modelCtx = buildGeneralModelContextBlock(
@@ -420,9 +466,9 @@ function buildCarRolesSummary(shownCars: ChatCarSummary[]): string {
 
 function buildExactMatchDirectLine(c: ChatCarSummary): string {
   const mileage =
-    c.mileage > 0 ? ` ไมล์ ${formatPrice(c.mileage)} กม.` : "";
+    c.mileage > 0 ? ` ไมล์ตามประกาศ ${formatPrice(c.mileage)} กม.` : "";
   const showroom = c.showroomName ? ` ของ ${c.showroomName}` : "";
-  return `มีครับ ขณะนี้มี ${c.brand} ${c.model} ปี ${c.year}${showroom} ราคา ${formatPrice(c.price)} บาท${mileage} อยู่ในตลาดทดลอง 1 คันครับ`;
+  return `มีครับ — เจอ ${c.brand} ${c.model} ปี ${c.year}${showroom} ราคา ${formatPrice(c.price)} บาท${mileage} ตรงที่ถาม 1 คันในตลาดตอนนี้ครับ`;
 }
 
 function buildFoundIntro(
@@ -610,6 +656,13 @@ export function buildMarketplaceSearchIntroCopy(
 }
 
 export function buildCompareReplyCopy(cars: ChatCarCardData[]): string {
+  const uniqueIds = [
+    ...new Set(cars.map((c) => String(c.id ?? "").trim()).filter(Boolean)),
+  ];
+  if (cars.length < 2 || uniqueIds.length < 2) {
+    return "เทียบคันเดิมกับตัวเองไม่ได้ครับ อยากให้เทียบกับรุ่นหรือปีไหนเป็นพิเศษ บอกน้องเอได้เลยครับ";
+  }
+
   const highlights: CarHighlightFacts[] = cars.map((c) => ({
     id: c.id,
     brand: c.brand,
@@ -621,7 +674,7 @@ export function buildCompareReplyCopy(cars: ChatCarCardData[]): string {
   }));
 
   const insight = buildListingComparisonInsight(highlights);
-  
+
   const lines = cars.map((c, i) => {
     const mileage = c.mileage > 0 ? ` ไมล์ ${formatPrice(c.mileage)} กม.` : "";
     return `${i + 1}. ${c.brand} ${c.model} ปี ${c.year} — ราคา ${formatPrice(c.price)} บาท${mileage} (${c.bodyClassLabel})`;
@@ -632,7 +685,9 @@ export function buildCompareReplyCopy(cars: ChatCarCardData[]): string {
     lines.join("\n"),
     insight ? `\n${insight}` : "",
     `\n${inventorySoftFollowUp(cars.length, cars[0]?.id ?? "compare")}`,
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function buildSelectedCarReplyCopy(car: ChatCarCardData): string {

@@ -67,6 +67,12 @@ import {
   detectBuyerRefinement,
   extractNumberedComparePair,
 } from "./chatPilotBuyerFollowUp";
+import {
+  buildInventoryBackedCompareReply,
+  buildInventoryCompareUnavailableReply,
+  isNamedInventoryCompareIntent,
+  resolveInventoryBackedComparePair,
+} from "./inventoryBackedCompare";
 import { wireShadowChatPath } from "../salesBrainShadowChatPath";
 
 export interface OrchestratedChatReply {
@@ -94,6 +100,11 @@ function tryContextualBuyerFollowUp(
   if (!isCompare && !refinement) return null;
 
   if (isCompare) {
+    // v22.57 — named inventory target (e.g. เทียบกับ Corolla 2021) must not
+    // fall back to session-only / duplicate-card compare here.
+    if (isNamedInventoryCompareIntent(message)) {
+      return null;
+    }
     let picked: ChatCarCardData[] = [];
     if (comparePair) {
       picked = [contextCars[comparePair.a - 1], contextCars[comparePair.b - 1]].filter(
@@ -102,7 +113,17 @@ function tryContextualBuyerFollowUp(
     } else {
       picked = resolveCarsFromContextHint(message, contextCars);
     }
+    // Reject duplicate listing identities (self-compare).
     if (picked.length >= 2) {
+      const ids = picked.map((c) => c.id).filter(Boolean);
+      const unique = new Set(ids);
+      if (ids.length >= 2 && unique.size < 2) {
+        return {
+          text: "เทียบคันเดิมกับตัวเองไม่ได้ครับ อยากให้เทียบกับรุ่นหรือปีไหนเป็นพิเศษ บอกน้องเอได้เลยครับ",
+          carCards: picked.slice(0, 1),
+          skipGemini: true,
+        };
+      }
       return {
         text: buildCompareReplyCopy(picked),
         carCards: picked,
@@ -111,6 +132,13 @@ function tryContextualBuyerFollowUp(
     }
     if (contextCars.length >= 2 && /เทียบ|เปรียบเทียบ|ช่วยเทียบ/i.test(message)) {
       const fallback = contextCars.slice(0, 2);
+      if (fallback[0]?.id && fallback[0].id === fallback[1]?.id) {
+        return {
+          text: "เทียบคันเดิมกับตัวเองไม่ได้ครับ อยากให้เทียบกับรุ่นหรือปีไหนเป็นพิเศษ บอกน้องเอได้เลยครับ",
+          carCards: fallback.slice(0, 1),
+          skipGemini: true,
+        };
+      }
       return {
         text: buildCompareReplyCopy(fallback),
         carCards: fallback,
@@ -196,6 +224,29 @@ function tryOrchestrateChatReplyCore(
   const contextualFollowUp = tryContextualBuyerFollowUp(message, contextCars);
   if (contextualFollowUp) {
     return contextualFollowUp;
+  }
+
+  // v22.57 — named inventory compare: base = active vehicle, target = inventory search
+  if (isNamedInventoryCompareIntent(message)) {
+    const resolved = resolveInventoryBackedComparePair(
+      message,
+      inventory,
+      contextCars
+    );
+    if (resolved.ok) {
+      const built = buildInventoryBackedCompareReply(resolved);
+      return {
+        text: built.text,
+        carCards: built.carCards,
+        skipGemini: true,
+      };
+    }
+    const unavailable = buildInventoryCompareUnavailableReply(resolved);
+    return {
+      text: unavailable.text,
+      carCards: unavailable.carCards,
+      skipGemini: true,
+    };
   }
 
   // v22.56 — grounded mileage judgment before advisor/facts "select car first" trap

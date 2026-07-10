@@ -16,6 +16,7 @@ import {
   isPilotBuyerFollowUpMessage,
   type BuyerRefinementKind,
 } from "./chat/chatPilotBuyerFollowUp";
+import { isNamedInventoryCompareIntent } from "./chat/inventoryBackedCompare";
 import type { PilotGroundedCarCard } from "./chat/chatPilotSessionContext";
 import { resolveCarCardsFromSessionContext } from "./chat/chatPilotSessionContext";
 import { buildListingComparisonInsight } from "./chat/chatSearchReplyCopy";
@@ -243,12 +244,26 @@ export function buildBuyerComparePilotCopy(
   pair: { a: number; b: number },
   cards: PilotGroundedCarCard[]
 ): string {
+  // v22.57 — never allow identical slot indices to fabricate a two-car compare
+  if (pair.a === pair.b) {
+    return `${PARTIAL_DATA_NOTE}\n\nเทียบคันเดิมกับตัวเองไม่ได้ครับ อยากให้เทียบกับรุ่นหรือปีไหนเป็นพิเศษ เช่น “เทียบกับ Corolla 2021” บอกน้องเอได้เลยครับ\n\n${LISTING_DISCLAIMER}`;
+  }
   const selected = resolveCarCardsFromSessionContext(cards, [pair.a, pair.b]);
   if (selected.length < 2) {
     return `${PARTIAL_DATA_NOTE}\n\nลองเปิดดูการ์ดที่เพิ่งแสดงก่อน แล้วพิมพ์ “เทียบคันที่ 1 กับ 2” อีกครั้ง หรือบอกว่าอยากเน้นมุมไหน เช่น ประหยัดน้ำมัน ครอบครัว หรือผ่อนเบื้องต้นครับ\n\n${LISTING_DISCLAIMER}`;
   }
 
   const [carA, carB] = selected;
+  if (
+    carA.brand === carB.brand &&
+    carA.model === carB.model &&
+    carA.year === carB.year &&
+    carA.price === carB.price &&
+    (carA.mileage ?? 0) === (carB.mileage ?? 0)
+  ) {
+    return `${PARTIAL_DATA_NOTE}\n\nข้อมูลเทียบซ้ำกันจนแยกคันไม่ได้ครับ อยากให้เทียบกับรุ่นหรือปีอื่น บอกน้องเอได้เลยครับ\n\n${LISTING_DISCLAIMER}`;
+  }
+
   const insight = buildListingComparisonInsight(
     selected.map((c) => ({
       id: String(c.index),
@@ -540,7 +555,18 @@ export function buildPilotBuyerUserVisibleCopy(
   }
 
   if (isPilotBuyerDirectCompareFollowUp(input.userMessage) && sessionCount >= 2) {
+    // Named inventory compare must be resolved with inventory (orchestrator),
+    // not by inventing a second slot from a single session card.
+    if (isNamedInventoryCompareIntent(input.userMessage)) {
+      return null;
+    }
     const pair = comparePair ?? { a: 1, b: 2 };
+    if (pair.a === pair.b) {
+      return {
+        text: buildBuyerComparePilotCopy(pair, sessionCards),
+        pilotPathActive: true,
+      };
+    }
     return {
       text: buildBuyerComparePilotCopy(pair, sessionCards),
       pilotPathActive: true,
@@ -595,9 +621,20 @@ export function buildPilotBuyerUserVisibleCopy(
   }
 
   if (followUp && sessionCount > 0 && isPilotBuyerDirectCompareFollowUp(input.userMessage)) {
+    if (isNamedInventoryCompareIntent(input.userMessage) || sessionCount < 2) {
+      return {
+        text: [
+          "อยากให้เทียบกับรุ่นหรือปีไหนเป็นพิเศษครับ?",
+          'เช่น พิมพ์ “เทียบกับ Corolla 2021” หรือ “เทียบคันที่ 1 กับ 2” ถ้ามีหลายคันในการ์ดครับ',
+          "",
+          LISTING_DISCLAIMER,
+        ].join("\n"),
+        pilotPathActive: true,
+      };
+    }
     return {
       text: buildBuyerComparePilotCopy(
-        comparePair ?? { a: 1, b: Math.min(2, sessionCount) },
+        comparePair ?? { a: 1, b: 2 },
         sessionCards
       ),
       pilotPathActive: true,

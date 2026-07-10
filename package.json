@@ -495,6 +495,8 @@
     "test:v22.55": "npm run test:v22.55-gemini-hybrid-buyer-chat-restore",
     "test:v22.56-active-vehicle-mileage-follow-up": "tsx scripts/test-v22.56-active-vehicle-mileage-follow-up.mts",
     "test:v22.56": "npm run test:v22.56-active-vehicle-mileage-follow-up",
+    "test:v22.57-comparison-vehicle-identity-sales-copy": "tsx scripts/test-v22.57-comparison-vehicle-identity-sales-copy.mts",
+    "test:v22.57": "npm run test:v22.57-comparison-vehicle-identity-sales-copy",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",

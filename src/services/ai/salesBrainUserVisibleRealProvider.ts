@@ -389,7 +389,7 @@ function buildScenarioAnswerGuidance(
     case "finance":
       return "ตอบเรื่องผ่อน/ไฟแนนซ์แบบเข้าใจง่าย: สรุปภาพรวมก่อน แล้วอธิบายเหตุผลสั้น ๆ ใช้คำ ประเมินเบื้องต้น / ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ — ห้ามรับประกันอนุมัติ ห้ามเดาตัวเลขงวด";
     case "compare":
-      return "เทียบคันที่ 1 กับ 2 จากข้อมูลจริง (ปี ราคา ไมล์ ประเภท) โดยสรุปความต่างที่ตัดสินใจได้ทันที 2-3 ประเด็น";
+      return "เทียบเฉพาะคันที่ 1 กับคันที่ 2 จาก listing ที่ให้มาเท่านั้น (ปี ราคา ไมล์ ประเภท) — ต้องเป็นคนละคัน คนละปี/ราคา/ไมล์ตามข้อมูลจริง สรุปความต่างที่ตัดสินใจได้ 2-3 ประเด็น ห้ามเทียบคันเดิมกับตัวเอง ห้ามแต่งคันที่ไม่มีใน listing";
     case "summarize":
       return "สรุปคันเดียวแบบอ่านง่าย: เปิดด้วยจุดเด่นหลัก แล้วเหตุผลสนับสนุนสั้น ๆ จาก listing เท่านั้น ห้ามแต่งสภาพหรือประวัติ";
     case "fit":
@@ -797,6 +797,9 @@ export function evaluateRealProviderOutputSafety(
   if (hasUngroundedVehicleModelMention(trimmed, options?.pilotOrchestration)) {
     return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
   }
+  if (scenario === "compare" && hasCompareIdentityFailure(trimmed, options?.pilotOrchestration)) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
   if (hasExcessiveNonThaiContent(trimmed, vehicleTerms)) {
     return { safe: false, unsafeReason: "non_thai_output", scenario, outputLength };
   }
@@ -979,6 +982,7 @@ function buildExactInventoryAskPromptGuidance(userMessage: string): string {
     `ผู้ใช้ถามหา ${label} โดยตรง — เปิดด้วยการยืนยันว่ามี/ไม่มีคันที่ตรงรุ่นและปีนี้ก่อน`,
     "อธิบายเฉพาะคันใน listing ที่ตรงรุ่น/ปี ห้ามแนะนำรุ่นอื่น (เช่น Camry / Vios) เว้นแต่ผู้ใช้ขอทางเลือกชัดเจน",
     "ใช้ราคา/ไมล์/ปีจาก listing เท่านั้น ห้ามแต่งตัวเลข",
+    "โทนเซลส์มืออาชีพ: แปลงข้อเท็จจริงเป็นมุมตัดสินใจสั้น ๆ (งบ / ปี / ไมล์ / การใช้งาน) ปิดด้วย next step นุ่ม ๆ เช่น นัดดูรถหรือถามความเหมาะ — ห้ามยัดเยียด ห้ามซ้ำ disclaimer หลายย่อหน้า ห้ามอ้างประหยัด/ดูแลง่ายเป็นข้อเท็จจริงคันนี้",
   ].join(" ");
 }
 
@@ -1002,6 +1006,45 @@ export function hasUngroundedVehicleModelMention(
     );
     if (!grounded) return true;
   }
+  return false;
+}
+
+/**
+ * v22.57 — fail closed when Gemini compares one car with itself or drops a
+ * grounded year from a two-car compare payload.
+ */
+export function hasCompareIdentityFailure(
+  text: string,
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint
+): boolean {
+  const cards = pilotOrchestration?.recentCarCards ?? [];
+  const t = text.trim();
+  if (!t) return false;
+
+  // Duplicate "คันที่ 1" heading without "คันที่ 2" — classic self-compare render.
+  if (/คันที่\s*1/i.test(t) && !/คันที่\s*2/i.test(t) && /คันที่\s*1[\s\S]{0,200}คันที่\s*1/i.test(t)) {
+    return true;
+  }
+
+  if (cards.length < 2) {
+    // Only one grounded car — do not accept a fabricated two-car compare body.
+    return /คันที่\s*1[\s\S]+คันที่\s*2/i.test(t);
+  }
+
+  const years = [...new Set(cards.map((c) => c.year).filter((y) => y > 1980))];
+  if (years.length >= 2) {
+    for (const y of years) {
+      if (!new RegExp(String(y)).test(t)) return true;
+    }
+  }
+
+  const prices = cards.map((c) => c.price).filter((p) => p > 0);
+  if (prices.length >= 2 && prices[0] !== prices[1]) {
+    const formatted = prices.map((p) => p.toLocaleString("th-TH"));
+    const mentioned = formatted.filter((p) => t.includes(p));
+    if (mentioned.length < 2) return true;
+  }
+
   return false;
 }
 
