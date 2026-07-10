@@ -285,8 +285,29 @@ function buildRelativeTrait(
   return "อีกตัวเลือกที่เทียบกันได้จากราคาและไมล์";
 }
 
-function buildBuyerCompareGuide(shown: ChatCarSummary[]): string {
+function buildBuyerCompareGuide(
+  shown: ChatCarSummary[],
+  criteria?: ChatSearchCriteria
+): string {
   if (shown.length < 2) return "";
+  // Exact model query: compare within that model only — never pitch a different model.
+  if (criteria?.model?.trim()) {
+    const cheapest = [...shown].sort((a, b) => a.price - b.price)[0];
+    const withMileage = shown.filter((x) => x.mileage > 0);
+    const lowestMileage =
+      withMileage.length >= 2
+        ? [...withMileage].sort((a, b) => a.mileage - b.mileage)[0]
+        : null;
+    const tips: string[] = [];
+    if (cheapest) {
+      tips.push(`ถ้าเน้นคุ้มงบ ลองโฟกัส ${carLabel(cheapest)} ก่อน`);
+    }
+    if (lowestMileage && lowestMileage.id !== cheapest?.id) {
+      tips.push(`ถ้าเน้นไมล์น้อย ${carLabel(lowestMileage)} น่าสนใจ`);
+    }
+    if (tips.length === 0) return "";
+    return `ช่วยตัดสินใจสั้น ๆ: ${tips.join(" · ")} — อิงจากข้อมูลประกาศจริงเท่านั้นครับ`;
+  }
   const cheapest = [...shown].sort((a, b) => a.price - b.price)[0];
   const withMileage = shown.filter((x) => x.mileage > 0);
   const lowestMileage =
@@ -316,15 +337,48 @@ function buildBuyerCompareGuide(shown: ChatCarSummary[]): string {
   return `ช่วยตัดสินใจสั้น ๆ: ${tips.join(" · ")} — อิงจากข้อมูลประกาศจริงเท่านั้นครับ`;
 }
 
-function buildSingleCarNarrative(c: ChatCarSummary): string {
-  const facts = buildSafeSellingPoints(c);
-  const usage = buildUsageSuitability(c);
-  const modelCtx = buildGeneralModelContextBlock({
+function resolveModelContextInput(
+  cars: ChatCarSummary[],
+  criteria?: ChatSearchCriteria
+): { brand?: string; model?: string; year?: number; bodyClassLabel?: string } {
+  const requestedModel = criteria?.model?.trim();
+  const requestedBrand = criteria?.brand?.trim();
+  if (requestedModel) {
+    const match =
+      cars.find(
+        (c) =>
+          c.model.toLowerCase().replace(/-/g, "").includes(
+            requestedModel.toLowerCase().replace(/-/g, "")
+          ) &&
+          (!requestedBrand ||
+            c.brand.toLowerCase().includes(requestedBrand.toLowerCase()))
+      ) ?? cars[0];
+    return {
+      brand: requestedBrand || match?.brand,
+      model: requestedModel,
+      year: criteria?.year ?? match?.year,
+      bodyClassLabel: match?.bodyClassLabel,
+    };
+  }
+  const c = cars[0];
+  if (!c) return {};
+  return {
     brand: c.brand,
     model: c.model,
     year: c.year,
     bodyClassLabel: c.bodyClassLabel,
-  });
+  };
+}
+
+function buildSingleCarNarrative(
+  c: ChatCarSummary,
+  criteria?: ChatSearchCriteria
+): string {
+  const facts = buildSafeSellingPoints(c);
+  const usage = buildUsageSuitability(c);
+  const modelCtx = buildGeneralModelContextBlock(
+    resolveModelContextInput([c], criteria)
+  );
   const cardNote =
     "น้องเอแนบการ์ดรถไว้ให้แล้ว พร้อมราคา ไมล์ รูป และจุดเด่นจากประกาศ — ดูประกอบการตัดสินใจได้เลยครับ";
   const text = [usage, facts ? `จากข้อมูลประกาศ — ${facts}` : "", modelCtx, cardNote]
@@ -334,25 +388,23 @@ function buildSingleCarNarrative(c: ChatCarSummary): string {
   return text;
 }
 
-function buildMultiCarNarratives(cars: ChatCarSummary[]): string {
+function buildMultiCarNarratives(
+  cars: ChatCarSummary[],
+  criteria?: ChatSearchCriteria
+): string {
   const shown = cars.slice(0, 3);
   const lines = shown.map((c, i) => {
     const oneLine = summarizeOneLine(c);
     const trait = buildRelativeTrait(c, shown);
     return `${i + 1}. ${oneLine}${trait ? ` — ${trait}` : ""}`;
   });
-  const modelCtx =
-    cars[0] != null
-      ? buildGeneralModelContextBlock({
-          brand: cars[0].brand,
-          model: cars[0].model,
-          year: cars[0].year,
-          bodyClassLabel: cars[0].bodyClassLabel,
-        })
-      : "";
-  const compareGuide = buildBuyerCompareGuide(shown);
-  const compareHelp =
-    "น้องเอช่วยเทียบต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ สี และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด ครอบครัว หรือนั่งสบาย บอกได้เลยครับ";
+  const modelCtx = buildGeneralModelContextBlock(
+    resolveModelContextInput(cars, criteria)
+  );
+  const compareGuide = buildBuyerCompareGuide(shown, criteria);
+  const compareHelp = criteria?.model?.trim()
+    ? "น้องเอช่วยเทียบต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ สี และจุดเด่นอะไรบ้างครับ"
+    : "น้องเอช่วยเทียบต่อได้ว่าแต่ละคันต่างกันที่ราคา ไมล์ สี และจุดเด่นอะไรบ้าง ถ้าคุณเน้นคุ้มสุด ไมล์น้อยสุด ครอบครัว หรือนั่งสบาย บอกได้เลยครับ";
   const text = [modelCtx, lines.join("\n"), compareGuide, compareHelp]
     .filter(Boolean)
     .join("\n\n");
@@ -364,6 +416,13 @@ function buildMultiCarNarratives(cars: ChatCarSummary[]): string {
 function buildCarRolesSummary(shownCars: ChatCarSummary[]): string {
   if (shownCars.length === 0) return "";
   return buildMultiCarNarratives(shownCars);
+}
+
+function buildExactMatchDirectLine(c: ChatCarSummary): string {
+  const mileage =
+    c.mileage > 0 ? ` ไมล์ ${formatPrice(c.mileage)} กม.` : "";
+  const showroom = c.showroomName ? ` ของ ${c.showroomName}` : "";
+  return `มีครับ ขณะนี้มี ${c.brand} ${c.model} ปี ${c.year}${showroom} ราคา ${formatPrice(c.price)} บาท${mileage} อยู่ในตลาดทดลอง 1 คันครับ`;
 }
 
 function buildFoundIntro(
@@ -386,16 +445,20 @@ function buildFoundIntro(
       : carLabel(cars[0]);
   const budgetPart = budget ? ` ใน${budget}` : "";
   const cheer = maybeOptionalInventoryCheer(seed);
+  const exactModelYear =
+    Boolean(criteria.model?.trim()) && criteria.year != null;
 
   if (cars.length === 1) {
-    const opener = pickStableVariant(seed, "search.natural.single", [
-      `มีครับ เจอ ${carLabel(cars[0])} อยู่ 1 คันในตลาดตอนนี้ครับ`,
-      `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คันครับ`,
-      `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คันในตลาดครับ`,
-    ]);
+    const opener = exactModelYear
+      ? buildExactMatchDirectLine(cars[0])
+      : pickStableVariant(seed, "search.natural.single", [
+          `มีครับ เจอ ${carLabel(cars[0])} อยู่ 1 คันในตลาดตอนนี้ครับ`,
+          `มีครับ เจอ ${carLabel(cars[0])} ในตลาดตอนนี้ 1 คันครับ`,
+          `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คันในตลาดครับ`,
+        ]);
     const text = [
       `${opener}${cheer}`,
-      buildSingleCarNarrative(cars[0]),
+      buildSingleCarNarrative(cars[0], criteria),
       inventorySoftFollowUp(1, seed),
     ]
       .filter(Boolean)
@@ -407,14 +470,16 @@ function buildFoundIntro(
   const typeHint =
     opts?.bodyTypeHint ??
     (criteria.suvOnly ? "SUV/Crossover" : label || "รุ่นที่ถาม");
-  const opener = pickStableVariant(seed, "search.natural.multi", [
-    `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${cars.length} คันในตลาดตอนนี้ครับ`,
-    `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คันครับ`,
-    `มีครับ เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ครับ`,
-  ]);
+  const opener = exactModelYear
+    ? `มีครับ เจอ ${label} ตรงตามที่ถาม ${cars.length} คันในตลาดตอนนี้ครับ`
+    : pickStableVariant(seed, "search.natural.multi", [
+        `มีครับ เจอ ${typeHint}${budgetPart} อยู่ ${cars.length} คันในตลาดตอนนี้ครับ`,
+        `มีครับ ตอนนี้มี ${typeHint}${budgetPart} ให้ดู ${cars.length} คันครับ`,
+        `มีครับ เจอ ${cars.length} คันสำหรับ ${typeHint}${budgetPart} ในตลาดตอนนี้ครับ`,
+      ]);
   const text = [
     `${opener}${cheer}`,
-    buildMultiCarNarratives(cars),
+    buildMultiCarNarratives(cars, criteria),
     inventorySoftFollowUp(cars.length, seed),
   ]
     .filter(Boolean)
@@ -423,10 +488,40 @@ function buildFoundIntro(
   return text;
 }
 
+function buildNearbyModelYearAlternativeIntro(
+  alternatives: ChatCarSummary[],
+  criteria: ChatSearchCriteria
+): string {
+  const label = [
+    criteria.brand,
+    criteria.model,
+    criteria.year != null ? `ปี ${criteria.year}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const seed = buildStableSeed([label, "nearby-year", alternatives[0]?.id]);
+  const lines = alternatives.slice(0, 3).map((c, i) => summarizeOneLine(c));
+  const modelCtx = buildGeneralModelContextBlock(
+    resolveModelContextInput(alternatives, criteria)
+  );
+  return [
+    `ตอนนี้ยังไม่เจอ ${label} ตรงปีที่ถามในตลาดครับ`,
+    `แต่มีรุ่นเดียวกันปีใกล้เคียงให้พิจารณา ${alternatives.length} คัน — เป็นทางเลือกใกล้เคียง ไม่ใช่ปีที่ถามตรง ๆ นะครับ`,
+    modelCtx,
+    lines.join("\n"),
+    inventorySoftFollowUp(alternatives.length, seed),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function buildAlternativeIntro(
   alternatives: ChatCarSummary[],
   criteria: ChatSearchCriteria
 ): string {
+  if (criteria.model?.trim() && criteria.year != null) {
+    return buildNearbyModelYearAlternativeIntro(alternatives, criteria);
+  }
   const budget = budgetPhrase(criteria);
   const seed = buildStableSeed([
     alternatives[0]?.id,
@@ -505,6 +600,9 @@ export function buildMarketplaceSearchIntroCopy(
   }
 
   if (primary.length === 0) {
+    if (alternatives.length > 0) {
+      return buildAlternativeIntro(alternatives, criteria);
+    }
     return buildNotFoundIntro(criteria);
   }
 

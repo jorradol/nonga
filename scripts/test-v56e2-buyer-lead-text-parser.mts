@@ -24,6 +24,7 @@ import {
   parseBahtFromThaiText,
   parseNaturalBuyerLeadText,
 } from "../src/services/leads/buyerLeadTextParser.ts";
+import { setLeadCaptureEnabledForTests } from "../src/services/leads/leadCaptureClientFlags.ts";
 import type { ChatCarCardData } from "../src/types.ts";
 
 function ok(name: string, pass: boolean, detail = "") {
@@ -126,6 +127,7 @@ ok("480k comma", parseBahtFromThaiText("480,000") === 480000);
 
 // --- incomplete asks only missing via handler ---
 {
+  setLeadCaptureEnabledForTests(true);
   const sid = "sess-partial-missing";
   clearBuyerLeadCaptureContext(sid);
   startBuyerLeadCaptureFromCar(sid, car);
@@ -144,6 +146,7 @@ ok("480k comma", parseBahtFromThaiText("480,000") === 480000);
     ok("compact partial prompt", handler.reply.includes("เกือบครบแล้ว"));
     ok("not full checklist", !handler.reply.includes("ขอข้อมูลในแชท"));
   }
+  setLeadCaptureEnabledForTests(null);
 }
 
 // --- active session stays in lead flow (not search) ---

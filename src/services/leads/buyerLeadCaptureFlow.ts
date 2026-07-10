@@ -74,9 +74,13 @@ const LINE_PURCHASE_METHOD = /วิธีซื้อ\s*[:：]?\s*(.+)$/iu;
 const LINE_OFFER_PRICE =
   /(?:ราคาที่เสนอ|ราคาเสนอ|เสนอราคา|เสนอ)\s*[:：]?\s*([\d,.]+)/iu;
 const LINE_BUDGET =
-  /(?:งบประมาณ|งบ)\s*[:：]?\s*([\d,.]+)/iu;
+  /(?:ตั้งงบ(?:ประมาณ)?(?:\s*เอาไว้(?:ที่)?)?|งบประมาณ|งบ(?:\s*เอาไว้(?:ที่)?)?)\s*[:：]?\s*(?:ที่\s*)?([\d,.]+)/iu;
 const LINE_CONTACT_WINDOW =
   /(?:เวลาที่สะดวกให้ติดต่อ|เวลาที่สะดวก(?:ให้)?ติดต่อ|สะดวก(?:ให้)?ติดต่อ)\s*[:：]?\s*(.+)$/iu;
+
+/** Stop tokens so "ชื่อ X ต้องการจัดไฟแนนซ์ ..." does not swallow the whole line. */
+const DISPLAY_NAME_STOP =
+  /\s+(?:ต้องการ|ขอ|อยาก)?(?:จัด(?:ไฟ)?แนนซ์|ผ่อน(?:ไฟ)?แนนซ์|ไฟแนนซ์|เงินสด|ซื้อสด|จ่ายสด|ตั้งงบ|งบ(?:ประมาณ)?|เสนอ(?:ราคา)?|ราค(?:า)?(?:ที่)?เสนอ|ติดต่อ|โทร(?:ได้)?|สะดวก|ยังไม่แน่ใจ)/i;
 
 export function isActiveBuyerLeadCaptureSession(sessionId: string): boolean {
   const ctx = bySession.get(sessionId);
@@ -158,7 +162,12 @@ function mergeBuyerLeadFieldsFromLine(
 
   const nameLine = line.match(LINE_DISPLAY_NAME);
   if (nameLine?.[1]) {
-    next.displayName = nameLine[1].trim().slice(0, 60);
+    const raw = nameLine[1].trim();
+    const stopped = raw.split(DISPLAY_NAME_STOP)[0]?.trim() || raw;
+    const name = stopped.split(/\s+/)[0]?.trim();
+    if (name && name.length >= 1 && name.length <= 30) {
+      next.displayName = name.slice(0, 60);
+    }
   }
 
   const methodLine = line.match(LINE_PURCHASE_METHOD);

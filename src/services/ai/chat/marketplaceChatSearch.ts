@@ -130,6 +130,13 @@ function normalizeBrand(raw: string): string {
   return BRAND_ALIASES[key] ?? raw.trim();
 }
 
+/** Normalize common model aliases (CRV↔CR-V, Altis→Corolla). */
+function normalizeSearchModel(raw: string): string {
+  const t = raw.trim().replace(/^CRV$/i, "CR-V");
+  if (/^altis$/i.test(t)) return "Corolla";
+  return t;
+}
+
 function parseThaiNumber(raw: string): number {
   return Number(String(raw).replace(/,/g, ""));
 }
@@ -202,17 +209,24 @@ export function parseMarketplaceSearchQuery(
     }
   }
 
-  const modelMatch = text.match(
-    /\b(Honda|Toyota|Mazda|Nissan|Isuzu|Ford|Mitsubishi|Mercedes-Benz|BMW|BYD|Tesla|Suzuki|ฮอนด้า|โตโยต้า|ซูซูกิ)\s+([A-Za-z0-9][A-Za-z0-9-]*)/i
+  // English brands use \b; Thai brands cannot (JS \b is ASCII-word only).
+  const modelMatchEn = text.match(
+    /\b(Honda|Toyota|Mazda|Nissan|Isuzu|Ford|Mitsubishi|Mercedes-Benz|BMW|BYD|Tesla|Suzuki)\s+([A-Za-z0-9][A-Za-z0-9-]*)/i
   );
+  const modelMatchTh = text.match(
+    /(ฮอนด้า|โตโยต้า|มาสด้า|นิสสัน|อีซูซุ|ซูซูกิ)\s+([A-Za-z0-9][A-Za-z0-9-]*)/i
+  );
+  const modelMatch = modelMatchEn ?? modelMatchTh;
   if (modelMatch) {
     criteria.brand = normalizeBrand(modelMatch[1]);
-    criteria.model = modelMatch[2];
+    criteria.model = normalizeSearchModel(modelMatch[2]);
   } else {
     const soloModel = text.match(
-      /\b(CR-V|CRV|Fortuner|City|Civic|Camry|Yaris|CX-5|MU-X|D-Max|Ertiga|XL7|Xpander)\b/i
+      /\b(CR-V|CRV|Fortuner|City|Civic|Camry|Corolla|Altis|Vios|Yaris|CX-5|MU-X|D-Max|Ertiga|XL7|Xpander|Alphard|Almera|Jazz|Swift)\b/i
     );
-    if (soloModel) criteria.model = soloModel[1].replace("CRV", "CR-V");
+    if (soloModel) {
+      criteria.model = normalizeSearchModel(soloModel[1]);
+    }
   }
 
   // Parse budget/price queries
@@ -309,8 +323,16 @@ export function parseMarketplaceSearchQuery(
     criteria.maxPrice = parsedPrice;
   }
 
-  const yearMatch = text.match(/(?:ปี|year)\s*(\d{4})/i);
-  if (yearMatch) criteria.year = Number(yearMatch[1]);
+  const yearLabeled = text.match(/(?:ปี|year)\s*(\d{4})/i);
+  if (yearLabeled) {
+    criteria.year = Number(yearLabeled[1]);
+  } else if (criteria.brand || criteria.model) {
+    // Bare year next to model/brand: "Corolla 2020", "โตโยต้า Corolla 2020"
+    const bareYear = text.match(
+      /(?:^|[^\d])(19\d{2}|20[0-3]\d)(?:[^\d]|$)/
+    );
+    if (bareYear) criteria.year = Number(bareYear[1]);
+  }
 
   for (const [alias, color] of Object.entries(COLOR_ALIASES)) {
     if (text.includes(`สี${alias}`) || text.includes(color)) {
@@ -417,6 +439,13 @@ function dedupeById(cars: ChatCarSummary[]): ChatCarSummary[] {
   return out;
 }
 
+function sortChatCandidates(a: ChatCarSummary, b: ChatCarSummary): number {
+  if (a.hasImage !== b.hasImage) return a.hasImage ? -1 : 1;
+  if (a.price !== b.price) return a.price - b.price;
+  if (a.mileage !== b.mileage) return a.mileage - b.mileage;
+  return b.year - a.year;
+}
+
 export function searchMarketplaceForChat(
   cars: ChatInventoryCar[],
   criteria: ChatSearchCriteria
@@ -426,16 +455,31 @@ export function searchMarketplaceForChat(
   const priceMatched = active
     .filter((car) => matchesBaseCriteria(car, criteria))
     .map(toChatCarSummary)
-    .sort((a, b) => {
-      // 1. Has image
-      if (a.hasImage !== b.hasImage) return a.hasImage ? -1 : 1;
-      // 2. Price
-      if (a.price !== b.price) return a.price - b.price;
-      // 3. Mileage
-      if (a.mileage !== b.mileage) return a.mileage - b.mileage;
-      // 4. Year
-      return b.year - a.year;
-    });
+    .sort(sortChatCandidates);
+
+  // Exact model+year: if none, offer same-model nearby years as alternatives.
+  if (criteria.model?.trim() && criteria.year != null) {
+    if (priceMatched.length > 0) {
+      return {
+        primary: dedupeById(priceMatched).slice(0, limit),
+        alternatives: [],
+      };
+    }
+    const nearbyCriteria: ChatSearchCriteria = { ...criteria, year: undefined };
+    const nearby = active
+      .filter((car) => matchesBaseCriteria(car, nearbyCriteria))
+      .map(toChatCarSummary)
+      .sort((a, b) => {
+        const da = Math.abs(a.year - criteria.year!);
+        const db = Math.abs(b.year - criteria.year!);
+        if (da !== db) return da - db;
+        return sortChatCandidates(a, b);
+      });
+    return {
+      primary: [],
+      alternatives: dedupeById(nearby).slice(0, limit),
+    };
+  }
 
   if (criteria.pickupOnly) {
     const pickups = priceMatched.filter((c) => c.bodyClass === "pickup");
