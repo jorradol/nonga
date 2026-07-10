@@ -410,37 +410,44 @@ function buildSingleCarNarrative(
   const exactModelYear =
     Boolean(criteria?.model?.trim()) && criteria?.year != null;
   const body = safeBodyClass(c.bodyClassLabel);
+  const price = c.price > 0 ? `ราคา ${formatPrice(c.price)} บาท` : "";
+  const mileage =
+    c.mileage > 0 ? `เลขไมล์ตามประกาศ ${formatPrice(c.mileage)} กม.` : "";
+  const dealer = c.showroomName?.trim() ? `จาก ${c.showroomName.trim()}` : "";
 
   // v22.57 — salesperson tone: weave facts into buyer value, one next step,
   // avoid rigid field dumps / repeated disclaimer blocks on exact matches.
-  // v22.63 — clearer suitability (no รถสุภาพ); one CTA only; opener already
-  // carries listing facts so skip redundant summary + second soft follow-up.
+  // v22.64 — restore Owner-approved exact narrative; only replace awkward
+  // `รถสุภาพ` phrase. Duplicate CTA is removed in buildFoundIntro (skip soft follow-up).
   if (exactModelYear) {
     const appealParts: string[] = [];
     if (/Sedan|ซีดาน/i.test(body)) {
       appealParts.push(
-        "คันนี้เป็นซีดานที่เหมาะกับการขับใช้งานประจำวัน เดินทางในเมือง หรือใช้กับครอบครัวขนาดเล็ก"
+        "เป็นซีดานนั่งสบาย เหมาะกับการขับใช้งานประจำวัน เดินทางในเมือง หรือใช้กับครอบครัวขนาดเล็กครับ"
       );
     } else if (/SUV|Crossover|MPV/i.test(body)) {
       appealParts.push(
-        `คันนี้เป็น${body} ที่ช่วยเรื่องพื้นที่ใช้สอย — น่าสนใจถ้าเน้นครอบครัวหรือนั่งหลายคน`
+        `เป็น${body} ที่ช่วยเรื่องพื้นที่ใช้สอย — น่าสนใจถ้าเน้นครอบครัวหรือนั่งหลายคน`
       );
     } else if (body) {
-      appealParts.push(`คันนี้เป็น${body} ที่ตรงรุ่นและปีที่ถาม`);
+      appealParts.push(`เป็น${body} ที่ตรงรุ่นและปีที่ถาม`);
     }
-    if (c.mileage > 0) {
-      appealParts.push(
-        "จุดที่ควรพิจารณาคือราคา ปีรถ และเลขไมล์ควบคู่กับประวัติการดูแลและสภาพจริงตอนดูรถ — ยังไม่ฟันธงสภาพจากตัวเลขอย่างเดียวครับ"
-      );
-    } else if (c.price > 0 && c.price < 500_000) {
-      appealParts.push("ช่วงราคานี้ช่วยตั้งกรอบงบได้ชัดจากข้อมูลประกาศ");
+    if (c.price > 0 && c.price < 500_000) {
+      appealParts.push("ช่วงราคานี้ช่วยคุมงบได้ชัด");
     } else if (c.price > 0) {
       appealParts.push("ราคาตามประกาศช่วยตั้งกรอบตัดสินใจได้ทันที");
     }
+    if (c.mileage > 0) {
+      appealParts.push(
+        "เลขไมล์ควรดูคู่กับปีรถและสภาพจริงตอนชมรถ — ยังไม่ฟันธงสภาพจากตัวเลขอย่างเดียว"
+      );
+    }
 
+    const factLine = [price, mileage, dealer].filter(Boolean).join(" · ");
     const text = [
       appealParts.join(" "),
-      "ถ้าสนใจ น้องเอช่วยเทียบความเหมาะสมกับรูปแบบการใช้งาน หรือนัดดูรถและทดลองขับกับผู้ขายให้ต่อได้ครับ",
+      factLine ? `สรุปจากประกาศ: ${factLine}` : "",
+      "ถ้าสนใจ น้องเอช่วยไล่ต่อได้ว่าเหมาะกับใช้งานแบบไหน หรือนัดดูรถ/ทดลองขับกับผู้ขายได้ครับ",
     ]
       .filter(Boolean)
       .join("\n");
@@ -530,7 +537,7 @@ function buildFoundIntro(
           `มีครับ — ${carLabel(cars[0])} ตอนนี้มี 1 คันในตลาดครับ`,
         ]);
     // v22.60 — optional accent near end only (never opener / never every answer)
-    // v22.63 — exact model+year narrative already ends with one CTA; do not
+    // v22.64 — exact model+year narrative already ends with one CTA; do not
     // append inventorySoftFollowUp (that caused duplicate ถ้าสนใจ invitations).
     const narrative = buildSingleCarNarrative(cars[0], criteria);
     const parts = exactModelYear

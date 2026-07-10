@@ -142,13 +142,12 @@ function run(): void {
         !/เหมาะกับใช้งานเมืองหรือครอบครัวเล็กที่อยากได้รถสุภาพ/.test(copy)
     );
     ok(
-      "v22.63 exact path skips duplicate soft follow-up",
-      copy.includes("v22.63") &&
-        copy.includes("exact model+year narrative already ends with one CTA")
+      "exact path skips duplicate soft follow-up",
+      copy.includes("exact model+year narrative already ends with one CTA")
     );
     ok(
-      "clear sedan suitability present",
-      /คันนี้เป็นซีดานที่เหมาะกับการขับใช้งานประจำวัน/.test(copy)
+      "clear sedan suitability present (Owner-approved structure)",
+      /เป็นซีดานนั่งสบาย เหมาะกับการขับใช้งานประจำวัน/.test(copy)
     );
   }
 

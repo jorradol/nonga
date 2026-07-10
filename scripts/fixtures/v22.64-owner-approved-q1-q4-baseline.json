@@ -1,0 +1,79 @@
+{
+  "id": "v22.64-owner-approved-q1-q4-baseline",
+  "immutable": true,
+  "source": "Owner-browser approved Q1–Q3 at pre-v22.63 (de455b7 / v22.62 Staging) plus Owner-requested Q1 minimal wording+CTA patch only; Q4 frozen at current PASS",
+  "baselineCommit": "de455b7",
+  "regressionCommit": "9f9c742",
+  "conversation": [
+    {
+      "turn": "Q1",
+      "user": "มีรถ โตโยต้า Corolla 2020 ไหม",
+      "route": "exact_model_year_found",
+      "requiredFacts": ["Corolla", "2020", "Thor Auto", "399,000", "88,000"],
+      "forbiddenPhrases": ["รถสุภาพ", "อยากได้รถสุภาพ"],
+      "requiredStructure": [
+        "เป็นซีดานนั่งสบาย",
+        "เหมาะกับการขับใช้งานประจำวัน เดินทางในเมือง หรือใช้กับครอบครัวขนาดเล็กครับ",
+        "ช่วงราคานี้ช่วยคุมงบได้ชัด",
+        "เลขไมล์ควรดูคู่กับปีรถและสภาพจริงตอนชมรถ",
+        "สรุปจากประกาศ:",
+        "ถ้าสนใจ น้องเอช่วยไล่ต่อได้ว่าเหมาะกับใช้งานแบบไหน หรือนัดดูรถ/ทดลองขับกับผู้ขายได้ครับ"
+      ],
+      "forbiddenStructure": [
+        "คันนี้เป็นซีดานที่เหมาะกับการขับใช้งานประจำวัน",
+        "ช่วยเทียบความเหมาะสมกับรูปแบบการใช้งาน",
+        "จุดที่ควรพิจารณาคือราคา ปีรถ และเลขไมล์",
+        "ถ้าสนใจคันนี้ น้องเอช่วยประสานนัดดูรถ"
+      ],
+      "ctaCountExact": 1,
+      "cardCount": 1,
+      "cardIds": ["corolla-2020"],
+      "requireImage": true,
+      "activeVehicleId": "corolla-2020"
+    },
+    {
+      "turn": "Q2",
+      "user": "คันนี้เหมาะกับใช้ครอบครัวไหม",
+      "route": "active_vehicle_family_fit",
+      "requiredFacts": ["Corolla", "2020", "399,000", "88,000"],
+      "forbiddenPhrases": ["2021", "เทียบคันที่ 1 กับ 2", "เปรียบเทียบคันที่"],
+      "requiredPurpose": "family_use_guidance_for_active_corolla_2020_only",
+      "cardCount": 1,
+      "cardIds": ["corolla-2020"],
+      "requireImage": true
+    },
+    {
+      "turn": "Q3",
+      "user": "ไมล์ 88,000 เยอะไปไหม",
+      "route": "active_vehicle_mileage",
+      "requiredFacts": ["88,000", "Corolla", "2020"],
+      "forbiddenPhrases": ["ปังปุริเย่", "เลือกคัน", "คลิกการ์ด", "2021"],
+      "requiredPurpose": "mileage_guidance_relative_to_year_and_condition_checks",
+      "requiredGuidance": [
+        "เลขไมล์อย่างเดียวพิสูจน์สภาพไม่ได้",
+        "สมุดเช็กระยะ",
+        "ประวัติซ่อม",
+        "เครื่องยนต์",
+        "ช่วงล่าง"
+      ],
+      "cardCount": 1,
+      "cardIds": ["corolla-2020"],
+      "requireImage": true
+    },
+    {
+      "turn": "Q4",
+      "user": "เทียบกับ Corolla 2021 ให้หน่อย",
+      "route": "named_inventory_compare",
+      "requiredFacts": ["2020", "2021", "399,000", "429,000", "88,000", "58,000"],
+      "forbiddenPhrases": [
+        "ยังไม่เห็นชุดรถล่าสุด",
+        "งบ 4 แสน มีรถอะไรน่าเล่น",
+        "เทียบคันที่ 1 กับ 2"
+      ],
+      "cardCount": 2,
+      "cardIds": ["corolla-2020", "corolla-2021"],
+      "requireImage": true,
+      "freeze": true
+    }
+  ]
+}
