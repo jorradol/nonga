@@ -126,30 +126,65 @@ export function buildListingComparisonInsight(
       `จุดน่าสนใจคือทั้ง ${sameModelGroup.length} คันเป็น ${label} รุ่นเดียวกัน แต่ราคาและเลขไมล์ต่างกัน`
     );
 
-    for (const c of sameModelGroup) {
-      const traits: string[] = [];
-      if (c.id === cheapest.id && sameModelGroup.length > 1) {
-        traits.push("เด่นเรื่องงบ");
-      }
-      if (
-        lowestMileage &&
-        c.id === lowestMileage.id &&
-        sameModelGroup.some((o) => o.mileage > 0 && o.mileage !== c.mileage)
-      ) {
-        traits.push("เด่นเรื่องเลขไมล์น้อยกว่า");
-      } else if (
-        c.id !== cheapest.id &&
-        c.price > cheapest.price &&
-        sameModelGroup.length === 2
-      ) {
-        traits.push("ยังอยู่ในงบสบาย ๆ");
-      }
-      if (traits.length > 0) {
-        const mileage =
-          c.mileage > 0 ? ` ไมล์ ${formatPrice(c.mileage)} กม.` : "";
+    // v22.58 — explicit buyer-oriented deltas for a two-car same-model pair
+    if (sameModelGroup.length === 2) {
+      const [a, b] = sameModelGroup;
+      const priceDiff = Math.abs(a.price - b.price);
+      const yearDiff = Math.abs(a.year - b.year);
+      const mileageDiff =
+        a.mileage > 0 && b.mileage > 0 ? Math.abs(a.mileage - b.mileage) : 0;
+      const cheaper = a.price <= b.price ? a : b;
+      const newer = a.year >= b.year ? a : b;
+      const lowerMiles =
+        a.mileage > 0 && b.mileage > 0
+          ? a.mileage <= b.mileage
+            ? a
+            : b
+          : null;
+      if (priceDiff > 0) {
         parts.push(
-          `คันราคา ${formatPrice(c.price)} บาท${mileage} ${traits.join(" ")}`
+          `${carLabel(cheaper)} ถูกกว่าประมาณ ${formatPrice(priceDiff)} บาท — เหมาะถ้าโฟกัสงบซื้อ`
         );
+      }
+      if (yearDiff > 0) {
+        parts.push(
+          `${carLabel(newer)} ใหม่กว่า ${yearDiff} ปีรุ่น — เหมาะถ้าอยากได้ปีใหม่กว่า`
+        );
+      }
+      if (lowerMiles && mileageDiff > 0) {
+        parts.push(
+          `${carLabel(lowerMiles)} ไมล์น้อยกว่าประมาณ ${formatPrice(mileageDiff)} กม. — เหมาะถ้าโฟกัสเลขไมล์`
+        );
+      }
+      parts.push(
+        "ยังไม่ฟันธงว่าคันไหนดีกว่าโดยไม่มีลำดับความสำคัญของลูกค้าและการตรวจสภาพจริงครับ"
+      );
+    } else {
+      for (const c of sameModelGroup) {
+        const traits: string[] = [];
+        if (c.id === cheapest.id && sameModelGroup.length > 1) {
+          traits.push("เด่นเรื่องงบ");
+        }
+        if (
+          lowestMileage &&
+          c.id === lowestMileage.id &&
+          sameModelGroup.some((o) => o.mileage > 0 && o.mileage !== c.mileage)
+        ) {
+          traits.push("เด่นเรื่องเลขไมล์น้อยกว่า");
+        } else if (
+          c.id !== cheapest.id &&
+          c.price > cheapest.price &&
+          sameModelGroup.length === 2
+        ) {
+          traits.push("ยังอยู่ในงบสบาย ๆ");
+        }
+        if (traits.length > 0) {
+          const mileage =
+            c.mileage > 0 ? ` ไมล์ ${formatPrice(c.mileage)} กม.` : "";
+          parts.push(
+            `คันราคา ${formatPrice(c.price)} บาท${mileage} ${traits.join(" ")}`
+          );
+        }
       }
     }
   } else {

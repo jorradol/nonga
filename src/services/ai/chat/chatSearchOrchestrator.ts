@@ -168,6 +168,11 @@ function tryOrchestrateChatReplyCore(
     firebaseUid?: string;
     /** v6.1L.2i — scope sessionStorage car context to this chat session */
     chatSessionId?: string | null;
+    /**
+     * v22.58 — server bridge injects rehydrated pilot session cards
+     * (Node has no browser sessionStorage).
+     */
+    contextCarsOverride?: ChatCarCardData[];
   }
 ): OrchestratedChatReply | null {
   const chatSessionId = options?.chatSessionId ?? null;
@@ -219,7 +224,10 @@ function tryOrchestrateChatReplyCore(
     };
   }
 
-  const contextCars = loadChatCarContext(chatSessionId);
+  const contextCars =
+    options?.contextCarsOverride && options.contextCarsOverride.length > 0
+      ? options.contextCarsOverride
+      : loadChatCarContext(chatSessionId);
 
   const contextualFollowUp = tryContextualBuyerFollowUp(message, contextCars);
   if (contextualFollowUp) {

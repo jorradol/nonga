@@ -1,5 +1,6 @@
 /**
  * v22.57 — Inventory-backed named compare (e.g. "เทียบกับ Corolla 2021").
+ * v22.58 — Canonical pair is the single source for cards + text + Gemini grounding.
  * Reuses marketplace search + active-vehicle session resolution.
  * Fail-closed: never compare a listing with itself.
  */
@@ -16,6 +17,7 @@ import {
   parseMarketplaceSearchQuery,
   searchMarketplaceForChat,
   summaryToChatCarCardData,
+  toChatCarSummary,
   type ChatInventoryCar,
   type ChatSearchCriteria,
 } from "./marketplaceChatSearch";
@@ -72,6 +74,53 @@ export function hasIdenticalCompareFactSet(
     a.mileage === b.mileage &&
     (a.bodyClassLabel ?? "") === (b.bodyClassLabel ?? "")
   );
+}
+
+/**
+ * Rehydrate session/pilot cards onto real inventory listings (server has no
+ * sessionStorage). Prefer listingId, then brand/model/year + price/mileage.
+ */
+export function rehydrateSessionCarsFromInventory(
+  sessionCars: ChatCarCardData[],
+  inventory: ChatInventoryCar[]
+): ChatCarCardData[] {
+  if (!sessionCars.length || !inventory.length) return sessionCars;
+
+  return sessionCars.map((card) => {
+    const id = listingIdentityKey(card);
+    if (id && !/^pilot-session-|ctx-/i.test(id)) {
+      const byId = inventory.find((inv) => String(inv.id ?? "").trim() === id);
+      if (byId) return summaryToChatCarCardData(toChatCarSummary(byId), "exact");
+    }
+
+    const model = String(card.model ?? "")
+      .toLowerCase()
+      .replace(/-/g, "");
+    const brand = String(card.brand ?? "").toLowerCase();
+    const candidates = inventory.filter((inv) => {
+      if (Number(inv.year) !== Number(card.year)) return false;
+      const invModel = String(inv.model ?? "")
+        .toLowerCase()
+        .replace(/-/g, "");
+      const invBrand = String(inv.brand ?? "").toLowerCase();
+      if (!invModel.includes(model) && !model.includes(invModel)) return false;
+      if (brand && !invBrand.includes(brand) && !brand.includes(invBrand)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (candidates.length === 0) return card;
+
+    const exact = candidates.filter(
+      (inv) =>
+        Number(inv.price) === Number(card.price) &&
+        (card.mileage <= 0 ||
+          Number(inv.mileage ?? 0) === Number(card.mileage))
+    );
+    const pick = exact[0] ?? candidates[0]!;
+    return summaryToChatCarCardData(toChatCarSummary(pick), "exact");
+  });
 }
 
 /**
@@ -169,7 +218,8 @@ export function resolveInventoryBackedComparePair(
     };
   }
 
-  const base = resolveActiveBaseVehicle(inventory, contextCars);
+  const hydrated = rehydrateSessionCarsFromInventory(contextCars, inventory);
+  const base = resolveActiveBaseVehicle(inventory, hydrated);
   if (!base) {
     return {
       ok: false,
@@ -251,4 +301,48 @@ export function buildInventoryCompareUnavailableReply(
     text: resolution.clarification,
     carCards: resolution.cards,
   };
+}
+
+/**
+ * v22.58 — card/text/pair must derive from the same canonical vehicle set.
+ * Returns true when the answer contradicts rendered/grounded cards.
+ */
+export function hasCardAnswerConsistencyFailure(
+  text: string,
+  cards: Array<
+    Pick<ChatCarCardData, "year" | "price" | "mileage" | "model" | "brand">
+  >
+): boolean {
+  const t = text.trim();
+  if (!t || cards.length === 0) return false;
+
+  const years = [...new Set(cards.map((c) => c.year).filter((y) => y > 1980))];
+  for (const y of years) {
+    const missingClaim = new RegExp(
+      `(?:ยังไม่(?:เจอ|มี)|ไม่มี(?:ข้อมูล)?|หาไม่(?:เจอ|พบ)|unavailable).{0,24}${y}|${y}.{0,24}(?:ยังไม่(?:เจอ|มี)|ไม่มี(?:ใน(?:ระบบ|ตลาด|listing))?|หาไม่(?:เจอ|พบ)|unavailable)`,
+      "i"
+    );
+    if (missingClaim.test(t)) return true;
+  }
+
+  if (cards.length >= 2) {
+    const distinctFactKeys = new Set(
+      cards.map((c) =>
+        [c.brand, c.model, c.year, c.price, c.mileage].join("|")
+      )
+    );
+    if (distinctFactKeys.size >= 2) {
+      for (const y of years) {
+        if (!new RegExp(String(y)).test(t)) return true;
+      }
+      const prices = cards.map((c) => c.price).filter((p) => p > 0);
+      if (prices.length >= 2) {
+        const formatted = prices.map((p) => p.toLocaleString("th-TH"));
+        const mentioned = formatted.filter((p) => t.includes(p));
+        if (mentioned.length < Math.min(2, formatted.length)) return true;
+      }
+    }
+  }
+
+  return false;
 }

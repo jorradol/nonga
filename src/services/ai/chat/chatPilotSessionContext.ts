@@ -11,6 +11,8 @@ import {
 export interface PilotGroundedCarCard {
   /** 1-based index in last shown batch */
   index: number;
+  /** Stable marketplace listing id when known (v22.58 — compare identity). */
+  listingId?: string;
   brand: string;
   model: string;
   year: number;
@@ -36,12 +38,20 @@ function truncate(text: string | undefined, max: number): string | undefined {
   return t.length <= max ? t : `${t.slice(0, max)}…`;
 }
 
+function isSyntheticPilotCardId(id: string): boolean {
+  return /^(pilot-session-|ctx-)/i.test(id);
+}
+
 export function toPilotGroundedCarCard(
   car: ChatCarCardData,
   index: number
 ): PilotGroundedCarCard {
+  const listingId = String(car.id ?? "").trim();
   return {
     index,
+    ...(listingId && !isSyntheticPilotCardId(listingId)
+      ? { listingId: listingId.slice(0, 128) }
+      : {}),
     brand: String(car.brand ?? "").slice(0, 64),
     model: String(car.model ?? "").slice(0, 64),
     year: Number(car.year) || 0,
@@ -124,26 +134,31 @@ export function resolvePilotSessionContextForFollowUp(
 export function pilotSessionCardsToChatCarCards(
   cards: PilotGroundedCarCard[]
 ): ChatCarCardData[] {
-  return cards.map((c) => ({
-    id: `pilot-session-${c.index}`,
-    brand: c.brand,
-    model: c.model,
-    year: c.year,
-    price: c.price,
-    mileage: c.mileage ?? 0,
-    bodyClassLabel: c.bodyClassLabel ?? "",
-    color: "",
-    condition: "",
-    fuelType: c.fuelType ?? "petrol",
-    transmission: "",
-    bodyClass: "",
-    imageUrl: "",
-    imageUrls: [],
-    hasImage: false,
-    detailPath: "",
-    matchKind: "exact" as const,
-    ...(c.description ? { description: c.description } : {}),
-  }));
+  return cards.map((c) => {
+    const listingId = String(c.listingId ?? "").trim();
+    return {
+      id: listingId && !isSyntheticPilotCardId(listingId)
+        ? listingId
+        : `pilot-session-${c.index}`,
+      brand: c.brand,
+      model: c.model,
+      year: c.year,
+      price: c.price,
+      mileage: c.mileage ?? 0,
+      bodyClassLabel: c.bodyClassLabel ?? "",
+      color: "",
+      condition: "",
+      fuelType: c.fuelType ?? "petrol",
+      transmission: "",
+      bodyClass: "",
+      imageUrl: "",
+      imageUrls: [],
+      hasImage: false,
+      detailPath: "",
+      matchKind: "exact" as const,
+      ...(c.description ? { description: c.description } : {}),
+    };
+  });
 }
 
 export function sanitizePilotSessionContext(
@@ -158,9 +173,10 @@ export function sanitizePilotSessionContext(
       if (!c || typeof c !== "object") return null;
       const card = c as PilotGroundedCarCard;
       if (!card.brand || !card.model || !card.year || !card.price) return null;
+      const listingId = String(card.listingId ?? "").trim();
       return toPilotGroundedCarCard(
         {
-          id: `ctx-${i}`,
+          id: listingId && !isSyntheticPilotCardId(listingId) ? listingId : `ctx-${i}`,
           brand: card.brand,
           model: card.model,
           year: card.year,

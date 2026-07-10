@@ -31,7 +31,10 @@ import {
   buildPilotSessionContextFromCarCards,
 } from "./chat/chatPilotSessionContext";
 import { isPilotBuyerFollowUpMessage } from "./chat/chatPilotBuyerFollowUp";
-import { isNamedInventoryCompareIntent } from "./chat/inventoryBackedCompare";
+import {
+  isNamedInventoryCompareIntent,
+  rehydrateSessionCarsFromInventory,
+} from "./chat/inventoryBackedCompare";
 import { buildPilotFollowUpNoContextCopy } from "./salesBrainUserVisiblePilotBuyerCopy";
 import type { UserVisiblePilotOrchestrationHint } from "./salesBrainUserVisiblePilotTypes";
 import {
@@ -371,6 +374,15 @@ export function runUserVisibleOrchestrationBridge(
 ): UserVisibleOrchestrationBridgeResult {
   const environment = resolveBridgeEnvironment(input.environment);
   const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
+  // v22.58 — server has no sessionStorage; inject rehydrated pilot cards so
+  // named inventory compare resolves the same canonical pair as the client.
+  const contextCarsOverride =
+    sessionCards.length > 0
+      ? rehydrateSessionCarsFromInventory(
+          pilotSessionCardsToChatCarCards(sessionCards),
+          input.inventory
+        )
+      : undefined;
   // v22.57 — named inventory compare needs orchestrator + inventory; do not
   // short-circuit to session-only cards (that caused Corolla 2020 vs itself).
   const preferPilotSessionFirst =
@@ -383,6 +395,9 @@ export function runUserVisibleOrchestrationBridge(
     : tryOrchestrateChatReplyCore(input.userMessage, input.inventory, {
         attachedImageCount: input.attachedImageCount,
         displayName: input.displayName,
+        ...(contextCarsOverride && contextCarsOverride.length > 0
+          ? { contextCarsOverride }
+          : {}),
       });
 
   if (!orchestrated && input.pilotSessionContext) {

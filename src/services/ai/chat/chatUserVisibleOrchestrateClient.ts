@@ -99,13 +99,18 @@ export async function fetchChatUserVisibleOrchestrate(input: {
 
 /**
  * Apply server bridge text to an existing orchestrated reply (legacy fallback on null).
+ * v22.58 — also return server carCards so UI cards and text share one canonical set.
  */
 export async function applyChatUserVisibleServerBridge(input: {
   userMessage: string;
   attachedImageCount?: number;
   orchestratedText: string;
   pilotSessionContext?: PilotBuyerSessionContext;
-}): Promise<{ userVisibleText: string; pilotPathActive: boolean } | null> {
+}): Promise<{
+  userVisibleText: string;
+  pilotPathActive: boolean;
+  carCards?: ChatCarCardData[];
+} | null> {
   const data = await fetchChatUserVisibleOrchestrate({
     userMessage: input.userMessage,
     attachedImageCount: input.attachedImageCount,
@@ -120,5 +125,8 @@ export async function applyChatUserVisibleServerBridge(input: {
   return {
     userVisibleText: data.userVisibleText,
     pilotPathActive: data.pilotPathActive,
+    ...(Array.isArray(data.carCards) && data.carCards.length > 0
+      ? { carCards: data.carCards }
+      : {}),
   };
 }

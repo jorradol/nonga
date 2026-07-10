@@ -1657,12 +1657,19 @@ export function useChat() {
         if (bridged?.userVisibleText?.trim()) {
           if (orchestrated) {
             orchestrated.text = bridged.userVisibleText;
+            // v22.58 — keep cards and text on the same canonical server set
+            if (bridged.carCards && bridged.carCards.length > 0) {
+              orchestrated.carCards = bridged.carCards;
+            }
           } else if (isFollowUpPilot) {
             orchestrated = {
               text: bridged.userVisibleText,
-              carCards: pilotSessionContext
-                ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
-                : [],
+              carCards:
+                bridged.carCards && bridged.carCards.length > 0
+                  ? bridged.carCards
+                  : pilotSessionContext
+                    ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
+                    : [],
               skipGemini: true,
             };
           }

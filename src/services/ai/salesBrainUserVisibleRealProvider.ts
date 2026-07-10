@@ -39,6 +39,10 @@ import {
   extractNumberedComparePair,
 } from "./chat/chatPilotBuyerFollowUp";
 import { parseMarketplaceSearchQuery } from "./chat/marketplaceChatSearch";
+import {
+  hasCardAnswerConsistencyFailure,
+  isNamedInventoryCompareIntent,
+} from "./chat/inventoryBackedCompare";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
@@ -389,7 +393,9 @@ function buildScenarioAnswerGuidance(
     case "finance":
       return "ตอบเรื่องผ่อน/ไฟแนนซ์แบบเข้าใจง่าย: สรุปภาพรวมก่อน แล้วอธิบายเหตุผลสั้น ๆ ใช้คำ ประเมินเบื้องต้น / ขึ้นอยู่กับเงื่อนไขไฟแนนซ์ — ห้ามรับประกันอนุมัติ ห้ามเดาตัวเลขงวด";
     case "compare":
-      return "เทียบเฉพาะคันที่ 1 กับคันที่ 2 จาก listing ที่ให้มาเท่านั้น (ปี ราคา ไมล์ ประเภท) — ต้องเป็นคนละคัน คนละปี/ราคา/ไมล์ตามข้อมูลจริง สรุปความต่างที่ตัดสินใจได้ 2-3 ประเด็น ห้ามเทียบคันเดิมกับตัวเอง ห้ามแต่งคันที่ไม่มีใน listing";
+      return cardCount >= 2
+        ? "เทียบเฉพาะคันที่ 1 กับคันที่ 2 จาก listing ที่ให้มาเท่านั้น (ปี ราคา ไมล์ ประเภท) — listing มีครบทั้งสองคันแล้ว ห้ามบอกว่าไม่มี/หาไม่เจอคันใดคันหนึ่ง ต้องเป็นคนละคัน คนละปี/ราคา/ไมล์ตามข้อมูลจริง สรุปความต่างที่ตัดสินใจได้ 2-3 ประเด็น (งบ / ปีรุ่น / ไมล์) ห้ามเทียบคันเดิมกับตัวเอง ห้ามแต่งสภาพ ประวัติ รับประกัน หรือฟันธงว่าคันไหนดีกว่าโดยไม่มีลำดับความสำคัญของลูกค้า"
+        : "เทียบเฉพาะคันที่ 1 กับคันที่ 2 จาก listing ที่ให้มาเท่านั้น (ปี ราคา ไมล์ ประเภท) — ต้องเป็นคนละคัน คนละปี/ราคา/ไมล์ตามข้อมูลจริง สรุปความต่างที่ตัดสินใจได้ 2-3 ประเด็น ห้ามเทียบคันเดิมกับตัวเอง ห้ามแต่งคันที่ไม่มีใน listing";
     case "summarize":
       return "สรุปคันเดียวแบบอ่านง่าย: เปิดด้วยจุดเด่นหลัก แล้วเหตุผลสนับสนุนสั้น ๆ จาก listing เท่านั้น ห้ามแต่งสภาพหรือประวัติ";
     case "fit":
@@ -800,6 +806,14 @@ export function evaluateRealProviderOutputSafety(
   if (scenario === "compare" && hasCompareIdentityFailure(trimmed, options?.pilotOrchestration)) {
     return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
   }
+  if (
+    hasCardAnswerConsistencyFailure(
+      trimmed,
+      options?.pilotOrchestration?.recentCarCards ?? []
+    )
+  ) {
+    return { safe: false, unsafeReason: "generic_safety_guard", scenario, outputLength };
+  }
   if (hasExcessiveNonThaiContent(trimmed, vehicleTerms)) {
     return { safe: false, unsafeReason: "non_thai_output", scenario, outputLength };
   }
@@ -947,12 +961,15 @@ export function isExactModelYearInventoryAsk(message: string): boolean {
 /**
  * v22.55 — when user asks exact model+year, ground Gemini only on matching cards
  * so it cannot invent Camry/Vios alternatives from a broader session set.
+ * v22.58 — never narrow named inventory compare (needs base + target together).
  */
 export function narrowPilotOrchestrationForExactInventoryAsk(
   userMessage: string,
   pilotOrchestration?: UserVisiblePilotOrchestrationHint
 ): UserVisiblePilotOrchestrationHint | undefined {
   if (!pilotOrchestration) return pilotOrchestration;
+  // Named compare must keep the full canonical pair (base + target).
+  if (isNamedInventoryCompareIntent(userMessage)) return pilotOrchestration;
   const criteria = parseMarketplaceSearchQuery(userMessage);
   const model = criteria?.model?.trim().toLowerCase();
   const year = criteria?.year;
@@ -1012,6 +1029,7 @@ export function hasUngroundedVehicleModelMention(
 /**
  * v22.57 — fail closed when Gemini compares one car with itself or drops a
  * grounded year from a two-car compare payload.
+ * v22.58 — also reject availability claims that contradict grounded cards.
  */
 export function hasCompareIdentityFailure(
   text: string,
@@ -1031,6 +1049,10 @@ export function hasCompareIdentityFailure(
     return /คันที่\s*1[\s\S]+คันที่\s*2/i.test(t);
   }
 
+  if (hasCardAnswerConsistencyFailure(t, cards)) {
+    return true;
+  }
+
   const years = [...new Set(cards.map((c) => c.year).filter((y) => y > 1980))];
   if (years.length >= 2) {
     for (const y of years) {
@@ -1044,6 +1066,10 @@ export function hasCompareIdentityFailure(
     const mentioned = formatted.filter((p) => t.includes(p));
     if (mentioned.length < 2) return true;
   }
+
+  // Pair has 2 vehicles but answer only describes one side (omit other year/price).
+  const yearMentions = years.filter((y) => new RegExp(String(y)).test(t));
+  if (years.length >= 2 && yearMentions.length < 2) return true;
 
   return false;
 }
@@ -1759,10 +1785,14 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
         firstAttemptUnsafeReason: safety.unsafeReason,
         firstAttemptResponseDiagnostics: real.responseDiagnostics,
       });
+      // v22.58 — keep deterministic orchestrated text/cards (never ship contradictory Gemini).
       return {
         ...input.bridgeResult,
         payload: {
           ...input.bridgeResult.payload,
+          userVisibleText:
+            input.bridgeResult.orchestrated?.text?.trim() ||
+            input.bridgeResult.payload.userVisibleText,
           realProviderNetwork: false,
           realProviderGateReason: "real_provider_output_unsafe",
         },
