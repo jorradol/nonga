@@ -51,7 +51,11 @@ type OffTopicRecoveryKind =
   | "research"
   | "image"
   | "webPrice"
-  | "general";
+  | "general"
+  /** v22.67 — brief rapport; not a general-chat mode */
+  | "greeting"
+  | "thanks"
+  | "casualWarmth";
 
 const OFF_TOPIC_POEM_RE = /แต่งกลอน|กลอนให้|เขียนกลอน/i;
 const OFF_TOPIC_SONG_RE = /แต่งเพลง|เขียนเพลง|เพลงให้/i;
@@ -65,11 +69,23 @@ const OFF_TOPIC_WEB_PRICE_RE =
 const OFF_TOPIC_GENERAL_RE =
   /ทำการบ้าน|การบ้าน|สรุปบทเรียน|เขียนเรียงความ|แต่งนิยาย|ช่วยคิดชื่อเกม/i;
 
+/** Anchored only — must not swallow car-adjacent or search asks (v22.67 B1). */
+const CASUAL_GREETING_RE =
+  /^(?:สวัสดี|หวัดดี)(?:ครับ|ค่ะ|นะ|จ้า|จ๊ะ)?$/i;
+const CASUAL_THANKS_RE =
+  /^(?:ขอบคุณ|ขอบใจ)(?:ครับ|ค่ะ|มาก|นะ|จ้า|จ๊ะ)*$/i;
+const CASUAL_WARMTH_RE =
+  /^(?:วันนี้)?(?:เหนื่อย|เครียด|เบื่อ)(?:จัง|มาก|เลย)?(?:ครับ|ค่ะ|นะ)?$|^(?:วันนี้อารมณ์ดี|อารมณ์ดี)(?:จัง|มาก)?(?:ครับ|ค่ะ|นะ)?$/i;
+
 const ROLE_BOUNDARY_LINE =
   "น้องเอขอเน้นช่วยเรื่องซื้อขายรถยนต์มือสองเป็นหลักครับ";
 
 function buildRoleRecoveryPrompt(): string {
   return "ถ้าคุณพี่บอกงบ พื้นที่ใช้งาน และประเภทรถที่มองหา น้องเอช่วยแนะนำแนวรถที่เหมาะให้ต่อได้ทันทีครับ";
+}
+
+function buildLightCarHandoff(): string {
+  return "กำลังมองหารถแบบไหน หรือมีรถที่อยากลงขาย บอกน้องเอได้เลยครับ";
 }
 
 function detectOffTopicRecoveryKind(message: string): OffTopicRecoveryKind | null {
@@ -80,6 +96,9 @@ function detectOffTopicRecoveryKind(message: string): OffTopicRecoveryKind | nul
   if (OFF_TOPIC_RESEARCH_RE.test(message)) return "research";
   if (OFF_TOPIC_HOROSCOPE_RE.test(message)) return "horoscope";
   if (OFF_TOPIC_GENERAL_RE.test(message)) return "general";
+  if (CASUAL_GREETING_RE.test(message)) return "greeting";
+  if (CASUAL_THANKS_RE.test(message)) return "thanks";
+  if (CASUAL_WARMTH_RE.test(message)) return "casualWarmth";
   return null;
 }
 
@@ -129,6 +148,24 @@ function buildOffTopicRecoveryReply(kind: OffTopicRecoveryKind): string {
       "แต่น้องเอช่วยตั้งกรอบเทียบราคาตลาดรถมือสองได้ โดยเทียบรุ่นเดียวกัน ปีใกล้เคียง เลขไมล์ใกล้เคียง รุ่นย่อยเดียวกัน สภาพรถ และพื้นที่ขายครับ",
       "ถ้าคุณพี่ส่งข้อมูลมาได้ เช่น ยี่ห้อ/รุ่น/รุ่นย่อย ปี เกียร์ เลขไมล์ สี จังหวัด สภาพรถ และราคาที่ตั้งไว้หรือที่เห็นมา น้องเอช่วยประเมินช่วงราคาที่เหมาะให้ต่อได้ครับ",
     ].join("\n");
+  }
+  if (kind === "greeting") {
+    return [
+      "สวัสดีครับ น้องเอพร้อมช่วยเรื่องซื้อ ขาย หรือเลือกรถครับ",
+      buildLightCarHandoff(),
+    ].join(" ");
+  }
+  if (kind === "thanks") {
+    return [
+      "ด้วยความยินดีครับ",
+      "ถ้าอยากหา เทียบ หรือลงขายรถต่อ บอกน้องเอได้เลยครับ",
+    ].join(" ");
+  }
+  if (kind === "casualWarmth") {
+    return [
+      "รับทราบครับ พักหายใจก่อนได้นะครับ",
+      "ถ้าพร้อมแล้วอยากคุยเรื่องหารถหรือขายรถ บอกน้องเอได้เลยครับ",
+    ].join(" ");
   }
   return [
     `${ROLE_BOUNDARY_LINE} เลยอาจไม่ได้ลงลึกเรื่องทั่วไปนอกสายรถครับ`,

@@ -10,6 +10,13 @@ import {
   looksLikeRawSpecText,
 } from "./chat/listingDescriptionHelper";
 
+/** v22.67 B2 — empty-market claim must not appear for non-search turns */
+export const MOCK_MARKETPLACE_EMPTY_CLAIM =
+  /ตอนนี้ยังไม่มีรถในตลาดครับ|ยังไม่พบประกาศขาย/i;
+
+const NON_SEARCH_READY_REPLY =
+  "น้องเอพร้อมช่วยเรื่องซื้อ ขาย หรือเลือกรถครับ กำลังมองหารถแบบไหน หรือมีรถที่อยากลงขาย บอกน้องเอได้เลยครับ";
+
 export interface MockCarListing {
   id?: string;
   title?: string;
@@ -124,6 +131,20 @@ export function buildMockChatReply(
   }
 
   const count = sorted.length;
+  // v22.67 B2 — non-search (greeting/casual/etc.) must never claim marketplace empty
+  // from a stale/empty inventory snapshot. Only genuine search may use no-result copy.
+  if (!isMarketplaceSearchIntent(text) && !NEW_CAR_PATTERNS.test(text)) {
+    if (count === 0) {
+      return NON_SEARCH_READY_REPLY;
+    }
+    return (
+      `น้องเอพร้อมช่วยครับ 😊\n\n` +
+      `ตอนนี้ในตลาดมีรถจริง ${count} คัน (จากข้อมูลระบบเท่านั้น)\n` +
+      `ลองถามเช่น "มี Honda CR-V ไหม" หรือ "มีรถ SUV ไม่เกิน 700,000" เพื่อค้นจาก Marketplace จริงครับ\n\n` +
+      `*(โหมดสำรอง: อ่านจาก /api/cars — ห้ามอ้างรถที่ไม่มีในระบบ)*`
+    );
+  }
+
   if (count === 0) {
     return (
       "ตอนนี้ยังไม่มีรถในตลาดครับ 🙏\n\n" +

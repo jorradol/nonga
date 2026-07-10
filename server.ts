@@ -110,6 +110,8 @@ async function streamMockChatSSE(
   message: string,
   inventory: MarketplaceCarRecord[]
 ): Promise<void> {
+  // v22.67 B2 — callers must pass Marketplace truth (repository) when available;
+  // fall back to file inventory only if the passed snapshot is empty.
   const inv = inventory.length > 0 ? inventory : getLiveInventory();
   devMarketplaceLog("ai-mock-stream", {
     inventoryCount: inv.length,
@@ -684,10 +686,16 @@ app.post("/api/gemini/chat", async (req, res) => {
 
   if (!canUseLegacyGemini()) {
     logLegacyGeminiUnavailable("chat");
+    let truthInv: MarketplaceCarRecord[] = [];
+    try {
+      truthInv = await inventoryRepository.listings.listPublished();
+    } catch {
+      truthInv = getLiveInventory();
+    }
     return res.json({
       success: true,
       isMock: true,
-      reply: buildMockChatReply(message, getLiveInventory()),
+      reply: buildMockChatReply(message, truthInv),
     });
   }
 
@@ -741,10 +749,16 @@ app.post("/api/gemini/chat", async (req, res) => {
   } catch (error: any) {
     console.error("Gemini Assistant Error: ", error);
     if (process.env.NODE_ENV !== "production") {
+      let truthInv: MarketplaceCarRecord[] = [];
+      try {
+        truthInv = await inventoryRepository.listings.listPublished();
+      } catch {
+        truthInv = getLiveInventory();
+      }
       return res.json({
         success: true,
         isMock: true,
-        reply: buildMockChatReply(message, getLiveInventory()),
+        reply: buildMockChatReply(message, truthInv),
       });
     }
     res.status(500).json({ success: false, error: error?.message || "An error occurred with Gemini services." });
@@ -893,7 +907,13 @@ app.post("/api/gemini/chat-stream", async (req, res) => {
 
   if (!canUseLegacyGemini()) {
     logLegacyGeminiUnavailable("chat-stream");
-    await streamMockChatSSE(res, message, getLiveInventory());
+    let truthInv: MarketplaceCarRecord[] = [];
+    try {
+      truthInv = await inventoryRepository.listings.listPublished();
+    } catch {
+      truthInv = getLiveInventory();
+    }
+    await streamMockChatSSE(res, message, truthInv);
     return;
   }
 
@@ -954,7 +974,13 @@ app.post("/api/gemini/chat-stream", async (req, res) => {
     console.error("Streaming Error:", error);
     if (process.env.NODE_ENV !== "production") {
       console.warn("[chat-stream] falling back to mock after stream error");
-      await streamMockChatSSE(res, message, getLiveInventory());
+      let truthInv: MarketplaceCarRecord[] = [];
+      try {
+        truthInv = await inventoryRepository.listings.listPublished();
+      } catch {
+        truthInv = getLiveInventory();
+      }
+      await streamMockChatSSE(res, message, truthInv);
       return;
     }
     res.write(`data: ${JSON.stringify({ error: error.message || "An error occurred during streaming." })}\n\n`);
