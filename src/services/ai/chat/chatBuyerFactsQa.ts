@@ -79,11 +79,109 @@ function imageCount(car: ChatCarCardData): number {
   return car.hasImage && car.imageUrl?.trim() ? 1 : 0;
 }
 
+/** v22.56 — judgment about mileage (high/ok?) vs bare "เลขไมล์เท่าไหร่" lookup. */
+export function isBuyerMileageEvaluationQuestion(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (
+    /(?:ไมล์|เลขไมล์|วิ่ง).{0,40}(?:เยอะ|น้อย|สูง|ต่ำ|มาก|โอเค|ok|น่ากลัว|ผิดปกติ|พอดี|เหมาะสม)/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /(?:เยอะ|น้อย|สูง).{0,10}(?:ไหม|มั้ย|หรือเปล่า|ไปไหม)/i.test(t) &&
+    /(?:ไมล์|เลขไมล์|วิ่ง|กม\.?)/i.test(t)
+  ) {
+    return true;
+  }
+  if (/เลขไมล์คันนี้|คันนี้วิ่ง|วิ่งเยอะ|ไมล์เท่านี|ไมล์(?:คันนี้)?โอเค/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+const THAI_DIGIT_MAP: Record<string, string> = {
+  "๐": "0",
+  "๑": "1",
+  "๒": "2",
+  "๓": "3",
+  "๔": "4",
+  "๕": "5",
+  "๖": "6",
+  "๗": "7",
+  "๘": "8",
+  "๙": "9",
+};
+
+const THAI_MILEAGE_WORDS: Array<{ re: RegExp; value: number }> = [
+  { re: /หนึ่งแสน|แสนหนึ่ง|1\s*แสน/, value: 100_000 },
+  { re: /เก้าหมื่น|9\s*หมื่น/, value: 90_000 },
+  { re: /แปดหมื่น|8\s*หมื่น/, value: 80_000 },
+  { re: /เจ็ดหมื่น|7\s*หมื่น/, value: 70_000 },
+  { re: /หกหมื่น|6\s*หมื่น/, value: 60_000 },
+  { re: /ห้าหมื่น|5\s*หมื่น/, value: 50_000 },
+  { re: /สี่หมื่น|4\s*หมื่น/, value: 40_000 },
+  { re: /สามหมื่น|3\s*หมื่น/, value: 30_000 },
+  { re: /สองหมื่น|2\s*หมื่น/, value: 20_000 },
+  { re: /หนึ่งหมื่น|หมื่นหนึ่ง|1\s*หมื่น/, value: 10_000 },
+];
+
+function normalizeDigits(raw: string): string {
+  return raw.replace(/[๐-๙]/g, (ch) => THAI_DIGIT_MAP[ch] ?? ch).replace(/,/g, "");
+}
+
+/** Extract a stated mileage figure from Thai buyer follow-ups (comma / Thai digits / หมื่น). */
+export function extractStatedMileageFromMessage(message: string): number | null {
+  const t = message.trim();
+  if (!t) return null;
+  for (const { re, value } of THAI_MILEAGE_WORDS) {
+    if (re.test(t)) return value;
+  }
+  const withUnit = t.match(
+    /(?:ไมล์|เลขไมล์|วิ่ง|กม\.?)\s*[:=]?\s*([0-9๐-๙][0-9๐-๙,]{2,})/i
+  );
+  if (withUnit) {
+    const n = Number(normalizeDigits(withUnit[1]));
+    if (Number.isFinite(n) && n >= 1000) return Math.round(n);
+  }
+  const bare = t.match(/\b([0-9๐-๙]{1,3}(?:,[0-9๐-๙]{3})+)\b/);
+  if (bare) {
+    const n = Number(normalizeDigits(bare[1]));
+    if (Number.isFinite(n) && n >= 1000) return Math.round(n);
+  }
+  const plain = t.match(/(?:ไมล์|วิ่ง)\s*([0-9๐-๙]{4,7})/i);
+  if (plain) {
+    const n = Number(normalizeDigits(plain[1]));
+    if (Number.isFinite(n) && n >= 1000) return Math.round(n);
+  }
+  return null;
+}
+
+const MILEAGE_FACT_TOLERANCE_KM = 1500;
+
+/** Match grounded cars whose listing mileage uniquely equals a stated figure. */
+export function resolveCarsByMileageFact(
+  statedMileage: number,
+  cars: ChatCarCardData[],
+  toleranceKm = MILEAGE_FACT_TOLERANCE_KM
+): ChatCarCardData[] {
+  if (!Number.isFinite(statedMileage) || statedMileage <= 0) return [];
+  return cars.filter(
+    (c) =>
+      typeof c.mileage === "number" &&
+      c.mileage > 0 &&
+      Math.abs(c.mileage - statedMileage) <= toleranceKm
+  );
+}
+
 export function detectBuyerFactsSpecField(message: string): BuyerFactsSpecField | null {
   const t = message.trim();
   if (/เกียร์/.test(t)) return "transmission";
   if (/สี(อะไร|เป็น|ยังไง|เท่า)/.test(t) || /(คันนี้|รถคันนี้).*สี/.test(t)) return "color";
-  if (/ไมล์/.test(t)) return "mileage";
+  // v22.56 — evaluation questions are not bare mileage lookups
+  if (/ไมล์/.test(t) && !isBuyerMileageEvaluationQuestion(t)) return "mileage";
   if (/ปี(อะไร|เท่า|กี่|เป็น)/.test(t)) return "year";
   if (/ราคา(เท่า|กี่|เท่าไ|เป็น)/.test(t) && !/แรง|ถูก|แพง|คุ้ม|ดีไหม/.test(t)) {
     return "price";
@@ -146,17 +244,35 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
 
 function messageAllowsSessionCarFallback(message: string): boolean {
   if (extractSelectedCarId(message)) return true;
+  if (isBuyerMileageEvaluationQuestion(message)) return true;
   return /คันนี้|รถคันนี้|คันนั้น|\[SELECTED_CAR_ID:/i.test(message);
 }
 
-export function resolveTargetBuyerCar(
+export type ResolveTargetBuyerCarResult = {
+  car: ChatCarCardData | null;
+  /** Multiple grounded cars share the stated mileage — ask clarification. */
+  ambiguousMileageMatches?: ChatCarCardData[];
+};
+
+export function resolveTargetBuyerCarDetailed(
   message: string,
   inventory: ChatInventoryCar[],
   contextCars: ChatCarCardData[] = loadChatCarContext(),
   options?: { allowSessionFallback?: boolean }
-): ChatCarCardData | null {
+): ResolveTargetBuyerCarResult {
   const allowSession =
     options?.allowSessionFallback ?? messageAllowsSessionCarFallback(message);
+
+  const statedMileage = extractStatedMileageFromMessage(message);
+  if (statedMileage != null && contextCars.length > 0) {
+    const byMileage = resolveCarsByMileageFact(statedMileage, contextCars);
+    if (byMileage.length === 1) {
+      return { car: byMileage[0] };
+    }
+    if (byMileage.length > 1) {
+      return { car: null, ambiguousMileageMatches: byMileage };
+    }
+  }
 
   let selectedId = extractSelectedCarId(message);
   if (!selectedId && allowSession) selectedId = loadLastSelectedCarId();
@@ -167,15 +283,94 @@ export function resolveTargetBuyerCar(
   if (!selectedId && allowSession && contextCars.length > 0) {
     selectedId = contextCars[0].id;
   }
-  if (!selectedId) return null;
+  if (!selectedId) return { car: null };
 
   const fromContext = contextCars.find((c) => c.id === selectedId);
-  if (fromContext) return fromContext;
+  if (fromContext) return { car: fromContext };
 
   const inv = inventory.find((c) => c.id === selectedId);
-  if (inv) return summaryToChatCarCardData(toChatCarSummary(inv), "exact");
+  if (inv) {
+    return { car: summaryToChatCarCardData(toChatCarSummary(inv), "exact") };
+  }
 
-  return null;
+  return { car: null };
+}
+
+export function resolveTargetBuyerCar(
+  message: string,
+  inventory: ChatInventoryCar[],
+  contextCars: ChatCarCardData[] = loadChatCarContext(),
+  options?: { allowSessionFallback?: boolean }
+): ChatCarCardData | null {
+  return resolveTargetBuyerCarDetailed(message, inventory, contextCars, options).car;
+}
+
+/** Deterministic grounded mileage judgment (Gemini language overlay may replace). */
+export function buildMileageEvaluationReply(
+  car: ChatCarCardData,
+  options?: { statedMileage?: number | null; referenceYear?: number }
+): string {
+  const listingMileage = car.mileage > 0 ? car.mileage : 0;
+  const stated = options?.statedMileage;
+  const mileage = listingMileage > 0 ? listingMileage : stated && stated > 0 ? stated : 0;
+  const refYear = options?.referenceYear ?? new Date().getFullYear();
+  const year = car.year > 1980 ? car.year : 0;
+
+  if (mileage <= 0) {
+    return [
+      `จากข้อมูลประกาศของ ${carLabel(car)} ระบบยังไม่มีเลขไมล์ให้ประเมินครับ`,
+      "แนะนำตรวจเลขไมล์จริง สมุดเช็กระยะ และสภาพรถก่อนตัดสินใจครับ",
+    ].join("\n");
+  }
+
+  const conflictNote =
+    stated != null &&
+    listingMileage > 0 &&
+    Math.abs(stated - listingMileage) > MILEAGE_FACT_TOLERANCE_KM
+      ? `คุณพี่กล่าวถึงไมล์ประมาณ ${formatPrice(stated)} กม. แต่ตามประกาศคันนี้ระบุ ${formatPrice(listingMileage)} กม. — น้องเอใช้ตัวเลขจากประกาศเป็นหลักครับ`
+      : null;
+
+  const ageYears = year > 0 ? Math.max(1, refYear - year) : 0;
+  const annualEst = ageYears > 0 ? Math.round(mileage / ageYears) : 0;
+
+  let band =
+    "ถือว่าอยู่ในระดับที่ควรดูประกอบกับอายุรถและประวัติการใช้งาน";
+  if (annualEst > 0 && annualEst < 10_000) {
+    band = "ถือว่าวิ่งไม่มากเมื่อเทียบอายุโดยประมาณ";
+  } else if (annualEst > 25_000) {
+    band = "ถือว่าใช้งานค่อนข้างหนักเมื่อเทียบอายุโดยประมาณ";
+  } else if (annualEst > 0) {
+    band = "ถือว่าอยู่ในระดับที่พบได้ทั่วไปสำหรับรถใช้งาน";
+  }
+
+  const annualLine =
+    annualEst > 0
+      ? `ถ้าประมาณจากปีรถถึงปีอ้างอิง ${refYear} (ประมาณ ${ageYears} ปี — ไม่ใช่วันจดทะเบียนจริง) เฉลี่ยราว ${formatPrice(annualEst)} กม. ต่อปี ซึ่งเป็นค่าประมาณเท่านั้น`
+      : null;
+
+  return [
+    conflictNote,
+    `ไมล์ ${formatPrice(mileage)} กม. สำหรับ ${carLabel(car)} ${band}ครับ`,
+    annualLine,
+    "เลขไมล์อย่างเดียวพิสูจน์สภาพไม่ได้ครับ ควรตรวจสมุดเช็กระยะ ประวัติซ่อม สภาพเครื่องยนต์ ช่วงล่าง และความสอดคล้องของเลขไมล์ก่อนตัดสินใจครับ",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildAmbiguousMileageClarification(
+  matches: ChatCarCardData[]
+): string {
+  const lines = matches.slice(0, 4).map((c, i) => {
+    const mileage =
+      c.mileage > 0 ? `ไมล์ ${formatPrice(c.mileage)} กม.` : "ไมล์ไม่ระบุ";
+    return `${i + 1}. ${carLabel(c)} — ${mileage}`;
+  });
+  return [
+    "ตอนนี้มีรถในบริบทหลายคันที่เลขไมล์ใกล้เคียงกันครับ ช่วยระบุคันที่หมายถึงหน่อยนะครับ",
+    ...lines,
+    "พิมพ์ยี่ห้อ/รุ่น/ปี หรือกดดูรายละเอียดคันที่สนใจแล้วถามต่อได้เลยครับ",
+  ].join("\n");
 }
 
 function buildUnknownHistoryReplyForCar(car: ChatCarCardData): string {

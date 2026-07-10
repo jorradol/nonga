@@ -40,7 +40,8 @@ export const BUYER_ADVISOR_PATTERNS: { topic: BuyerAdvisorTopic; re: RegExp }[] 
   },
   {
     topic: "mileageGeneral",
-    re: /เลขไมล์(?:เยอะ|สูง|เยอะไหม|เยอะมั้ย|เยอะหรือเปล่า|มากไหม)|ไมล์(?:เยอะ|สูง|มาก)(?:ไหม|มั้ย)?/i,
+    // v22.56 — allow digits between ไมล์ and judgment words
+    re: /เลขไมล์(?:เยอะ|สูง|เยอะไหม|เยอะมั้ย|เยอะหรือเปล่า|มากไหม)|ไมล์.{0,24}(?:เยอะ|สูง|มาก)(?:ไหม|มั้ย|ไปไหม)?|วิ่ง.{0,24}(?:เยอะ|มาก)(?:ไหม|มั้ย|ไปไหม)?/i,
   },
   {
     topic: "dealerVsPrivate",
@@ -182,11 +183,23 @@ export function buildBuyerAdvisorReply(
         SEARCH_FOLLOW_UP,
       ]);
     case "mileageGeneral":
+      if (selectedCar && selectedCar.mileage > 0) {
+        const label = `${selectedCar.brand} ${selectedCar.model} ปี ${selectedCar.year}`.trim();
+        const refYear = new Date().getFullYear();
+        const ageYears = Math.max(1, refYear - selectedCar.year);
+        const annualEst = Math.round(selectedCar.mileage / ageYears);
+        return joinParagraphs([
+          `ไมล์ ${formatPrice(selectedCar.mileage)} กม. สำหรับ ${label} ถือว่าอยู่ในระดับที่ควรดูประกอบกับอายุรถและประวัติการใช้งานครับ`,
+          `ถ้าประมาณจากปีรถถึงปีอ้างอิง ${refYear} (ประมาณ ${ageYears} ปี — ไม่ใช่วันจดทะเบียนจริง) เฉลี่ยราว ${formatPrice(annualEst)} กม. ต่อปี ซึ่งเป็นค่าประมาณเท่านั้น`,
+          "เลขไมล์อย่างเดียวพิสูจน์สภาพไม่ได้ครับ ควรตรวจสมุดเช็กระยะ ประวัติซ่อม สภาพเครื่องยนต์ ช่วงล่าง และความสอดคล้องของเลขไมล์ก่อนตัดสินใจครับ",
+          MECHANIC_DISCLAIMER,
+        ]);
+      }
       return joinParagraphs([
         "เลขไมล์ต้องดูคู่กับปีรถและสภาพจริงครับ — ไมล์สูงไม่ได้แปลว่าแย่เสมอไป",
         "• รถใช้งานหนักทุกวัน ไมล์สูงอาจเป็นเรื่องปกติ",
         "• รถวิ่งน้อยแต่ปีเก่า ก็ต้องดูสภาพเก็บรักษา",
-        "ถ้ามีรถคันที่สนใจ กดดูรายละเอียดในแชทแล้วถามเลขไมล์ของคันนั้นได้เลยครับ",
+        "ถ้ามีรถคันที่สนใจในแชทแล้ว ถามเลขไมล์ของคันนั้นได้เลยครับ",
         SEARCH_FOLLOW_UP,
       ]);
     case "dealerVsPrivate":

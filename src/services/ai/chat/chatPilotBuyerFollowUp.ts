@@ -98,10 +98,40 @@ export function isPilotBuyerDirectCompareFollowUp(message: string): boolean {
   );
 }
 
+/**
+ * v22.56 — mileage judgment follow-up on an already-grounded vehicle
+ * (e.g. "ไมล์ 88,000 เยอะไปไหม") — not a bare "เลขไมล์เท่าไหร่" lookup.
+ */
+export function isPilotBuyerMileageFollowUp(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (
+    /(?:ไมล์|เลขไมล์|วิ่ง).{0,40}(?:เยอะ|น้อย|สูง|ต่ำ|มาก|โอเค|ok|น่ากลัว|ผิดปกติ|พอดี|เหมาะสม)/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /(?:เยอะ|น้อย|สูง).{0,10}(?:ไหม|มั้ย|หรือเปล่า|ไปไหม)/i.test(t) &&
+    /(?:ไมล์|เลขไมล์|วิ่ง|กม\.?)/i.test(t)
+  ) {
+    return true;
+  }
+  if (/เลขไมล์คันนี้|คันนี้วิ่ง|วิ่งเยอะ|ไมล์เท่านี|ไมล์(?:คันนี้)?โอเค/i.test(t)) {
+    return true;
+  }
+  if (/รถ.{0,16}(?:ปี|วิ่ง).{0,24}(?:เยอะ|น้อย|โอเค)/i.test(t) && /วิ่ง|ไมล์|กม/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
 export function isPilotBuyerFollowUpMessage(message: string): boolean {
   if (extractNumberedComparePair(message)) return true;
   if (detectBuyerRefinement(message)) return true;
   if (isPilotBuyerCardInsightFollowUp(message)) return true;
+  if (isPilotBuyerMileageFollowUp(message)) return true;
   if (isPilotBuyerFinanceFollowUp(message)) return true;
   if (isPilotBuyerEvFollowUp(message)) return true;
   if (isPilotBuyerGeneralKnowledgeFollowUp(message)) return true;

@@ -1012,7 +1012,14 @@ export function detectOwnerControlledGeminiUxZone(
   if (!text) return null;
   if (/เทียบ|เปรียบเทียบ|ต่างกันยังไง/i.test(text)) return "compare_car_types";
   if (/เหมาะกับใคร|เหมาะ(?:กับ)?(?:การใช้งาน)?แบบไหน/i.test(text)) return "car_fit_reason";
-  if (/ไมล์(?:เยอะ|น้อย|สูง|ต่ำ|มาก)|เลขไมล์/i.test(text)) return "car_fit_reason";
+  // v22.56 — allow digits/punctuation between ไมล์ and judgment words (Owner: ไมล์ 88,000 เยอะไปไหม)
+  if (
+    /ไมล์.{0,24}(?:เยอะ|น้อย|สูง|ต่ำ|มาก|โอเค|น่ากลัว)|เลขไมล์|วิ่ง.{0,24}(?:เยอะ|น้อย|สูง|มาก|โอเค)|คันนี้วิ่ง|ไมล์เท่านี/i.test(
+      text
+    )
+  ) {
+    return "car_fit_reason";
+  }
   if (/ครอบครัว|ใช้งาน|ใช้ประจำ|ใช้ในเมือง|นั่ง(?:กี่|ได้กี่)/i.test(text)) {
     return "car_fit_reason";
   }

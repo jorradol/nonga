@@ -8,6 +8,7 @@ import {
 import {
   clearPilotChatSessionContext,
   saveChatCarContext,
+  saveLastSelectedCarId,
   setActivePilotChatSessionId,
 } from "../../utils/chatCarContext";
 import {
@@ -409,6 +410,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     if (cards && cards.length > 0) {
       saveChatCarContext(cards, sessionId);
+      // v22.56 — single grounded card establishes active vehicle without requiring a click
+      if (cards.length === 1 && cards[0]?.id) {
+        saveLastSelectedCarId(cards[0].id);
+      }
     }
     
     // Core AI memory loop: Trigger preference extraction in background for memory

@@ -13,9 +13,14 @@ import {
   saveInChatBuyerContext,
   loadChatSearchContext,
   loadLastSelectedCarId,
-  loadRecentlyViewedCarIds
+  loadRecentlyViewedCarIds,
+  saveLastSelectedCarId,
 } from "../../../utils/chatCarContext";
-import { buildFollowUpReplyCopy, buildCompareReplyCopy, buildSelectedCarReplyCopy } from "./chatSearchReplyCopy";
+import {
+  buildFollowUpReplyCopy,
+  buildCompareReplyCopy,
+  buildSelectedCarReplyCopy,
+} from "./chatSearchReplyCopy";
 import { buildChatCarFacts, CHAT_FACTS_ONLY_PROMPT } from "./chatSearchFacts";
 import {
   isMarketplaceSearchIntent,
@@ -25,13 +30,22 @@ import {
   toChatCarSummary,
   type ChatInventoryCar,
 } from "./marketplaceChatSearch";
-
-import { isSellIntent, extractCarFieldsFromMessage, buildDraftPreviewCopy, type ExtractedCarFields } from "./sellIntentParser";
+import {
+  isSellIntent,
+  extractCarFieldsFromMessage,
+  buildDraftPreviewCopy,
+  type ExtractedCarFields,
+} from "./sellIntentParser";
 import { isSaveListingChatAction } from "./chatDraftActions";
 import {
   classifyBuyerFactsQuestion,
   buildBuyerFactsReply,
   resolveTargetBuyerCar,
+  resolveTargetBuyerCarDetailed,
+  buildMileageEvaluationReply,
+  buildAmbiguousMileageClarification,
+  extractStatedMileageFromMessage,
+  isBuyerMileageEvaluationQuestion,
   BUYER_ASK_SELECT_CAR_FIRST,
 } from "./chatBuyerFactsQa";
 import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
@@ -184,6 +198,34 @@ function tryOrchestrateChatReplyCore(
     return contextualFollowUp;
   }
 
+  // v22.56 — grounded mileage judgment before advisor/facts "select car first" trap
+  if (isBuyerMileageEvaluationQuestion(message) && contextCars.length > 0) {
+    const mileageResolved = resolveTargetBuyerCarDetailed(
+      message,
+      inventory,
+      contextCars,
+      { allowSessionFallback: true }
+    );
+    if (mileageResolved.ambiguousMileageMatches?.length) {
+      return {
+        text: buildAmbiguousMileageClarification(
+          mileageResolved.ambiguousMileageMatches
+        ),
+        carCards: mileageResolved.ambiguousMileageMatches.slice(0, 3),
+        skipGemini: true,
+      };
+    }
+    if (mileageResolved.car) {
+      return {
+        text: buildMileageEvaluationReply(mileageResolved.car, {
+          statedMileage: extractStatedMileageFromMessage(message),
+        }),
+        carCards: [mileageResolved.car],
+        skipGemini: true,
+      };
+    }
+  }
+
   const financeCalc = tryBuyerFinanceCalculatorReply(message);
   if (financeCalc) {
     return {
@@ -223,15 +265,19 @@ function tryOrchestrateChatReplyCore(
   }
 
   const selectedForAdvisor = resolveTargetBuyerCar(message, inventory, contextCars, {
-    allowSessionFallback: /คันนี้|รถคันนี้|คันนั้น/i.test(message),
+    allowSessionFallback:
+      /คันนี้|รถคันนี้|คันนั้น/i.test(message) ||
+      isBuyerMileageEvaluationQuestion(message),
   });
 
   const intentGate = tryBuyerIntentGateReply(message, {
     hasTargetCarForFacts: Boolean(
       resolveTargetBuyerCar(message, inventory, contextCars, {
         allowSessionFallback:
-          /คันนี้|รถคันนี้|ไมล์|เลขไมล์/i.test(message) ||
-          Boolean(extractSelectedCarId(message)),
+          /คันนี้|รถคันนี้|ไมล์|เลขไมล์|วิ่ง/i.test(message) ||
+          isBuyerMileageEvaluationQuestion(message) ||
+          Boolean(extractSelectedCarId(message)) ||
+          contextCars.length === 1,
       })
     ),
     selectedCarForAdvisor: selectedForAdvisor,
@@ -246,11 +292,28 @@ function tryOrchestrateChatReplyCore(
 
   const factsKind = classifyBuyerFactsQuestion(message);
   if (factsKind !== "none") {
-    const targetCar = resolveTargetBuyerCar(message, inventory, contextCars, {
-      allowSessionFallback:
-        /คันนี้|รถคันนี้|คันนั้น/i.test(message) ||
-        Boolean(extractSelectedCarId(message)),
-    });
+    const targetResolved = resolveTargetBuyerCarDetailed(
+      message,
+      inventory,
+      contextCars,
+      {
+        allowSessionFallback:
+          /คันนี้|รถคันนี้|คันนั้น/i.test(message) ||
+          isBuyerMileageEvaluationQuestion(message) ||
+          Boolean(extractSelectedCarId(message)) ||
+          contextCars.length === 1,
+      }
+    );
+    if (targetResolved.ambiguousMileageMatches?.length) {
+      return {
+        text: buildAmbiguousMileageClarification(
+          targetResolved.ambiguousMileageMatches
+        ),
+        carCards: targetResolved.ambiguousMileageMatches.slice(0, 3),
+        skipGemini: true,
+      };
+    }
+    const targetCar = targetResolved.car;
     if (!targetCar) {
       return {
         text: BUYER_ASK_SELECT_CAR_FIRST,
@@ -447,6 +510,10 @@ function tryOrchestrateChatReplyCore(
         chatSessionId
       );
       saveChatCarContext(initialCards, chatSessionId);
+      // v22.56 — exact single result establishes active vehicle without card click
+      if (initialCards.length === 1) {
+        saveLastSelectedCarId(initialCards[0]!.id);
+      }
       const intent = parseBuyerSearchIntent(message);
       saveInChatBuyerContext(
         {
@@ -502,6 +569,10 @@ function tryOrchestrateChatReplyCore(
   if (allCarCards.length > 0) {
     saveChatSearchContext({ allCars: allCarCards, offset: 3 }, chatSessionId);
     saveChatCarContext(initialCards, chatSessionId);
+    // v22.56 — exact single result establishes active vehicle without card click
+    if (initialCards.length === 1) {
+      saveLastSelectedCarId(initialCards[0]!.id);
+    }
   }
 
   return {

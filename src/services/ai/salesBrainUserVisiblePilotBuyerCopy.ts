@@ -12,6 +12,7 @@ import {
   isPilotBuyerEvFollowUp,
   isPilotBuyerFinanceFollowUp,
   isPilotBuyerGeneralKnowledgeFollowUp,
+  isPilotBuyerMileageFollowUp,
   isPilotBuyerFollowUpMessage,
   type BuyerRefinementKind,
 } from "./chat/chatPilotBuyerFollowUp";
@@ -23,6 +24,13 @@ import {
   buildGeneralModelContextBlock,
   assertNoHallucinatedVehicleClaim,
 } from "./chat/vehicleModelContext";
+import {
+  buildMileageEvaluationReply,
+  buildAmbiguousMileageClarification,
+  extractStatedMileageFromMessage,
+  resolveCarsByMileageFact,
+} from "./chat/chatBuyerFactsQa";
+import type { ChatCarCardData } from "../../types";
 
 export const USER_VISIBLE_PILOT_BUYER_COPY_SLICE_ID = "v6.1L.2h";
 
@@ -319,6 +327,57 @@ export function buildBuyerFitPilotCopy(
   ].join("\n");
 }
 
+function pilotCardToChatCarCard(card: PilotGroundedCarCard): ChatCarCardData {
+  return {
+    id: `pilot-${card.index}-${card.brand}-${card.model}-${card.year}`,
+    brand: card.brand,
+    model: card.model,
+    year: card.year,
+    price: card.price,
+    mileage: card.mileage ?? 0,
+    bodyClass: card.bodyClassLabel ?? "",
+    bodyClassLabel: card.bodyClassLabel ?? "",
+    description: card.description,
+    fuelType: card.fuelType,
+    hasImage: false,
+    detailPath: "",
+    matchKind: "exact",
+  };
+}
+
+/** v22.56 — deterministic mileage judgment from grounded session cards. */
+export function buildBuyerMileageEvaluationPilotCopy(
+  cards: PilotGroundedCarCard[],
+  userMessage: string
+): string {
+  if (cards.length === 0) return buildPilotFollowUpNoContextCopy();
+
+  const asChat = cards.map(pilotCardToChatCarCard);
+  const stated = extractStatedMileageFromMessage(userMessage);
+  if (stated != null) {
+    const byMileage = resolveCarsByMileageFact(stated, asChat);
+    if (byMileage.length > 1) {
+      return buildAmbiguousMileageClarification(byMileage);
+    }
+    if (byMileage.length === 1) {
+      return [
+        buildMileageEvaluationReply(byMileage[0]!, { statedMileage: stated }),
+        "",
+        LISTING_DISCLAIMER,
+      ].join("\n");
+    }
+  }
+
+  const card = cards[0]!;
+  return [
+    buildMileageEvaluationReply(pilotCardToChatCarCard(card), {
+      statedMileage: stated,
+    }),
+    "",
+    LISTING_DISCLAIMER,
+  ].join("\n");
+}
+
 /** v6.8E.4 — safe finance fallback when real provider blocked. */
 export function buildBuyerFinancePilotCopy(cards: PilotGroundedCarCard[]): string {
   const card = cards[0];
@@ -497,6 +556,13 @@ export function buildPilotBuyerUserVisibleCopy(
     }
     return {
       text: buildBuyerSummarizePilotCopy(sessionCards),
+      pilotPathActive: true,
+    };
+  }
+
+  if (isPilotBuyerMileageFollowUp(input.userMessage) && sessionCount > 0) {
+    return {
+      text: buildBuyerMileageEvaluationPilotCopy(sessionCards, input.userMessage),
       pilotPathActive: true,
     };
   }
