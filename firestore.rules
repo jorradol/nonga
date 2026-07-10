@@ -325,6 +325,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // v22.52 — Durable buyer-lead active-slot idempotency: Admin SDK only.
+    match /buyerLeadIdempotencyRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    match /buyerLeadIdempotencyRecords/{recordId}/{document=**} {
+      allow read, write: if false;
+    }
+
     match /buyerPurchaseProfiles/{buyerUserId} {
       allow read, write: if false;
     }

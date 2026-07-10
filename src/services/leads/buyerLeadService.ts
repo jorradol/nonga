@@ -1,5 +1,5 @@
 /**
- * v5.6C — Buyer lead create/read (server-side core; importable from tests).
+ * v5.6C / v22.52 — Buyer lead create/read (server-side core; importable from tests).
  */
 
 import type { MarketplaceCarRecord } from "../../server/marketplaceInventory";
@@ -10,11 +10,11 @@ import {
   validateBuyerLeadCreateInput,
   type BuyerLeadCreateInput,
 } from "./buyerLeadValidation";
-import { toPublicBuyerLead, type BuyerLeadViewerRole } from "./buyerLeadView";
+import { toPublicBuyerLead } from "./buyerLeadView";
 import type { BuyerLead, LeadContactLog, PurchaseMethod } from "./leadTypes";
 import { LEAD_ENGINE_COLLECTIONS } from "./leadTypes";
 import type { BuyerLeadRepository } from "../../server/repositories/buyerLeadRepository";
-import { assignQueuePositionOnCreate, buyerSuccessMessageForQueue } from "./buyerLeadQueueService";
+import { buyerSuccessMessageForQueue } from "./buyerLeadQueueService";
 import {
   BUYER_LEAD_CAPTURE_DISABLED_MESSAGE,
   isLeadCaptureEnabled,
@@ -23,6 +23,9 @@ import {
   BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
   findActiveDuplicateBuyerLead,
 } from "./buyerLeadDuplicateGuard";
+import {
+  buildBuyerLeadContactFingerprint,
+} from "./buyerLeadIdempotencyModel";
 
 export interface CreateBuyerLeadParams {
   input: BuyerLeadCreateInput;
@@ -65,6 +68,7 @@ export async function createConsentedBuyerLead(
   params: CreateBuyerLeadParams
 ): Promise<CreateBuyerLeadResult> {
   // v22.30 — global kill switch (default OFF). Blocks even authenticated create.
+  // Must run before any repository / idempotency write.
   if (
     !isLeadCaptureEnabled(
       params.env ??
@@ -95,33 +99,31 @@ export async function createConsentedBuyerLead(
     return { ok: false, status: 400, message: "ไม่พบผู้ขายของประกาศนี้ครับ" };
   }
 
-  // v22.49 — minimum active-duplicate guard (same buyer + listing + phone).
+  // Soft pre-check (best-effort). Authoritative dedupe is createBuyerLeadAtomic.
   const existingForListing = await params.repository.listBuyerLeadsByListingId(
     params.listing.id
   );
-  const dup = findActiveDuplicateBuyerLead({
+  const softDup = findActiveDuplicateBuyerLead({
     existing: existingForListing,
     listingId: params.listing.id,
     buyerUserId: params.buyerUserId,
-    contactPhone: params.input.contactPhone,
   });
-  if (dup) {
+  if (softDup) {
     return {
       ok: true,
-      lead: dup,
-      publicLead: toPublicBuyerLead(dup, "buyer_self"),
-      queuePosition: dup.queuePosition,
+      lead: softDup,
+      publicLead: toPublicBuyerLead(softDup, "buyer_self"),
+      queuePosition: softDup.queuePosition,
       buyerMessage: BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
       duplicate: true,
     };
   }
 
   const now = new Date().toISOString();
-  const queuePosition = await assignQueuePositionOnCreate(
-    params.repository,
-    params.listing.id
-  );
   const id = `blead-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const normalizedPhone =
+    normalizeThaiPhone(params.input.contactPhone) ??
+    params.input.contactPhone.trim();
   const summary =
     params.input.buyerSummary?.trim() ||
     buildBuyerLeadSummary({
@@ -134,14 +136,14 @@ export async function createConsentedBuyerLead(
       listingTitle: params.listing.title,
     });
 
+  // queuePosition placeholder — atomic path recomputes inside the transaction.
   const lead: BuyerLead = {
     id,
     listingId: params.listing.id,
     sellerId,
     buyerUserId: params.buyerUserId,
     displayName: params.input.displayName.trim(),
-    contactPhone:
-      normalizeThaiPhone(params.input.contactPhone) ?? params.input.contactPhone.trim(),
+    contactPhone: normalizedPhone,
     ...(params.input.budgetMin != null ? { budgetMin: params.input.budgetMin } : {}),
     ...(params.input.budgetMax != null ? { budgetMax: params.input.budgetMax } : {}),
     purchaseMethod: params.input.purchaseMethod,
@@ -156,30 +158,45 @@ export async function createConsentedBuyerLead(
     source: "chat",
     status: "consented",
     contactRevealStatus: "locked",
-    queuePosition,
+    queuePosition: 0,
     queueLifecycle: "active",
     createdAt: now,
     updatedAt: now,
   };
 
-  const saved = await params.repository.createBuyerLead(lead);
   const log: LeadContactLog = {
-    id: `bclog-${Date.now()}`,
-    buyerLeadId: saved.id,
-    listingId: saved.listingId,
-    sellerId: saved.sellerId,
+    id: `bclog-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    buyerLeadId: lead.id,
+    listingId: lead.listingId,
+    sellerId: lead.sellerId,
     action: "consent_recorded",
     createdAt: now,
     createdByUserId: params.buyerUserId,
   };
-  await params.repository.appendContactLog(log);
+
+  const atomic = await params.repository.createBuyerLeadAtomic({
+    lead,
+    contactLog: log,
+    contactFingerprint: buildBuyerLeadContactFingerprint(normalizedPhone),
+  });
+
+  if (atomic.kind === "duplicate") {
+    return {
+      ok: true,
+      lead: atomic.lead,
+      publicLead: toPublicBuyerLead(atomic.lead, "buyer_self"),
+      queuePosition: atomic.lead.queuePosition,
+      buyerMessage: BUYER_LEAD_DUPLICATE_ACTIVE_MESSAGE,
+      duplicate: true,
+    };
+  }
 
   return {
     ok: true,
-    lead: saved,
-    publicLead: toPublicBuyerLead(saved, "buyer_self"),
-    queuePosition: saved.queuePosition,
-    buyerMessage: buyerSuccessMessageForQueue(saved.queuePosition),
+    lead: atomic.lead,
+    publicLead: toPublicBuyerLead(atomic.lead, "buyer_self"),
+    queuePosition: atomic.lead.queuePosition,
+    buyerMessage: buyerSuccessMessageForQueue(atomic.lead.queuePosition),
     duplicate: false,
   };
 }

@@ -9,6 +9,8 @@
 export const LEAD_ENGINE_COLLECTIONS = {
   buyerLeads: "buyerLeads",
   leadContactLogs: "leadContactLogs",
+  /** v22.52 — durable active-slot idempotency (Admin SDK only). */
+  buyerLeadIdempotencyRecords: "buyerLeadIdempotencyRecords",
   buyerPurchaseProfiles: "buyerPurchaseProfiles",
   dealOutcomes: "dealOutcomes",
   successFeeRecords: "successFeeRecords",

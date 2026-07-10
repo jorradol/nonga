@@ -1,15 +1,35 @@
 /**
- * v5.6F / v22.49 — Firestore buyer lead + contact log persistence (server Admin SDK only).
+ * v5.6F / v22.49 / v22.52 — Firestore buyer lead + contact log persistence (server Admin SDK only).
  * Enable with NONGA_LEAD_DATA_BACKEND=firestore.
  * Emulator: set FIRESTORE_EMULATOR_HOST (no live credentials required).
+ *
+ * v22.52 — createBuyerLeadAtomic uses a Firestore transaction + durable active-slot
+ * doc so concurrent / multi-instance identical creates yield one Lead.
  */
 
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import {
+  getFirestore,
+  type DocumentReference,
+  type Firestore,
+} from "firebase-admin/firestore";
 import type { BuyerLead, LeadContactLog } from "../../services/leads/leadTypes";
 import { LEAD_ENGINE_COLLECTIONS } from "../../services/leads/leadTypes";
+import {
+  assertNoBuyerPiiInActiveSlotRecord,
+  buildBuyerLeadActiveSlotDocId,
+  buildBuyerLeadActiveSlotDraft,
+  resolveActiveSlotTransactionDecision,
+  type BuyerLeadActiveSlotRecord,
+} from "../../services/leads/buyerLeadIdempotencyModel";
+import { computeNextQueuePosition } from "../../services/leads/buyerLeadQueuePolicy";
+import { isQueueLeadActive } from "../../services/leads/buyerLeadQueuePolicy";
 import { sanitizeFirestoreDocument } from "../firestoreDocumentSanitize";
-import type { BuyerLeadRepository } from "./buyerLeadRepository";
+import type {
+  AtomicBuyerLeadCreateParams,
+  AtomicBuyerLeadCreateResult,
+  BuyerLeadRepository,
+} from "./buyerLeadRepository";
 
 interface FirestoreCollectionLike {
   doc(id?: string): {
@@ -117,6 +137,10 @@ function toContactLog(doc: { id: string; data(): Record<string, unknown> | undef
   return { id: doc.id, ...(doc.data() as object) } as LeadContactLog;
 }
 
+function asFirestore(db: FirestoreDbLike): Firestore {
+  return db as unknown as Firestore;
+}
+
 export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
   constructor(private readonly db: FirestoreDbLike) {}
 
@@ -158,6 +182,118 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
   }
 
   /**
+   * v22.52 — Atomic Lead + consent contact-log + active-slot create.
+   * Concurrent identical intents (multi-instance safe) produce one Lead.
+   * Fail closed: transaction abort does not report success / partial writes.
+   */
+  async createBuyerLeadAtomic(
+    params: AtomicBuyerLeadCreateParams
+  ): Promise<AtomicBuyerLeadCreateResult> {
+    const firestore = asFirestore(this.db);
+    const listingId = params.lead.listingId.trim();
+    const buyerUserId = params.lead.buyerUserId.trim();
+    const slotId = buildBuyerLeadActiveSlotDocId(listingId, buyerUserId);
+    const slotRef = firestore
+      .collection(LEAD_ENGINE_COLLECTIONS.buyerLeadIdempotencyRecords)
+      .doc(slotId) as DocumentReference;
+    const leadsCol = firestore.collection(LEAD_ENGINE_COLLECTIONS.buyerLeads);
+    const logsCol = firestore.collection(LEAD_ENGINE_COLLECTIONS.leadContactLogs);
+
+    return firestore.runTransaction(async (tx) => {
+      const slotSnap = await tx.get(slotRef);
+      const existingSlot = slotSnap.exists
+        ? (slotSnap.data() as BuyerLeadActiveSlotRecord)
+        : null;
+      const decision = resolveActiveSlotTransactionDecision(existingSlot);
+
+      if (decision.kind === "duplicate") {
+        const leadRef = leadsCol.doc(decision.leadId);
+        const leadSnap = await tx.get(leadRef);
+        if (leadSnap.exists) {
+          const lead = toBuyerLead(leadSnap);
+          if (isQueueLeadActive(lead)) {
+            return { kind: "duplicate" as const, lead };
+          }
+        }
+        // Stale active slot → fall through and reuse slot for a new Lead.
+      }
+
+      // Queue position from current listing leads (transactional read).
+      const listingQuery = leadsCol.where("listingId", "==", listingId);
+      const listingSnap = await tx.get(listingQuery);
+      const existingLeads = listingSnap.docs.map((d) => toBuyerLead(d));
+      const queuePosition = computeNextQueuePosition(existingLeads, listingId);
+
+      const lead: BuyerLead = { ...params.lead, queuePosition };
+      const contactLog: LeadContactLog = {
+        ...params.contactLog,
+        buyerLeadId: lead.id,
+        listingId: lead.listingId,
+        sellerId: lead.sellerId,
+      };
+
+      const slot = buildBuyerLeadActiveSlotDraft({
+        listingId,
+        buyerUserId,
+        contactFingerprint: params.contactFingerprint,
+        leadId: lead.id,
+        contactLogId: contactLog.id,
+        createdAt: lead.createdAt,
+        status: "active",
+      });
+
+      if (
+        !assertNoBuyerPiiInActiveSlotRecord(
+          slot as unknown as Record<string, unknown>
+        )
+      ) {
+        throw new Error("active-slot draft contains disallowed PII");
+      }
+
+      const leadData = sanitizeFirestoreDocument(
+        lead as unknown as Record<string, unknown>
+      );
+      const logData = sanitizeFirestoreDocument(
+        contactLog as unknown as Record<string, unknown>
+      );
+      const slotData = sanitizeFirestoreDocument(
+        slot as unknown as Record<string, unknown>
+      );
+
+      tx.set(leadsCol.doc(lead.id), leadData);
+      tx.set(logsCol.doc(contactLog.id), logData);
+      tx.set(slotRef, slotData);
+
+      return { kind: "created" as const, lead, contactLog };
+    });
+  }
+
+  async releaseBuyerLeadActiveSlot(params: {
+    listingId: string;
+    buyerUserId: string;
+  }): Promise<void> {
+    const firestore = asFirestore(this.db);
+    const slotId = buildBuyerLeadActiveSlotDocId(
+      params.listingId,
+      params.buyerUserId
+    );
+    const slotRef = firestore
+      .collection(LEAD_ENGINE_COLLECTIONS.buyerLeadIdempotencyRecords)
+      .doc(slotId);
+    const snap = await slotRef.get();
+    if (!snap.exists) return;
+    const now = new Date().toISOString();
+    await slotRef.set(
+      sanitizeFirestoreDocument({
+        ...(snap.data() as Record<string, unknown>),
+        status: "released",
+        updatedAt: now,
+      }),
+      { merge: true }
+    );
+  }
+
+  /**
    * Internal / Emulator / controlled-operator cleanup only.
    * Deletes exactly one Lead document by id. Does not cascade unrelated docs.
    * Gated by assertBuyerLeadTestCleanupAllowed().
@@ -170,6 +306,45 @@ export class FirestoreBuyerLeadRepository implements BuyerLeadRepository {
     if (!snap.exists) return false;
     await this.leadsCol().doc(id).delete();
     return true;
+  }
+
+  /**
+   * Emulator / controlled cleanup: delete active-slot + contact logs for one Lead.
+   * Does not scan unrelated collections beyond listingId/buyerLeadId equality.
+   */
+  async deleteBuyerLeadFixturesForControlledCleanup(params: {
+    leadId: string;
+    listingId: string;
+    buyerUserId: string;
+  }): Promise<{ leadDeleted: boolean; logsDeleted: number; slotReleased: boolean }> {
+    assertBuyerLeadTestCleanupAllowed();
+    const leadDeleted = await this.deleteBuyerLeadByIdForControlledCleanup(
+      params.leadId
+    );
+    const firestore = asFirestore(this.db);
+    const logsSnap = await firestore
+      .collection(LEAD_ENGINE_COLLECTIONS.leadContactLogs)
+      .where("buyerLeadId", "==", params.leadId.trim())
+      .get();
+    let logsDeleted = 0;
+    for (const doc of logsSnap.docs) {
+      await doc.ref.delete();
+      logsDeleted += 1;
+    }
+    const slotId = buildBuyerLeadActiveSlotDocId(
+      params.listingId,
+      params.buyerUserId
+    );
+    const slotRef = firestore
+      .collection(LEAD_ENGINE_COLLECTIONS.buyerLeadIdempotencyRecords)
+      .doc(slotId);
+    const slotSnap = await slotRef.get();
+    let slotReleased = false;
+    if (slotSnap.exists) {
+      await slotRef.delete();
+      slotReleased = true;
+    }
+    return { leadDeleted, logsDeleted, slotReleased };
   }
 }
 

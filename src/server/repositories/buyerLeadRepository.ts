@@ -1,12 +1,31 @@
 /**
- * v5.6C / v5.6F / v22.49 — Buyer lead repository factory (memory default; optional Firestore).
+ * v5.6C / v5.6F / v22.49 / v22.52 — Buyer lead repository factory (memory default; optional Firestore).
  */
 
 import type { BuyerLead, LeadContactLog } from "../../services/leads/leadTypes";
 import { LEAD_ENGINE_COLLECTIONS } from "../../services/leads/leadTypes";
+import {
+  buildBuyerLeadActiveSlotDocId,
+  buildBuyerLeadActiveSlotDraft,
+  resolveActiveSlotTransactionDecision,
+  type BuyerLeadActiveSlotRecord,
+} from "../../services/leads/buyerLeadIdempotencyModel";
+import { isQueueLeadActive } from "../../services/leads/buyerLeadQueuePolicy";
+import { computeNextQueuePosition } from "../../services/leads/buyerLeadQueuePolicy";
 import { createFirestoreBuyerLeadRepository } from "./buyerLeadRepositoryFirestore";
 
 export type BuyerLeadDataBackend = "memory" | "firestore";
+
+export type AtomicBuyerLeadCreateResult =
+  | { kind: "created"; lead: BuyerLead; contactLog: LeadContactLog }
+  | { kind: "duplicate"; lead: BuyerLead };
+
+export interface AtomicBuyerLeadCreateParams {
+  /** Lead draft without final queuePosition (computed atomically). id/createdAt set by caller. */
+  lead: BuyerLead;
+  contactLog: LeadContactLog;
+  contactFingerprint: string;
+}
 
 export interface BuyerLeadRepository {
   createBuyerLead(lead: BuyerLead): Promise<BuyerLead>;
@@ -14,6 +33,18 @@ export interface BuyerLeadRepository {
   listBuyerLeadsByListingId(listingId: string): Promise<BuyerLead[]>;
   updateBuyerLead(lead: BuyerLead): Promise<BuyerLead>;
   appendContactLog(log: LeadContactLog): Promise<LeadContactLog>;
+  /**
+   * v22.52 — Atomic create with durable active-slot idempotency.
+   * Same buyerUserId + listingId while active → returns existing Lead (no second write).
+   */
+  createBuyerLeadAtomic(
+    params: AtomicBuyerLeadCreateParams
+  ): Promise<AtomicBuyerLeadCreateResult>;
+  /** Release active slot so a later legitimate inquiry is allowed. */
+  releaseBuyerLeadActiveSlot(params: {
+    listingId: string;
+    buyerUserId: string;
+  }): Promise<void>;
 }
 
 export function resolveBuyerLeadDataBackend(
@@ -26,6 +57,7 @@ export function resolveBuyerLeadDataBackend(
 class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
   private readonly leads = new Map<string, BuyerLead>();
   private readonly logs: LeadContactLog[] = [];
+  private readonly activeSlots = new Map<string, BuyerLeadActiveSlotRecord>();
 
   async createBuyerLead(lead: BuyerLead): Promise<BuyerLead> {
     this.leads.set(lead.id, lead);
@@ -51,9 +83,77 @@ class InMemoryBuyerLeadRepository implements BuyerLeadRepository {
     return log;
   }
 
+  /** Test helper — count contact logs for a lead (memory only). */
+  countContactLogsForLead(buyerLeadId: string): number {
+    return this.logs.filter((l) => l.buyerLeadId === buyerLeadId.trim()).length;
+  }
+
   /** Test-only: remove one lead from memory store. */
   deleteBuyerLeadByIdForControlledCleanup(leadId: string): boolean {
     return this.leads.delete(leadId.trim());
+  }
+
+  async createBuyerLeadAtomic(
+    params: AtomicBuyerLeadCreateParams
+  ): Promise<AtomicBuyerLeadCreateResult> {
+    const listingId = params.lead.listingId.trim();
+    const buyerUserId = params.lead.buyerUserId.trim();
+    const slotId = buildBuyerLeadActiveSlotDocId(listingId, buyerUserId);
+    const existingSlot = this.activeSlots.get(slotId);
+    const decision = resolveActiveSlotTransactionDecision(existingSlot);
+
+    if (decision.kind === "duplicate") {
+      const existingLead = this.leads.get(decision.leadId);
+      if (existingLead && isQueueLeadActive(existingLead)) {
+        return { kind: "duplicate", lead: existingLead };
+      }
+      // Stale slot pointing at withdrawn/missing lead → fall through to create.
+    }
+
+    const existingLeads = [...this.leads.values()].filter(
+      (l) => l.listingId === listingId
+    );
+    const queuePosition = computeNextQueuePosition(existingLeads, listingId);
+    const lead: BuyerLead = { ...params.lead, queuePosition };
+    const contactLog: LeadContactLog = {
+      ...params.contactLog,
+      buyerLeadId: lead.id,
+      listingId: lead.listingId,
+      sellerId: lead.sellerId,
+    };
+
+    const slot = buildBuyerLeadActiveSlotDraft({
+      listingId,
+      buyerUserId,
+      contactFingerprint: params.contactFingerprint,
+      leadId: lead.id,
+      contactLogId: contactLog.id,
+      createdAt: lead.createdAt,
+      status: "active",
+    });
+
+    this.leads.set(lead.id, lead);
+    this.logs.push(contactLog);
+    this.activeSlots.set(slotId, slot);
+    return { kind: "created", lead, contactLog };
+  }
+
+  async releaseBuyerLeadActiveSlot(params: {
+    listingId: string;
+    buyerUserId: string;
+  }): Promise<void> {
+    const slotId = buildBuyerLeadActiveSlotDocId(
+      params.listingId,
+      params.buyerUserId
+    );
+    const existing = this.activeSlots.get(slotId);
+    if (!existing) return;
+    const now = new Date().toISOString();
+    this.activeSlots.set(slotId, {
+      ...existing,
+      status: "released",
+      updatedAt: now,
+    });
   }
 }
 
@@ -96,4 +196,12 @@ export function setBuyerLeadRepositoryForTests(
 
 export function buyerLeadsCollectionName(): string {
   return LEAD_ENGINE_COLLECTIONS.buyerLeads;
+}
+
+/** Test helper — access memory contact-log count when backend is memory. */
+export function getMemoryBuyerLeadContactLogCountForTests(
+  buyerLeadId: string
+): number | null {
+  if (!(singleton instanceof InMemoryBuyerLeadRepository)) return null;
+  return singleton.countContactLogsForLead(buyerLeadId);
 }

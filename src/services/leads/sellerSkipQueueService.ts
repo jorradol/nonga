@@ -95,6 +95,11 @@ export async function sellerSkipQueueLead(params: {
     createdAt: now,
     createdByUserId: params.actorUserId,
   });
+  // v22.52 — release active-slot so a later legitimate inquiry is allowed.
+  await params.repository.releaseBuyerLeadActiveSlot({
+    listingId: updated.listingId,
+    buyerUserId: updated.buyerUserId,
+  });
 
   const refreshed = await listLeadsForListing(params.repository, params.listingId);
   const next = getNextRevealableLead(refreshed, params.listingId);
