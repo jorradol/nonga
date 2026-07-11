@@ -1,10 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { authService, UserSession } from "../../services/auth/authService";
 import {
   auth,
-  db,
   firebaseClientAuthEnvironment,
   firebaseAuthUnavailableMessage,
   isFirebaseAuthReady,
@@ -12,7 +10,7 @@ import {
   isMockConfig,
 } from "../../lib/firebase";
 import { useAppStore } from "../../store";
-import { handleFirestoreError, OperationType } from "../../utils/firebaseHelpers";
+import { userService } from "../../services/user/userService";
 
 interface AuthContextType {
   user: UserSession | null;
@@ -45,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService.persistSession(session);
   };
 
-  // Helper to fetch profile from DB or make a standard role document on signup
+  // Helper to fetch profile via API mediation (or simulated local storage)
   const fetchOrCreateUserProfile = async (uid: string, baseSession: UserSession): Promise<UserSession> => {
     const isSimulated = isMockConfig || !!baseSession.isSimulated || uid.startsWith("sim-") || uid === "guest-user-100";
     
@@ -89,64 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Real Firebase Mode
-    if (!db) return baseSession;
-    const userDocRef = doc(db, "users", uid);
     try {
-      const userSnapshot = await getDoc(userDocRef);
-      if (userSnapshot.exists()) {
-        const data = userSnapshot.data();
-        
-        try {
-          await updateDoc(userDocRef, {
-            lastLogin: serverTimestamp()
-          });
-        } catch (updErr) {
-          console.warn("Unable to update lastLogin timestamp:", updErr);
-        }
-
-        return {
-          ...baseSession,
-          ...data,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-          premiumExpireDate: data.premiumExpireDate?.toDate?.()?.toISOString() || data.premiumExpireDate || null,
-        };
-      } else {
-        const currentTime = new Date().toISOString();
-        const defaultProfile = {
-          uid,
-          email: baseSession.email,
-          displayName: baseSession.displayName,
-          photoURL: baseSession.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(baseSession.displayName)}`,
-          role: baseSession.email === "jorradol@gmail.com" ? "superadmin" : "member",
-          status: "active" as const,
-          membershipType: "free",
-          postLimit: 5,
-          totalPosts: 0,
-          createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp(),
-          favoriteCars: [],
-          aiPersona: "Professional - เน้นข้อมูลสเปกเชิงลึก",
-          premiumExpireDate: null
-        };
-
-        await setDoc(userDocRef, defaultProfile);
-
-        return {
-          ...baseSession,
-          ...defaultProfile,
-          createdAt: currentTime,
-          lastLogin: currentTime
-        };
-      }
+      await userService.ensureProfileReady(uid);
+      const profile = await userService.getUserProfile(uid);
+      if (!profile) return baseSession;
+      return {
+        ...baseSession,
+        ...profile,
+        role: profile.role,
+        status: (profile as { status?: UserSession["status"] }).status ?? baseSession.status,
+      };
     } catch (err) {
-      console.error("Firestore user retrieval error:", err);
-      try {
-        handleFirestoreError(err, OperationType.GET, `users/${uid}`);
-      } catch {
-        // Suppress and return baseline session for offline robustness
-      }
+      console.warn("Profile readiness fallback to baseline session");
       return baseSession;
     }
   };
@@ -192,33 +144,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!db) {
-      authService.persistSession(updatedUserSession);
-      syncUser(updatedUserSession);
-      return;
-    }
-    const userDocRef = doc(db, "users", uid);
     try {
-      await updateDoc(userDocRef, updates);
+      const allowedProfilePatch: Partial<{
+        displayName: string;
+        photoURL: string;
+        lastLogin: string;
+        favoriteCars: string[];
+        aiPersona: string;
+        premiumExpireDate: string | null;
+      }> = {};
+      if (typeof updates.displayName === "string") {
+        allowedProfilePatch.displayName = updates.displayName;
+      }
+      if (typeof updates.photoURL === "string") {
+        allowedProfilePatch.photoURL = updates.photoURL;
+      }
+      if (typeof updates.lastLogin === "string") {
+        allowedProfilePatch.lastLogin = updates.lastLogin;
+      }
+      if (Array.isArray(updates.favoriteCars)) {
+        allowedProfilePatch.favoriteCars = updates.favoriteCars;
+      }
+      if (typeof updates.aiPersona === "string") {
+        allowedProfilePatch.aiPersona = updates.aiPersona;
+      }
+      if (updates.premiumExpireDate === null || typeof updates.premiumExpireDate === "string") {
+        allowedProfilePatch.premiumExpireDate = updates.premiumExpireDate;
+      }
+      await userService.updateUserProfile(uid, allowedProfilePatch);
       authService.persistSession(updatedUserSession);
       syncUser(updatedUserSession);
     } catch (err) {
-      console.error("Firestore profile update failed:", err);
-      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+      console.error("Profile update failed:", err);
+      throw err;
     }
   };
 
-  const completeOnboarding = async (persona: string, preferredRole: string) => {
+  const completeOnboarding = async (persona: string, _preferredRole: string) => {
     if (!user) return;
     const updates: Partial<UserSession> = {
       aiPersona: persona
     };
-
-    if (["member", "dealer", "premium"].includes(preferredRole)) {
-      updates.role = preferredRole;
-      updates.membershipType = preferredRole === "premium" ? "pro" : preferredRole === "dealer" ? "dealer" : "free";
-      updates.postLimit = preferredRole === "member" ? 5 : 999999;
-    }
 
     await updateUserProfile(updates);
   };

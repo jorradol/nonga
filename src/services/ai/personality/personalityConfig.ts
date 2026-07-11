@@ -1,6 +1,8 @@
 import { AIPersonality, PersonalityPresetId } from "../../../types/ai";
-import { db, isMockConfig } from "../../../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { isMockConfig } from "../../../lib/firebase";
+import { safeApiFetch } from "../../../utils/safeApiFetch";
+import { getFirebaseAuthHeaders } from "../../auth/firebaseAuthHeaders";
+import { adminAuthHeadersAsync } from "../../../utils/apiAuthHeaders";
 
 export const DEFAULT_PERSONALITIES: Record<PersonalityPresetId, AIPersonality> = {
   sporty: {
@@ -147,28 +149,30 @@ const LOCAL_ADMIN_CONFIGS = "nonga_custom_personalities";
 export async function loadPersonalities(): Promise<Record<PersonalityPresetId, AIPersonality>> {
   const customMap = { ...DEFAULT_PERSONALITIES };
 
-  // 1. Try Firestore first
-  if (!isMockConfig && db) {
+  // 1. Try server API first (public/safe DTO)
+  if (!isMockConfig) {
     try {
-      const docRef = doc(db, "system_configs", "nonga_personality_config");
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const storedOverrides = docSnap.data().presets;
-        if (storedOverrides) {
-          Object.keys(storedOverrides).forEach((presetId) => {
-            const pid = presetId as PersonalityPresetId;
-            if (customMap[pid]) {
-              customMap[pid] = {
-                ...customMap[pid],
-                ...storedOverrides[presetId]
-              };
-            }
-          });
-        }
-        return customMap;
+      const headers = await getFirebaseAuthHeaders({ contentType: "none" });
+      const json = await safeApiFetch<{
+        success?: boolean;
+        data?: Partial<Record<PersonalityPresetId, Partial<AIPersonality>>>;
+      }>("/api/personality/public", {
+        method: "GET",
+        headers,
+      });
+      const storedOverrides = json.data;
+      if (storedOverrides) {
+        (Object.keys(storedOverrides) as PersonalityPresetId[]).forEach((presetId) => {
+          if (!customMap[presetId]) return;
+          customMap[presetId] = {
+            ...customMap[presetId],
+            ...(storedOverrides[presetId] ?? {}),
+          };
+        });
       }
+      return customMap;
     } catch (e) {
-      console.warn("Firestore personality load warning, trying localStorage fallback:", e);
+      console.warn("Personality API load warning, trying localStorage fallback");
     }
   }
 
@@ -208,31 +212,21 @@ export async function savePersonalityPreset(
   const target = currentPersonalities[presetId];
   if (!target) return;
 
-  const updatedPreset = {
-    ...target,
-    ...fields
-  };
-
-  // 1. Try Firestore save
-  if (!isMockConfig && db) {
+  // 1. Try server admin API save
+  if (!isMockConfig) {
     try {
-      const docRef = doc(db, "system_configs", "nonga_personality_config");
-      const docSnap = await getDoc(docRef);
-      let existingPresets = {};
-      
-      if (docSnap.exists()) {
-        existingPresets = docSnap.data().presets || {};
-      }
-
-      const mergedPresets = {
-        ...existingPresets,
-        [presetId]: fields
-      };
-
-      await setDoc(docRef, { presets: mergedPresets }, { merge: true });
+      const headers = await adminAuthHeadersAsync("admin");
+      await safeApiFetch<{ success?: boolean }>(
+        `/api/admin/personality-config/${encodeURIComponent(presetId)}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify(fields),
+        }
+      );
       return;
     } catch (e) {
-      console.warn("Firestore persona save error, falling back to localStorage:", e);
+      console.warn("Personality API save warning, falling back to localStorage");
     }
   }
 

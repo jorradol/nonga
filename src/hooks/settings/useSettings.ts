@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useAuthContext } from "../../contexts/auth/AuthContext";
 import { userService, UserUserSettings } from "../../services/user/userService";
 import { useAppStore } from "../../store";
+import { AppFriendlyError } from "../../utils/appFriendlyError";
 
 export function useSettings(showToast?: (msg: string, type?: "success" | "info" | "error") => void) {
-  const { user } = useAuthContext();
+  const { user, loading: authLoading } = useAuthContext();
   const storeIsDarkMode = useAppStore((state) => state.isDarkMode);
   const toggleDarkMode = useAppStore((state) => state.toggleDarkMode);
 
@@ -16,17 +17,22 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
     updatedAt: new Date().toISOString()
   });
 
-  const [isLoadingSettings, setIsLoadingSettings] = useState(!user);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Load user settings on mount
   useEffect(() => {
     let active = true;
-    if (!user) return;
+    if (authLoading) return;
+    if (!user || user.uid === "guest-user-100") {
+      setIsLoadingSettings(false);
+      return;
+    }
 
     async function load() {
       setIsLoadingSettings(true);
       try {
+        await userService.ensureProfileReady(user.uid);
         const loaded = await userService.getUserSettings(user.uid);
         if (active) {
           setSettings(loaded);
@@ -38,7 +44,16 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
           }
         }
       } catch (err) {
-        console.error("Failed to load user settings:", err);
+        if (active) {
+          if (err instanceof AppFriendlyError && err.code === "network") {
+            showToast?.(
+              "ตอนนี้เครือข่ายไม่เสถียร กำลังใช้ค่าที่บันทึกในเครื่องชั่วคราว",
+              "info"
+            );
+          } else {
+            showToast?.("ไม่สามารถโหลดการตั้งค่าจากเซิร์ฟเวอร์ได้", "error");
+          }
+        }
       } finally {
         if (active) {
           setIsLoadingSettings(false);
@@ -50,7 +65,7 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, authLoading, showToast, storeIsDarkMode, toggleDarkMode]);
 
   /**
    * Save settings back to database
@@ -69,6 +84,7 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
     setSettings(updated);
 
     try {
+      await userService.ensureProfileReady(user.uid);
       await userService.updateUserSettings(user.uid, updated);
       
       // Handle theme change toggle locally if mismatch exists
@@ -84,8 +100,10 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
         showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้วครับผม 🛡️");
       }
     } catch (err) {
-      console.error("Failed to push settings updates:", err);
-      if (showToast) {
+      if (err instanceof AppFriendlyError && err.code === "network") {
+        showToast?.("เครือข่ายไม่พร้อม ระบบจะพยายามซิงก์อีกครั้งเมื่อออนไลน์", "info");
+      } else {
+        console.error("Failed to push settings updates:", err);
         showToast("ไม่สามารถอัปเดตการตั้งค่าระยะไกลได้ กรุณาลองใหม่อีกครั้ง", "error");
       }
     } finally {

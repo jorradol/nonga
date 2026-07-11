@@ -77,6 +77,7 @@ import {
   logLegacyGeminiBlocked,
 } from "./src/server/security/legacyGeminiSafety";
 import { registerAdminPilotUserRoutes } from "./src/server/adminPilotUserRoutes";
+import { registerUserSelfRoutes } from "./src/server/userSelfRoutes";
 
 function getLiveInventory(): MarketplaceCarRecord[] {
   return getPublishedMarketplaceCars();
@@ -367,6 +368,7 @@ app.post("/api/cars", async (req, res) => {
 // API auth guards (stub — เตรียมต่อ Firebase ID token)
 app.use("/api/dealer", dealerApiAuth);
 app.use("/api/admin", adminApiAuth);
+registerUserSelfRoutes(app);
 registerSalesBrainAdminShadowSmokeRoutes(app);
 registerSalesBrainAdminRuntimeProofSkeletonRoutes(app);
 registerSalesBrainChatShadowSinkRoutes(app);

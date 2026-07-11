@@ -8,10 +8,8 @@ import {
   updateProfile,
   User as FirebaseUser
 } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import {
   auth,
-  db,
   firebaseClientAuthEnvironment,
   firebaseAuthUnavailableMessage,
   isFirebaseAuthReady,
@@ -173,20 +171,6 @@ export const authService = {
         providerId: "password"
       };
 
-      // Attempt to provision profile in Firestore
-      try {
-        await setDoc(doc(db, "users", firebaseUser.uid), {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName,
-          photoURL,
-          createdAt: serverTimestamp(),
-          provider: "password"
-        });
-      } catch (e) {
-        console.error("Firestore user creation warning (expected if permissions are tight):", e);
-      }
-
       this.persistSession(userSession);
       return userSession;
     }
@@ -275,19 +259,6 @@ export const authService = {
         photoURL: firebaseUser.photoURL || undefined,
         providerId: "google.com"
       };
-
-      try {
-        await setDoc(doc(db, "users", firebaseUser.uid), {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: userSession.displayName,
-          photoURL: userSession.photoURL,
-          updatedAt: serverTimestamp(),
-          provider: "google.com"
-        }, { merge: true });
-      } catch (e) {
-        console.warn("Firestore sync error:", e);
-      }
 
       this.persistSession(userSession);
       return userSession;

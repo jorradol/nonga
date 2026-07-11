@@ -55,6 +55,7 @@ type DevTokenClaims = {
 
 type StoredProfile = Partial<UserAuthProfile> & {
   showroomName?: string;
+  [key: string]: unknown;
 };
 
 function readJsonEnv<T>(key: string): T | null {
@@ -222,6 +223,47 @@ function normalizeProfile(
   };
 }
 
+function buildSafeProvisionedProfile(identity: VerifiedFirebaseIdentity): StoredProfile {
+  const now = new Date().toISOString();
+  const displayName =
+    identity.displayName?.trim() || identity.email?.split("@")[0] || "Nong A User";
+  return {
+    uid: identity.uid,
+    email: identity.email ?? "",
+    displayName,
+    role: "member",
+    status: "pending",
+    membershipType: "free",
+    postLimit: 5,
+    totalPosts: 0,
+    favoriteCars: [],
+    aiPersona: "Professional - เน้นข้อมูลสเปกเชิงลึก",
+    premiumExpireDate: null,
+    createdAt: now,
+    updatedAt: now,
+    lastLogin: now,
+    provider: "firebase",
+  };
+}
+
+async function ensureSafeUserProfileProvisioned(
+  identity: VerifiedFirebaseIdentity
+): Promise<StoredProfile | null> {
+  const app = initializeFirebaseAdminApp();
+  const db = getFirestore(app);
+  const userRef = db.collection("users").doc(identity.uid);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(userRef);
+    if (snap.exists) {
+      return snap.data() as StoredProfile;
+    }
+    const safeDefaults = buildSafeProvisionedProfile(identity);
+    tx.create(userRef, safeDefaults);
+    return safeDefaults;
+  });
+}
+
 function devUserProfile(uid: string): StoredProfile | null {
   if (process.env.NODE_ENV === "production") return null;
   const map = readJsonEnv<Record<string, StoredProfile>>(
@@ -238,13 +280,12 @@ export async function resolveUserAuthProfile(
 
   try {
     const app = initializeFirebaseAdminApp();
-    const snapshot = await getFirestore(app)
-      .collection("users")
-      .doc(identity.uid)
-      .get();
+    const snapshot = await getFirestore(app).collection("users").doc(identity.uid).get();
     if (snapshot.exists) {
       return normalizeProfile(identity, snapshot.data() as StoredProfile);
     }
+    const provisioned = await ensureSafeUserProfileProvisioned(identity);
+    return normalizeProfile(identity, provisioned);
   } catch (err) {
     if (process.env.NODE_ENV === "production") throw err;
   }

@@ -118,6 +118,7 @@ import {
   appendPendingRestoreFallbackMessage,
   tryRestorePendingChatDraftAfterLogin,
 } from "../../services/chat/restorePendingChatDraft";
+import { userService } from "../../services/user/userService";
 import { chatRestoreLog } from "../../utils/chatRestoreDebug";
 import { readGuestChatClaimPointer, saveGuestChatClaimPointer } from "../../utils/chatGuestClaim";
 import {
@@ -442,8 +443,17 @@ export function useChat() {
 
     // Forced refresh on same scope: reload prefs/personalities only; never clear an active guest chat.
     if (!isNewScope && force) {
+      if (isSignedIn && user?.uid) {
+        await userService.ensureProfileReady(user.uid);
+      }
       await loadUserPreferences(storageScopeKey);
       await loadPersonalitiesList();
+      if (isSignedIn && user?.uid) {
+        const preset = await userService.getPersonalPreset(user.uid);
+        if (preset) {
+          setPresetId(preset as typeof activePresetId);
+        }
+      }
       chatRestoreLog("hydrateChatForScope: force prefs only");
       return;
     }
@@ -511,9 +521,18 @@ export function useChat() {
       restoreMeta: readPendingDraftRestoreMeta(),
     });
 
+    if (isSignedIn && user?.uid) {
+      await userService.ensureProfileReady(user.uid);
+    }
     await loadSessions(chatScope);
     await loadUserPreferences(storageScopeKey);
     await loadPersonalitiesList();
+    if (isSignedIn && user?.uid) {
+      const preset = await userService.getPersonalPreset(user.uid);
+      if (preset) {
+        setPresetId(preset as typeof activePresetId);
+      }
+    }
     logChatStorageDebug(chatScope, {
       draftDealerId: chatScope.dealerId,
     });
@@ -561,7 +580,21 @@ export function useChat() {
     memberConsumerSellerFlow,
     runPendingLoginRestore,
     runGuestConfirmedAutoSaveAfterLogin,
+    setPresetId,
+    activePresetId,
+    user,
   ]);
+
+  const setPresetWithServerSync = useCallback(
+    (id: typeof activePresetId) => {
+      setPresetId(id);
+      if (!isSignedIn || !user?.uid) return;
+      void userService.updatePersonalPreset(user.uid, id).catch(() => {
+        console.warn("Personal preset sync skipped");
+      });
+    },
+    [setPresetId, isSignedIn, user?.uid]
+  );
 
   /** หลัง login / role พร้อม — restore แม้ scope hydrate ไปแล้ว (แก้ race isSignedIn ช้ากว่า scope) */
   useEffect(() => {
@@ -2198,7 +2231,7 @@ export function useChat() {
     activePresetId,
     personalities,
     isLoadingPersonalities,
-    setPresetId,
+    setPresetId: setPresetWithServerSync,
     updatePersonalityInstruction,
     initializeChat,
     sendMessage,

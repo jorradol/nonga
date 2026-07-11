@@ -110,7 +110,16 @@ console.log("\n--- Staging read-only ---\n");
 try {
   const health = await (await fetch(`${STAGING}/api/health`)).json();
   ok("health ok", health.ok === true);
-  ok("leadCaptureEnabled false", health.leadCaptureEnabled === false);
+  ok("leadCaptureEnabled true (active approved pilot)", health.leadCaptureEnabled === true);
+  ok("lead pilot configured true", health.leadPilotConfigured === true);
+  ok("lead pilot active true", health.leadPilotActive === true);
+  ok("lead pilot maxCreated=3", Number(health.leadPilotMaxCreated) === 3);
+  const pilotExpiryMs = Date.parse(String(health.leadPilotExpiresAt ?? ""));
+  ok(
+    "lead pilot expiry is valid and in future",
+    Number.isFinite(pilotExpiryMs) && pilotExpiryMs > Date.now(),
+    `leadPilotExpiresAt=${String(health.leadPilotExpiresAt ?? "")}`
+  );
   ok("publicSignupEnabled false", health.publicSignupEnabled === false);
 
   const cars = await (await fetch(`${STAGING}/api/cars`)).json();
@@ -151,10 +160,17 @@ try {
   ok("unauth lead 401", lead.status === 401);
 
   const html = await (await fetch(HOSTING + "/")).text();
+  const assetMatch = html.match(/\/assets\/index-[A-Za-z0-9_-]+\.js/);
+  const assetPath = assetMatch?.[0] ?? "";
   ok(
-    "hosting asset CHSJ9MTc",
-    /assets\/index-CHSJ9MTc\.js/.test(html)
+    "hosting has active hashed JS asset reference",
+    Boolean(assetPath),
+    assetPath || "missing"
   );
+  if (assetPath) {
+    const assetRes = await fetch(HOSTING + assetPath);
+    ok("hosting active asset fetch 200", assetRes.status === 200, `status=${assetRes.status}`);
+  }
 } catch (e) {
   ok("staging probes", false, String(e));
 }
