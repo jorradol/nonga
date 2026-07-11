@@ -280,13 +280,31 @@ function buildUsageFirstQuestion(): string {
   return "ได้ครับ ปกติจะใช้รถแบบไหนเป็นหลักครับ เช่น ขับในเมือง ใช้เดินทางไกล ใช้กับครอบครัว หรือใช้ทำงาน (ประเภทการใช้งานหลัก)";
 }
 
-function buildBudgetFollowUpQuestion(): string {
-  return "ได้ครับ ถ้าให้คัดให้แคบลงอีกนิด สะดวกบอกงบประมาณคร่าว ๆ ไหมครับ";
+function buildUsageAcknowledgement(usageTags: string[]): string {
+  if (usageTags.includes("city")) {
+    return "ได้เลยครับ ถ้าใช้ขับไปทำงานเป็นหลัก";
+  }
+  if (usageTags.includes("family")) {
+    return "ได้เลยครับ ถ้าเน้นใช้กับครอบครัว";
+  }
+  if (usageTags.includes("fuelEfficient")) {
+    return "ได้เลยครับ ถ้าเน้นความประหยัดน้ำมัน";
+  }
+  if (usageTags.includes("firstCar")) {
+    return "ได้เลยครับ ถ้ากำลังมองหารถคันแรก";
+  }
+  return "ได้เลยครับ จากการใช้งานที่บอกมา";
+}
+
+function buildBudgetFollowUpQuestion(usageTags: string[]): string {
+  return `${buildUsageAcknowledgement(
+    usageTags
+  )} น้องเอช่วยคัดต่อได้ครับ สะดวกบอกงบประมาณคร่าว ๆ ไหมครับ`;
 }
 
 function buildRespectRefusalReply(hasUsage: boolean): string {
   if (hasUsage) {
-    return "ได้ครับ ไม่เป็นไรเรื่องงบ เดี๋ยวน้องเอช่วยต่อจากการใช้งานที่มีก่อนนะครับ ถ้าภายหลังสะดวกบอกงบค่อยเพิ่มได้";
+    return "ได้เลยครับ งั้นน้องเอช่วยต่อจากการใช้งานที่มีก่อนนะครับ ตอนขับไปทำงานเป็นหลัก อยากได้แนวรถเก๋งขับง่าย หรืออยากได้นั่งสูงแบบ SUV มากกว่าครับ";
   }
   return "ได้ครับ ไม่เป็นไรครับ งั้นเริ่มจากภาพรวมเบา ๆ ก่อน — ปกติจะใช้รถแบบไหนเป็นหลักครับ";
 }
@@ -316,7 +334,7 @@ function buildProgressiveClarifyingReply(
     return buildUsageFirstQuestion();
   }
   if (hasKnownUsage && !hasKnownBudget && !hasKnownBrandModel) {
-    return buildBudgetFollowUpQuestion();
+    return buildBudgetFollowUpQuestion(knownUsageTags);
   }
   if (hasKnownUsage && hasKnownBudget) {
     return false;
@@ -346,6 +364,9 @@ export function tryBuyerIntentGateReply(
   }
 
   const buyerIntent = parseBuyerSearchIntent(t);
+  const hasRefusalSignal = REFUSAL_OR_HOLD_SIGNAL.test(t);
+  const hasUsageSignal = (buyerIntent.usageTags?.length ?? 0) > 0;
+  const progressive = buildProgressiveClarifyingReply(t, buyerIntent, options);
 
   const advisor = detectBuyerAdvisorTopic(t);
   if (advisor) {
@@ -371,8 +392,17 @@ export function tryBuyerIntentGateReply(
     return null;
   }
 
-  if (SOFT_SEARCH_HINT.test(t)) {
-    const progressive = buildProgressiveClarifyingReply(t, buyerIntent, options);
+  if (hasRefusalSignal) {
+    if (progressive === false) return null;
+    if (progressive) {
+      return {
+        text: progressive,
+        skipGemini: true,
+      };
+    }
+  }
+
+  if (SOFT_SEARCH_HINT.test(t) || hasUsageSignal) {
     if (progressive === false) return null;
     if (progressive) {
       return {
