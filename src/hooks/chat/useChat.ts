@@ -150,6 +150,7 @@ import {
 import {
   buildMemberReattachSaveParams,
 } from "../../services/chat/continueGuestConfirmedMemberListingSave";
+import type { PersonalityPresetId } from "../../types/ai";
 import {
   hasGuestConfirmedPendingHandoff,
   shouldDeferGuestImageScopeClear,
@@ -265,6 +266,7 @@ export function useChat() {
     loadPersonalitiesList,
     updatePersonalityInstruction,
   } = useChatStore();
+  const hydrateRunRef = useRef(0);
 
   const { user, fetchCars } = useAppStore();
   const { isSignedIn } = useAuth();
@@ -411,6 +413,11 @@ export function useChat() {
   ]);
 
   const hydrateChatForScope = useCallback(async (force = false) => {
+    const hydrateRunId = ++hydrateRunRef.current;
+    const isHydrateRunStale = () =>
+      hydrateRunId !== hydrateRunRef.current ||
+      lastHydratedChatScopeKey !== storageScopeKey;
+
     const guestEphemeral = isEphemeralGuestChatScope(chatScope);
     const isNewScope = lastHydratedChatScopeKey !== storageScopeKey;
     const previousScopeKey = lastHydratedChatScopeKey;
@@ -451,7 +458,7 @@ export function useChat() {
       if (isSignedIn && user?.uid) {
         const preset = await userService.getPersonalPreset(user.uid);
         if (preset) {
-          setPresetId(preset as typeof activePresetId);
+          setPresetId(preset as PersonalityPresetId);
         }
       }
       chatRestoreLog("hydrateChatForScope: force prefs only");
@@ -521,18 +528,28 @@ export function useChat() {
       restoreMeta: readPendingDraftRestoreMeta(),
     });
 
+    await loadSessions(chatScope);
+    if (isHydrateRunStale()) return;
+
     if (isSignedIn && user?.uid) {
       await userService.ensureProfileReady(user.uid);
     }
-    await loadSessions(chatScope);
+    if (isHydrateRunStale()) return;
+
     await loadUserPreferences(storageScopeKey);
+    if (isHydrateRunStale()) return;
+
     await loadPersonalitiesList();
+    if (isHydrateRunStale()) return;
+
     if (isSignedIn && user?.uid) {
       const preset = await userService.getPersonalPreset(user.uid);
       if (preset) {
-        setPresetId(preset as typeof activePresetId);
+        setPresetId(preset as PersonalityPresetId);
       }
     }
+    if (isHydrateRunStale()) return;
+
     logChatStorageDebug(chatScope, {
       draftDealerId: chatScope.dealerId,
     });
@@ -581,8 +598,7 @@ export function useChat() {
     runPendingLoginRestore,
     runGuestConfirmedAutoSaveAfterLogin,
     setPresetId,
-    activePresetId,
-    user,
+    user?.uid,
   ]);
 
   const setPresetWithServerSync = useCallback(

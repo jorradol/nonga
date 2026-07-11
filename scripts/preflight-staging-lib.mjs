@@ -3,9 +3,9 @@ export const EXPECTED_PROJECT_ID = "nonga-ce93c";
 export const EXPECTED_HOSTING_SITE = "nonga-ce93c";
 export const EXPECTED_CLOUD_RUN_SERVICE = "nonga-staging";
 export const EXPECTED_CLOUD_RUN_REGION = "asia-southeast1";
-export const EXPECTED_CLOUD_RUN_REVISION = "nonga-staging-00214-89g";
+export const EXPECTED_CLOUD_RUN_REVISION = "nonga-staging-00215-dmx";
 export const EXPECTED_MARKETPLACE_COUNT = 15;
-export const EXPECTED_HOSTING_ASSET = "assets/index-BSn-iR7H.js";
+export const EXPECTED_HOSTING_ASSET = "assets/index-BImblZ28.js";
 export const EXPECTED_STAGING_URL = "https://a.nongbot.org";
 
 export function parseJsonStrict(label, raw) {
