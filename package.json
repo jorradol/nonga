@@ -523,6 +523,7 @@
     "test:v22.73": "tsx scripts/test-v22.73-signed-in-server-bridge-precedence-correction.mts",
     "test:v22.74": "tsx scripts/test-v22.74-safe-self-user-persistence-restoration.mts",
     "test:v22.75": "tsx scripts/test-v22.75-signed-in-active-vehicle-context-contract.mts",
+    "test:v22.76": "tsx scripts/test-v22.76-preflight-baseline-sot-persistence-warning-contract.mts",
     "test:thor-imported-listings-revenue-safe-readiness-chat": "tsx scripts/test-thor-imported-listings-revenue-safe-readiness-chat.mts",
     "test:v22-regression-intake-visibility": "tsx scripts/test-v22-regression-intake-visibility.mts",
     "test:import-mapping-continue-gate": "tsx scripts/test-import-mapping-continue-gate.mts",

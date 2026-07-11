@@ -49,6 +49,28 @@ let storageForTest: StorageLike | null = null;
 
 const ephemeralGuestSnapshots = new Map<string, ChatHistorySnapshot>();
 
+export function isValidChatHistoryScope(scope: ChatHistoryScope): boolean {
+  if (!scope || typeof scope !== "object") return false;
+  const uid = String(scope.uid ?? "").trim();
+  const storageKey = String(scope.storageKey ?? "").trim();
+  if (!uid || !storageKey) return false;
+  if (scope.scope === "user") {
+    return storageKey === `user:${uid}` && scope.dealerId == null;
+  }
+  if (scope.scope === "dealer") {
+    const dealerId = String(scope.dealerId ?? "").trim();
+    if (!dealerId) return false;
+    return storageKey === `dealer:${dealerId}:${uid}`;
+  }
+  return false;
+}
+
+function assertValidChatHistoryScope(scope: ChatHistoryScope): void {
+  if (!isValidChatHistoryScope(scope)) {
+    throw new Error("chat_scope_invalid");
+  }
+}
+
 export function isEphemeralGuestHistoryScope(scope: ChatHistoryScope): boolean {
   return scope.scope === "user" && scope.uid.startsWith("guest-");
 }
@@ -276,6 +298,7 @@ export function readChatHistorySnapshot(
 ): ChatHistorySnapshot {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   return readLocalSnapshot(scope);
 }
 
@@ -548,6 +571,7 @@ export async function loadChatSessions(
 ): Promise<ChatSession[]> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   if (isEphemeralGuestHistoryScope(scope)) {
     return readLocalSnapshot(scope).sessions;
   }
@@ -568,6 +592,7 @@ export async function loadChatMessages(
 ): Promise<ChatMessage[]> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   const localSnapshot = readLocalSnapshot(scope);
   const localSession = localSnapshot.sessions.find((session) => session.id === sessionId);
   if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
@@ -620,6 +645,7 @@ export async function createChatSession(
 ): Promise<ChatSession> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   const createdAt = nowIso();
   const id = randomId("chat");
   const session: ChatSession = {
@@ -670,6 +696,7 @@ export async function appendChatMessage(
 ): Promise<ChatMessage> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   const message: ChatMessage = {
     id: input.id ?? randomId("msg"),
     sender: input.sender,
@@ -770,6 +797,7 @@ export async function updateChatSessionMetadata(
 ): Promise<void> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   const updatedAt = nowIso();
 
   if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
@@ -798,6 +826,7 @@ export async function updateChatMessageText(
 ): Promise<void> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
 
   if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     const snapshot = readLocalSnapshot(scope);
@@ -839,6 +868,7 @@ export async function deleteChatSession(
 ): Promise<void> {
   const scope =
     "mode" in scopeInput ? chatStorageScopeToHistoryScope(scopeInput) : scopeInput;
+  assertValidChatHistoryScope(scope);
   if (isEphemeralGuestHistoryScope(scope) || shouldUseLocalStorage()) {
     const snapshot = readLocalSnapshot(scope);
     const nextMessages = { ...snapshot.messages };

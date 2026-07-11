@@ -5,8 +5,8 @@ export const EXPECTED_CLOUD_RUN_SERVICE = "nonga-staging";
 export const EXPECTED_CLOUD_RUN_REGION = "asia-southeast1";
 export const EXPECTED_CLOUD_RUN_REVISION = "nonga-staging-00215-dmx";
 export const EXPECTED_MARKETPLACE_COUNT = 15;
-export const EXPECTED_HOSTING_ASSET = "assets/index-BImblZ28.js";
 export const EXPECTED_STAGING_URL = "https://a.nongbot.org";
+export const STAGING_HOSTNAME = "a.nongbot.org";
 
 export function parseJsonStrict(label, raw) {
   try {
@@ -28,6 +28,31 @@ export function getCarsCount(carsPayload) {
 export function getPublicSignupEnabled(healthPayload) {
   if (!healthPayload || typeof healthPayload !== "object") return undefined;
   return healthPayload.publicSignupEnabled;
+}
+
+export function isExpectedStagingUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl));
+    return parsed.protocol === "https:" && parsed.hostname === STAGING_HOSTNAME;
+  } catch {
+    return false;
+  }
+}
+
+export function parseMainJsAssetFromHtml(htmlText) {
+  if (typeof htmlText !== "string" || htmlText.length === 0) return null;
+  const scriptSrcMatches = [
+    ...htmlText.matchAll(
+      /<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["'][^>]*>/gi
+    ),
+  ];
+  for (const match of scriptSrcMatches) {
+    const src = String(match[1] ?? "").trim();
+    if (/^\/?assets\/index-[A-Za-z0-9_-]+\.js$/.test(src)) {
+      return src.replace(/^\//, "");
+    }
+  }
+  return null;
 }
 
 export function maskValue(value) {

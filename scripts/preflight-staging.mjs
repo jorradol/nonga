@@ -1,11 +1,10 @@
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   EXPECTED_BRANCH,
   EXPECTED_CLOUD_RUN_REGION,
   EXPECTED_CLOUD_RUN_REVISION,
   EXPECTED_CLOUD_RUN_SERVICE,
-  EXPECTED_HOSTING_ASSET,
   EXPECTED_HOSTING_SITE,
   EXPECTED_MARKETPLACE_COUNT,
   EXPECTED_PROJECT_ID,
@@ -14,8 +13,10 @@ import {
   getCarsCount,
   getCloudRunRevision,
   getPublicSignupEnabled,
+  isExpectedStagingUrl,
   isProductionLikeProject,
   maskValue,
+  parseMainJsAssetFromHtml,
   parseJsonStrict,
 } from "./preflight-staging-lib.mjs";
 
@@ -78,6 +79,13 @@ async function main() {
   console.log("=== preflight:staging (read-only) ===");
   console.log(`Staging URL: ${EXPECTED_STAGING_URL}`);
 
+  runCheck("target is staging only", () => {
+    if (!isExpectedStagingUrl(EXPECTED_STAGING_URL)) {
+      throw new Error(`unexpected target URL '${EXPECTED_STAGING_URL}'`);
+    }
+    return EXPECTED_STAGING_URL;
+  });
+
   runCheck("branch", () => {
     const branch = run("git branch --show-current");
     expectEqual("branch", EXPECTED_BRANCH, branch);
@@ -96,14 +104,6 @@ async function main() {
     const lines = status ? status.split(/\r?\n/).filter(Boolean) : [];
     const untracked = lines.filter((line) => line.startsWith("?? ")).length;
     return `entries=${lines.length}, untracked=${untracked}`;
-  });
-
-  runCheck("hosting asset baseline", () => {
-    const indexHtml = readFileSync("dist/index.html", "utf8");
-    if (!indexHtml.includes(EXPECTED_HOSTING_ASSET)) {
-      throw new Error(`dist/index.html missing ${EXPECTED_HOSTING_ASSET}`);
-    }
-    return EXPECTED_HOSTING_ASSET;
   });
 
   runCheck("firebase active project", () => {
@@ -150,6 +150,40 @@ async function main() {
   runCheck("staging root", () => {
     ensureHttp200("GET /", home);
     return `status=${home.status}`;
+  });
+
+  const stagingIndexHtml = await home.text();
+  const stagingMainAsset = parseMainJsAssetFromHtml(stagingIndexHtml);
+  runCheck("staging main JS asset present", () => {
+    if (!stagingMainAsset) {
+      throw new Error("staging index.html missing /assets/index-*.js module asset");
+    }
+    return stagingMainAsset;
+  });
+
+  if (stagingMainAsset) {
+    const assetUrl = `${EXPECTED_STAGING_URL}/${stagingMainAsset.replace(/^\//, "")}`;
+    const assetResponse = await fetch(assetUrl, { method: "GET" });
+    runCheck("staging main JS asset fetch", () => {
+      ensureHttp200(`GET ${stagingMainAsset}`, assetResponse);
+      return `status=${assetResponse.status}`;
+    });
+  }
+
+  runCheck("local dist main asset parity (best-effort)", () => {
+    if (!existsSync("dist/index.html")) {
+      return "skip: dist/index.html not found";
+    }
+    if (!stagingMainAsset) {
+      return "skip: staging asset unavailable";
+    }
+    const localIndexHtml = readFileSync("dist/index.html", "utf8");
+    const localMainAsset = parseMainJsAssetFromHtml(localIndexHtml);
+    if (!localMainAsset) {
+      return "skip: local dist main asset not detectable";
+    }
+    expectEqual("local/staging main asset", stagingMainAsset, localMainAsset);
+    return localMainAsset;
   });
 
   const health = await fetchJson(`${EXPECTED_STAGING_URL}/api/health`);

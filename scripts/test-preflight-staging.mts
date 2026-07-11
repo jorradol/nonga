@@ -12,7 +12,9 @@ import {
   getCarsCount,
   getCloudRunRevision,
   getPublicSignupEnabled,
+  isExpectedStagingUrl,
   isProductionLikeProject,
+  parseMainJsAssetFromHtml,
   parseJsonStrict,
 } from "./preflight-staging-lib.mjs";
 
@@ -40,6 +42,11 @@ ok("expected cloud run region", EXPECTED_CLOUD_RUN_REGION === "asia-southeast1")
 ok("expected cloud run revision", EXPECTED_CLOUD_RUN_REVISION === "nonga-staging-00215-dmx");
 ok("expected marketplace count", EXPECTED_MARKETPLACE_COUNT === 15);
 ok("expected staging url", EXPECTED_STAGING_URL === "https://a.nongbot.org");
+ok("staging url guard accepts expected URL", isExpectedStagingUrl(EXPECTED_STAGING_URL));
+ok(
+  "staging url guard rejects non-staging URL",
+  !isExpectedStagingUrl("https://example.com")
+);
 
 const valid = parseJsonStrict("json", "{\"status\":\"success\",\"result\":\"nonga-ce93c\"}") as {
   status: string;
@@ -77,6 +84,19 @@ ok(
   formatMismatch("branch", "a", "b") === "branch mismatch: expected 'a' got 'b'"
 );
 
+ok(
+  "parseMainJsAssetFromHtml reads hashed main asset",
+  parseMainJsAssetFromHtml(
+    '<!doctype html><script type="module" src="/assets/index-B1Px7Hch.js"></script>'
+  ) === "assets/index-B1Px7Hch.js"
+);
+ok(
+  "parseMainJsAssetFromHtml rejects non-index asset",
+  parseMainJsAssetFromHtml(
+    '<!doctype html><script type="module" src="/assets/vendor.js"></script>'
+  ) === null
+);
+
 const preflightScript = readFileSync("scripts/preflight-staging.mjs", "utf8");
 ok("preflight checks firebase use --json", preflightScript.includes("firebase use --json"));
 ok("preflight checks gcloud run services describe", preflightScript.includes("gcloud run services describe"));
@@ -84,6 +104,18 @@ ok(
   "preflight checks staging URL",
   preflightScript.includes("EXPECTED_STAGING_URL") &&
     preflightScript.includes("fetchJson(`${EXPECTED_STAGING_URL}/api/health`")
+);
+ok(
+  "preflight checks staging main asset dynamically",
+  preflightScript.includes("parseMainJsAssetFromHtml(stagingIndexHtml)")
+);
+ok(
+  "preflight validates asset fetch 200",
+  preflightScript.includes("staging main JS asset fetch")
+);
+ok(
+  "preflight no hard-coded historical asset hash",
+  !preflightScript.includes("EXPECTED_HOSTING_ASSET")
 );
 ok("preflight does not auto-switch firebase project", !/firebase use nonga-ce93c/.test(preflightScript));
 ok("preflight does not deploy", !/firebase deploy|gcloud run deploy|services update/.test(preflightScript));

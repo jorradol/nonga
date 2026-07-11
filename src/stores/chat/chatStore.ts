@@ -15,7 +15,7 @@ import {
   isEphemeralGuestChatScope,
   type ChatStorageScope,
 } from "../../utils/chatStorageScope";
-import { db, isMockConfig } from "../../lib/firebase";
+import { auth, db, isMockConfig } from "../../lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
   appendChatMessage,
@@ -28,6 +28,23 @@ import {
   updateChatMessageText,
   updateChatSessionMetadata,
 } from "../../services/chat/chatHistoryService";
+import { userService } from "../../services/user/userService";
+
+function parseUidFromAiPreferenceScope(scopeKey: string): string | null {
+  const trimmed = String(scopeKey ?? "").trim();
+  const userMatch = /^user:([^:]+)$/.exec(trimmed);
+  if (userMatch?.[1]) return userMatch[1];
+  const dealerMatch = /^dealer:[^:]+:([^:]+)$/.exec(trimmed);
+  if (dealerMatch?.[1]) return dealerMatch[1];
+  return null;
+}
+
+function shouldUseFirestoreAiPreferences(scopeKey: string): boolean {
+  if (isMockConfig || !db || !auth?.currentUser?.uid) return false;
+  const scopeUid = parseUidFromAiPreferenceScope(scopeKey);
+  if (!scopeUid || scopeUid.startsWith("guest-")) return false;
+  return scopeUid === auth.currentUser.uid;
+}
 
 export interface AIUserProfile {
   userName: string | null;
@@ -442,9 +459,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Persist to DB
         const sessionId = get().activeSessionId;
         const activeSession = get().sessions.find((s) => s.id === sessionId);
-        const storageScopeKey = activeSession?.userId || "guest";
+        const storageScopeKey =
+          activeSession?.storageScopeKey ?? activeSession?.userId ?? "guest";
 
-        if (!isMockConfig && db) {
+        if (shouldUseFirestoreAiPreferences(storageScopeKey)) {
+          const scopeUid = parseUidFromAiPreferenceScope(storageScopeKey);
+          if (scopeUid) {
+            await userService.ensureProfileReady(scopeUid);
+          }
           await setDoc(doc(db, "ai_preferences", storageScopeKey), {
             userId: storageScopeKey,
             preferredBrands: p.preferredBrands || [],
@@ -471,7 +493,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadUserPreferences: async (storageScopeKey) => {
-    if (isMockConfig || !db) {
+    if (!shouldUseFirestoreAiPreferences(storageScopeKey)) {
       try {
         const stored = localStorage.getItem(chatPrefsLocalKey(storageScopeKey));
         if (stored) {
@@ -496,6 +518,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     try {
+      const scopeUid = parseUidFromAiPreferenceScope(storageScopeKey);
+      if (scopeUid) {
+        await userService.ensureProfileReady(scopeUid);
+      }
       const docSnap = await getDoc(doc(db, "ai_preferences", storageScopeKey));
       if (docSnap.exists()) {
         const d = docSnap.data();
