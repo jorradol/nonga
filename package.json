@@ -7,6 +7,8 @@
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "build:staging:hosting": "tsx scripts/build-staging-hosting.mts",
+    "preflight:staging": "node scripts/preflight-staging.mjs",
+    "test:preflight:staging": "tsx scripts/test-preflight-staging.mts",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
