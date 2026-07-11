@@ -924,11 +924,6 @@ export type OwnerControlledGeminiUxZone =
   | "lucky_color_fun_match_disclaimer"
   | "same_chat_context_switching_wording";
 
-const OWNER_ONLY_ALLOWED_ROLES: ReadonlySet<SalesBrainUserRole> = new Set([
-  "admin",
-  "superadmin",
-]);
-
 const DETERMINISTIC_BOUNDARY_PATTERNS: RegExp[] = [
   /ยืนยัน(?:ให้)?ส่งข้อมูล|ส่งข้อมูลให้ผู้ขาย|consent|lead/i,
   /เบอร์|เบอร์ติดต่อ|contact|phone|โทรศัพท์|line id/i,
@@ -1603,10 +1598,6 @@ export function evaluateUserVisibleRealProviderEligibility(input: {
 
   if (!isOwnerOnlyControlledUxEnabled(readEnv)) {
     return { eligible: false, gateReason: "owner_only_controlled_ux_flag_off" };
-  }
-
-  if (!OWNER_ONLY_ALLOWED_ROLES.has(input.userRole)) {
-    return { eligible: false, gateReason: "owner_role_required" };
   }
 
   if (!isUserVisibleRealProviderFlagEnabled(readEnv)) {

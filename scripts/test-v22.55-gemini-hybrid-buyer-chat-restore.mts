@@ -297,14 +297,14 @@ async function run(): Promise<void> {
 
   const baseEnv = env();
   ok(
-    "16 buyer role cannot override owner-only recipient/path",
+    "16 allowlisted buyer can pass guarded real-provider eligibility",
     evaluateUserVisibleRealProviderEligibility({
       firebaseUid: "owner-uid",
       userRole: "buyer",
       environment: "staging",
       env: baseEnv,
       readEnv: readFrom(baseEnv),
-    }).gateReason === "owner_role_required"
+    }).gateReason === "real_provider_eligible"
   );
   ok(
     "17 owner admin eligible under controlled flags",
