@@ -11,6 +11,7 @@ import {
   saveChatCarContext,
   saveChatSearchContext,
   saveInChatBuyerContext,
+  loadInChatBuyerContext,
   loadChatSearchContext,
   loadLastSelectedCarId,
   loadRecentlyViewedCarIds,
@@ -52,7 +53,10 @@ import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
 import { tryTroubleshootingAdvisorReply } from "./chatTroubleshootingAdvisorTemplates";
 import { tryInsuranceAdvisorReply } from "./chatInsuranceAdvisorTemplates";
 import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
-import { tryBuyerIntentGateReply } from "./chatBuyerIntentGate";
+import {
+  isVagueUnclearBuyerMessage,
+  tryBuyerIntentGateReply,
+} from "./chatBuyerIntentGate";
 import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
 import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
 import {
@@ -337,6 +341,8 @@ function tryOrchestrateChatReplyCore(
     options?.contextCarsOverride && options.contextCarsOverride.length > 0
       ? options.contextCarsOverride
       : loadChatCarContext(chatSessionId);
+  const conversationalMemory = getConversationalLeadMemory(chatSessionId ?? "");
+  const inChatBuyerContext = loadInChatBuyerContext(chatSessionId);
 
   const contextualFollowUp = tryContextualBuyerFollowUp(message, contextCars);
   if (contextualFollowUp) {
@@ -449,6 +455,18 @@ function tryOrchestrateChatReplyCore(
       })
     ),
     selectedCarForAdvisor: selectedForAdvisor,
+    discoveryContext: {
+      usageTags: [
+        ...(conversationalMemory?.usageTags ?? []),
+        ...(inChatBuyerContext?.usageTags ?? []),
+      ],
+      budgetMax:
+        conversationalMemory?.budgetMax ??
+        inChatBuyerContext?.budgetMax ??
+        undefined,
+      brands: conversationalMemory?.brands,
+      models: conversationalMemory?.models,
+    },
   });
   if (intentGate) {
     return {
@@ -662,7 +680,30 @@ function tryOrchestrateChatReplyCore(
     }
   }
 
-  const buyerScored = tryBuyerScoredMarketplaceReply(message, inventory);
+  const scopedBuyerSearchMessage = (() => {
+    if (!isVagueUnclearBuyerMessage(message)) return message;
+    const mem = conversationalMemory;
+    if (!mem) return message;
+    const budget = mem.budgetMax;
+    const usage = mem.usageTags?.[0];
+    if (budget == null || !usage) return message;
+    const usagePrompt: Record<string, string> = {
+      family: "ใช้กับครอบครัว",
+      city: "ขับในเมือง",
+      fuelEfficient: "เน้นประหยัดน้ำมัน",
+      firstCar: "รถคันแรก",
+      easyMaintenance: "ดูแลง่าย",
+      lowMaintenance: "ไม่จุกจิก",
+    };
+    const usageText = usagePrompt[usage] ?? usage;
+    // Reuse explicit buyer-stated memory to continue search without re-asking.
+    return `${message} งบไม่เกิน ${budget} บาท ${usageText}`;
+  })();
+
+  const buyerScored = tryBuyerScoredMarketplaceReply(
+    scopedBuyerSearchMessage,
+    inventory
+  );
   if (buyerScored) {
     const initialCards = buyerScored.carCards;
     const hasMore =

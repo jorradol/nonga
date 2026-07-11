@@ -35,6 +35,11 @@ const FINANCE_TOPIC_SIGNAL =
 const FINANCE_ADVISOR_BLOCK =
   /(?:ไฟแนนซ์|ผ่อน|ดาวน์)(?:ต้อง|ควร)เตรียม|ดาวน์(?:เท่าไหร่|กี่เปอร์|กี่%|เท่าไร)(?:ดี|เหมาะ|ควร)|ซื้อสด(?:กับ|หรือ)\s*ผ่อน|ผ่อน(?:กับ|หรือ)\s*ซื้อสด/i;
 
+const DIRECT_BROWSE_REQUEST =
+  /(?:ขอดู|ดู)(?:รถ)?(?:ที่มี)?(?:เลย|ก่อน)|(?:มีรถอะไรบ้าง|ดูรถทั้งหมด)/i;
+const HOLD_OR_REFUSAL_SIGNAL =
+  /(?:ยังไม่ส่ง|ยังไม่ให้เบอร์|ไม่ให้เบอร์|ยังไม่ให้ข้อมูล|เดี๋ยวก่อน|ขอคิดก่อน|ขอดูก่อน|ยังก่อน|ช้าก่อน|ขอเวลา|ไว้ก่อน|ยังไม่พร้อม|ยังไม่ยืนยัน|ยังไม่อยากบอก|ไม่อยากบอก|ไม่สะดวกบอก)/i;
+
 const USAGE_PATTERNS: { tag: string; re: RegExp }[] = [
   {
     tag: "fuelEfficient",
@@ -45,7 +50,10 @@ const USAGE_PATTERNS: { tag: string; re: RegExp }[] = [
     tag: "firstCar",
     re: /รถ(?:มือสอง)?คันแรก|คันแรก(?:ซื้อ|เลือก)รถ|ซื้อรถคันแรก|เลือกรถคันแรก/i,
   },
-  { tag: "city", re: /ใช้(?:งาน)?ในเมือง|รถเมือง|ขับในเมือง|จอดในเมือง/i },
+  {
+    tag: "city",
+    re: /ใช้(?:งาน)?ในเมือง|รถเมือง|ขับในเมือง|จอดในเมือง|(?:ขับ|ใช้|เดินทาง)ไปทำงาน/i,
+  },
   {
     tag: "easyMaintenance",
     re: /ดูแลง่าย|รถ(?:ที่)?ดูแลง่าย|รถมือสองดูแลง่าย/i,
@@ -261,6 +269,10 @@ export function parseBuyerSearchIntent(message: string): BuyerSearchIntent {
 
   if (isPureAdvisorWithoutSearch(text)) {
     return { isVehicleSearch: false };
+  }
+
+  if (DIRECT_BROWSE_REQUEST.test(text) && !HOLD_OR_REFUSAL_SIGNAL.test(text)) {
+    return { isVehicleSearch: true };
   }
 
   const budgetMax = parseBuyerSearchBudgetMax(text);

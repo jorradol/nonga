@@ -28,12 +28,19 @@ export interface BuyerIntentGateOptions {
   hasTargetCarForFacts?: boolean;
   /** Selected car for advisor copy (e.g. คันนี้ต้องดูอะไร) — never attaches cards */
   selectedCarForAdvisor?: ChatCarCardData | null;
+  /** Reused buyer discovery memory/context (session-only, non-PII). */
+  discoveryContext?: {
+    usageTags?: string[];
+    budgetMax?: number | null;
+    brands?: string[];
+    models?: string[];
+  };
 }
 
 export type { BuyerAdvisorTopic };
 
 const VAGUE_UNCLEAR =
-  /^(?:ช่วยหน่อย|แนะนำหน่อย|มีอะไรบ้าง|มีอะไรน่าสนใจ(?:บ้าง)?|เอาแบบไหนดี|อยากได้รถ(?:หน่อย)?|หาหน่อย|แนะนำรถหน่อย|แนะนำหน่อยครับ|ช่วยแนะนำหน่อย|อยากได้รถดี\s*ๆ|อยากได้รถดีๆ)$/i;
+  /^(?:ช่วยหน่อย|แนะนำหน่อย|มีอะไรบ้าง|มีอะไรน่าสนใจ(?:บ้าง)?|เอาแบบไหนดี|อยากได้รถ(?:หน่อย)?|อยากซื้อรถ(?:ครับ|ค่ะ|หน่อย)?|หาหน่อย|แนะนำรถหน่อย|แนะนำหน่อยครับ|ช่วยแนะนำหน่อย|อยากได้รถดี\s*ๆ|อยากได้รถดีๆ)$/i;
 
 const VAGUE_WITH_SOFT_ADVISE =
   /^(?:แนะนำ(?:รถ)?(?:ให้)?(?:หน่อย)?|ช่วยแนะนำ(?:รถ)?(?:หน่อย)?|มีอะไร(?:น่าสนใจ|ดี)(?:บ้าง)?)(?:ครับ|ค่ะ|นะ)?$/i;
@@ -42,7 +49,7 @@ const EXPLICIT_SEARCH_REQUEST =
   /(?:มี|หา|ค้นหา|ช่วยหา|ช่วยค้นหา).{0,80}(?:ไหม|มั้ย|หรือเปล่า|ให้หน่อย|ให้ที|ได้ไหม)/i;
 
 const SOFT_SEARCH_HINT =
-  /(?:มี|หา|ค้นหา|แนะนำ|งบ|ราคา|แสน|ล้าน|น่าสนใจ)/i;
+  /(?:มี|หา|ค้นหา|แนะนำ|งบ|ราคา|แสน|ล้าน|น่าสนใจ|อยากซื้อรถ|ซื้อรถ)/i;
 
 type OffTopicRecoveryKind =
   | "poem"
@@ -239,6 +246,87 @@ export function buildClarifyingBuyerReply(message: string): string {
   ].join("\n");
 }
 
+const DIRECT_BROWSE_REQUEST =
+  /(?:ขอดู|ดู)(?:รถ)?(?:ที่มี)?(?:เลย|ก่อน)|(?:มีรถอะไรบ้าง|ดูรถทั้งหมด)/i;
+
+const REFUSAL_OR_HOLD_SIGNAL =
+  /(?:ยังไม่อยากบอก|ไม่อยากบอก|ไม่สะดวกบอก|ข้าม(?:คำถามนี้)?|แนะนำ(?:จาก|ไป)ก่อน|ยังไม่แน่ใจ|ยังไม่พร้อม)/i;
+
+function mergeUnique(values: Array<string[] | undefined>): string[] {
+  const out: string[] = [];
+  for (const group of values) {
+    if (!group) continue;
+    for (const value of group) {
+      const v = String(value ?? "").trim();
+      if (!v) continue;
+      if (!out.includes(v)) out.push(v);
+    }
+  }
+  return out;
+}
+
+function hasKnownBrandOrModel(
+  message: string,
+  options?: BuyerIntentGateOptions
+): boolean {
+  const criteria = parseMarketplaceSearchQuery(message);
+  if (criteria?.brand?.trim() || criteria?.model?.trim()) return true;
+  const knownBrands = options?.discoveryContext?.brands ?? [];
+  const knownModels = options?.discoveryContext?.models ?? [];
+  return knownBrands.length > 0 || knownModels.length > 0;
+}
+
+function buildUsageFirstQuestion(): string {
+  return "ได้ครับ ปกติจะใช้รถแบบไหนเป็นหลักครับ เช่น ขับในเมือง ใช้เดินทางไกล ใช้กับครอบครัว หรือใช้ทำงาน (ประเภทการใช้งานหลัก)";
+}
+
+function buildBudgetFollowUpQuestion(): string {
+  return "ได้ครับ ถ้าให้คัดให้แคบลงอีกนิด สะดวกบอกงบประมาณคร่าว ๆ ไหมครับ";
+}
+
+function buildRespectRefusalReply(hasUsage: boolean): string {
+  if (hasUsage) {
+    return "ได้ครับ ไม่เป็นไรเรื่องงบ เดี๋ยวน้องเอช่วยต่อจากการใช้งานที่มีก่อนนะครับ ถ้าภายหลังสะดวกบอกงบค่อยเพิ่มได้";
+  }
+  return "ได้ครับ ไม่เป็นไรครับ งั้นเริ่มจากภาพรวมเบา ๆ ก่อน — ปกติจะใช้รถแบบไหนเป็นหลักครับ";
+}
+
+function buildProgressiveClarifyingReply(
+  message: string,
+  buyerIntent: BuyerSearchIntent,
+  options?: BuyerIntentGateOptions
+): string | false | null {
+  const knownUsageTags = mergeUnique([
+    buyerIntent.usageTags,
+    options?.discoveryContext?.usageTags,
+  ]);
+  const hasKnownUsage = knownUsageTags.length > 0;
+  const hasKnownBudget =
+    buyerIntent.budgetMax != null ||
+    (options?.discoveryContext?.budgetMax ?? null) != null;
+  const hasKnownBrandModel = hasKnownBrandOrModel(message, options);
+
+  if (DIRECT_BROWSE_REQUEST.test(message)) {
+    return false;
+  }
+  if (REFUSAL_OR_HOLD_SIGNAL.test(message)) {
+    return buildRespectRefusalReply(hasKnownUsage);
+  }
+  if (!hasKnownUsage && !hasKnownBrandModel) {
+    return buildUsageFirstQuestion();
+  }
+  if (hasKnownUsage && !hasKnownBudget && !hasKnownBrandModel) {
+    return buildBudgetFollowUpQuestion();
+  }
+  if (hasKnownUsage && hasKnownBudget) {
+    return false;
+  }
+  if (hasKnownBrandModel) {
+    return false;
+  }
+  return null;
+}
+
 export { buildBuyerAdvisorReply };
 
 /** Deterministic reply before facts/search; null = continue orchestrator chain */
@@ -283,6 +371,17 @@ export function tryBuyerIntentGateReply(
     return null;
   }
 
+  if (SOFT_SEARCH_HINT.test(t)) {
+    const progressive = buildProgressiveClarifyingReply(t, buyerIntent, options);
+    if (progressive === false) return null;
+    if (progressive) {
+      return {
+        text: progressive,
+        skipGemini: true,
+      };
+    }
+  }
+
   if (
     options?.hasTargetCarForFacts &&
     classifyBuyerFactsQuestion(t) !== "none"
@@ -291,13 +390,23 @@ export function tryBuyerIntentGateReply(
   }
 
   if (isVagueUnclearBuyerMessage(t)) {
-    return { text: buildClarifyingBuyerReply(t), skipGemini: true };
+    const progressive = buildProgressiveClarifyingReply(t, buyerIntent, options);
+    if (progressive === false) return null;
+    return {
+      text: progressive ?? buildClarifyingBuyerReply(t),
+      skipGemini: true,
+    };
   }
 
   const criteria = parseMarketplaceSearchQuery(t);
   if (criteria && !hasSufficientSearchCriteria(criteria, t)) {
     if (SOFT_SEARCH_HINT.test(t) && !EXPLICIT_SEARCH_REQUEST.test(t)) {
-      return { text: buildClarifyingBuyerReply(t), skipGemini: true };
+      const progressive = buildProgressiveClarifyingReply(t, buyerIntent, options);
+      if (progressive === false) return null;
+      return {
+        text: progressive ?? buildClarifyingBuyerReply(t),
+        skipGemini: true,
+      };
     }
   }
 
