@@ -57,6 +57,7 @@ function printClassification(item: WarningClassification): void {
 async function runStaticContracts(): Promise<void> {
   const preflight = read("scripts/preflight-staging.mjs");
   const preflightLib = read("scripts/preflight-staging-lib.mjs");
+  const buildProvenanceScript = read("scripts/write-build-provenance.mjs");
   const userSelfRoutes = read("src/server/userSelfRoutes.ts");
   const serverAuthContext = read("src/server/serverAuthContext.ts");
   const userService = read("src/services/user/userService.ts");
@@ -94,6 +95,18 @@ async function runStaticContracts(): Promise<void> {
   ok(
     "A6 preflight remains read-only no auto-switch/deploy",
     !/firebase use nonga-ce93c|firebase deploy|gcloud run deploy/.test(preflight)
+  );
+  ok(
+    "A7 preflight validates staging build provenance commit/asset parity",
+    preflight.includes("staging build provenance payload") &&
+      preflight.includes("staging build provenance commit matches local HEAD") &&
+      preflight.includes("staging build provenance main asset matches index")
+  );
+  ok(
+    "A8 build provenance file writer emits gitCommit/mainAsset metadata",
+    buildProvenanceScript.includes("build-provenance.json") &&
+      buildProvenanceScript.includes("gitCommit") &&
+      buildProvenanceScript.includes("mainAsset")
   );
 
   // B) Profile contract

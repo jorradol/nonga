@@ -14,6 +14,7 @@ import {
   getCloudRunRevision,
   getPublicSignupEnabled,
   isExpectedStagingUrl,
+  parseBuildProvenance,
   isProductionLikeProject,
   maskValue,
   parseMainJsAssetFromHtml,
@@ -86,6 +87,7 @@ async function main() {
     return EXPECTED_STAGING_URL;
   });
 
+  let localHead = "";
   runCheck("branch", () => {
     const branch = run("git branch --show-current");
     expectEqual("branch", EXPECTED_BRANCH, branch);
@@ -94,6 +96,7 @@ async function main() {
 
   runCheck("local HEAD equals origin", () => {
     const head = run("git rev-parse HEAD");
+    localHead = head;
     const originHead = run(`git rev-parse origin/${EXPECTED_BRANCH}`);
     expectEqual("HEAD parity", originHead, head);
     return head;
@@ -169,6 +172,42 @@ async function main() {
       return `status=${assetResponse.status}`;
     });
   }
+
+  const provenance = await fetchJson(`${EXPECTED_STAGING_URL}/build-provenance.json`);
+  let parsedProvenance = null;
+  runCheck("staging build provenance payload", () => {
+    ensureHttp200("GET /build-provenance.json", provenance.response);
+    if (!provenance.payload) {
+      throw new Error("build provenance payload is not valid JSON");
+    }
+    parsedProvenance = parseBuildProvenance(provenance.payload);
+    if (!parsedProvenance) {
+      throw new Error("build provenance payload missing required fields");
+    }
+    return `commit=${parsedProvenance.gitCommit.slice(0, 12)}`;
+  });
+
+  runCheck("staging build provenance commit matches local HEAD", () => {
+    if (!parsedProvenance) {
+      throw new Error("build provenance payload unavailable");
+    }
+    if (!localHead) {
+      throw new Error("local HEAD unavailable");
+    }
+    expectEqual("build provenance commit", localHead, parsedProvenance.gitCommit);
+    return parsedProvenance.gitCommit;
+  });
+
+  runCheck("staging build provenance main asset matches index", () => {
+    if (!parsedProvenance) {
+      throw new Error("build provenance payload unavailable");
+    }
+    if (!stagingMainAsset) {
+      throw new Error("staging main asset unavailable");
+    }
+    expectEqual("build provenance main asset", stagingMainAsset, parsedProvenance.mainAsset);
+    return parsedProvenance.mainAsset;
+  });
 
   runCheck("local dist main asset parity (best-effort)", () => {
     if (!existsSync("dist/index.html")) {

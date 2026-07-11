@@ -242,4 +242,12 @@ if (result.status !== 0) {
 }
 
 verifyDistBundle();
+const provenanceResult = spawnSync("node", ["scripts/write-build-provenance.mjs"], {
+  stdio: "inherit",
+  env: childEnv,
+  shell: process.platform === "win32",
+});
+if (provenanceResult.status !== 0) {
+  process.exit(provenanceResult.status ?? 1);
+}
 console.log("PASS staging hosting build complete (vite only; deploy with firebase deploy --only hosting)");

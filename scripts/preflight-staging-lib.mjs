@@ -55,6 +55,21 @@ export function parseMainJsAssetFromHtml(htmlText) {
   return null;
 }
 
+export function isGitCommitHash(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/i.test(value.trim());
+}
+
+export function parseBuildProvenance(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const gitCommit = String(raw.gitCommit ?? "").trim();
+  const builtAt = String(raw.builtAt ?? "").trim();
+  const mainAsset = String(raw.mainAsset ?? "").trim();
+  if (!isGitCommitHash(gitCommit)) return null;
+  if (!builtAt) return null;
+  if (!/^assets\/index-[A-Za-z0-9_-]+\.js$/.test(mainAsset)) return null;
+  return { gitCommit, builtAt, mainAsset };
+}
+
 export function maskValue(value) {
   if (typeof value !== "string" || value.length <= 4) return "***";
   return `${value.slice(0, 2)}***${value.slice(-2)}`;

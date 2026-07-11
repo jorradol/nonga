@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && node scripts/write-build-provenance.mjs && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "build:staging:hosting": "tsx scripts/build-staging-hosting.mts",
     "preflight:staging": "node scripts/preflight-staging.mjs",
     "test:preflight:staging": "tsx scripts/test-preflight-staging.mts",

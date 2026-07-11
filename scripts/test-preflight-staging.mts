@@ -13,6 +13,7 @@ import {
   getCloudRunRevision,
   getPublicSignupEnabled,
   isExpectedStagingUrl,
+  parseBuildProvenance,
   isProductionLikeProject,
   parseMainJsAssetFromHtml,
   parseJsonStrict,
@@ -96,6 +97,24 @@ ok(
     '<!doctype html><script type="module" src="/assets/vendor.js"></script>'
   ) === null
 );
+ok(
+  "parseBuildProvenance validates required payload",
+  Boolean(
+    parseBuildProvenance({
+      gitCommit: "922c1ed7016b6a9763bd6130e19bc148e10e95f2",
+      builtAt: "2026-07-11T16:00:00.000Z",
+      mainAsset: "assets/index-B1Px7Hch.js",
+    })
+  )
+);
+ok(
+  "parseBuildProvenance rejects malformed payload",
+  parseBuildProvenance({
+    gitCommit: "not-a-commit",
+    builtAt: "",
+    mainAsset: "assets/vendor.js",
+  }) === null
+);
 
 const preflightScript = readFileSync("scripts/preflight-staging.mjs", "utf8");
 ok("preflight checks firebase use --json", preflightScript.includes("firebase use --json"));
@@ -112,6 +131,18 @@ ok(
 ok(
   "preflight validates asset fetch 200",
   preflightScript.includes("staging main JS asset fetch")
+);
+ok(
+  "preflight validates build provenance payload",
+  preflightScript.includes("staging build provenance payload")
+);
+ok(
+  "preflight enforces provenance commit parity",
+  preflightScript.includes("staging build provenance commit matches local HEAD")
+);
+ok(
+  "preflight enforces provenance asset parity",
+  preflightScript.includes("staging build provenance main asset matches index")
 );
 ok(
   "preflight no hard-coded historical asset hash",
