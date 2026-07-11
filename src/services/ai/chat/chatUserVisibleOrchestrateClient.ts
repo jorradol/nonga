@@ -51,6 +51,47 @@ export interface ChatUserVisibleOrchestrateResponse {
   message?: string;
 }
 
+export interface BridgeTextPrecedenceInput {
+  userMessage: string;
+  orchestratedText: string;
+  bridgedText: string;
+}
+
+const BUDGET_REASK_RE =
+  /(?:งบประมาณ|ดูจากงบประมาณ|สะดวกบอกงบ).{0,20}(?:ไหม|มั้ย|ก่อนได้ไหม)|(?:งบไม่เกิน\s*\d)|(?:\d+\s*[–-]\s*\d+\s*แสน)/i;
+const BUDGET_REFUSAL_RE =
+  /ยังไม่อยากบอกงบ|ไม่อยากบอกงบ|ไม่สะดวกบอกงบ|งบ.*ไว้ก่อน|แนะนำจากการใช้งาน/i;
+const USAGE_CONTINUITY_RE =
+  /ใช้ขับไปทำงาน|จากการใช้งานที่มีก่อน|ใช้งานที่บอกมา|แนวรถเก๋งขับง่าย|นั่งสูงแบบ\s*SUV/i;
+
+function hasBudgetReaskOrExamples(text: string): boolean {
+  return BUDGET_REASK_RE.test(text);
+}
+
+function hasRefusalOrUsageContinuity(text: string): boolean {
+  return BUDGET_REFUSAL_RE.test(text) || USAGE_CONTINUITY_RE.test(text);
+}
+
+/**
+ * v22.73 — signed-in bridge precedence guard:
+ * keep deterministic client text when bridge contradicts refusal/continuity intent.
+ */
+export function shouldApplyBridgeUserVisibleText(
+  input: BridgeTextPrecedenceInput
+): boolean {
+  const orchestrated = input.orchestratedText.trim();
+  const bridged = input.bridgedText.trim();
+  if (!orchestrated || !bridged) return false;
+
+  const deterministicRefusalOrContinuity = hasRefusalOrUsageContinuity(orchestrated);
+  if (!deterministicRefusalOrContinuity) return true;
+
+  // Guard narrow conflict only: legacy bridge text reintroduces budget ask/examples.
+  if (hasBudgetReaskOrExamples(bridged)) return false;
+
+  return true;
+}
+
 /**
  * Request server orchestration bridge — returns null when unauthenticated or on transport error.
  */

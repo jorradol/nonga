@@ -8,7 +8,10 @@ import {
   chunkTextForStream,
 } from "../../services/ai/chatMockFallback";
 import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
-import { applyChatUserVisibleServerBridge } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
+import {
+  applyChatUserVisibleServerBridge,
+  shouldApplyBridgeUserVisibleText,
+} from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
 import {
   resolvePilotSessionContextForFollowUp,
   pilotSessionCardsToChatCarCards,
@@ -1657,7 +1660,15 @@ export function useChat() {
         });
         if (bridged?.userVisibleText?.trim()) {
           if (orchestrated) {
-            orchestrated.text = bridged.userVisibleText;
+            if (
+              shouldApplyBridgeUserVisibleText({
+                userMessage: trimmed,
+                orchestratedText: orchestrated.text,
+                bridgedText: bridged.userVisibleText,
+              })
+            ) {
+              orchestrated.text = bridged.userVisibleText;
+            }
             // v22.58 — keep cards and text on the same canonical server set
             // v22.59 — never let image-less server cards overwrite complete local cards
             if (bridged.carCards && bridged.carCards.length > 0) {
