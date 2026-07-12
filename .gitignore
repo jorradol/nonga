@@ -7,6 +7,11 @@ dist/
 coverage/
 .firebase/
 
+# Accidental TypeScript emit duplicates (source of truth: .ts / .tsx / .mts)
+src/**/*.js
+src/**/*.jsx
+server.js
+
 # System / logs
 .DS_Store
 *.log
