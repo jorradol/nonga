@@ -57,7 +57,7 @@ import {
   isVagueUnclearBuyerMessage,
   tryBuyerIntentGateReply,
 } from "./chatBuyerIntentGate";
-import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch";
+import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch.ts";
 import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
 import {
   buildSearchOpenerFromMemory,

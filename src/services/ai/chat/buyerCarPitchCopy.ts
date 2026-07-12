@@ -60,6 +60,45 @@ function reasonMentionsBudget(ranked: BuyerMarketplaceScoredCandidate): boolean 
   return ranked.reasons.some((r) => /งบ/.test(r));
 }
 
+function inferPerCarDifferentiator(ranked: BuyerMarketplaceScoredCandidate): string {
+  const car = ranked.car;
+  const desc = String(car.description ?? "").trim();
+  const body = String(car.bodyType ?? "").toLowerCase();
+  const modelCtx = buildGeneralModelContext({
+    brand: car.brand,
+    model: car.model,
+    year: car.year,
+    bodyClassLabel: bodyLabelOf(car),
+  }).toLowerCase();
+  const mileage = Number(car.mileage ?? 0);
+
+  if (/ผู้บริหาร|นั่งสบาย|ห้องโดยสาร|สุภาพ|ภาพลักษณ์/i.test(desc) || /นั่งสบาย|ภาพลักษณ์สุภาพ/.test(modelCtx)) {
+    return "จุดเด่นคือบรรยากาศห้องโดยสารและความนุ่มนวลเวลาใช้งาน เหมาะทั้งขับเองและใช้พบลูกค้า";
+  }
+
+  if (mileage > 0 && mileage <= 60_000) {
+    return `ไมล์ ${formatPrice(mileage)} กม. ยังถือว่าไม่สูงเมื่อเทียบรถปีใกล้กัน เหมาะกับคนที่อยากเริ่มใช้งานระยะยาว`;
+  }
+
+  if (mileage > 0 && mileage >= 100_000) {
+    return `ไมล์ ${formatPrice(mileage)} กม. ควรตรวจประวัติเช็กระยะและทดลองขับ แต่ถ้าสภาพจริงดีจะคุมงบได้คุ้ม`;
+  }
+
+  if (/ดูแลง่าย|ไม่จุกจิก/i.test(desc) || /ดูแลง่าย|ใช้งานง่าย/.test(modelCtx)) {
+    return "มุมค่าใช้จ่ายหลังรับรถค่อนข้างเป็นมิตร เหมาะกับคนที่อยากคุมค่าดูแลต่อเนื่อง";
+  }
+
+  if (body === "suv" || body === "mpv") {
+    return "ได้ความอเนกประสงค์และตำแหน่งนั่งที่มองทางง่ายขึ้น เหมาะกับวันที่ต้องใช้รถหลายบทบาท";
+  }
+
+  if (body === "hatchback") {
+    return "ตัวรถกะทัดรัด คล่องในเมืองและหาที่จอดง่าย เหมาะกับการใช้งานทุกวัน";
+  }
+
+  return "ภาพรวมบาลานซ์ดีทั้งความคุ้มค่าและการใช้งานจริงในชีวิตประจำวัน";
+}
+
 function buildWarmAngle(
   intent: BuyerSearchIntent,
   ranked: BuyerMarketplaceScoredCandidate,
@@ -101,7 +140,7 @@ function buildWarmAngle(
   }
 
   if (hasTag(intent, ranked, "city")) {
-    return "ตัวนี้ฟีลรถใช้งานเมืองกำลังดี — ขับไปทำงาน ไปพบลูกค้า หรือใช้ในชีวิตประจำวันได้คล่อง";
+    return `ขับในเมืองเข้ามือดี และพอเอาไปใช้งานจริงได้ต่อเนื่อง — ${inferPerCarDifferentiator(ranked)}`;
   }
 
   if (
@@ -116,7 +155,7 @@ function buildWarmAngle(
   }
 
   if (reasonMentionsBudget(ranked) && isInBudget(intent, ranked)) {
-    return "ราคาอยู่ในงบที่ตั้งไว้ — เหมือนเป็นตัวเลือกที่จังหวะเข้ากับโจทย์พอดี";
+    return `ราคาอยู่ในงบที่ตั้งไว้ และจุดที่น่าดูต่อคือ ${inferPerCarDifferentiator(ranked)}`;
   }
 
   if (index === 0) {

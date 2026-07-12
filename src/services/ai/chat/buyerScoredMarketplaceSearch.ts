@@ -21,7 +21,7 @@ import {
   buildAllCardFitReasons,
   buildAllScoredPitchLines,
   buildScoredCarPitchCopy,
-} from "./buyerCarPitchCopy";
+} from "./buyerCarPitchCopy.ts";
 import { buildStableSeed, pickStableVariant } from "./thaiSalesCopyVariation";
 
 const FORBIDDEN_REPLY_CLAIM =

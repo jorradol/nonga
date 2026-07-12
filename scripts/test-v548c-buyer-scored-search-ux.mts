@@ -3,7 +3,10 @@
  * npm run test:v548c-buyer-scored-search-ux
  */
 import { tryOrchestrateChatReply } from "../src/services/ai/chat/chatSearchOrchestrator.ts";
-import { shouldUseBuyerScoredMarketplaceSearch } from "../src/services/ai/chat/buyerScoredMarketplaceSearch.ts";
+import {
+  shouldUseBuyerScoredMarketplaceSearch,
+  tryBuyerScoredMarketplaceReply,
+} from "../src/services/ai/chat/buyerScoredMarketplaceSearch.ts";
 import { parseBuyerSearchIntent } from "../src/services/ai/chat/buyerSearchIntentParser.ts";
 import {
   buildBuyerCarPitchLine,
@@ -151,6 +154,45 @@ const INVENTORY_CAMRY: ChatInventoryCar[] = [
   },
 ];
 
+const INVENTORY_OWNER_SCENARIOS: ChatInventoryCar[] = [
+  {
+    id: "car-owner-camry",
+    title: "Toyota Camry",
+    brand: "Toyota",
+    model: "Camry",
+    year: 2019,
+    price: 850_000,
+    mileage: 120_384,
+    bodyType: "sedan",
+    description: "ห้องโดยสารนั่งสบาย ภาพลักษณ์สุภาพ",
+    listingStatus: "published",
+  },
+  {
+    id: "car-owner-vios",
+    title: "Toyota Vios",
+    brand: "Toyota",
+    model: "Vios",
+    year: 2020,
+    price: 399_000,
+    mileage: 88_000,
+    bodyType: "sedan",
+    description: "รถใช้งานประจำวัน ดูแลง่าย",
+    listingStatus: "published",
+  },
+  {
+    id: "car-owner-corolla",
+    title: "Toyota Corolla Cross",
+    brand: "Toyota",
+    model: "Corolla",
+    year: 2021,
+    price: 429_000,
+    mileage: 58_000,
+    bodyType: "suv",
+    description: "รถครอบครัว ขับในเมืองคล่อง",
+    listingStatus: "published",
+  },
+];
+
 function ok(name: string, pass: boolean, detail = "") {
   console.log(pass ? "PASS" : "FAIL", name, detail);
   if (!pass) process.exitCode = 1;
@@ -272,6 +314,39 @@ ok(
   orchCity.carCards[0].id
 );
 assertNoForbidden(orchCity.text, "city");
+
+// --- owner scenario: per-car reason must not collapse to one repeated sentence ---
+const ownerWorkday = tryBuyerScoredMarketplaceReply(
+  "วันนี้ต้องการรถไว้ขับไปทำงานครับ",
+  INVENTORY_OWNER_SCENARIOS
+);
+ok("owner-workday-handled", ownerWorkday != null, "");
+const ownerWorkdayReasons = (ownerWorkday?.carCards ?? [])
+  .slice(0, 3)
+  .map((c) => (c.fitReason ?? "").trim())
+  .filter(Boolean);
+ok("owner-workday-three-reasons", ownerWorkdayReasons.length === 3, ownerWorkdayReasons.join(" | "));
+ok(
+  "owner-workday-reasons-not-all-identical",
+  new Set(ownerWorkdayReasons).size > 1,
+  ownerWorkdayReasons.join(" | ")
+);
+
+const ownerBudget = tryBuyerScoredMarketplaceReply(
+  "งบไม่เกินล้าน มีคันไหนน่าสนใจ",
+  INVENTORY_OWNER_SCENARIOS
+);
+ok("owner-budget-handled", ownerBudget != null, "");
+const ownerBudgetReasons = (ownerBudget?.carCards ?? [])
+  .slice(0, 3)
+  .map((c) => (c.fitReason ?? "").trim())
+  .filter(Boolean);
+ok("owner-budget-three-reasons", ownerBudgetReasons.length === 3, ownerBudgetReasons.join(" | "));
+ok(
+  "owner-budget-reasons-not-all-identical",
+  new Set(ownerBudgetReasons).size > 1,
+  ownerBudgetReasons.join(" | ")
+);
 
 // --- advisor: no cards ---
 const advisorCases = [
