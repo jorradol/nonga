@@ -321,6 +321,21 @@ const ownerWorkday = tryBuyerScoredMarketplaceReply(
   INVENTORY_OWNER_SCENARIOS
 );
 ok("owner-workday-handled", ownerWorkday != null, "");
+ok(
+  "owner-workday-no-premature-city-assumption",
+  !/จากใช้งานในเมือง/.test(ownerWorkday?.text ?? ""),
+  ownerWorkday?.text?.slice(0, 140) ?? ""
+);
+ok(
+  "owner-workday-smart-followup-usage-shape",
+  /ในเมืองเป็นหลักหรือมีวิ่งทางไกล/.test(ownerWorkday?.text ?? ""),
+  ownerWorkday?.text ?? ""
+);
+ok(
+  "owner-workday-no-force-brand-model-question",
+  !/ยี่ห้อ\/รุ่นที่สนใจ/.test(ownerWorkday?.text ?? ""),
+  ownerWorkday?.text ?? ""
+);
 const ownerWorkdayReasons = (ownerWorkday?.carCards ?? [])
   .slice(0, 3)
   .map((c) => (c.fitReason ?? "").trim())
@@ -330,6 +345,31 @@ ok(
   "owner-workday-reasons-not-all-identical",
   new Set(ownerWorkdayReasons).size > 1,
   ownerWorkdayReasons.join(" | ")
+);
+ok(
+  "owner-workday-no-unsupported-comfort-claims",
+  !/(ความนุ่มนวล|ภาพลักษณ์สุภาพ|ค่าใช้จ่ายหลังรับรถ)/.test(
+    ownerWorkdayReasons.join(" | ")
+  ),
+  ownerWorkdayReasons.join(" | ")
+);
+ok(
+  "owner-workday-candidate-order-unchanged",
+  (ownerWorkday?.carCards ?? []).slice(0, 3).map((c) => c.id).join(",") ===
+    "car-owner-vios,car-owner-camry,car-owner-corolla",
+  (ownerWorkday?.carCards ?? []).slice(0, 3).map((c) => c.id).join(",")
+);
+ok(
+  "owner-workday-price-mileage-unchanged",
+  (ownerWorkday?.carCards ?? [])
+    .slice(0, 3)
+    .map((c) => `${c.id}:${c.price}:${c.mileage}`)
+    .join("|") ===
+    "car-owner-vios:399000:88000|car-owner-camry:850000:120384|car-owner-corolla:429000:58000",
+  (ownerWorkday?.carCards ?? [])
+    .slice(0, 3)
+    .map((c) => `${c.id}:${c.price}:${c.mileage}`)
+    .join("|")
 );
 
 const ownerBudget = tryBuyerScoredMarketplaceReply(

@@ -62,41 +62,26 @@ function reasonMentionsBudget(ranked: BuyerMarketplaceScoredCandidate): boolean 
 
 function inferPerCarDifferentiator(ranked: BuyerMarketplaceScoredCandidate): string {
   const car = ranked.car;
-  const desc = String(car.description ?? "").trim();
   const body = String(car.bodyType ?? "").toLowerCase();
-  const modelCtx = buildGeneralModelContext({
-    brand: car.brand,
-    model: car.model,
-    year: car.year,
-    bodyClassLabel: bodyLabelOf(car),
-  }).toLowerCase();
   const mileage = Number(car.mileage ?? 0);
 
-  if (/ผู้บริหาร|นั่งสบาย|ห้องโดยสาร|สุภาพ|ภาพลักษณ์/i.test(desc) || /นั่งสบาย|ภาพลักษณ์สุภาพ/.test(modelCtx)) {
-    return "จุดเด่นคือบรรยากาศห้องโดยสารและความนุ่มนวลเวลาใช้งาน เหมาะทั้งขับเองและใช้พบลูกค้า";
-  }
-
   if (mileage > 0 && mileage <= 60_000) {
-    return `ไมล์ ${formatPrice(mileage)} กม. ยังถือว่าไม่สูงเมื่อเทียบรถปีใกล้กัน เหมาะกับคนที่อยากเริ่มใช้งานระยะยาว`;
+    return `ไมล์ ${formatPrice(mileage)} กม. ค่อนข้างต่ำในรถปีใกล้เคียง จึงน่าดูต่อสำหรับการใช้งานทุกวัน`;
   }
 
   if (mileage > 0 && mileage >= 100_000) {
-    return `ไมล์ ${formatPrice(mileage)} กม. ควรตรวจประวัติเช็กระยะและทดลองขับ แต่ถ้าสภาพจริงดีจะคุมงบได้คุ้ม`;
-  }
-
-  if (/ดูแลง่าย|ไม่จุกจิก/i.test(desc) || /ดูแลง่าย|ใช้งานง่าย/.test(modelCtx)) {
-    return "มุมค่าใช้จ่ายหลังรับรถค่อนข้างเป็นมิตร เหมาะกับคนที่อยากคุมค่าดูแลต่อเนื่อง";
+    return `ไมล์ ${formatPrice(mileage)} กม. ควรตรวจประวัติเช็กระยะและทดลองขับเพื่อประเมินสภาพจริงก่อนตัดสินใจ`;
   }
 
   if (body === "suv" || body === "mpv") {
-    return "ได้ความอเนกประสงค์และตำแหน่งนั่งที่มองทางง่ายขึ้น เหมาะกับวันที่ต้องใช้รถหลายบทบาท";
+    return "ตัวถังแนวอเนกประสงค์ช่วยเรื่องพื้นที่ใช้สอยและท่านั่ง เหมาะกับวันที่ต้องใช้รถหลายบทบาท";
   }
 
-  if (body === "hatchback") {
-    return "ตัวรถกะทัดรัด คล่องในเมืองและหาที่จอดง่าย เหมาะกับการใช้งานทุกวัน";
+  if (body === "hatchback" || body === "sedan") {
+    return "ตัวรถไม่ใหญ่เกินไป ขับและจอดง่ายสำหรับการใช้งานประจำวัน";
   }
 
-  return "ภาพรวมบาลานซ์ดีทั้งความคุ้มค่าและการใช้งานจริงในชีวิตประจำวัน";
+  return "จุดเด่นหลักของคันนี้คือความคุ้มค่าตามข้อมูลประกาศที่มีอยู่";
 }
 
 function buildWarmAngle(
@@ -140,7 +125,13 @@ function buildWarmAngle(
   }
 
   if (hasTag(intent, ranked, "city")) {
-    return `ขับในเมืองเข้ามือดี และพอเอาไปใช้งานจริงได้ต่อเนื่อง — ${inferPerCarDifferentiator(ranked)}`;
+    const open =
+      index === 0
+        ? "คันนี้วางเป็นตัวเลือกแรกสำหรับรถใช้ไปทำงานทุกวัน"
+        : index === 1
+          ? "อีกคันที่น่ามองสำหรับการใช้งานประจำวัน"
+          : "เป็นตัวเลือกเสริมที่ยังเข้ากับโจทย์ใช้งานทุกวัน";
+    return `${open} โดยจุดที่ต่างจากคันอื่นในชุดคือ ${inferPerCarDifferentiator(ranked)}`;
   }
 
   if (
@@ -165,11 +156,23 @@ function buildWarmAngle(
   return "อีกทางเลือกที่ยังน่าสนใจ — ลองเทียบกับคันอื่นในชุดนี้ดูครับ";
 }
 
-function buildReasonWeave(ranked: BuyerMarketplaceScoredCandidate): string {
+function isWorkCommuteWithoutExplicitCity(message?: string): boolean {
+  const text = String(message ?? "");
+  if (!text) return false;
+  const hasWorkCommute = /ขับไปทำงาน|ไปทำงาน/i.test(text);
+  const hasExplicitCity = /ในเมือง|ใช้งานในเมือง|รถเมือง/i.test(text);
+  return hasWorkCommute && !hasExplicitCity;
+}
+
+function buildReasonWeave(
+  ranked: BuyerMarketplaceScoredCandidate,
+  userMessage?: string
+): string {
   const r = ranked.reasons.find(
     (line) =>
       line.length > 0 &&
-      !/^(ราคาอยู่ในงบที่ตั้งไว้|ตัวถังและโจทย์)/.test(line)
+      !/^(ราคาอยู่ในงบที่ตั้งไว้|ตัวถังและโจทย์)/.test(line) &&
+      !(isWorkCommuteWithoutExplicitCity(userMessage) && /ในเมือง/.test(line))
   );
   if (!r) return "";
   if (r.length > 72) return ` (${r.slice(0, 70)}…)`;
@@ -290,7 +293,12 @@ export function buildBuyerCarPitchLine(
   ranked: BuyerMarketplaceScoredCandidate,
   index: number,
   intent: BuyerSearchIntent,
-  options?: { isLastInBatch?: boolean; addCheer?: boolean; compact?: boolean }
+  options?: {
+    isLastInBatch?: boolean;
+    addCheer?: boolean;
+    compact?: boolean;
+    userMessage?: string;
+  }
 ): string {
   const c = ranked.car;
   const label = rankLabel(index);
@@ -307,7 +315,7 @@ export function buildBuyerCarPitchLine(
     year: c.year,
     bodyClassLabel: bodyLabelOf(c),
   });
-  const weave = options?.compact ? "" : buildReasonWeave(ranked);
+  const weave = options?.compact ? "" : buildReasonWeave(ranked, options?.userMessage);
 
   const lines = [
     headline,
@@ -374,8 +382,23 @@ export function buildAllScoredPitchLines(
       compact: i >= 3,
       isLastInBatch: i === scoring.candidates.length - 1,
       addCheer: addCheer && i === scoring.candidates.length - 1,
+      userMessage: message,
     })
   );
+}
+
+function buildSmartFollowUpQuestion(
+  message: string,
+  intent: BuyerSearchIntent
+): string | null {
+  const workdayNoCity = isWorkCommuteWithoutExplicitCity(message);
+  if (workdayNoCity) {
+    if (intent.budgetMax == null) {
+      return "เพื่อคัดให้แม่นขึ้นอีกนิด ปกติขับในเมืองเป็นหลักหรือมีวิ่งทางไกลด้วยครับ และงบที่วางไว้คร่าว ๆ ประมาณเท่าไหร่ครับ";
+    }
+    return "เพื่อคัดให้แม่นขึ้นอีกนิด ปกติขับในเมืองเป็นหลักหรือมีวิ่งทางไกลด้วยครับ";
+  }
+  return null;
 }
 
 function buildPitchOpener(
@@ -397,7 +420,9 @@ function buildPitchOpener(
   } else if (intent.usageTags?.includes("fuelEfficient")) {
     budgetPart = "รถประหยัดน้ำมัน";
   } else if (intent.usageTags?.includes("city")) {
-    budgetPart = "ใช้งานในเมือง";
+    budgetPart = isWorkCommuteWithoutExplicitCity(message)
+      ? "โจทย์ขับไปทำงาน"
+      : "ใช้งานในเมือง";
   } else {
     budgetPart = "โจทย์ที่บอกมา";
   }
@@ -423,8 +448,13 @@ function buildPitchOpener(
     if (honest) lines.push(honest);
   }
 
-  if (intent.needsClarification && intent.clarificationQuestion) {
-    lines.push(intent.clarificationQuestion);
+  if (intent.needsClarification) {
+    const smartFollowUp = buildSmartFollowUpQuestion(message, intent);
+    if (smartFollowUp) {
+      lines.push(smartFollowUp);
+    } else if (intent.clarificationQuestion) {
+      lines.push(intent.clarificationQuestion);
+    }
   }
 
   const text = lines.join("\n\n");
