@@ -147,6 +147,29 @@ async function main() {
             จังหวัดทะเบียน: "กรุงเทพมหานคร",
           },
         },
+        {
+          sourceRowIndex: 2,
+          importStatus: "valid",
+          title: "Toyota Corolla ปี 2020",
+          brand: "Toyota",
+          model: "Corolla",
+          year: 2020,
+          price: 399000,
+          mileage: 0,
+          fuelType: "petrol",
+          description: "รถบ้านใช้งานทั่วไป",
+          sourceImageUrls: [
+            "https://drive.google.com/uc?export=download&id=GGG777hhh888III999",
+          ],
+          skipSourceImageDownload: true,
+          registrationProvince: "ปทุมธานี",
+          licensePlateMasked: "1กข***",
+          licensePlateFull: "1กข9999",
+          rawRow: {
+            ทะเบียน: "1กข9999",
+            จังหวัดทะเบียน: "ปทุมธานี",
+          },
+        },
       ],
       drafts: [],
     },
@@ -155,24 +178,26 @@ async function main() {
   );
 
   assert(commit.success, "commit should succeed");
-  assert(commit.importedCount === 1, "must import one listing");
+  assert(commit.importedCount === 2, "must import two listings");
   assert(
     commit.persistenceBackend === "firestore",
     "commit should persist through firestore repository"
   );
-  const importedId = commit.imported[0]?.id;
-  assert(Boolean(importedId), "commit should return imported id");
+  const importedIds = commit.imported.map((item) => item.id).filter(Boolean);
+  assert(importedIds.length === 2, "commit should return two imported ids");
 
   const request1Listings = await repository.listings.listPublished();
   assert(
-    request1Listings.some((row) => row.id === importedId),
-    "listing should be visible immediately after commit"
+    importedIds.every((id) => request1Listings.some((row) => row.id === id)),
+    "all listings should be visible immediately after commit"
   );
 
   const request2Repo = new FirestoreInventoryRepository(db);
   const request2Listings = await request2Repo.listings.listPublished();
-  const persisted = request2Listings.find((row) => row.id === importedId);
-  assert(Boolean(persisted), "listing should survive fresh repository request");
+  const persisted = request2Listings.find((row) => row.id === importedIds[0]);
+  assert(Boolean(persisted), "first listing should survive fresh repository request");
+  const persistedNoMileage = request2Listings.find((row) => row.id === importedIds[1]);
+  assert(Boolean(persistedNoMileage), "second listing should survive fresh repository request");
   assert(persisted?.listingStatus === "published", "listing must stay published");
   assert(
     (persisted?.images?.length ?? 0) > 0,
@@ -185,6 +210,33 @@ async function main() {
   assert(
     persisted?.registrationProvince === "กรุงเทพมหานคร",
     "registrationProvince must persist"
+  );
+  const priceLabel =
+    (persisted?.price ?? 0) > 0
+      ? `${(persisted?.price ?? 0).toLocaleString("th-TH")} บาท`
+      : "ติดต่อสอบถาม";
+  const mileageLabel =
+    (persisted?.mileage ?? 0) > 0
+      ? `${(persisted?.mileage ?? 0).toLocaleString("th-TH")} กม.`
+      : "—";
+  assert(priceLabel === "369,000 บาท", "price label should use price field");
+  assert(mileageLabel === "127,101 กม.", "mileage label should use mileage field");
+
+  const noMileagePriceLabel =
+    (persistedNoMileage?.price ?? 0) > 0
+      ? `${(persistedNoMileage?.price ?? 0).toLocaleString("th-TH")} บาท`
+      : "ติดต่อสอบถาม";
+  const noMileageMileageLabel =
+    (persistedNoMileage?.mileage ?? 0) > 0
+      ? `${(persistedNoMileage?.mileage ?? 0).toLocaleString("th-TH")} กม.`
+      : "—";
+  assert(
+    noMileagePriceLabel === "399,000 บาท",
+    "price should stay correct when mileage is missing"
+  );
+  assert(
+    noMileageMileageLabel === "—",
+    "missing mileage should not fallback to price"
   );
 
   const publicDto = toPublicMarketplaceCarDto(persisted!);
@@ -199,7 +251,7 @@ async function main() {
     "public dto should keep masked plate only"
   );
 
-  const chatCardFetch = await request2Repo.listings.getById(importedId!);
+  const chatCardFetch = await request2Repo.listings.getById(importedIds[0]!);
   assert(Boolean(chatCardFetch), "chat card source fetch should resolve persisted listing");
   assert(
     (chatCardFetch?.images?.length ?? 0) > 0,

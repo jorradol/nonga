@@ -303,6 +303,41 @@ async function main() {
     String(edited.payload?.disposition)
   );
 
+  const shiftedColumns = SAMPLE_ROW.split("\t");
+  shiftedColumns.splice(8, 0, "");
+  const parsedShifted = parseThorAutoPasteRow(shiftedColumns.join("\t"));
+  ok(
+    "28a-shifted-mileage-recovered",
+    parsedShifted.mileage === 161392,
+    String(parsedShifted.mileage)
+  );
+  ok(
+    "28aa-shifted-price-recovered",
+    parsedShifted.price === 699000,
+    String(parsedShifted.price)
+  );
+  ok(
+    "28ab-shifted-remap-warning",
+    parsedShifted.warnings.some((w) => w.includes("ราคา/เลขไมล์เหลื่อม")),
+    parsedShifted.warnings.join(" | ")
+  );
+
+  const noMileageRow = SAMPLE_ROW.split("\t");
+  noMileageRow[8] = "";
+  noMileageRow[9] = "399000";
+  noMileageRow[10] = "420000";
+  const parsedNoMileage = parseThorAutoPasteRow(noMileageRow.join("\t"));
+  ok(
+    "28ac-no-mileage-stays-null",
+    parsedNoMileage.mileage == null,
+    String(parsedNoMileage.mileage)
+  );
+  ok(
+    "28ad-no-mileage-price-stays-price",
+    parsedNoMileage.price === 399000,
+    String(parsedNoMileage.price)
+  );
+
   const firebaseListedImage = {
     imageId: "01-abc.webp",
     dealerId: THOR_AUTO_DEALER_ID,

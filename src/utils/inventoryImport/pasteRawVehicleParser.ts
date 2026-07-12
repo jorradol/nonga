@@ -139,6 +139,71 @@ function parseThorPrice(
   return { price: saleNum, confidence: "low", warnings };
 }
 
+function looksLikeMileageValue(n: number | null): boolean {
+  return n != null && n >= 10_000 && n <= 500_000;
+}
+
+function looksLikeVehiclePriceValue(n: number | null): boolean {
+  return n != null && n >= 200_000 && n <= 20_000_000;
+}
+
+function resolveThorMileageAndPrice(cols: string[]): {
+  mileage: number | null;
+  priceParsed: {
+    price: number | null;
+    confidence: PasteConfidenceLevel;
+    warnings: string[];
+  };
+  referencePrice: number | null;
+  remapWarning?: string;
+} {
+  const mileageCol8 = parseDigits(cols[8] ?? "");
+  const mileageCol9 = parseDigits(cols[9] ?? "");
+
+  const primaryPrice = parseThorPrice(cols[9] ?? "", cols[10] ?? "");
+  const primaryReference = parseDigits(cols[10] ?? "");
+  const saleCol10 = cols[10] ?? "";
+  const saleCol10Num = parseDigits(saleCol10);
+  const col10AlreadyLooksLikeFullPrice =
+    saleCol10.includes(",") ||
+    (saleCol10Num != null && saleCol10Num >= 100_000);
+
+  const shiftedPrice = parseThorPrice(cols[10] ?? "", cols[11] ?? "");
+  const shiftedReference = parseDigits(cols[11] ?? "");
+
+  const primaryLooksSwapped =
+    (mileageCol8 == null || mileageCol8 <= 0) &&
+    looksLikeMileageValue(mileageCol9) &&
+    primaryPrice.price != null &&
+    primaryPrice.price === mileageCol9;
+
+  const shiftedLooksHealthy =
+    looksLikeVehiclePriceValue(shiftedPrice.price) ||
+    (shiftedPrice.price != null &&
+      mileageCol9 != null &&
+      shiftedPrice.price > mileageCol9 * 1.5);
+
+  if (
+    primaryLooksSwapped &&
+    shiftedLooksHealthy &&
+    !col10AlreadyLooksLikeFullPrice
+  ) {
+    return {
+      mileage: mileageCol9,
+      priceParsed: shiftedPrice,
+      referencePrice: shiftedReference,
+      remapWarning:
+        "ตรวจพบคอลัมน์ราคา/เลขไมล์เหลื่อมหนึ่งตำแหน่ง — ปรับใช้เลขไมล์จากคอลัมน์ถัดไปและตีความราคาจากคู่คอลัมน์ 10/11 อัตโนมัติ",
+    };
+  }
+
+  return {
+    mileage: mileageCol8,
+    priceParsed: primaryPrice,
+    referencePrice: primaryReference,
+  };
+}
+
 function yearFromUrl(urls: string[]): number | null {
   for (const u of urls) {
     const m = u.match(/\/(20\d{2})\//);
@@ -195,9 +260,10 @@ export function parseThorAutoPasteRow(rawText: string): ParsedPasteVehicle {
   const transmissionRaw = (cols[5] ?? "").trim();
   const yearNum = parseDigits(cols[6] ?? "");
   const colorRaw = (cols[7] ?? "").trim();
-  const mileage = parseDigits(cols[8] ?? "");
-  const priceParsed = parseThorPrice(cols[9] ?? "", cols[10] ?? "");
-  const referencePrice = parseDigits(cols[10] ?? "");
+  const resolvedPriceMileage = resolveThorMileageAndPrice(cols);
+  const mileage = resolvedPriceMileage.mileage;
+  const priceParsed = resolvedPriceMileage.priceParsed;
+  const referencePrice = resolvedPriceMileage.referencePrice;
   const source = (cols[11] ?? "").trim();
   const listedDate = (cols[12] ?? "").trim();
   const vehicleCondition = (cols[13] ?? "").trim();
@@ -244,6 +310,9 @@ export function parseThorAutoPasteRow(rawText: string): ParsedPasteVehicle {
 
   if (priceParsed.confidence !== "high") {
     warnings.push("ราคาดูไม่ชัดเจน — บันทึกเป็นฉบับร่างเพื่อตรวจสอบ");
+  }
+  if (resolvedPriceMileage.remapWarning) {
+    warnings.push(resolvedPriceMileage.remapWarning);
   }
 
   const base = {
