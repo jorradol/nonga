@@ -47,6 +47,7 @@ import {
   isSalesToneAccentContextExcluded,
 } from "./chat/thaiSalesCopyVariation";
 import type { SalesBrainAdapterInput, SalesBrainUserRole } from "./salesBrainTypes";
+import { evaluateBuyerAiFirstEligibility } from "./buyerAiFirstConversationPath";
 
 export const USER_VISIBLE_REAL_PROVIDER_SLICE_ID = "v6.8D";
 /** v6.8E.9 — structured JSON finalAnswerTh; v6.8E.8 output budget + v6.8E.7 thinkingLevel MINIMAL retained */
@@ -1736,6 +1737,14 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     input.bridgeResult.payload.carCardCount ??
     0;
 
+  const aiFirst = evaluateBuyerAiFirstEligibility({
+    firebaseUid: input.firebaseUid,
+    userRole: input.userRole,
+    environment: input.environment,
+    env: input.env,
+    readEnv,
+  });
+
   if (!eligibility.eligible) {
     return {
       ...input.bridgeResult,
@@ -1743,17 +1752,6 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
         ...input.bridgeResult.payload,
         realProviderNetwork: false,
         realProviderGateReason: eligibility.gateReason,
-      },
-    } as T;
-  }
-
-  if (!input.bridgeResult.payload.pilotPathActive) {
-    return {
-      ...input.bridgeResult,
-      payload: {
-        ...input.bridgeResult.payload,
-        realProviderNetwork: false,
-        realProviderGateReason: "pilot_path_inactive",
       },
     } as T;
   }
@@ -1769,16 +1767,31 @@ export async function maybeApplyUserVisibleRealProvider<T extends UserVisibleRea
     } as T;
   }
 
-  const ownerControlledZone = detectOwnerControlledGeminiUxZone(input.userMessage);
-  if (!ownerControlledZone) {
-    return {
-      ...input.bridgeResult,
-      payload: {
-        ...input.bridgeResult.payload,
-        realProviderNetwork: false,
-        realProviderGateReason: "owner_controlled_zone_not_allowed",
-      },
-    } as T;
+  // Epic B — AI-first: provider is default for allowlisted buyers (all buyer intents).
+  // Legacy pilot-path + owner-controlled-zone gates apply only when AI-first is off.
+  if (!aiFirst.aiFirstPathActive) {
+    if (!input.bridgeResult.payload.pilotPathActive) {
+      return {
+        ...input.bridgeResult,
+        payload: {
+          ...input.bridgeResult.payload,
+          realProviderNetwork: false,
+          realProviderGateReason: "pilot_path_inactive",
+        },
+      } as T;
+    }
+
+    const ownerControlledZone = detectOwnerControlledGeminiUxZone(input.userMessage);
+    if (!ownerControlledZone) {
+      return {
+        ...input.bridgeResult,
+        payload: {
+          ...input.bridgeResult.payload,
+          realProviderNetwork: false,
+          realProviderGateReason: "owner_controlled_zone_not_allowed",
+        },
+      } as T;
+    }
   }
 
   const groundedPilotOrchestration = narrowPilotOrchestrationForExactInventoryAsk(

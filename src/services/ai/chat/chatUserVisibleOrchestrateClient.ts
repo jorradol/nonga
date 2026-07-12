@@ -24,6 +24,8 @@ export interface ChatUserVisibleOrchestrateData {
   isDraftPreview?: boolean;
   carCards: ChatCarCardData[];
   draftFields?: ExtractedCarFields;
+  realProviderNetwork?: boolean;
+  realProviderGateReason?: string;
   userVisibleRuntimeDiagnostic?: {
     runtimeMode: string;
     provider: string;
@@ -31,6 +33,8 @@ export interface ChatUserVisibleOrchestrateData {
     realProviderEnabled: boolean;
     ownerControlledUxEnabled: boolean;
     aiFirstEnabled: boolean;
+    aiFirstPathActive: boolean;
+    aiFirstSliceId: string;
     pilotContextPresentServer: boolean;
     serverRecentCarCardsCount: number;
     followUpMessage: boolean;
@@ -150,6 +154,8 @@ export async function applyChatUserVisibleServerBridge(input: {
 }): Promise<{
   userVisibleText: string;
   pilotPathActive: boolean;
+  realProviderNetwork?: boolean;
+  realProviderGateReason?: string;
   carCards?: ChatCarCardData[];
 } | null> {
   const data = await fetchChatUserVisibleOrchestrate({
@@ -166,6 +172,8 @@ export async function applyChatUserVisibleServerBridge(input: {
   return {
     userVisibleText: data.userVisibleText,
     pilotPathActive: data.pilotPathActive,
+    realProviderNetwork: data.realProviderNetwork,
+    realProviderGateReason: data.realProviderGateReason,
     ...(Array.isArray(data.carCards) && data.carCards.length > 0
       ? { carCards: data.carCards }
       : {}),

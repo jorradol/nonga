@@ -12,6 +12,7 @@ import {
   applyChatUserVisibleServerBridge,
   shouldApplyBridgeUserVisibleText,
 } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
+import { shouldInvokeBuyerConversationServerBridge } from "../../services/ai/buyerAiFirstConversationPath";
 import {
   resolvePilotSessionContextForFollowUp,
   pilotSessionCardsToChatCarCards,
@@ -1697,8 +1698,22 @@ export function useChat() {
         sessionId
       );
       const isFollowUpPilot = isPilotBuyerFollowUpMessage(trimmed);
+      const salesBrainUserRole = mapChatRoleToSalesBrainUserRole({
+        role,
+        isAdmin,
+        isDealer,
+      });
       const shouldCallUserVisibleBridge =
-        isSignedIn && (orchestrated?.skipGemini || (isFollowUpPilot && !orchestrated));
+        shouldInvokeBuyerConversationServerBridge({
+          isSignedIn,
+          userRole: salesBrainUserRole,
+          userMessage: trimmed,
+          isSellerListingAction: isSaveListingChatAction(trimmed),
+          isSellIntent: isSellIntent(trimmed),
+        }) &&
+        (Boolean(orchestrated?.skipGemini) ||
+          (isFollowUpPilot && !orchestrated) ||
+          !orchestrated);
 
       if (shouldCallUserVisibleBridge) {
         const bridged = await applyChatUserVisibleServerBridge({
@@ -1726,7 +1741,7 @@ export function useChat() {
                 bridged.carCards
               );
             }
-          } else if (isFollowUpPilot) {
+          } else if (isFollowUpPilot || bridged.realProviderNetwork) {
             const fallbackCards = pilotSessionContext
               ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
               : [];
@@ -1754,11 +1769,6 @@ export function useChat() {
         };
       }
 
-      const salesBrainUserRole = mapChatRoleToSalesBrainUserRole({
-        role,
-        isAdmin,
-        isDealer,
-      });
       const shadowFlowContext = {
         attachedImageCount: hasImages ? imageAttachments.length : undefined,
       };

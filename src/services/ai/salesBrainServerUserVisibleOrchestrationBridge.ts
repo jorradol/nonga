@@ -44,6 +44,10 @@ import {
   maybeApplyUserVisibleRealProvider,
 } from "./salesBrainUserVisibleRealProvider";
 import {
+  evaluateBuyerAiFirstEligibility,
+  BUYER_AI_FIRST_CONVERSATION_SLICE_ID,
+} from "./buyerAiFirstConversationPath";
+import {
   evaluateUserVisibleGate,
   parseUserVisibleAllowlistUids,
   NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV,
@@ -98,6 +102,8 @@ export interface RedactedUserVisibleOrchestrationPayload {
     realProviderEnabled: boolean;
     ownerControlledUxEnabled: boolean;
     aiFirstEnabled: boolean;
+    aiFirstPathActive: boolean;
+    aiFirstSliceId: string;
     pilotContextPresentServer: boolean;
     serverRecentCarCardsCount: number;
     followUpMessage: boolean;
@@ -201,6 +207,7 @@ function withSafeUserVisibleRuntimeDiagnostic(input: {
   pilotSessionContext?: PilotBuyerSessionContext;
   environment?: SalesBrainRuntimeEnvironment;
   env?: Record<string, string | undefined>;
+  firebaseUid?: string;
 }): RedactedUserVisibleOrchestrationPayload {
   const resolvedEnvironment = resolveBridgeEnvironment(input.environment);
   const runtimeFlags = resolveSalesBrainRuntimeFlags({
@@ -210,6 +217,12 @@ function withSafeUserVisibleRuntimeDiagnostic(input: {
   const serverRecentCarCardsCount = input.pilotSessionContext?.recentCarCards?.length ?? 0;
   const pilotContextPresentServer = serverRecentCarCardsCount > 0;
   const followUpMessage = isPilotBuyerFollowUpMessage(input.userMessage);
+  const aiFirst = evaluateBuyerAiFirstEligibility({
+    firebaseUid: input.firebaseUid,
+    userRole: "buyer",
+    environment: resolvedEnvironment,
+    env: input.env,
+  });
 
   let pilotInactiveReason = "pilot_active";
   if (!input.payload.pilotPathActive) {
@@ -240,6 +253,8 @@ function withSafeUserVisibleRuntimeDiagnostic(input: {
       ),
       ownerControlledUxEnabled: runtimeFlags.ownerOnlyControlledUxEnabled,
       aiFirstEnabled: runtimeFlags.aiFirstEnabled,
+      aiFirstPathActive: aiFirst.aiFirstPathActive,
+      aiFirstSliceId: BUYER_AI_FIRST_CONVERSATION_SLICE_ID,
       pilotContextPresentServer,
       serverRecentCarCardsCount,
       followUpMessage,
@@ -389,6 +404,12 @@ export function runUserVisibleOrchestrationBridge(
   input: UserVisibleOrchestrationBridgeInput
 ): UserVisibleOrchestrationBridgeResult {
   const environment = resolveBridgeEnvironment(input.environment);
+  const aiFirst = evaluateBuyerAiFirstEligibility({
+    firebaseUid: input.trustedFirebaseUid,
+    userRole: input.userRole,
+    environment,
+    env: input.env,
+  });
   const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
   // v22.58 — server has no sessionStorage; inject rehydrated pilot cards so
   // named inventory compare resolves the same canonical pair as the client.
@@ -429,6 +450,23 @@ export function runUserVisibleOrchestrationBridge(
     if (followUp) {
       return followUp;
     }
+    if (aiFirst.aiFirstPathActive) {
+      const rawSessionCards =
+        sessionCards.length > 0 ? pilotSessionCardsToChatCarCards(sessionCards) : [];
+      const hydratedSessionCards =
+        rawSessionCards.length > 0
+          ? rehydrateSessionCarsFromInventory(rawSessionCards, input.inventory)
+          : [];
+      const groundingShell: OrchestratedChatReply = {
+        text: "",
+        carCards: hydratedSessionCards,
+        skipGemini: false,
+      };
+      return {
+        orchestrated: groundingShell,
+        payload: buildRedactedPayload(groundingShell, "", true, false),
+      };
+    }
     return {
       orchestrated: null,
       payload: buildRedactedPayload(null, "", false, true),
@@ -436,6 +474,14 @@ export function runUserVisibleOrchestrationBridge(
   }
 
   const legacyText = orchestrated.text;
+
+  if (aiFirst.skipMockPilotCopy) {
+    return {
+      orchestrated: { ...orchestrated, text: legacyText },
+      payload: buildRedactedPayload(orchestrated, legacyText, true, false),
+    };
+  }
+
   const wired = wireShadowChatPathWithPilot({
     userMessage: input.userMessage,
     legacyUserVisibleResponse: legacyText,
@@ -605,6 +651,7 @@ export async function handleChatUserVisibleOrchestratePost(
       userMessage,
       pilotSessionContext,
       env: process.env as Record<string, string | undefined>,
+      firebaseUid: auth.uid,
     });
     const sanitizedUserVisibleText = sanitizeUserVisibleEvidenceText(
       payloadWithRuntimeDiagnostic.userVisibleText
