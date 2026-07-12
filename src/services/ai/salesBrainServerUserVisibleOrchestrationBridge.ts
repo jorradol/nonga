@@ -41,6 +41,9 @@ import {
   AI_USER_VISIBLE_GUARD_POLICY_MARKERS,
   AI_USER_VISIBLE_GUARD_POLICY_VERSION,
   AI_USER_VISIBLE_THAI_UX_TUNING_EVIDENCE_MARKERS,
+  detectOwnerControlledGeminiUxZone,
+  evaluateUserVisibleRealProviderEligibility,
+  hasDeterministicBoundaryBlock,
   maybeApplyUserVisibleRealProvider,
 } from "./salesBrainUserVisibleRealProvider";
 import {
@@ -57,8 +60,35 @@ export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
 
 export const USER_VISIBLE_ORCHESTRATION_BRIDGE_SLICE_ID = "v6.1L.2c";
+export const USER_VISIBLE_RUNTIME_ATTRIBUTION_SLICE_ID = "runtime-attribution-v1";
 
 const MAX_USER_MESSAGE_LENGTH = 4000;
+const RUNTIME_ATTRIBUTION_LOG_EVENT = "user_visible_runtime_attribution";
+const POST_INVOKE_REAL_PROVIDER_GATE_REASONS = new Set([
+  "real_provider_call_ok",
+  "real_provider_output_unsafe",
+  "real_provider_call_failed",
+]);
+
+export type UserVisibleRuntimeTextSource = "orchestrator" | "provider" | "fallback";
+export type UserVisibleRuntimeSafetyResult = "accepted" | "rejected" | "not_run";
+
+export interface UserVisibleRuntimeAttributionDiagnostic {
+  sliceId: string;
+  requestCorrelationId: string;
+  aiFirstPathActive: boolean;
+  realProviderEligible: boolean;
+  realProviderInvocationAttempted: boolean;
+  realProviderNetwork: boolean;
+  realProviderGateReason: string;
+  fallbackUsed: boolean;
+  fallbackReason: string;
+  candidateCount: number;
+  groundingVehicleCount: number;
+  textSource: UserVisibleRuntimeTextSource;
+  safetyResult: UserVisibleRuntimeSafetyResult;
+  capturedAt: string;
+}
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
 export interface UserVisibleOrchestrationBridgeInput {
@@ -168,6 +198,205 @@ function maskUid(uid: string | undefined | null): string {
   if (!value) return "***";
   if (value.length <= 6) return "***";
   return `${value.slice(0, 3)}...${value.slice(-3)}`;
+}
+
+function createRuntimeAttributionCorrelationId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `attr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function resolveRuntimeAttributionTextSource(input: {
+  realProviderNetwork: boolean;
+  fallbackToLegacy: boolean;
+  realProviderGateReason: string;
+}): UserVisibleRuntimeTextSource {
+  if (input.realProviderNetwork) return "provider";
+  if (input.fallbackToLegacy) return "fallback";
+  if (
+    input.realProviderGateReason === "real_provider_output_unsafe" ||
+    input.realProviderGateReason === "real_provider_call_failed"
+  ) {
+    return "orchestrator";
+  }
+  if (
+    input.realProviderGateReason &&
+    input.realProviderGateReason !== "real_provider_call_ok" &&
+    input.realProviderGateReason !== "real_provider_eligible"
+  ) {
+    return "fallback";
+  }
+  return "orchestrator";
+}
+
+function resolveRuntimeAttributionFallbackUsed(input: {
+  fallbackToLegacy: boolean;
+  realProviderGateReason: string;
+  textSource: UserVisibleRuntimeTextSource;
+}): boolean {
+  if (input.fallbackToLegacy) return true;
+  if (input.textSource === "fallback") return true;
+  if (
+    input.realProviderGateReason === "real_provider_output_unsafe" ||
+    input.realProviderGateReason === "real_provider_call_failed"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function resolveRuntimeAttributionFallbackReason(input: {
+  fallbackToLegacy: boolean;
+  realProviderGateReason: string;
+  pilotInactiveReason?: string;
+  fallbackUsed: boolean;
+}): string {
+  if (!input.fallbackUsed) return "none";
+  if (
+    input.realProviderGateReason &&
+    input.realProviderGateReason !== "real_provider_call_ok" &&
+    input.realProviderGateReason !== "real_provider_eligible"
+  ) {
+    return input.realProviderGateReason;
+  }
+  if (input.pilotInactiveReason && input.pilotInactiveReason !== "pilot_active") {
+    return input.pilotInactiveReason;
+  }
+  if (input.fallbackToLegacy) return "legacy_fallback";
+  return "unknown_fallback";
+}
+
+function resolveRuntimeAttributionSafetyResult(
+  realProviderGateReason: string
+): UserVisibleRuntimeSafetyResult {
+  if (realProviderGateReason === "real_provider_call_ok") return "accepted";
+  if (realProviderGateReason === "real_provider_output_unsafe") return "rejected";
+  return "not_run";
+}
+
+function wouldAttemptRealProviderInvocation(input: {
+  payload: RedactedUserVisibleOrchestrationPayload;
+  userMessage: string;
+  firebaseUid: string;
+  userRole: SalesBrainUserRole;
+  aiFirstPathActive: boolean;
+  environment?: SalesBrainRuntimeEnvironment;
+  env?: Record<string, string | undefined>;
+}): boolean {
+  const readEnv = (key: string) => input.env?.[key];
+  const eligibility = evaluateUserVisibleRealProviderEligibility({
+    firebaseUid: input.firebaseUid,
+    userRole: input.userRole,
+    environment: input.environment,
+    env: input.env,
+    readEnv,
+  });
+  if (!eligibility.eligible) return false;
+  if (hasDeterministicBoundaryBlock(input.userMessage)) return false;
+  if (!input.aiFirstPathActive) {
+    if (!input.payload.pilotPathActive) return false;
+    if (!detectOwnerControlledGeminiUxZone(input.userMessage)) return false;
+  }
+  return true;
+}
+
+export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
+  requestCorrelationId: string;
+  payload: RedactedUserVisibleOrchestrationPayload;
+  userMessage: string;
+  firebaseUid: string;
+  userRole: SalesBrainUserRole;
+  pilotOrchestration?: UserVisiblePilotOrchestrationHint;
+  orchestratedCarCardCount?: number;
+  environment?: SalesBrainRuntimeEnvironment;
+  env?: Record<string, string | undefined>;
+  capturedAt?: string;
+}): UserVisibleRuntimeAttributionDiagnostic {
+  const readEnv = (key: string) => input.env?.[key];
+  const aiFirstPathActive =
+    input.payload.userVisibleRuntimeDiagnostic?.aiFirstPathActive ?? false;
+  const eligibility = evaluateUserVisibleRealProviderEligibility({
+    firebaseUid: input.firebaseUid,
+    userRole: input.userRole,
+    environment: input.environment,
+    env: input.env,
+    readEnv,
+  });
+  const realProviderGateReason =
+    input.payload.realProviderGateReason ?? eligibility.gateReason ?? "unknown";
+  const realProviderNetwork = input.payload.realProviderNetwork === true;
+  const invocationWouldRun = wouldAttemptRealProviderInvocation({
+    payload: input.payload,
+    userMessage: input.userMessage,
+    firebaseUid: input.firebaseUid,
+    userRole: input.userRole,
+    aiFirstPathActive,
+    environment: input.environment,
+    env: input.env,
+  });
+  const realProviderInvocationAttempted =
+    POST_INVOKE_REAL_PROVIDER_GATE_REASONS.has(realProviderGateReason) ||
+    (invocationWouldRun && realProviderNetwork);
+  const textSource = resolveRuntimeAttributionTextSource({
+    realProviderNetwork,
+    fallbackToLegacy: input.payload.fallbackToLegacy,
+    realProviderGateReason,
+  });
+  const fallbackUsed = resolveRuntimeAttributionFallbackUsed({
+    fallbackToLegacy: input.payload.fallbackToLegacy,
+    realProviderGateReason,
+    textSource,
+  });
+  const recentGroundingCount = input.pilotOrchestration?.recentCarCards?.length ?? 0;
+  const groundingVehicleCount =
+    recentGroundingCount > 0
+      ? recentGroundingCount
+      : input.pilotOrchestration?.carCardCount ??
+        input.payload.carCardCount ??
+        0;
+
+  return {
+    sliceId: USER_VISIBLE_RUNTIME_ATTRIBUTION_SLICE_ID,
+    requestCorrelationId: input.requestCorrelationId,
+    aiFirstPathActive,
+    realProviderEligible: eligibility.eligible,
+    realProviderInvocationAttempted,
+    realProviderNetwork,
+    realProviderGateReason,
+    fallbackUsed,
+    fallbackReason: resolveRuntimeAttributionFallbackReason({
+      fallbackToLegacy: input.payload.fallbackToLegacy,
+      realProviderGateReason,
+      pilotInactiveReason: input.payload.userVisibleRuntimeDiagnostic?.pilotInactiveReason,
+      fallbackUsed,
+    }),
+    candidateCount: input.orchestratedCarCardCount ?? input.payload.carCardCount ?? 0,
+    groundingVehicleCount,
+    textSource,
+    safetyResult: resolveRuntimeAttributionSafetyResult(realProviderGateReason),
+    capturedAt: input.capturedAt ?? new Date().toISOString(),
+  };
+}
+
+export function serializeRuntimeAttributionDiagnosticForStructuredLog(
+  diagnostic: UserVisibleRuntimeAttributionDiagnostic
+): string {
+  return JSON.stringify({
+    event: RUNTIME_ATTRIBUTION_LOG_EVENT,
+    ...diagnostic,
+  });
+}
+
+export function emitRuntimeAttributionStructuredLog(
+  diagnostic: UserVisibleRuntimeAttributionDiagnostic
+): void {
+  try {
+    console.log(serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic));
+  } catch {
+    // Fail-open: attribution logging must never block conversation responses.
+  }
 }
 
 function parseTruthy(raw: string | undefined): boolean {
@@ -587,6 +816,7 @@ export async function handleChatUserVisibleOrchestratePost(
   res: Response,
   deps: { loadChatInventory: () => Promise<ChatInventoryCar[]> }
 ): Promise<void> {
+  const requestCorrelationId = createRuntimeAttributionCorrelationId();
   try {
     const auth = await getServerAuthContext(req);
     const parsed = parseOrchestrateBody(req.body as Record<string, unknown> | undefined);
@@ -658,6 +888,21 @@ export async function handleChatUserVisibleOrchestratePost(
     );
     const missingUserVisibleText = sanitizedUserVisibleText.length === 0;
     const evidenceCapturedAt = new Date().toISOString();
+
+    emitRuntimeAttributionStructuredLog(
+      buildUserVisibleRuntimeAttributionDiagnostic({
+        requestCorrelationId,
+        payload: payloadWithRuntimeDiagnostic,
+        userMessage,
+        firebaseUid: auth.uid,
+        userRole: mapAuthToSalesBrainRole(auth),
+        pilotOrchestration: pilotOrchestrationForRealProvider,
+        orchestratedCarCardCount: result.orchestrated?.carCards?.length ?? 0,
+        environment: resolveBridgeEnvironment(),
+        env: process.env as Record<string, string | undefined>,
+        capturedAt: evidenceCapturedAt,
+      })
+    );
 
     res.json({
       success: true,
