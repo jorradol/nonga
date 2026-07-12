@@ -138,7 +138,7 @@ export async function createConsentedBuyerLead(
     listing: params.listing,
     createdCount: softPilotCount,
   });
-  if (!pilotGate.ok) {
+  if (pilotGate.ok === false) {
     return {
       ok: false,
       status: pilotGate.status,

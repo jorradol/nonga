@@ -378,7 +378,7 @@ export async function resolveAdminShadowSmokeHandlerContext(input: {
     environment,
     readEnv,
   });
-  if (!attempt.allowed) {
+  if (attempt.allowed === false) {
     emitStage({
       caseId: input.caseId,
       stage: "admin_shadow_gate_checked",

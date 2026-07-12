@@ -353,7 +353,9 @@ export function buildInventoryCompareUnavailableReply(
 export function hasCardAnswerConsistencyFailure(
   text: string,
   cards: Array<
-    Pick<ChatCarCardData, "year" | "price" | "mileage" | "model" | "brand">
+    Pick<ChatCarCardData, "year" | "price" | "model" | "brand"> & {
+      mileage?: number;
+    }
   >
 ): boolean {
   const t = text.trim();

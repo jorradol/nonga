@@ -367,10 +367,10 @@ export function registerDealerPortalRoutes(
     // v22.32 — dealers may hide, but cannot self-approve to marketplace published
     if (!hidden) {
       const gate = assertCanPublishDealerListingToMarketplace({
-        isAdmin: ctx.isAdmin,
+        isAdmin: ctx.scope.isAdmin,
         isDealerScopedListing: true,
       });
-      if (!gate.ok) {
+      if (gate.ok === false) {
         return res.status(403).json({
           success: false,
           error: "dealer_self_approve_forbidden",
@@ -380,7 +380,7 @@ export function registerDealerPortalRoutes(
     }
     const nextStatus = hidden
       ? "hidden"
-      : ctx.isAdmin
+      : ctx.scope.isAdmin
         ? "published"
         : dealerListingStatusAfterSubmit();
     const updated = await inventoryRepository.listings.updateVisibility(
@@ -765,7 +765,7 @@ export function registerDealerPortalRoutes(
         {
           inventoryRepository,
           // v22.32 — dealer import cannot land directly on public marketplace
-          requireOwnerApprovalBeforePublic: !ctx.isAdmin,
+          requireOwnerApprovalBeforePublic: !ctx.scope.isAdmin,
         }
       );
       if (!result.success) {

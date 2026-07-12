@@ -71,6 +71,7 @@ import {
   detectBuyerRefinement,
   extractNumberedComparePair,
   isPilotBuyerCardInsightFollowUp,
+  isPilotBuyerDirectCompareFollowUp,
 } from "./chatPilotBuyerFollowUp";
 import {
   buildInventoryBackedCompareReply,
@@ -111,6 +112,92 @@ function resolveActiveContextualCar(
     if (hit) return hit;
   }
   return contextCars[0] ?? null;
+}
+
+function cardGroundingKey(card: ChatCarCardData): string {
+  const id = String(card.id ?? "").trim();
+  if (id) return `id:${id}`;
+  return `slot:${card.brand}|${card.model}|${card.year}|${card.price}|${card.mileage ?? 0}`;
+}
+
+/** Compare / summary turns should ground Gemini on session history + fresh orchestration. */
+export function isCompareOrSummaryProviderGroundingIntent(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (isCompareIntent(t) || extractNumberedComparePair(t) != null) return true;
+  if (isNamedInventoryCompareIntent(t)) return true;
+  if (isPilotBuyerDirectCompareFollowUp(t)) return true;
+  if (/สองคันแรก|2\s*คันแรก/.test(t) && /ต่างกัน|เปรียบเทียบ|เทียบ/i.test(t)) return true;
+  if (/ต่างกัน(?:อย่างไร|ยังไง|ไร|หรือเปล่า)?/i.test(t) && /คันแรก|คันที่\s*\d+|สองคัน|2\s*คัน/i.test(t)) {
+    return true;
+  }
+  if (isPilotBuyerCardInsightFollowUp(t)) return true;
+  if (/สรุป(?:ข้อดี|ข้อเสีย|จุดเด่น|จุดดึง)|ข้อดี(?:และ|กับ)?ข้อเสีย|จุดเด่น(?:และ|กับ)?จุดด้อย/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+export type ProviderGroundingIntentKind = "compare" | "summary" | "none";
+
+export function classifyProviderGroundingIntent(message: string): ProviderGroundingIntentKind {
+  if (!isCompareOrSummaryProviderGroundingIntent(message)) return "none";
+  if (
+    isCompareIntent(message) ||
+    extractNumberedComparePair(message) != null ||
+    isNamedInventoryCompareIntent(message) ||
+    isPilotBuyerDirectCompareFollowUp(message) ||
+    (/สองคันแรก|2\s*คันแรก/.test(message) && /ต่างกัน|เปรียบเทียบ|เทียบ/i.test(message)) ||
+    (/ต่างกัน(?:อย่างไร|ยังไง|ไร|หรือเปล่า)?/i.test(message) &&
+      /คันแรก|คันที่\s*\d+|สองคัน|2\s*คัน/i.test(message))
+  ) {
+    return "compare";
+  }
+  return "summary";
+}
+
+/**
+ * Merge session/history cards with orchestrated cards for real-provider grounding.
+ * Summary keeps active vehicle first; compare keeps full unique session set.
+ */
+export function mergeProviderGroundingCarCards(input: {
+  message: string;
+  orchestratedCards: ChatCarCardData[];
+  contextCards: ChatCarCardData[];
+}): ChatCarCardData[] {
+  const { message, orchestratedCards, contextCards } = input;
+  if (!isCompareOrSummaryProviderGroundingIntent(message)) {
+    return orchestratedCards.length > 0 ? orchestratedCards : contextCards;
+  }
+
+  const seen = new Set<string>();
+  const merged: ChatCarCardData[] = [];
+  const pushUnique = (card: ChatCarCardData | undefined) => {
+    if (!card) return;
+    const key = cardGroundingKey(card);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(card);
+  };
+
+  for (const card of contextCards) pushUnique(card);
+  for (const card of orchestratedCards) pushUnique(card);
+
+  const intent = classifyProviderGroundingIntent(message);
+  if (intent === "summary") {
+    const active = resolveActiveContextualCar(merged.length > 0 ? merged : contextCards);
+    if (active) {
+      const activeKey = cardGroundingKey(active);
+      const rest = merged.filter((card) => cardGroundingKey(card) !== activeKey);
+      return [active, ...rest];
+    }
+  }
+
+  if (intent === "compare" && merged.length >= 2) {
+    return merged;
+  }
+
+  return merged.length > 0 ? merged : orchestratedCards;
 }
 
 /**
@@ -356,18 +443,18 @@ function tryOrchestrateChatReplyCore(
       inventory,
       contextCars
     );
-    if (resolved.ok) {
-      const built = buildInventoryBackedCompareReply(resolved);
+    if (resolved.ok === false) {
+      const unavailable = buildInventoryCompareUnavailableReply(resolved);
       return {
-        text: built.text,
-        carCards: built.carCards,
+        text: unavailable.text,
+        carCards: unavailable.carCards,
         skipGemini: true,
       };
     }
-    const unavailable = buildInventoryCompareUnavailableReply(resolved);
+    const built = buildInventoryBackedCompareReply(resolved);
     return {
-      text: unavailable.text,
-      carCards: unavailable.carCards,
+      text: built.text,
+      carCards: built.carCards,
       skipGemini: true,
     };
   }

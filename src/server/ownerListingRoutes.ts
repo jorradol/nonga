@@ -283,7 +283,7 @@ export function registerOwnerListingRoutes(
         isAdmin: scope.isAdmin,
         isDealerScopedListing: isDealerScoped,
       });
-      if (!gate.ok) {
+      if (gate.ok === false) {
         return res.status(403).json({
           success: false,
           error: "dealer_self_approve_forbidden",
