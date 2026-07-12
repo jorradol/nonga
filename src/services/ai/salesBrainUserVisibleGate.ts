@@ -2,6 +2,7 @@
  * v6.1L.1 — Controlled user-visible AI allowlist gate (default-deny, legacy fallback).
  * Server-side env only — no network, no secret values, no raw UID in diagnostics.
  */
+import { evaluateAiFirstAllowlist } from "../../config/ai-first-allowlist";
 import {
   NONGA_AI_BUDGET_DAILY_LIMIT_ENV,
   NONGA_AI_BUDGET_MONTHLY_LIMIT_ENV,
@@ -48,26 +49,21 @@ export function parseUserVisibleAllowlistUids(raw: string | undefined): string[]
     .filter((segment) => segment.length > 0);
 }
 
-/** True only when uid is non-empty and present in env allowlist (empty allowlist → deny all). */
+/** True when uid passes AI-first allowlist (staging-expanded; production env-only). */
 export function isUidAllowlistedForUserVisible(
   uid: string | undefined | null,
-  readEnv?: (key: string) => string | undefined
+  readEnv?: (key: string) => string | undefined,
+  environment: SalesBrainRuntimeEnvironment = "local"
 ): boolean {
-  const normalizedUid = String(uid ?? "").trim();
-  if (!normalizedUid) {
-    return false;
-  }
   const read =
     readEnv ??
     ((key: string) =>
       typeof process !== "undefined" ? (process.env[key] as string | undefined) : undefined);
-  const allowlist = parseUserVisibleAllowlistUids(
-    read(NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV)
-  );
-  if (allowlist.length === 0) {
-    return false;
-  }
-  return allowlist.includes(normalizedUid);
+  return evaluateAiFirstAllowlist({
+    firebaseUid: uid,
+    environment,
+    readEnv: read,
+  }).allowed;
 }
 
 export interface EvaluateUserVisibleGateInput {
@@ -149,7 +145,12 @@ export function evaluateUserVisibleGate(
     readEnv(NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV)
   );
   const allowlistConfigured = allowlist.length > 0;
-  const uidAllowlisted = uidPresent && allowlist.includes(uid);
+  const aiFirstAllowlist = evaluateAiFirstAllowlist({
+    firebaseUid: uid,
+    environment: flags.environment,
+    readEnv,
+  });
+  const uidAllowlisted = uidPresent && aiFirstAllowlist.allowed;
 
   let wouldAllow = true;
   let blockedReason = "user_visible_allowed";
@@ -166,12 +167,9 @@ export function evaluateUserVisibleGate(
   } else if (!uidPresent) {
     wouldAllow = false;
     blockedReason = "guest_uid_missing";
-  } else if (!allowlistConfigured) {
-    wouldAllow = false;
-    blockedReason = "allowlist_empty";
   } else if (!uidAllowlisted) {
     wouldAllow = false;
-    blockedReason = "uid_not_allowlisted";
+    blockedReason = aiFirstAllowlist.blockedReason;
   } else {
     const prereqReason = checkUserVisiblePrerequisites(readEnv);
     if (prereqReason) {

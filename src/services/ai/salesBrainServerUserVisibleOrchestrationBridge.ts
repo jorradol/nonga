@@ -3,6 +3,7 @@
  * Authenticated route; default-deny; mock pilot path; no client-supplied UID trust.
  */
 import type { Express, Request, Response } from "express";
+import { evaluateAiFirstAllowlist } from "../../config/ai-first-allowlist";
 import {
   getServerAuthContext,
   ServerAuthError,
@@ -87,6 +88,8 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   groundingVehicleCount: number;
   textSource: UserVisibleRuntimeTextSource;
   safetyResult: UserVisibleRuntimeSafetyResult;
+  gateCheck: "PASSED" | "FAILED";
+  gateAuthPath: string;
   capturedAt: string;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
@@ -356,6 +359,11 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
       : input.pilotOrchestration?.carCardCount ??
         input.payload.carCardCount ??
         0;
+  const allowlistEval = evaluateAiFirstAllowlist({
+    firebaseUid: input.firebaseUid,
+    environment: input.environment,
+    readEnv,
+  });
 
   return {
     sliceId: USER_VISIBLE_RUNTIME_ATTRIBUTION_SLICE_ID,
@@ -376,6 +384,8 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     groundingVehicleCount,
     textSource,
     safetyResult: resolveRuntimeAttributionSafetyResult(realProviderGateReason),
+    gateCheck: allowlistEval.gateCheck,
+    gateAuthPath: allowlistEval.authPath,
     capturedAt: input.capturedAt ?? new Date().toISOString(),
   };
 }
