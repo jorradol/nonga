@@ -31,6 +31,8 @@ const listing = {
   title: "Toyota Yaris 2019",
   price: 350000,
   ownerId: "seller-e-1",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 
 resetBuyerLeadRepositoryForTests();

@@ -193,6 +193,7 @@ function run(): void {
         hasSingleCarFitCompareLeak(
           "เทียบคันที่ 1 กับ 2 Corolla 2021 น่าสนใจกว่า",
           {
+            carCardCount: 1,
             recentCarCards: [
               {
                 index: 1,
@@ -380,7 +381,7 @@ function run(): void {
       [toCard(inventory[0]!)]
     );
     ok("missing target fail-closed", missing.ok === false);
-    if (!missing.ok) {
+    if (missing.ok === false) {
       ok("missing target no accent", !CHEER_RE.test(missing.clarification));
     }
 

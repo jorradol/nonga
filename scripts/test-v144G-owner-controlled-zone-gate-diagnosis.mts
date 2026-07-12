@@ -75,7 +75,7 @@ const pilotOrchestration = {
     },
   ],
   lastSearchBudgetMax: 500000,
-} as const;
+} ;
 
 let pass = 0;
 let fail = 0;
@@ -106,6 +106,8 @@ function bridgeResult() {
       skipGemini: true,
       carCardCount: 2,
       sliceId: "test-v144g",
+      realProviderGateReason: "real_provider_eligible",
+      realProviderNetwork: false,
     },
   };
 }

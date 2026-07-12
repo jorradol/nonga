@@ -240,6 +240,8 @@ const leadBlocked = await createConsentedBuyerLead({
     title: approved.title,
     price: approved.price,
     ownerId: approved.ownerId,
+    isSold: false,
+    listingStatus: "published" as const,
   },
   input: {
     listingId: approved.id,

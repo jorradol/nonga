@@ -17,6 +17,7 @@ import {
   resolveBuyerLeadDataBackend,
   getActiveBuyerLeadDataBackend,
   resetBuyerLeadRepositoryForTests,
+  type BuyerLeadRepository,
 } from "../src/server/repositories/buyerLeadRepository.ts";
 
 const STAGING = "https://a.nongbot.org";
@@ -94,9 +95,9 @@ const spyRepo = {
   },
 };
 const blocked = await createConsentedBuyerLead({
-  repository: spyRepo,
+  repository: spyRepo as unknown as BuyerLeadRepository,
   buyerUserId: "buyer-v2250",
-  listing: { id: "listing-x", title: "X", price: 1, ownerId: "seller-x" },
+  listing: { id: "listing-x", title: "X", price: 1, ownerId: "seller-x", isSold: false, listingStatus: "published" as const },
   env: {},
   input: {
     listingId: "listing-x",

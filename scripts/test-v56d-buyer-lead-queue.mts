@@ -35,6 +35,8 @@ const listing = {
   title: "Honda City 2020",
   price: 420000,
   ownerId: "seller-q-1",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 
 resetBuyerLeadRepositoryForTests();

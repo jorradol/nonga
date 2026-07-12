@@ -197,6 +197,8 @@ try {
         fallbackToLegacy: false,
         skipGemini: true,
         carCardCount: 2,
+        realProviderGateReason: "real_provider_eligible",
+        realProviderNetwork: false,
       },
     },
     userMessage: SAFE_FOLLOW_UP,

@@ -166,7 +166,7 @@ try {
   }
 
   const authGateClassification = "auth_gate_required";
-  ok("auth gate classification separate from pilot_path_inactive", authGateClassification !== "pilot_path_inactive");
+  ok("auth gate classification separate from pilot_path_inactive", (authGateClassification as string) !== "pilot_path_inactive");
 
   const missingKeyGate = await maybeApplyUserVisibleRealProvider({
     bridgeResult: {
@@ -178,6 +178,8 @@ try {
         fallbackToLegacy: false,
         skipGemini: true,
         carCardCount: 2,
+        realProviderGateReason: "real_provider_eligible",
+        realProviderNetwork: false,
       },
     },
     userMessage: SAFE_FOLLOW_UP,

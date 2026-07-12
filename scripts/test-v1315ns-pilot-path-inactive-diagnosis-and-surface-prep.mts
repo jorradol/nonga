@@ -100,7 +100,7 @@ try {
       { index: 2, brand: "Honda", model: "City", year: 2020, price: 449000 },
     ],
     lastSearchBudgetMax: 500000,
-  } as const;
+  } ;
 
   const inactive = runUserVisibleOrchestrationBridge({
     userMessage: legacyPrompt,

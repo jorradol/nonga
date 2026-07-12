@@ -193,8 +193,12 @@ function runScopeResetContracts(): void {
         price: 399000,
         mileage: 88000,
         condition: "used",
+        bodyClass: "sedan",
+        bodyClassLabel: "Sedan",
         hasImage: true,
         imageUrls: ["https://example.com/corolla-2020.webp"],
+        detailPath: "/cars/corolla-2020",
+        matchKind: "exact" as const,
       },
     ],
     s1

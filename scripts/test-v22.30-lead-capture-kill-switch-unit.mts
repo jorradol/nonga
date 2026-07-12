@@ -35,6 +35,8 @@ const listing = {
   title: "TEST Honda CRV 2019",
   price: 599000,
   ownerId: "owner-test-thor-binding",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 
 const validInput = {

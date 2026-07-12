@@ -355,7 +355,7 @@ ok(
   ok("pilot allowlist rejects non-allowlisted", gateOther.ok === false);
 
   resetBuyerLeadRepositoryForTests();
-  const repo = createBuyerLeadRepository({ kind: "memory" });
+  const repo = createBuyerLeadRepository("memory");
   const body = parseBuyerLeadCreateBody({
     listingId: "corolla-2020",
     displayName: "ทดสอบ",

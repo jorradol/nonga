@@ -42,20 +42,26 @@ async function main() {
   try {
     const sampleRow = {
       sourceRowIndex: 1,
-      importStatus: "valid",
+      importStatus: "valid" as const,
       title: "Toyota Vios 2021",
       brand: "Toyota",
       model: "Vios",
       year: 2021,
       price: 369000,
+      type: "used" as const,
+      condition: "good",
       mileage: 127101,
       fuelType: "petrol",
-      images: [],
-      sourceImageUrls: [],
+      images: [] as string[],
+      description: "Synthetic owner browser import row",
+      ownerId: "owner-thor-auto",
+      ownerName: "thor owner",
+      ownerPhone: "",
+      sourceImageUrls: [] as string[],
       rawRow: {
         "ทะเบียน/จังหวัด": "2ขร3120 กรุงเทพฯ",
       },
-      warnings: [],
+      warnings: [] as string[],
     } satisfies MarketplaceImportPayload;
 
     await commitDealerImport(

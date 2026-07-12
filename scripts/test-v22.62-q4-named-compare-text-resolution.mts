@@ -427,6 +427,7 @@ function run(): void {
   ok(
     "unsafe Gemini identity failure on no-context",
     hasCompareIdentityFailure(badNoContext, {
+      carCardCount: buildPilotSessionContextFromCarCards(bridgeCards)!.recentCarCards.length,
       recentCarCards: buildPilotSessionContextFromCarCards(bridgeCards)!.recentCarCards,
     }) === true
   );

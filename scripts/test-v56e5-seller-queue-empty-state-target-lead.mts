@@ -93,6 +93,8 @@ const listingA = {
   title: "Honda City",
   price: 420000,
   ownerId: "seller-e5-owner",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 const listingB = {
   id: "car-target-b-e5",

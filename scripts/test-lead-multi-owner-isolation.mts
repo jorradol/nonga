@@ -81,7 +81,10 @@ function makeMemberListing(memberId: string, listingSuffix: string): Marketplace
 
 async function createFakeLead(
   repo: Awaited<ReturnType<typeof import("../src/server/repositories/buyerLeadRepository.ts").createBuyerLeadRepository>>,
-  listing: Pick<MarketplaceCarRecord, "id" | "title" | "price" | "ownerId">,
+  listing: Pick<
+    MarketplaceCarRecord,
+    "id" | "title" | "price" | "ownerId" | "dealerId" | "isSold" | "listingStatus"
+  >,
   buyerUserId: string,
   displayName: string,
   phone: string

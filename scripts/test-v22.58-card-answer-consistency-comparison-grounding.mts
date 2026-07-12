@@ -288,7 +288,7 @@ function run(): void {
       [corolla2020]
     );
     ok("11 target missing genuinely", missing.ok === false);
-    if (!missing.ok) {
+    if (missing.ok === false) {
       const unavailable = buildInventoryCompareUnavailableReply(missing);
       ok(
         "11b no target card + safe clarification",

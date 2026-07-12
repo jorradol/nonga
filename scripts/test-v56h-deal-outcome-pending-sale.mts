@@ -79,7 +79,7 @@ const leadResult = await createConsentedBuyerLead({
     consentVersion: BUYER_LEAD_CONSENT_VERSION,
   },
   buyerUserId: "buyer-h-1",
-  listing: { id: listingId, title: listing.title, price: listing.price, ownerId },
+  listing: { id: listingId, title: listing.title, price: listing.price, ownerId, isSold: false, listingStatus: "published" as const },
   repository: leadRepo,
     env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
 });
@@ -190,7 +190,7 @@ ok("reveal ok", revealed.ok === true);
       consentVersion: BUYER_LEAD_CONSENT_VERSION,
     },
     buyerUserId: "buyer-h-2",
-    listing: { id: listing2.id, title: listing2.title, price: listing2.price, ownerId },
+    listing: { id: listing2.id, title: listing2.title, price: listing2.price, ownerId, isSold: false, listingStatus: "published" as const },
     repository: repo2,
     env: { NONGA_LEAD_CAPTURE_ENABLED: "true" },
   });

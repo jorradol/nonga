@@ -181,6 +181,8 @@ const leadBlocked = await createConsentedBuyerLead({
     title: pendingCar.title,
     price: pendingCar.price,
     ownerId: pendingCar.ownerId,
+    isSold: false,
+    listingStatus: "published" as const,
   },
   input: {
     listingId: pendingCar.id,

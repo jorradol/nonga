@@ -26,6 +26,11 @@ import {
   resetUserVisibleGeminiCallerForTests,
   setUserVisibleGeminiCallerForTests,
 } from "../src/services/ai/salesBrainUserVisibleRealProvider.ts";
+import {
+  mergeProviderGroundingCarCards,
+  classifyProviderGroundingIntent,
+} from "../src/services/ai/chat/chatSearchOrchestrator.ts";
+import type { ChatCarCardData } from "../src/types.ts";
 
 const TEST_UID = "runtime-attribution-allowlisted-uid";
 const FULL_UID = "abcdefghijklmnopqrstuvwxyz012345";
@@ -170,6 +175,9 @@ async function testProviderSuccess() {
     userRole: "buyer",
     pilotOrchestration: { carCardCount: 2, recentCarCards: SAMPLE_CARDS },
     orchestratedCarCardCount: bridge.orchestrated?.carCards?.length ?? 0,
+    sessionGroundingCount: 2,
+    orchestratedGroundingCount: bridge.orchestrated?.carCards?.length ?? 0,
+    providerGroundingIntent: "compare",
     environment: "staging",
     env: AI_FIRST_ENV,
   });
@@ -177,8 +185,17 @@ async function testProviderSuccess() {
   ok("provider success invocation attempted", diagnostic.realProviderInvocationAttempted === true);
   ok("provider success network true", diagnostic.realProviderNetwork === true);
   ok("provider success textSource provider", diagnostic.textSource === "provider");
+  ok("provider success gateCheck PASSED", diagnostic.gateCheck === "PASSED");
+  ok("provider success gateAuthPath", diagnostic.gateAuthPath === "env_allowlist");
   ok("provider success fallback false", diagnostic.fallbackUsed === false);
   ok("provider success safety accepted", diagnostic.safetyResult === "accepted");
+  ok(
+    "provider success gateReasonDetail present",
+    diagnostic.realProviderGateReasonDetail.includes("eligibility=") &&
+      diagnostic.realProviderGateReasonDetail.includes("gateAuthPath=")
+  );
+  ok("provider success grounding intent compare", diagnostic.providerGroundingIntent === "compare");
+  ok("provider success session grounding count", diagnostic.sessionGroundingCount === 2);
 
   resetUserVisibleGeminiCallerForTests();
 }
@@ -217,6 +234,9 @@ function testProviderGated() {
     userRole: "buyer",
     pilotOrchestration: { carCardCount: 2, recentCarCards: SAMPLE_CARDS },
     orchestratedCarCardCount: 2,
+    sessionGroundingCount: 2,
+    orchestratedGroundingCount: 2,
+    providerGroundingIntent: "compare",
     environment: "staging",
     env: { ...AI_FIRST_ENV, [NONGA_AI_FIRST_ENABLED_ENV]: "false" },
   });
@@ -224,6 +244,10 @@ function testProviderGated() {
   ok("provider gated network false", diagnostic.realProviderNetwork === false);
   ok("provider gated reason present", diagnostic.realProviderGateReason === "pilot_path_inactive");
   ok("provider gated invocation not attempted", diagnostic.realProviderInvocationAttempted === false);
+  ok(
+    "provider gated gateReasonDetail includes payloadGate",
+    diagnostic.realProviderGateReasonDetail.includes("payloadGate=pilot_path_inactive")
+  );
 
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog({
     ...diagnostic,
@@ -427,12 +451,73 @@ function testDiagnosticSerialization() {
   ok("serialization keeps correlation id", serialized.includes("corr-serialization"));
 }
 
+function testCompareGroundingMerge() {
+  const sessionCards = [SAMPLE_CARDS[0], SAMPLE_CARDS[1]];
+  const orchestratedCards = [SAMPLE_CARDS[1]];
+  const merged = mergeProviderGroundingCarCards({
+    message: USER_MESSAGE,
+    orchestratedCards: orchestratedCards as unknown as ChatCarCardData[],
+    contextCards: sessionCards as unknown as ChatCarCardData[],
+  });
+  ok("compare merge keeps both session cards", merged.length === 2);
+  ok("compare intent classified", classifyProviderGroundingIntent(USER_MESSAGE) === "compare");
+}
+
+function testStagingAuthenticatedAttribution() {
+  const STAGING_UID = "firebase-real-user-not-in-env-list";
+  const diagnostic = buildUserVisibleRuntimeAttributionDiagnostic({
+    requestCorrelationId: "corr-staging-auth",
+    payload: basePayload({
+      realProviderGateReason: "real_provider_eligible",
+      userVisibleRuntimeDiagnostic: {
+        runtimeMode: "high",
+        provider: "gemini",
+        userVisibleEnabled: true,
+        realProviderEnabled: true,
+        ownerControlledUxEnabled: true,
+        aiFirstEnabled: true,
+        aiFirstPathActive: true,
+        aiFirstSliceId: "epic-b",
+        pilotContextPresentServer: true,
+        serverRecentCarCardsCount: 2,
+        followUpMessage: true,
+        pilotInactiveReason: "pilot_active",
+        guardPolicyVersion: "v1",
+        thaiUxTuningSliceId: "v1",
+        thaiUxTuningActive: true,
+        targetAnswerLengthGuidance: "short",
+        leadPiiCueGuardActive: true,
+        phoneEchoGuardActive: true,
+        safeConfirmationStepWordingActive: true,
+      },
+    }),
+    userMessage: USER_MESSAGE,
+    firebaseUid: STAGING_UID,
+    userRole: "buyer",
+    pilotOrchestration: { carCardCount: 2, recentCarCards: SAMPLE_CARDS },
+    orchestratedCarCardCount: 2,
+    sessionGroundingCount: 2,
+    orchestratedGroundingCount: 2,
+    providerGroundingIntent: "compare",
+    environment: "staging",
+    env: { ...AI_FIRST_ENV, [NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV]: TEST_UID },
+  });
+  ok("staging auth gateCheck PASSED", diagnostic.gateCheck === "PASSED");
+  ok("staging auth gateAuthPath", diagnostic.gateAuthPath === "staging_authenticated");
+  ok(
+    "staging auth gateReasonDetail includes staging path",
+    diagnostic.realProviderGateReasonDetail.includes("gateAuthPath=staging_authenticated")
+  );
+}
+
 async function main() {
   console.log("=== Runtime Attribution Diagnostic Contract ===\n");
   await testProviderSuccess();
   testProviderGated();
   await testProviderUnsafe();
   testDeterministicOnly();
+  testCompareGroundingMerge();
+  testStagingAuthenticatedAttribution();
   testDiagnosticSerialization();
   console.log("\n=== Runtime Attribution Diagnostic Contract complete ===");
 }

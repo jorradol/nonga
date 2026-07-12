@@ -162,7 +162,7 @@ try {
   });
   ok(
     "auth gate separate from pilot path classification",
-    "auth_gate_required" !== "pilot_path_inactive"
+    ("auth_gate_required" as string) !== "pilot_path_inactive"
   );
   ok(
     "pilot_path_inactive still classified",
@@ -182,6 +182,8 @@ try {
         fallbackToLegacy: false,
         skipGemini: true,
         carCardCount: 2,
+        realProviderGateReason: "real_provider_eligible",
+        realProviderNetwork: false,
       },
     },
     userMessage: SAFE_FOLLOW_UP,

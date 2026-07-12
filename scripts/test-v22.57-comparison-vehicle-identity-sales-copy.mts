@@ -314,7 +314,7 @@ function run(): void {
       [corolla2020]
     );
     ok("missing target fails closed", missing.ok === false);
-    if (!missing.ok) {
+    if (missing.ok === false) {
       ok(
         "missing target no self-compare cards",
         missing.cards.length <= 1 &&
@@ -369,7 +369,7 @@ function run(): void {
   ok(
     "stale session fail closed",
     stale.ok === false && stale.reason === "no_base",
-    `reason=${!stale.ok ? stale.reason : "ok"}`
+    `reason=${stale.ok === false ? stale.reason : "ok"}`
   );
   setActivePilotChatSessionId(null);
 

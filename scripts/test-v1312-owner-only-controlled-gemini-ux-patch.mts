@@ -58,6 +58,8 @@ function bridgeResult() {
       skipGemini: true,
       carCardCount: 0,
       sliceId: "test-v1312",
+      realProviderGateReason: "real_provider_eligible",
+      realProviderNetwork: false,
     },
   };
 }

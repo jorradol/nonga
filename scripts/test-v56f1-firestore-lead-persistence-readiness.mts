@@ -35,6 +35,8 @@ const listing = {
   title: "Toyota Test",
   price: 800_000,
   ownerId: "seller-f1",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 
 function makeLead(partial: Partial<BuyerLead> & { id: string; queuePosition: number }): BuyerLead {

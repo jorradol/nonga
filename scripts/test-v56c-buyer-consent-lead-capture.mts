@@ -36,6 +36,8 @@ const listing = {
   title: "Toyota Vios 2018",
   price: 279000,
   ownerId: "seller-owner-1",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 
 resetBuyerLeadRepositoryForTests();

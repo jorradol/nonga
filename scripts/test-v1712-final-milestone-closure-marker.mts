@@ -274,7 +274,7 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
   ok(
     "required placeholders array complete",
     Array.isArray(root.requiredPlaceholderValues) &&
-      requiredPlaceholders.every((p) => root.requiredPlaceholderValues.includes(p))
+      requiredPlaceholders.every((p) => (root.requiredPlaceholderValues as string[]).includes(p))
   );
 
   const finalMap = asRecord(root.v17FinalClosureMap);

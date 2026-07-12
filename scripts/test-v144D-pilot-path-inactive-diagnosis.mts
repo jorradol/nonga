@@ -74,7 +74,7 @@ const pilotSessionContext = {
     },
   ],
   lastSearchBudgetMax: 500000,
-} as const;
+} ;
 
 let pass = 0;
 let fail = 0;

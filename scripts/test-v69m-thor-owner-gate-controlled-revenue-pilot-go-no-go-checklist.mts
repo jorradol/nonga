@@ -242,17 +242,17 @@ ok(
     licensePlate: "กก-9999",
     wholesalePrice: 400000,
     ownerPhone: "0000000000",
-  } as Parameters<typeof toPublicMarketplaceCarDto>[0]);
-  ok("dto strips vin", !("vin" in dto) || (dto as Record<string, unknown>).vin === undefined);
+  } as unknown as Parameters<typeof toPublicMarketplaceCarDto>[0]);
+  ok("dto strips vin", !("vin" in dto) || (dto as unknown as Record<string, unknown>).vin === undefined);
   ok(
     "dto strips licensePlate",
     !("licensePlate" in dto) ||
-      (dto as Record<string, unknown>).licensePlate === undefined
+      (dto as unknown as Record<string, unknown>).licensePlate === undefined
   );
   ok(
     "dto strips wholesalePrice",
     !("wholesalePrice" in dto) ||
-      (dto as Record<string, unknown>).wholesalePrice === undefined
+      (dto as unknown as Record<string, unknown>).wholesalePrice === undefined
   );
 }
 ok(

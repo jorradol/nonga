@@ -84,6 +84,8 @@ function bridgeResult(text = "deterministic legacy Corolla reply") {
       skipGemini: true,
       carCardCount: 1,
       sliceId: "test-v2255",
+      realProviderGateReason: "real_provider_eligible",
+      realProviderNetwork: false,
     },
   };
 }

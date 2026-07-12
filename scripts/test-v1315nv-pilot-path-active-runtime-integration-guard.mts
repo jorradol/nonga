@@ -77,7 +77,7 @@ const pilotSessionContext = {
     },
   ],
   lastSearchBudgetMax: 500000,
-} as const;
+} ;
 
 const deployedHelperPrompt =
   "ลูกค้าทดลองถามแบบไม่มีข้อมูลจริง: ช่วยสรุปจุดเด่นของคันที่ 1 และ 2 แบบสุภาพสำหรับครอบครัวหน่อยครับ";

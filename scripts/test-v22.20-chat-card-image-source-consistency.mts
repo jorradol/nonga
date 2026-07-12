@@ -116,7 +116,7 @@ console.log("\n--- public DTO privacy (no lead / no dealer send) ---");
     importKey: "opaque-import-key",
   } as unknown as MarketplaceCarRecord);
   const json = JSON.stringify(dto);
-  const dtoRec = dto as Record<string, unknown>;
+  const dtoRec = dto as unknown as Record<string, unknown>;
   ok("public dto preserves images", Array.isArray(dto.images) && dto.images[0] === DURABLE_FIREBASE);
   ok("public dto redacts vin", !/"vin"\s*:\s*"JTDBR/.test(json) && dtoRec.vin == null);
   ok(

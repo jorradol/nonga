@@ -331,7 +331,7 @@ try {
   const noSeller = await createConsentedBuyerLead({
     repository,
     buyerUserId: "buyer-x",
-    listing: { id: "x", title: "x", price: 1, ownerId: "" },
+    listing: { id: "x", title: "x", price: 1, ownerId: "", isSold: false, listingStatus: "published" as const },
     env: captureOn,
     input: {
       listingId: "x",

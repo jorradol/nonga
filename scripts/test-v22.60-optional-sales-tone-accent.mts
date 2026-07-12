@@ -237,7 +237,7 @@ function run(): void {
       [corolla2020]
     );
     ok("5 missing-target compare does not resolve ok", missingResolved.ok === false);
-    if (!missingResolved.ok) {
+    if (missingResolved.ok === false) {
       ok(
         "5b missing-target clarification has no accent",
         !CHEER_RE.test(missingResolved.clarification),

@@ -266,31 +266,31 @@ if (fixtureParsed && typeof fixtureParsed === "object") {
   ok(
     "required placeholder values complete",
     Array.isArray(root.requiredPlaceholderValues) &&
-      root.requiredPlaceholderValues.includes("OWNER_INTENT_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("OWNER_REVIEW_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("OWNER_APPROVAL_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("EXACT_COMMAND_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("EXACT_TARGET_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("EXACT_EXPECTED_EVIDENCE_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("REPO_HEAD_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("ORIGIN_HEAD_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("WORKING_TREE_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("REQUIRED_TESTS_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("ONE_RUN_ONLY_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("NO_AUTOMATIC_RETRY_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("NO_SECOND_RUN_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("ROLLBACK_OWNER_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("KILL_SWITCH_OWNER_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("STOP_CONDITIONS_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("SANITIZED_EVIDENCE_BUNDLE_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("TOKEN_SECRET_PII_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("PUBLIC_PRODUCTION_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("REAL_LEAD_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("REAL_DEALER_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("RUNTIME_PROVIDER_GEMINI_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("LIVE_ENDPOINT_MANUAL_GUESS_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("THOR_DEALER_IMPORT_CHECK_PLACEHOLDER_ONLY") &&
-      root.requiredPlaceholderValues.includes("FINAL_OWNER_DECISION_PLACEHOLDER_ONLY")
+      (root.requiredPlaceholderValues as string[]).includes("OWNER_INTENT_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("OWNER_REVIEW_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("OWNER_APPROVAL_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("EXACT_COMMAND_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("EXACT_TARGET_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("EXACT_EXPECTED_EVIDENCE_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("REPO_HEAD_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("ORIGIN_HEAD_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("WORKING_TREE_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("REQUIRED_TESTS_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("ONE_RUN_ONLY_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("NO_AUTOMATIC_RETRY_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("NO_SECOND_RUN_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("ROLLBACK_OWNER_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("KILL_SWITCH_OWNER_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("STOP_CONDITIONS_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("SANITIZED_EVIDENCE_BUNDLE_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("TOKEN_SECRET_PII_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("PUBLIC_PRODUCTION_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("REAL_LEAD_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("REAL_DEALER_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("RUNTIME_PROVIDER_GEMINI_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("LIVE_ENDPOINT_MANUAL_GUESS_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("THOR_DEALER_IMPORT_CHECK_PLACEHOLDER_ONLY") &&
+      (root.requiredPlaceholderValues as string[]).includes("FINAL_OWNER_DECISION_PLACEHOLDER_ONLY")
   );
 
   const insertionSeparation = asRecord(root.futureRealValueInsertionRequestSeparation);

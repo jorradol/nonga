@@ -78,6 +78,8 @@ function bridgeResult(text = "deterministic fallback text") {
       skipGemini: true,
       carCardCount: 1,
       sliceId: "test-v22.68",
+      realProviderGateReason: "real_provider_eligible",
+      realProviderNetwork: false,
     },
   };
 }

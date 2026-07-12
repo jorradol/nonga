@@ -17,7 +17,7 @@ import {
   createConsentedBuyerLead,
 } from "../src/services/leads/buyerLeadService.ts";
 import { BUYER_LEAD_CONSENT_VERSION } from "../src/services/leads/buyerLeadValidation.ts";
-import { resetBuyerLeadRepositoryForTests } from "../src/server/repositories/buyerLeadRepository.ts";
+import { resetBuyerLeadRepositoryForTests, type BuyerLeadRepository } from "../src/server/repositories/buyerLeadRepository.ts";
 
 const STAGING = "https://a.nongbot.org";
 const DOC = "docs/v22.51-controlled-exactly-one-synthetic-durable-staging-lead-test.md";
@@ -104,9 +104,9 @@ const spyRepo = {
   },
 };
 const blocked = await createConsentedBuyerLead({
-  repository: spyRepo,
+  repository: spyRepo as unknown as BuyerLeadRepository,
   buyerUserId: "buyer-v2251",
-  listing: { id: "x", title: "x", price: 1, ownerId: "seller-x" },
+  listing: { id: "x", title: "x", price: 1, ownerId: "seller-x", isSold: false, listingStatus: "published" as const },
   env: {},
   input: {
     listingId: "x",

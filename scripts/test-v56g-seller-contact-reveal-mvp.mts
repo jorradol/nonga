@@ -31,6 +31,8 @@ const listing = {
   title: "Mazda 2 2021",
   price: 380000,
   ownerId: "seller-g-1",
+  isSold: false,
+  listingStatus: "published" as const,
 };
 
 resetBuyerLeadRepositoryForTests();
