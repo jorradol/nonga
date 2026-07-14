@@ -49,7 +49,11 @@ export interface AdminShadowGeminiCallResult {
 
 export type AdminShadowGeminiCaller = (
   input: SalesBrainAdapterInput,
-  options: { readEnv: SalesBrainEnvReader; signal: AbortSignal; timeoutMs: number }
+  options: {
+    readEnv: SalesBrainEnvReader;
+    signal: AbortSignal;
+    timeoutMs: number;
+  }
 ) => Promise<AdminShadowGeminiCallResult>;
 
 let testGeminiCaller: AdminShadowGeminiCaller | null = null;
@@ -196,7 +200,11 @@ function buildSyntheticAdminShadowPrompt(
 
 async function defaultAdminShadowGeminiCaller(
   input: SalesBrainAdapterInput,
-  options: { readEnv: SalesBrainEnvReader; signal: AbortSignal; timeoutMs: number }
+  options: {
+    readEnv: SalesBrainEnvReader;
+    signal: AbortSignal;
+    timeoutMs: number;
+  }
 ): Promise<AdminShadowGeminiCallResult> {
   const readEnv = options.readEnv;
   if (options.signal.aborted) {
@@ -221,7 +229,7 @@ async function defaultAdminShadowGeminiCaller(
         config: { maxOutputTokens: number };
       },
       options?: { signal?: AbortSignal }
-    ) => Promise<{ text?: string }>
+    ) => Promise<{ text?: string; usageMetadata?: Record<string, unknown> }>
   )(
     {
       model: ADMIN_SHADOW_GEMINI_MODEL,

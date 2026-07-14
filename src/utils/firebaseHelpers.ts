@@ -1,4 +1,5 @@
 import { auth } from "../lib/firebase";
+import { hashPiiForLog } from "./piiLogRedaction";
 
 export enum OperationType {
   CREATE = 'create',
@@ -26,20 +27,26 @@ export interface FirestoreErrorInfo {
   }
 }
 
+function buildRedactedAuthInfo(): FirestoreErrorInfo["authInfo"] {
+  const user = auth?.currentUser;
+  return {
+    userId: hashPiiForLog(user?.uid ?? null),
+    email: hashPiiForLog(user?.email ?? null),
+    emailVerified: user?.emailVerified ?? null,
+    isAnonymous: user?.isAnonymous ?? null,
+    tenantId: user?.tenantId ?? null,
+    providerInfo:
+      user?.providerData?.map((provider) => ({
+        providerId: provider.providerId,
+        email: hashPiiForLog(provider.email),
+      })) ?? [],
+  };
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth?.currentUser?.uid || null,
-      email: auth?.currentUser?.email || null,
-      emailVerified: auth?.currentUser?.emailVerified || null,
-      isAnonymous: auth?.currentUser?.isAnonymous || null,
-      tenantId: auth?.currentUser?.tenantId || null,
-      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
+    authInfo: buildRedactedAuthInfo(),
     operationType,
     path
   };

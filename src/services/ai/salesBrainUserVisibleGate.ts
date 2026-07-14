@@ -2,7 +2,7 @@
  * v6.1L.1 — Controlled user-visible AI allowlist gate (default-deny, legacy fallback).
  * Server-side env only — no network, no secret values, no raw UID in diagnostics.
  */
-import { evaluateAiFirstAllowlist } from "../../config/ai-first-allowlist";
+import { evaluateAiFirstAllowlist, type AiFirstGateAuthPath } from "../../config/ai-first-allowlist";
 import {
   NONGA_AI_BUDGET_DAILY_LIMIT_ENV,
   NONGA_AI_BUDGET_MONTHLY_LIMIT_ENV,
@@ -19,6 +19,9 @@ import {
 export const USER_VISIBLE_GATE_SLICE_ID = "v6.1L.1";
 
 export { NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV };
+export type { AiFirstGateAuthPath };
+
+export const STAGING_AUTHENTICATED_GATE_REASON = "staging_authenticated_allowed";
 
 function parseTruthy(raw: string | undefined): boolean {
   const v = String(raw ?? "").trim().toLowerCase();
@@ -85,6 +88,8 @@ export interface UserVisibleGateRedactedDiagnostics {
   allowlistEntryCount: number;
   v60rBlockActive: boolean;
   environment: SalesBrainRuntimeEnvironment;
+  gateAuthPath: AiFirstGateAuthPath;
+  gateCheck: "PASSED" | "FAILED";
 }
 
 export interface UserVisibleGateResult {
@@ -92,6 +97,8 @@ export interface UserVisibleGateResult {
   wouldAllowWithoutV60rBlock: boolean;
   blockedReason: string;
   fallbackToLegacy: boolean;
+  gateAuthPath: AiFirstGateAuthPath;
+  gateCheck: "PASSED" | "FAILED";
   redactedDiagnostics: UserVisibleGateRedactedDiagnostics;
 }
 
@@ -151,6 +158,8 @@ export function evaluateUserVisibleGate(
     readEnv,
   });
   const uidAllowlisted = uidPresent && aiFirstAllowlist.allowed;
+  const gateAuthPath = aiFirstAllowlist.authPath;
+  const gateCheck = aiFirstAllowlist.gateCheck;
 
   let wouldAllow = true;
   let blockedReason = "user_visible_allowed";
@@ -175,6 +184,8 @@ export function evaluateUserVisibleGate(
     if (prereqReason) {
       wouldAllow = false;
       blockedReason = prereqReason;
+    } else if (gateAuthPath === "staging_authenticated") {
+      blockedReason = STAGING_AUTHENTICATED_GATE_REASON;
     }
   }
 
@@ -196,6 +207,8 @@ export function evaluateUserVisibleGate(
     allowlistEntryCount: allowlistConfigured ? allowlist.length : 0,
     v60rBlockActive,
     environment: flags.environment,
+    gateAuthPath,
+    gateCheck,
   };
 
   return {
@@ -203,6 +216,8 @@ export function evaluateUserVisibleGate(
     wouldAllowWithoutV60rBlock: wouldAllow,
     blockedReason,
     fallbackToLegacy: !effectiveAllowed,
+    gateAuthPath,
+    gateCheck,
     redactedDiagnostics,
   };
 }

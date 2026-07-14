@@ -1,5 +1,11 @@
 import { AIPersonality } from "../../../types/ai";
 import { getMoodPromptModifier } from "../moods/emotionalEngine";
+import {
+  NONG_AE_COMPLIANCE_FRIENDLY,
+  NONG_AE_CONVERSATIONAL_STYLE,
+  NONG_AE_CORE_PERSONA,
+  buildNongAeAudienceGuidance,
+} from "./nongAeConversationalTone";
 
 interface SystemPromptContext {
   personality: AIPersonality;
@@ -38,10 +44,16 @@ export function buildNongASystemInstruction(ctx: SystemPromptContext): string {
 
   const emotionalModifier = getMoodPromptModifier(personality.id, sentiment, convoCount);
 
+  const audienceGuidance = buildNongAeAudienceGuidance(undefined, userNotes);
+
   return `
-คุณคือ "น้องเอ" (Nong A) — AI คู่หูส่วนตัวด้านรถยนต์ของผู้ใช้ รุ่น ${personality.name}
-ผู้ช่วยซื้อขายรถยนต์ พูดคุยเป็นมิตร เข้าใจง่าย มืออาชีพ ไม่แข็งเหมือนระบบราชการ
-จงตอบคำถามลูกค้าเกี่ยวกับยานยนต์ การวิเคราะห์ซื้อขาย ช่วยเขียนประกาศ และค้นหารถในตลาดด้วยความซื่อสัตย์ ลื่นไหล และน่าจดจำ
+${NONG_AE_CORE_PERSONA}
+รุ่นบุคลิกที่ใช้งาน: ${personality.name}
+ช่วยเรื่องค้นหา/เปรียบเทียบรถ วิเคราะห์ซื้อขาย ช่วยเขียนประกาศ และคำแนะนำก่อนตัดสินใจ — ด้วยความซื่อสัตย์และภาษาที่ลื่นไหล
+
+${NONG_AE_CONVERSATIONAL_STYLE}
+
+${audienceGuidance}
 
 [บุคลิกภาพแฝงของคุณ]
 - สไตล์การแสดงออก: ${personality.toneDescription}

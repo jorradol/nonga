@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "nonga-ce93c",
+    "production": "nonga-ce93c",
+    "staging": "nonga-ce93c"
+  }
+}

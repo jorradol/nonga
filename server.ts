@@ -1,9 +1,12 @@
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
+import cors from "cors";
 import path from "path";
 import dns from "dns";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import { initializeRuntimeConfig } from "./src/config";
 import { DEFAULT_PERSONALITIES } from "./src/services/ai/personality/personalityConfig";
 import {
   appendChatPhase1Rules,
@@ -71,6 +74,7 @@ import {
   buildListingPatchForNewReport,
 } from "./src/server/listingModeration";
 import { registerAiEndpointGuards } from "./src/server/security/aiEndpointGuard";
+import { registerFirestoreRateLimitMiddleware } from "./src/server/middleware/rateLimit";
 import {
   canInvokeLegacyGeminiProvider,
   getLegacyGeminiBlockReason,
@@ -131,6 +135,41 @@ async function streamMockChatSSE(
 dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
+app.set("trust proxy", 1);
+
+const DEFAULT_CORS_ORIGINS = [
+  "https://nonga-ce93c.web.app",
+  "https://nonga-ce93c.firebaseapp.com",
+  "https://a.nongbot.org",
+  "https://nonga-car.com",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+const corsAllowedOrigins = new Set(
+  (process.env.CORS_ALLOWED_ORIGINS ?? DEFAULT_CORS_ORIGINS.join(","))
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+  })
+);
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || corsAllowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
+
 const PORT = Number(process.env.PORT ?? 3000);
 const inventoryRepository = createInventoryRepository();
 const listingReportRepository = createListingReportRepository();
@@ -173,14 +212,15 @@ function hasGeminiApiKey(): boolean {
 
 let ai: GoogleGenAI | null = null;
 
-if (hasGeminiApiKey()) {
+function initGeminiClient(): void {
+  if (ai !== null || !hasGeminiApiKey()) return;
   ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY!.trim(),
     httpOptions: {
       headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
+        "User-Agent": "aistudio-build",
+      },
+    },
   });
 }
 
@@ -671,6 +711,8 @@ registerBuyerLeadQueueRoutes(app, { inventoryRepository });
 registerPayloadTooLargeHandler(app);
 
 // v5.4.4e — AI / vision / Gemini abuse guard (rate limit + threat foundation)
+// Phase 2 — Firestore quota tracking (shadow / monitoring only — never blocks)
+registerFirestoreRateLimitMiddleware(app, { monitoringOnly: true });
 registerAiEndpointGuards(app);
 registerSalesBrainUserVisibleOrchestrationBridgeRoutes(app, {
   loadChatInventory: async () => {
@@ -1948,6 +1990,9 @@ app.get("/api/seo/insights", (req, res) => {
 
 // 6. Vite config & Static hosting setup based on runtime environment
 async function initServer() {
+  await initializeRuntimeConfig();
+  initGeminiClient();
+
   if (process.env.NODE_ENV !== "production") {
     console.log("Setting up Express with Vite Development Middleware...");
     const vite = await createViteServer({

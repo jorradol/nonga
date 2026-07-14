@@ -574,7 +574,6 @@ function buildCarRecord(
   const registration = extractRegistrationFields({
     plateValue:
       row.licensePlateFull ??
-      row.licensePlateMasked ??
       String(raw.licensePlate ?? raw["ทะเบียน"] ?? raw.plate ?? raw["ทะเบียน/จังหวัด"] ?? ""),
     provinceValue:
       row.registrationProvince ??
@@ -660,7 +659,6 @@ function buildDraftRecord(
   const registration = extractRegistrationFields({
     plateValue:
       row.licensePlateFull ??
-      row.licensePlateMasked ??
       String(
         raw.licensePlate ??
           raw["ทะเบียน"] ??

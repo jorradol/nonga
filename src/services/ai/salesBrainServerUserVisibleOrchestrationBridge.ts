@@ -12,6 +12,8 @@ import {
 import {
   tryOrchestrateChatReplyCore,
   type OrchestratedChatReply,
+  mergeProviderGroundingCarCards,
+  classifyProviderGroundingIntent,
 } from "./chat/chatSearchOrchestrator";
 import type { ChatInventoryCar } from "./chat/marketplaceChatSearch";
 import { mapChatRoleToSalesBrainUserRole } from "./salesBrainShadowChatPath";
@@ -90,6 +92,10 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   safetyResult: UserVisibleRuntimeSafetyResult;
   gateCheck: "PASSED" | "FAILED";
   gateAuthPath: string;
+  realProviderGateReasonDetail: string;
+  providerGroundingIntent: string;
+  sessionGroundingCount: number;
+  orchestratedGroundingCount: number;
   capturedAt: string;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
@@ -305,6 +311,119 @@ function wouldAttemptRealProviderInvocation(input: {
   return true;
 }
 
+function resolveProviderPilotOrchestration(input: {
+  userMessage: string;
+  orchestrated?: OrchestratedChatReply | null;
+  pilotSessionContext?: PilotBuyerSessionContext;
+  inventory: ChatInventoryCar[];
+}): {
+  hint: UserVisiblePilotOrchestrationHint | undefined;
+  sessionGroundingCount: number;
+  orchestratedGroundingCount: number;
+  providerGroundingIntent: string;
+} {
+  const sessionCards = input.pilotSessionContext?.recentCarCards ?? [];
+  const sessionGroundingCount = sessionCards.length;
+  const orchestratedCards = input.orchestrated?.carCards ?? [];
+  const orchestratedGroundingCount = orchestratedCards.length;
+  const providerGroundingIntent = classifyProviderGroundingIntent(input.userMessage);
+
+  const orchestratedHint = input.orchestrated
+    ? resolvePilotOrchestrationHint(input.orchestrated, input.pilotSessionContext)
+    : undefined;
+
+  const rehydratedSessionCards =
+    sessionCards.length > 0
+      ? rehydrateSessionCarsFromInventory(
+          pilotSessionCardsToChatCarCards(sessionCards),
+          input.inventory
+        )
+      : [];
+
+  const mergedCards = mergeProviderGroundingCarCards({
+    message: input.userMessage,
+    orchestratedCards,
+    contextCards: rehydratedSessionCards,
+  });
+
+  if (mergedCards.length > 0) {
+    const mergedContext = buildPilotSessionContextFromCarCards(mergedCards);
+    return {
+      hint: {
+        carCardCount: mergedCards.length,
+        recentCarCards: mergedContext?.recentCarCards,
+        hasMoreCars: input.orchestrated?.hasMoreCars,
+        ...(input.pilotSessionContext?.lastSearchBudgetMax != null
+          ? { lastSearchBudgetMax: input.pilotSessionContext.lastSearchBudgetMax }
+          : {}),
+      },
+      sessionGroundingCount,
+      orchestratedGroundingCount,
+      providerGroundingIntent,
+    };
+  }
+
+  const orchestratedCardCount = orchestratedHint?.recentCarCards?.length ?? 0;
+  const preferOrchestratedGrounding =
+    orchestratedCardCount >= 2 ||
+    (orchestratedCardCount > 0 && orchestratedCardCount >= sessionGroundingCount) ||
+    isNamedInventoryCompareIntent(input.userMessage);
+
+  const hint = preferOrchestratedGrounding
+    ? orchestratedHint ??
+      (sessionCards.length > 0
+        ? {
+            carCardCount: sessionCards.length,
+            recentCarCards: sessionCards,
+            ...(input.pilotSessionContext?.lastSearchBudgetMax != null
+              ? { lastSearchBudgetMax: input.pilotSessionContext.lastSearchBudgetMax }
+              : {}),
+          }
+        : undefined)
+    : sessionCards.length > 0
+      ? {
+          carCardCount: sessionCards.length,
+          recentCarCards: sessionCards,
+          ...(input.pilotSessionContext?.lastSearchBudgetMax != null
+            ? { lastSearchBudgetMax: input.pilotSessionContext.lastSearchBudgetMax }
+            : {}),
+        }
+      : orchestratedHint;
+
+  return {
+    hint,
+    sessionGroundingCount,
+    orchestratedGroundingCount,
+    providerGroundingIntent,
+  };
+}
+
+function buildRealProviderGateReasonDetail(input: {
+  payload: RedactedUserVisibleOrchestrationPayload;
+  eligibilityGateReason: string;
+  allowlistGateReason: string;
+  gateAuthPath: string;
+  aiFirstPathActive: boolean;
+  aiFirstGateReason: string;
+  textSource: UserVisibleRuntimeTextSource;
+  fallbackUsed: boolean;
+  providerGroundingIntent: string;
+}): string {
+  return [
+    `eligibility=${input.eligibilityGateReason}`,
+    `allowlist=${input.allowlistGateReason}`,
+    `gateAuthPath=${input.gateAuthPath}`,
+    `aiFirstActive=${input.aiFirstPathActive}`,
+    `aiFirstGate=${input.aiFirstGateReason}`,
+    `textSource=${input.textSource}`,
+    `fallbackUsed=${input.fallbackUsed}`,
+    `groundingIntent=${input.providerGroundingIntent}`,
+    `payloadGate=${input.payload.realProviderGateReason ?? "unset"}`,
+    `pilotPathActive=${input.payload.pilotPathActive === true}`,
+    `fallbackToLegacy=${input.payload.fallbackToLegacy === true}`,
+  ].join("|");
+}
+
 export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
   requestCorrelationId: string;
   payload: RedactedUserVisibleOrchestrationPayload;
@@ -313,6 +432,9 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
   userRole: SalesBrainUserRole;
   pilotOrchestration?: UserVisiblePilotOrchestrationHint;
   orchestratedCarCardCount?: number;
+  sessionGroundingCount?: number;
+  orchestratedGroundingCount?: number;
+  providerGroundingIntent?: string;
   environment?: SalesBrainRuntimeEnvironment;
   env?: Record<string, string | undefined>;
   capturedAt?: string;
@@ -364,6 +486,24 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     environment: input.environment,
     readEnv,
   });
+  const aiFirstGateReason =
+    input.payload.userVisibleRuntimeDiagnostic?.pilotInactiveReason ?? "unknown";
+  const providerGroundingIntent =
+    input.providerGroundingIntent ?? classifyProviderGroundingIntent(input.userMessage);
+  const sessionGroundingCount = input.sessionGroundingCount ?? 0;
+  const orchestratedGroundingCount =
+    input.orchestratedGroundingCount ?? input.orchestratedCarCardCount ?? 0;
+  const realProviderGateReasonDetail = buildRealProviderGateReasonDetail({
+    payload: input.payload,
+    eligibilityGateReason: eligibility.gateReason,
+    allowlistGateReason: allowlistEval.blockedReason,
+    gateAuthPath: allowlistEval.authPath,
+    aiFirstPathActive,
+    aiFirstGateReason,
+    textSource,
+    fallbackUsed,
+    providerGroundingIntent,
+  });
 
   return {
     sliceId: USER_VISIBLE_RUNTIME_ATTRIBUTION_SLICE_ID,
@@ -373,6 +513,7 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     realProviderInvocationAttempted,
     realProviderNetwork,
     realProviderGateReason,
+    realProviderGateReasonDetail,
     fallbackUsed,
     fallbackReason: resolveRuntimeAttributionFallbackReason({
       fallbackToLegacy: input.payload.fallbackToLegacy,
@@ -382,6 +523,9 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     }),
     candidateCount: input.orchestratedCarCardCount ?? input.payload.carCardCount ?? 0,
     groundingVehicleCount,
+    providerGroundingIntent,
+    sessionGroundingCount,
+    orchestratedGroundingCount,
     textSource,
     safetyResult: resolveRuntimeAttributionSafetyResult(realProviderGateReason),
     gateCheck: allowlistEval.gateCheck,
@@ -836,16 +980,7 @@ export async function handleChatUserVisibleOrchestratePost(
     }
     const { userMessage, attachedImageCount, pilotSessionContext } = parsed;
     const inventory = await deps.loadChatInventory();
-    const pilotOrchestrationFromSession: UserVisiblePilotOrchestrationHint | undefined =
-      pilotSessionContext?.recentCarCards?.length
-        ? {
-            carCardCount: pilotSessionContext.recentCarCards.length,
-            recentCarCards: pilotSessionContext.recentCarCards,
-            ...(pilotSessionContext.lastSearchBudgetMax != null
-              ? { lastSearchBudgetMax: pilotSessionContext.lastSearchBudgetMax }
-              : {}),
-          }
-        : undefined;
+    const bridgeEnvironment = resolveBridgeEnvironment();
 
     let result = orchestrateUserVisibleChatForTrustedAuth({
       auth,
@@ -856,21 +991,17 @@ export async function handleChatUserVisibleOrchestratePost(
       pilotSessionContext,
     });
 
-    const orchestratedHint = result.orchestrated
-      ? resolvePilotOrchestrationHint(result.orchestrated, pilotSessionContext)
-      : undefined;
-    // v22.57 — prefer freshly orchestrated compare/search cards over stale
-    // single-card session context when grounding Gemini.
-    const orchestratedCardCount = orchestratedHint?.recentCarCards?.length ?? 0;
-    const sessionCardCount = pilotOrchestrationFromSession?.recentCarCards?.length ?? 0;
-    const preferOrchestratedGrounding =
-      orchestratedCardCount >= 2 ||
-      (orchestratedCardCount > 0 && orchestratedCardCount >= sessionCardCount) ||
-      isNamedInventoryCompareIntent(userMessage);
-
-    const pilotOrchestrationForRealProvider = preferOrchestratedGrounding
-      ? orchestratedHint ?? pilotOrchestrationFromSession
-      : pilotOrchestrationFromSession ?? orchestratedHint;
+    const {
+      hint: pilotOrchestrationForRealProvider,
+      sessionGroundingCount,
+      orchestratedGroundingCount,
+      providerGroundingIntent,
+    } = resolveProviderPilotOrchestration({
+      userMessage,
+      orchestrated: result.orchestrated,
+      pilotSessionContext,
+      inventory,
+    });
 
     result = await maybeApplyUserVisibleRealProvider({
       bridgeResult: result,
@@ -878,6 +1009,7 @@ export async function handleChatUserVisibleOrchestratePost(
       firebaseUid: auth.uid,
       userRole: mapAuthToSalesBrainRole(auth),
       pilotOrchestration: pilotOrchestrationForRealProvider,
+      environment: bridgeEnvironment,
       env: process.env as Record<string, string | undefined>,
     });
 
@@ -908,7 +1040,10 @@ export async function handleChatUserVisibleOrchestratePost(
         userRole: mapAuthToSalesBrainRole(auth),
         pilotOrchestration: pilotOrchestrationForRealProvider,
         orchestratedCarCardCount: result.orchestrated?.carCards?.length ?? 0,
-        environment: resolveBridgeEnvironment(),
+        sessionGroundingCount,
+        orchestratedGroundingCount,
+        providerGroundingIntent,
+        environment: bridgeEnvironment,
         env: process.env as Record<string, string | undefined>,
         capturedAt: evidenceCapturedAt,
       })

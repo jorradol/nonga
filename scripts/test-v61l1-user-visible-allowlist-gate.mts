@@ -101,11 +101,11 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
   ok("parse empty absent", parseUserVisibleAllowlistUids(undefined).length === 0);
   ok("parse empty string", parseUserVisibleAllowlistUids("").length === 0);
   ok("parse trims commas", parseUserVisibleAllowlistUids(` ${TEST_UID} , ${OTHER_UID} `).length === 2);
-  ok("isUid false when missing", isUidAllowlistedForUserVisible(undefined, (k) => STAGING_USER_VISIBLE_ENV[k]) === false);
-  ok("isUid false guest", isUidAllowlistedForUserVisible("", (k) => STAGING_USER_VISIBLE_ENV[k]) === false);
-  ok("isUid false empty allowlist", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_SHADOW_ENV[k]) === false);
-  ok("isUid true when listed", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_USER_VISIBLE_ENV[k]) === true);
-  ok("isUid false when not listed", isUidAllowlistedForUserVisible("unknown-uid", (k) => STAGING_USER_VISIBLE_ENV[k]) === false);
+  ok("isUid false when missing", isUidAllowlistedForUserVisible(undefined, (k) => STAGING_USER_VISIBLE_ENV[k], "staging") === false);
+  ok("isUid false guest", isUidAllowlistedForUserVisible("", (k) => STAGING_USER_VISIBLE_ENV[k], "staging") === false);
+  ok("isUid true internal tester on staging empty env allowlist", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_SHADOW_ENV[k], "staging") === true);
+  ok("isUid true when listed", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_USER_VISIBLE_ENV[k], "staging") === true);
+  ok("isUid false when not listed on production", isUidAllowlistedForUserVisible("unknown-uid-not-in-list", (k) => STAGING_USER_VISIBLE_ENV[k], "production") === false);
 }
 
 // --- gate default deny ---
@@ -131,26 +131,26 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
   ok("guest fallback legacy", gate.fallbackToLegacy === true);
 }
 
-// --- empty allowlist deny ---
+// --- staging expanded allowlist (internal tester / any authenticated on staging) ---
 {
   const gate = evaluateUserVisibleGate({
     environment: "staging",
     env: { ...STAGING_USER_VISIBLE_ENV, [NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV]: "" },
     firebaseUid: TEST_UID,
   });
-  ok("empty allowlist reason", gate.blockedReason === "allowlist_empty");
-  ok("empty allowlist fallback", gate.fallbackToLegacy === true);
+  ok("staging internal tester allowed despite empty env allowlist", gate.effectiveUserVisibleAllowed === true);
+  ok("staging internal tester allowed reason", gate.blockedReason === "user_visible_allowed");
 }
 
-// --- non-allowlisted deny ---
+// --- production non-allowlisted deny ---
 {
   const gate = evaluateUserVisibleGate({
-    environment: "staging",
+    environment: "production",
     env: STAGING_USER_VISIBLE_ENV,
     firebaseUid: "not-on-allowlist-uid",
   });
-  ok("non-allowlisted reason", gate.blockedReason === "uid_not_allowlisted");
-  ok("non-allowlisted fallback", gate.fallbackToLegacy === true);
+  ok("production non-allowlisted reason", gate.blockedReason === "production_default_off");
+  ok("production non-allowlisted fallback", gate.fallbackToLegacy === true);
 }
 
 // --- allowlisted effective allow (v60r lifted) ---

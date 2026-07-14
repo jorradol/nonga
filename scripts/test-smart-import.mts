@@ -57,7 +57,7 @@ async function main() {
   const prep1 = await runFile("Full sample (5 rows)", SAMPLE);
   const { published, drafts } = flattenSmartPrepForCommit(prep1);
   const result = await processSmartInventoryImport({ published, drafts }, {
-    ownerId: "dealer-thor-auto",
+    ownerId: "owner-thor-auto",
     ownerName: "คุณณรงค์ จรดล",
     ownerPhone: "0815553335",
     showroomName: "Thor Auto (ธอร์ ออโต้)",
@@ -70,16 +70,17 @@ async function main() {
   });
 
   const marketplace = getPublishedMarketplaceCars();
-  const importedThorCars = marketplace.filter((c) => c.ownerId === "dealer-thor-auto");
-  const allHaveStorage = marketplace
-    .filter((c) => c.ownerId === "dealer-thor-auto")
+  const importedThorCars = marketplace.filter(
+    (c) => c.dealerId === "thor-auto" || c.ownerId === "owner-thor-auto"
+  );
+  const allHaveStorage = importedThorCars
     .every(
       (c) =>
         c.images.length === 0 ||
         c.images.some((u) => u.startsWith("/storage/listings/") || u.includes("unsplash"))
     );
   const draftList = getDealerDraftsSorted("thor-auto");
-  console.log("marketplace published (thor):", marketplace.filter((c) => c.ownerId === "dealer-thor-auto").length);
+  console.log("marketplace published (thor):", importedThorCars.length);
   console.log("draft records:", draftList.length);
   console.log(
     "privacy guard:",

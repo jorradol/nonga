@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { db, auth, isMockConfig } from "../../lib/firebase";
 import { Lead, LeadEventType, LeadStatus } from "../../types/analytics";
+import { hashPiiForLog } from "../../utils/piiLogRedaction";
 
 enum OperationType {
   CREATE = 'create',
@@ -37,13 +38,14 @@ interface FirestoreErrorInfo {
 }
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const user = auth?.currentUser;
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth?.currentUser?.uid || null,
-      email: auth?.currentUser?.email || null,
-      emailVerified: auth?.currentUser?.emailVerified || null,
-      isAnonymous: auth?.currentUser?.isAnonymous || null,
+      userId: hashPiiForLog(user?.uid ?? null),
+      email: hashPiiForLog(user?.email ?? null),
+      emailVerified: user?.emailVerified ?? null,
+      isAnonymous: user?.isAnonymous ?? null,
     },
     operationType,
     path

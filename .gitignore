@@ -24,11 +24,12 @@ server.js
 .env.staging
 .env.test
 .env.*.local
+.tmp-dealer-api-token-once.txt
 
 # Keep example env file for documentation only
 !.env.example
 
-# Thor Auto / dealer private offline prep (full plate, raw source — never commit)
+# Thor Auto / dealer private offline prep (full plate, raw source  never commit)
 .private/
 
 # Local data storage
@@ -37,10 +38,10 @@ data/dealer-draft-inventory.json
 data/dealer-profiles.json
 data/listing-images/**
 !data/listing-images/.gitkeep
-# Local import rehearsal checkpoints (rollback snapshots — never commit)
+# Local import rehearsal checkpoints (rollback snapshots  never commit)
 data/checkpoints/
 
-# WIP dealer tests (local only — not ready for commit)
+# WIP dealer tests (local only  not ready for commit)
 scripts/test-dealer-draft-required-fields.mts
 scripts/test-dealer-e2e-v418.mts
 
@@ -51,3 +52,4 @@ v14.*-local-approval.txt
 .nonga-owner-local-one-run-v143ac-user-visible.lock.json
 .nonga-owner-local-one-run-v143ag-user-visible-dispatch.lock.json
 .nonga-owner-local-one-run-v*-user-visible-dispatch.lock.json
+.tmp-*

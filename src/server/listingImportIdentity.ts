@@ -121,7 +121,6 @@ export function extractImportIdentityFromRow(
   const registration = extractRegistrationFields({
     plateValue:
       row.licensePlateFull ??
-      row.licensePlateMasked ??
       String(
         raw.licensePlate ??
           raw["ทะเบียน"] ??
@@ -241,6 +240,8 @@ function hasUsablePlate(identity: ImportIdentityFields): boolean {
   const plate = identity.licensePlateFull;
   if (plate.length < 5) return false;
   if (/\*/.test(plate)) return false;
+  // Province-only tokens (no digits) must not participate in plate upsert keys.
+  if (!/\d/.test(plate)) return false;
   const alnum = plate.replace(/[^A-Z0-9\u0E00-\u0E7F]/gi, "");
   return alnum.length >= 5;
 }
