@@ -4,7 +4,6 @@ import { useAuth } from "../../hooks/auth/useAuth";
 import { getCurrentUserIdToken, getFirebaseAuthHeaders } from "../../services/auth/firebaseAuthHeaders";
 import {
   evaluateOwnerFirebaseTokenHelperGate,
-  isOwnerFirebaseTokenHelperEnabled,
   isOwnerGeminiOneRunHelperEnabled,
 } from "../../config/ownerFirebaseTokenHelperGate";
 import { buildOwnerOneRunEvidence, type OwnerOneRunEvidence } from "./ownerOneRunEvidence";
@@ -83,24 +82,10 @@ export function OwnerFirebaseTokenHelperPanel() {
     [isSignedIn, user?.role, user?.status, user?.uid]
   );
 
-  const helperFlagEnabled = isOwnerFirebaseTokenHelperEnabled();
   const oneRunHelperEnabled = isOwnerGeminiOneRunHelperEnabled();
 
   if (!gate.enabled) {
-    return (
-      <section
-        className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-1"
-        data-testid="owner-firebase-token-helper-gate-diagnostic"
-      >
-        <p className="text-[11px] font-black uppercase tracking-wider text-amber-300">
-          Owner helper hidden
-        </p>
-        <p className="text-[11px] text-amber-100/90">
-          reason={gate.reason} | helperFlag={helperFlagEnabled ? "on" : "off"} |
-          oneRunFlag={oneRunHelperEnabled ? "on" : "off"}
-        </p>
-      </section>
-    );
+    return null;
   }
 
   const oneRunConsumed = isOneRunConsumedInSession();
