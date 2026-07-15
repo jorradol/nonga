@@ -21,7 +21,6 @@ import { motion, AnimatePresence } from "motion/react";
 import AIControlCenter from "./ai/AIControlCenter";
 import { SmartSalesAiControlPreview } from "./ai/SmartSalesAiControlPreview";
 import { AiControlStatusPanel } from "./aiControl/AiControlStatusPanel";
-import { OwnerFirebaseTokenHelperPanel } from "./OwnerFirebaseTokenHelperPanel";
 
 // Robust mock charts data set
 const growthTrendData = [
@@ -374,8 +373,6 @@ export default function AdminDashboardView() {
 
       {/* RENDER ACTIVE TAB AREA */}
       <div className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden space-y-6">
-        <OwnerFirebaseTokenHelperPanel />
-        
         {/* TAB 1: SUMMARY DASHBOARD INSIGHTS */}
         {adminState.activeTab === "dashboard" && (
           <div className="space-y-6 text-left">

@@ -1,5 +1,6 @@
 /**
  * v13.15N-E owner helper surface diagnostics guard validation
+ * Updated for Priority 2 containment: Owner Helper must not be mounted on Admin Dashboard.
  * Diagnosis/prepare-only checks. No Gemini execution.
  *
  * npm run test:v13.15N-E
@@ -13,6 +14,7 @@ import {
 } from "../src/config/ownerFirebaseTokenHelperGate.ts";
 
 const HELPER_COMPONENT_PATH = "src/components/admin/OwnerFirebaseTokenHelperPanel.tsx";
+const DASHBOARD_PATH = "src/components/admin/AdminDashboardView.tsx";
 
 let pass = 0;
 let fail = 0;
@@ -35,10 +37,38 @@ function envReader(values: Record<string, string | undefined>) {
 console.log("=== v13.15N-E Owner Helper Surface Diagnostics Guard Validation ===\n");
 
 const helperCode = readFileSync(HELPER_COMPONENT_PATH, "utf8");
+const dashboardCode = readFileSync(DASHBOARD_PATH, "utf8");
 const oneRunHandlerMatch = helperCode.match(
   /const handleRunOwnerGeminiOneRun = async \(\) => \{[\s\S]*?\n  \};/
 );
 const oneRunHandlerCode = oneRunHandlerMatch?.[0] ?? "";
+
+ok(
+  "AdminDashboardView does not import Owner Helper",
+  !/OwnerFirebaseTokenHelperPanel/.test(dashboardCode) &&
+    !/from\s+["']\.\/OwnerFirebaseTokenHelperPanel["']/.test(dashboardCode)
+);
+
+ok(
+  "AdminDashboardView does not mount Owner Helper",
+  !/<OwnerFirebaseTokenHelperPanel\s*\/>/.test(dashboardCode) &&
+    !/<OwnerFirebaseTokenHelperPanel[\s>]/.test(dashboardCode)
+);
+
+ok(
+  "Dashboard has no active or inactive Owner Helper surface",
+  !/owner-firebase-token-helper/.test(dashboardCode) &&
+    !/Owner helper hidden/i.test(dashboardCode) &&
+    !/OWNER-ONLY FIREBASE AUTH HELPER/i.test(dashboardCode) &&
+    !/helperFlag=/.test(dashboardCode) &&
+    !/oneRunFlag=/.test(dashboardCode)
+);
+
+ok(
+  "test does not expect legacy diagnostic panel on dashboard/helper inactive branch",
+  !/owner-firebase-token-helper-gate-diagnostic/.test(dashboardCode) &&
+    !/reason=\{gate\.reason\}/.test(dashboardCode)
+);
 
 const gateProd = evaluateOwnerFirebaseTokenHelperGate({
   isSignedIn: true,
@@ -64,28 +94,15 @@ const gateStaging = evaluateOwnerFirebaseTokenHelperGate({
     [OWNER_FIREBASE_TOKEN_HELPER_FLAG_ENV]: "true",
   }),
 });
-ok("helper remains staging-only and owner/admin signed-in", gateStaging.enabled);
+ok("helper gate logic remains staging-only and owner/admin signed-in", gateStaging.enabled);
 
 ok(
-  "diagnostic panel is status-only and sanitized",
-  /owner-firebase-token-helper-gate-diagnostic/.test(helperCode) &&
-    /reason=\{gate\.reason\}/.test(helperCode) &&
-    /helperFlag=\{helperFlagEnabled \? "on" : "off"\}/.test(helperCode) &&
-    /oneRunFlag=\{oneRunHelperEnabled \? "on" : "off"\}/.test(helperCode) &&
-    !/authorization|bearer|api[_-]?key/i.test(
-      helperCode.match(/owner-firebase-token-helper-gate-diagnostic[\s\S]*?<\/section>/)?.[0] ?? ""
-    )
+  "helper source file retained unmounted (no dashboard coupling)",
+  /export function OwnerFirebaseTokenHelperPanel\(/.test(helperCode)
 );
 
 ok(
-  "diagnostic does not expose full uid/email",
-  !/user\?\.uid|user\?\.email|@/.test(
-    helperCode.match(/owner-firebase-token-helper-gate-diagnostic[\s\S]*?<\/section>/)?.[0] ?? ""
-  )
-);
-
-ok(
-  "one-run button remains manual-click and no auto-run",
+  "one-run button remains manual-click and no auto-run in retained source",
   /onClick=\{handleRunOwnerGeminiOneRun\}/.test(helperCode) &&
     !/useEffect\(/.test(helperCode)
 );
@@ -98,8 +115,9 @@ ok(
 );
 
 ok(
-  "no direct Gemini/provider call at render-time",
-  !/fetch\(OWNER_GEMINI_ONE_RUN_ROUTE,/.test(helperCode.match(/if \(!gate\.enabled\)[\s\S]*?return \(/)?.[0] ?? "")
+  "inactive gate branch returns null (no diagnostic residue in helper source)",
+  /if\s*\(\s*!gate\.enabled\s*\)\s*\{\s*return null;\s*\}/.test(helperCode) &&
+    !/owner-firebase-token-helper-gate-diagnostic/.test(helperCode)
 );
 
 console.log(`\nDone v13.15N-E guard validation - ${pass} PASS, ${fail} FAIL.\n`);
