@@ -38,30 +38,31 @@
   animation: pulseGlow 6s infinite ease-in-out;
 }
 
-/* Premium scrollbar styling (v5.6I.4d thumb + v5.6I.12 track polish) */
-* {
+/* Premium scrollbar styling (v5.6I.4d thumb + v5.6I.12 track polish)
+   P0C: root/page scrollbar only — do not force nested component scrollbars */
+html {
   scrollbar-color: #f97316 var(--nonga-scrollbar-track);
 }
 
-::-webkit-scrollbar {
+html::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track {
   background: var(--nonga-scrollbar-track);
 }
 
-::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb {
   background: #f97316;
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html::-webkit-scrollbar-thumb:hover {
   background: #ea580c;
 }
 
-::-webkit-scrollbar-thumb:active {
+html::-webkit-scrollbar-thumb:active {
   background: #c2410c;
 }
 

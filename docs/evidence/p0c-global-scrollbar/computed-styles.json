@@ -1,0 +1,11 @@
+{
+  "scope": "html",
+  "className": "dark",
+  "colorScheme": "dark",
+  "scrollbarColor": "rgb(249, 115, 22) rgba(148, 163, 184, 0.18)",
+  "trackVar": "rgba(148, 163, 184, 0.18)",
+  "thumbVar": "#f97316",
+  "width": "6px",
+  "routesChecked": ["/home", "/marketplace", "/car-post-generator"],
+  "note": "P0C root/page scrollbar only — nested scrollbars not forced via universal *"
+}
