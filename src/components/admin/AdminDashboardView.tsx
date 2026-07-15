@@ -5,16 +5,11 @@ import { useRole } from "../../hooks/auth/useRole";
 import { useAppStore } from "../../store";
 import { AdminRole, PlatformUser, SupportTicket, ReportedItem } from "../../types";
 import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
-  Tooltip as ChartTooltip, CartesianGrid, LineChart, Line, BarChart, Bar
-} from "recharts";
-import { 
   Sparkles, ShieldCheck, ShieldAlert, Users, Store, Car, 
-  MessageSquare, History, CreditCard, TrendingUp, Search, 
-  Filter, CheckSquare, Square, Trash2, Mail, Phone, Calendar, 
-  AlertTriangle, Check, X, RefreshCw, Send, Plus, Eye, Key,
-  FileText, Activity, MoreVertical, LayoutGrid, CheckCircle2, Upload,
-  Banknote, FlaskConical
+  History, TrendingUp, Search, 
+  Filter, CheckSquare, Square, Trash2, Mail, 
+  RefreshCw, Send, Plus, Upload,
+  Banknote, FlaskConical, LayoutGrid
 } from "lucide-react";
 import { AdminRevenueDashboardPreview } from "./revenue/AdminRevenueDashboardPreview";
 import { motion, AnimatePresence } from "motion/react";
@@ -22,25 +17,26 @@ import AIControlCenter from "./ai/AIControlCenter";
 import { SmartSalesAiControlPreview } from "./ai/SmartSalesAiControlPreview";
 import { AiControlStatusPanel } from "./aiControl/AiControlStatusPanel";
 
-// Robust mock charts data set
-const growthTrendData = [
-  { name: "ม.ค.", listings: 120, traffic: 1400, revenue: 18000 },
-  { name: "ก.พ.", listings: 210, traffic: 2200, revenue: 29000 },
-  { name: "มี.ค.", listings: 350, traffic: 3805, revenue: 45000 },
-  { name: "เม.ย.", listings: 540, traffic: 5120, revenue: 62000 },
-  { name: "พ.ค.", listings: 850, traffic: 8900, revenue: 112000 },
-  { name: "มิ.ย.", listings: 1470, traffic: 12400, revenue: 345000 }
-];
+const HONEST_METRIC_EMPTY_STATE =
+  "ยังไม่มีข้อมูลสถิติจริงสำหรับรายการนี้";
 
-const aiRequestData = [
-  { name: "จ.", chats: 420, analysis: 130 },
-  { name: "อ.", chats: 510, analysis: 190 },
-  { name: "พ.", chats: 480, analysis: 220 },
-  { name: "พฤ.", chats: 670, analysis: 310 },
-  { name: "ศ.", chats: 720, analysis: 420 },
-  { name: "ส.", chats: 890, analysis: 490 },
-  { name: "อา.", chats: 635, analysis: 380 }
-];
+function DashboardMetricEmptyCard({
+  label,
+  icon: Icon,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] backdrop-blur-md space-y-2">
+      <div className="flex items-center justify-between text-slate-500">
+        <span className="text-[10px] uppercase font-mono font-bold tracking-wider">{label}</span>
+        <Icon className="w-4.5 h-4.5 text-orange-500" />
+      </div>
+      <p className="text-xs text-slate-400 leading-relaxed">{HONEST_METRIC_EMPTY_STATE}</p>
+    </div>
+  );
+}
 
 export default function AdminDashboardView() {
   const adminState = useAdmin();
@@ -101,10 +97,6 @@ export default function AdminDashboardView() {
     const matchesType = adminState.listingTypeFilter === "all" || car.type === adminState.listingTypeFilter;
     return matchesSearch && matchesType;
   });
-
-  const pendingSaleListingsCount = adminState.cars.filter(
-    (car) => car.saleStatus === "pending_sale"
-  ).length;
 
   const showAdminRevenuePreview =
     effectiveAdminRole === "superadmin" || effectiveAdminRole === "admin";
@@ -378,103 +370,49 @@ export default function AdminDashboardView() {
           <div className="space-y-6 text-left">
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-white font-display tracking-tight">ศูนย์ควบคุม Nong A Administrative Dashboard</h2>
-              <p className="text-slate-400 text-xs sm:text-sm">แดชบอร์ดสรุปความต้องการใช้งาน ทราฟฟิกมาร์เก็ตเพลส และการวิเคราะห์โครงสร้างสุขภาพข้อมูล</p>
+              <p className="text-slate-400 text-xs sm:text-sm">แดชบอร์ดสรุปสำหรับผู้ดูแล — แสดงเฉพาะข้อมูลที่ยืนยันแหล่งจริงได้</p>
             </div>
 
             {/* A. PLATFORM WIDGETS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] backdrop-blur-md space-y-1">
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider">ผู้ลงทะเบียนใช้งานทั้งหมด</span>
-                  <Users className="w-4.5 h-4.5 text-orange-500" />
-                </div>
-                <p className="text-2xl font-black text-white">{adminState.analytics.totalUsers + filteredUsers.length}</p>
-                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-0.5">+14.5% เทียบจากเดือนก่อน</span>
-              </div>
+              <DashboardMetricEmptyCard
+                label="ผู้ลงทะเบียนใช้งานทั้งหมด"
+                icon={Users}
+              />
+
+              <DashboardMetricEmptyCard
+                label="ดีลเลอร์ในระบบ"
+                icon={Store}
+              />
 
               <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] backdrop-blur-md space-y-1">
                 <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider">ดีลเลอร์แอคทีฟสต็อก</span>
-                  <Store className="w-4.5 h-4.5 text-orange-500" />
-                </div>
-                <p className="text-2xl font-black text-white">{adminState.dealers.length} ดีลเลอร์</p>
-                <div className="flex items-center gap-1.5 text-[10px]">
-                  <span className="text-emerald-400 font-bold">● {adminState.dealers.filter(d => d.verified).length} ยืนยันแล้ว</span>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] backdrop-blur-md space-y-1">
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider">รถที่ประกาศขายวันนี้</span>
+                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider">รถประกาศขายในระบบ</span>
                   <Car className="w-4.5 h-4.5 text-orange-500" />
                 </div>
-                <p className="text-2xl font-black text-white">{adminState.cars.length} คันสแตนด์บาย</p>
-                <span className="text-[10px] text-orange-400 font-bold">สตรีมมิ่งสดเรียลไทม์ server</span>
+                <p className="text-2xl font-black text-white">{adminState.cars.length} คัน</p>
+                <span className="text-[10px] text-slate-500 font-sans block leading-relaxed">
+                  จากรายการรถสดที่โหลดผ่าน GET /api/cars
+                </span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] backdrop-blur-md space-y-1">
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider">มูลค่าจัดจองสะสม (Virtual)</span>
-                  <CreditCard className="w-4.5 h-4.5 text-orange-400" />
-                </div>
-                <p className="text-2xl font-black text-white">฿{(adminState.analytics.revenueTotal).toLocaleString()}</p>
-                <span className="text-[10px] text-orange-400 font-sans block leading-none font-bold">รวมค่าบริการพรีเมียมลิสติ้ง</span>
-              </div>
+              <DashboardMetricEmptyCard
+                label="มูลค่าจองและรายได้"
+                icon={Banknote}
+              />
             </div>
 
-            {/* B. DETAILED CHARTS DIVISION */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Chart 1: Platform Growth & Traffic */}
-              <div className="lg:col-span-2 p-5 rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/80 backdrop-blur-md space-y-3 text-left">
-                <div>
-                  <h3 className="text-sm font-bold text-white font-display">อัตราการเติบโตและการเข้าดูรถยนต์ (Marketplace Revenue & Traffic)</h3>
-                  <p className="text-[10px] text-slate-500 font-sans">จำนวนพรีเลจสตรีมมิ่งรถและทราฟฟิกลูกค้า (ม.ค. - มิ.ย. 2026)</p>
-                </div>
-                <div className="h-64 mt-4 text-xs font-mono">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={growthTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorListings" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ea580c" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2e" vertical={false} />
-                      <XAxis dataKey="name" stroke="#5d5d61" />
-                      <YAxis stroke="#5d5d61" />
-                      <ChartTooltip contentStyle={{ backgroundColor: "#0c0c0e", borderColor: "#333", color: "#ccc" }} />
-                      <Area type="monotone" dataKey="traffic" name="ทราฟฟิกสไลด์ชม" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTraffic)" />
-                      <Area type="monotone" dataKey="listings" name="ดีลเลอร์โพสต์สะสม" stroke="#ea580c" fillOpacity={1} fill="url(#colorListings)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+            {/* B. METRICS WITHOUT REAL ANALYTICS SOURCE */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/80 backdrop-blur-md space-y-2 text-left">
+                <h3 className="text-sm font-bold text-white font-display">รายได้และการเข้าชมมาร์เก็ตเพลส</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">{HONEST_METRIC_EMPTY_STATE}</p>
               </div>
 
-              {/* Chart 2: AI Co-pilot usage stats */}
-              <div className="p-5 rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/80 backdrop-blur-md space-y-3 text-left">
-                <div>
-                  <h3 className="text-sm font-bold text-white">สถิติเรียกใช้งานโมเดล AI (Chat & CarVision Analyzer)</h3>
-                  <p className="text-[10px] text-slate-500 font-sans">ประมวลผลคำขอต่อรองแบบส่งสตรีม (สัปดาห์นี้)</p>
-                </div>
-                <div className="h-64 mt-4 text-xs">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={aiRequestData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2e" vertical={false} />
-                      <XAxis dataKey="name" stroke="#5d5d61" />
-                      <YAxis stroke="#5d5d61" />
-                      <ChartTooltip contentStyle={{ backgroundColor: "#0c0c0e", borderColor: "#333", color: "#ccc" }} />
-                      <Bar dataKey="chats" name="น้องเอสตรีม" fill="#ea580c" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="analysis" name="ตรวจสภาพกล้อง" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="p-4 rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/80 backdrop-blur-md space-y-2 text-left">
+                <h3 className="text-sm font-bold text-white font-display">การใช้งาน AI Chat และ CarVision</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">{HONEST_METRIC_EMPTY_STATE}</p>
               </div>
-
             </div>
 
             {/* C. GEMINI AI PLATFORM SECURITY OFFICER MODULE */}
@@ -543,34 +481,6 @@ export default function AdminDashboardView() {
                 )}
               </AnimatePresence>
 
-            </div>
-
-            {/* D. TOP PERFORMING POSTS PANEL */}
-            <div className="p-5 rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/60 backdrop-blur-md text-left space-y-4">
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                คันจำนงความนิยมสูงสุดหน้าร้านมาร์เก็ตเพลส (Top Performing Listed Cars)
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {adminState.cars.slice(0, 3).map((car, idx) => {
-                  return (
-                    <div 
-                      key={car.id}
-                      className="p-3.5 rounded-xl bg-slate-900/40 border border-slate-850 flex items-start gap-3 text-left hover:border-orange-500/20 transition cursor-pointer"
-                      onClick={() => adminState.setActiveTab("listings")}
-                    >
-                      <div className="w-14 h-14 rounded-lg bg-slate-950 overflow-hidden shrink-0">
-                        <img src={car.images[0]} alt={car.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <span className="text-[9px] font-black text-orange-400 font-mono">อันดับ {idx + 1} • {car.brand}</span>
-                        <h4 className="text-white text-xs font-bold truncate leading-none">{car.title}</h4>
-                        <p className="text-slate-400 font-mono text-[10.5px]">฿{car.price.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
           </div>
