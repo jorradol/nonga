@@ -298,15 +298,15 @@ export default function HomeView() {
               <span className="text-[10px] font-bold tracking-widest text-[#0e0e0e] dark:text-slate-100 flex items-center gap-1.5 uppercase">
                 <ShieldCheck className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> ตรวจสอบสเป็คของจริง
               </span>
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                หากพี่ออโต้พึงพอใจการทักทายข้างต้น สามารถกดปุ่มด้านล่างเพื่อไปยังหน้าระบบลงขายและขอใช้งานระบบต่อรองอัจฉริยะ Gemini ในการลงภาพรถคันเด่นจริงๆ ของพี่ฟรีได้ทันที!
+              <p className="text-[11px] leading-relaxed text-slate-400 text-balance">
+                การลงประกาศใช้ได้เฉพาะบัญชีดีลเลอร์ที่ได้รับสิทธิ์และเข้าสู่ระบบแล้ว ขณะนี้ยังไม่เปิดรับสมัครสาธารณะ
               </p>
               <button 
                 onClick={() => setView("sell")}
-                className="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition"
+                className="w-full py-2.5 px-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition text-center leading-snug"
               >
-                <span>กดไปลงทะเบียนขายรถของจริง</span>
-                <PlusCircle className="w-3.5 h-3.5" />
+                <span>ไปยังพื้นที่ลงประกาศสำหรับดีลเลอร์</span>
+                <PlusCircle className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
           </div>
