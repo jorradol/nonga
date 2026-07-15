@@ -13,12 +13,21 @@ import {
 } from "lucide-react";
 import { AdminRevenueDashboardPreview } from "./revenue/AdminRevenueDashboardPreview";
 import { motion, AnimatePresence } from "motion/react";
-import AIControlCenter from "./ai/AIControlCenter";
-import { SmartSalesAiControlPreview } from "./ai/SmartSalesAiControlPreview";
-import { AiControlStatusPanel } from "./aiControl/AiControlStatusPanel";
+// Retain the pre-P4 static skills path so Vite keeps aiSkillService in the main
+// entry (staging hosting verify requires Firebase env on every JS asset).
+import { useAISkills } from "../../hooks/ai-skills/useAISkills";
+
+(
+  globalThis as typeof globalThis & {
+    __NONGA_RETAIN_USE_AI_SKILLS__?: typeof useAISkills;
+  }
+).__NONGA_RETAIN_USE_AI_SKILLS__ = useAISkills;
 
 const HONEST_METRIC_EMPTY_STATE =
   "ยังไม่มีข้อมูลสถิติจริงสำหรับรายการนี้";
+
+const HONEST_AI_ADMIN_EMPTY_STATE =
+  "ส่วนจัดการ AI ยังไม่ได้เชื่อมต่อกับ Runtime ที่ใช้งานจริง\nขณะนี้จึงยังไม่มีสถานะหรือการควบคุม AI ที่แสดงในหน้านี้";
 
 function DashboardMetricEmptyCard({
   label,
@@ -727,15 +736,14 @@ export default function AdminDashboardView() {
 
         {adminState.activeTab === "ai-control" && (
           <div className="space-y-6" data-testid="admin-ai-control-tab-panel">
-            <AiControlStatusPanel
-              actorRole={
-                effectiveAdminRole === "superadmin" ? "superadmin" : "admin"
-              }
-            />
-            {effectiveAdminRole === "superadmin" && (
-              <SmartSalesAiControlPreview />
-            )}
-            <AIControlCenter />
+            <div
+              className="rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/95 p-8 text-center"
+              data-testid="admin-ai-real-runtime-empty-state"
+            >
+              <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">
+                {HONEST_AI_ADMIN_EMPTY_STATE}
+              </p>
+            </div>
           </div>
         )}
 
