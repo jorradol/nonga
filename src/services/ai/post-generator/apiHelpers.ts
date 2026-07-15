@@ -119,3 +119,40 @@ export function validateCarSpecsInput(specs: {
   if (!specs.year || String(specs.year).trim() === "") return "กรุณาระบุปีรถ";
   return null;
 }
+
+/** Hosting honesty gate — ข้อความเมื่อ server คืน isMock */
+export const POST_GENERATE_MOCK_ERROR =
+  "ขณะนี้ระบบสร้างโพสต์ด้วย AI ไม่พร้อมใช้งาน กรุณาลองใหม่อีกครั้งครับ";
+
+/** Hosting honesty gate — ข้อความเมื่อ generate ล้มเหลว */
+export const POST_GENERATE_FAILED_ERROR =
+  "สร้างโพสต์ไม่สำเร็จ กรุณาลองใหม่อีกครั้งครับ";
+
+export type PostGenerateApiPayload = {
+  success?: boolean;
+  isMock?: boolean;
+  posts?: Partial<GeneratedPosts> | null;
+};
+
+/**
+ * Hosting-only honesty gate for Car Post Generator.
+ * Real AI success only — mock or invalid payload must not surface as success.
+ */
+export function evaluatePostGenerateHonesty(
+  data: PostGenerateApiPayload
+): { ok: true } | { ok: false; reason: "mock" | "invalid" } {
+  if (data.isMock === true) {
+    return { ok: false, reason: "mock" };
+  }
+  if (!data.success || !data.posts || typeof data.posts !== "object") {
+    return { ok: false, reason: "invalid" };
+  }
+  return { ok: true };
+}
+
+/** Quota may be deducted only after a real (non-mock) generate success. */
+export function shouldDeductPostGenerationQuota(
+  honesty: ReturnType<typeof evaluatePostGenerateHonesty>
+): boolean {
+  return honesty.ok === true;
+}

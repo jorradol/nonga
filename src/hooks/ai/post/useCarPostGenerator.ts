@@ -12,6 +12,7 @@ import {
 } from "../../../services/ai/post-generator/postStyle";
 import { CarPostRegenerateMode } from "../../../services/ai/post-generator/regenerateStyle";
 import { postGeneratorService } from "../../../services/ai/post-generator/generatorService";
+import { POST_GENERATE_FAILED_ERROR } from "../../../services/ai/post-generator/apiHelpers";
 import { useAiPremium } from "../../ai-premium/useAiPremium";
 
 const REGENERATE_COOLDOWN_MS = 1200;
@@ -169,6 +170,7 @@ export function useCarPostGenerator() {
     setIsLoading(true);
     setCurrentStep("generating");
     try {
+      // Honesty gate: only real (non-mock) generate success reaches here.
       const results = await runGenerate(null);
 
       await triggerUsage("post-generation");
@@ -178,15 +180,14 @@ export function useCarPostGenerator() {
 
       setGeneratedResults(results);
       setCurrentStep("results");
-    } catch {
-      setWorkflowError("สร้างโพสต์ไม่สำเร็จ ระบบใช้ข้อความสำรองให้แล้ว ลองกดสร้างใหม่ได้ครับ");
-      try {
-        const fallback = await runGenerate(null);
-        setGeneratedResults(fallback);
-        setCurrentStep("results");
-      } catch {
-        setCurrentStep("questions");
-      }
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : POST_GENERATE_FAILED_ERROR;
+      setWorkflowError(message);
+      setGeneratedResults(null);
+      setCurrentStep("questions");
     } finally {
       setIsLoading(false);
     }

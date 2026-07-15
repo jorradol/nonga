@@ -20,7 +20,10 @@ import {
   resolveEffectivePostStyle,
 } from "./regenerateStyle";
 import {
+  evaluatePostGenerateHonesty,
   fetchWithTimeout,
+  POST_GENERATE_FAILED_ERROR,
+  POST_GENERATE_MOCK_ERROR,
   sanitizeGeneratedPosts,
   validateCarSpecsInput,
 } from "./apiHelpers";
@@ -426,39 +429,42 @@ export const postGeneratorService = {
       ? buildMarketingBrainFallbackPosts(specs, marketingBrain)
       : buildLegacyFallbackPosts(specs);
 
-    try {
-      const response = await fetchWithTimeout(
-        "/api/ai/post-generator/generate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            specs,
-            options,
-            answers,
-            marketingBrain,
-            postStyle: effectiveStyle,
-            regenerateMode: regenerateMode ?? undefined,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+    const response = await fetchWithTimeout(
+      "/api/ai/post-generator/generate",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          specs,
+          options,
+          answers,
+          marketingBrain,
+          postStyle: effectiveStyle,
+          regenerateMode: regenerateMode ?? undefined,
+        }),
       }
+    );
 
-      const data = await parseJsonResponse<{
-        success?: boolean;
-        posts?: Partial<GeneratedPosts>;
-      }>(response);
-
-      if (data.success && data.posts) {
-        return sanitizeGeneratedPosts(data.posts, fallback);
-      }
-      throw new Error("Invalid posts payload");
-    } catch {
-      return fallback;
+    if (!response.ok) {
+      throw new Error(POST_GENERATE_FAILED_ERROR);
     }
+
+    const data = await parseJsonResponse<{
+      success?: boolean;
+      isMock?: boolean;
+      posts?: Partial<GeneratedPosts>;
+    }>(response);
+
+    const honesty = evaluatePostGenerateHonesty(data);
+    if (honesty.ok === false) {
+      throw new Error(
+        honesty.reason === "mock"
+          ? POST_GENERATE_MOCK_ERROR
+          : POST_GENERATE_FAILED_ERROR
+      );
+    }
+
+    return sanitizeGeneratedPosts(data.posts!, fallback);
   },
 
   async regeneratePosts(
