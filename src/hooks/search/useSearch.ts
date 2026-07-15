@@ -116,8 +116,10 @@ export function useSearch() {
   return {
     // states
     cars: paginatedCars,
-    totalCount: queryResult.totalCount,
-    allFilteredCount: queryResult.results.length,
+    /** Cars matching active Search filters (post-filter). */
+    filteredCount: queryResult.totalCount,
+    /** Full marketplace catalog before Search filters (pre-filter). */
+    catalogCount: cars.length,
     isLoading: isLoadingCars || isShufflingResults,
     isShuffling: isShufflingResults,
     localSearchText,

@@ -37,8 +37,8 @@ export default function SearchPageView() {
 
   const {
     cars,
-    totalCount,
-    allFilteredCount,
+    filteredCount,
+    catalogCount,
     isLoading,
     isShuffling,
     localSearchText,
@@ -306,9 +306,9 @@ export default function SearchPageView() {
             <div className="text-left">
               <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block mb-0.5">Showroom Intelligence</span>
               <h2 className="font-display font-black text-slate-100 text-lg flex items-baseline gap-1.5 leading-none">
-                <span>เจอรถบ้านสวยตรงใจ</span>
-                <span className="font-mono text-orange-500 text-xl font-black">{isLoading ? "..." : allFilteredCount}</span>
-                <span className="text-xs text-slate-400 font-normal">จากทั้งหมด {totalCount} คัน</span>
+                <span>พบ</span>
+                <span className="font-mono text-orange-500 text-xl font-black">{isLoading ? "..." : filteredCount}</span>
+                <span className="text-xs text-slate-400 font-normal">คัน จากทั้งหมด {catalogCount} คัน</span>
               </h2>
             </div>
 
@@ -335,7 +335,7 @@ export default function SearchPageView() {
           </div>
 
           {/* AI Aggregated Quick Analytics widget box */}
-          {allFilteredCount > 0 && (
+          {filteredCount > 0 && (
             <div className="p-4 rounded-2xl bg-orange-600/[0.02] border border-orange-500/10 text-left grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <span className="text-[9px] text-slate-500 dark:text-slate-500 tracking-wider block uppercase">ราคากลางเฉลี่ย</span>
