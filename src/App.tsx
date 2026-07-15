@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect } from "react";
 import { useAppStore } from "./store";
 import { getListingPrimaryImage } from "./utils/listingImages";
 import { useRole } from "./hooks/auth/useRole";
-import { saveLastSelectedCarId } from "./utils/chatCarContext";
 import {
   navigateDealerSignupEntry,
   navigateDealerSystemEntry,
@@ -68,7 +67,6 @@ import {
 export default function App() {
   const { 
     currentView,
-    selectedCarId,
     setView,
     enforcePathnameView,
     isDarkMode, 
@@ -82,27 +80,6 @@ export default function App() {
   } = useAppStore();
 
   const { isAdmin, isDealer, role } = useRole();
-  const hideFloatingChatViews = new Set([
-    "chat",
-    "login",
-    "register",
-    "forgot-password",
-    "dealer-portal",
-    "dealer-dashboard",
-    "admin-dashboard",
-    "inventory-import",
-    "dealer-draft-inventory",
-    "admin-reports",
-    "admin-pending-listings",
-    "admin-pilot-users",
-  ]);
-  const showFloatingChatButton = !hideFloatingChatViews.has(currentView);
-  const openFloatingChat = () => {
-    if (currentView === "car-details" && selectedCarId) {
-      saveLastSelectedCarId(selectedCarId);
-    }
-    setView("chat");
-  };
   const comingSoonLinkClass =
     "text-left text-slate-500 cursor-not-allowed opacity-75";
 
@@ -412,18 +389,6 @@ export default function App() {
           </Container>
         )}
       </div>
-
-      {showFloatingChatButton && (
-        <button
-          type="button"
-          onClick={openFloatingChat}
-          className="fixed bottom-5 right-4 sm:bottom-7 sm:right-7 z-40 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-black text-white shadow-2xl shadow-orange-600/30 ring-1 ring-orange-300/20 transition hover:from-orange-700 hover:to-orange-600 hover:scale-[1.03] active:scale-95 focus:outline-none focus:ring-4 focus:ring-orange-400/30"
-          aria-label="คุยกับน้องเอ"
-        >
-          <MessageSquare className="h-5 w-5" />
-          <span>คุยกับน้องเอ</span>
-        </button>
-      )}
 
       {/* Premium Multi-column Layout Footer with AI Disclaimers & Brand links */}
       {currentView !== "chat" && (

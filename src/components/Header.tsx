@@ -77,7 +77,6 @@ export default function Header() {
   const showDealerActions = isDealer || isAdmin;
   const dealerNavItems: HeaderNavItem[] = showDealerActions
     ? [
-        { id: "chat", label: "คุยกับน้องเอ AI", icon: MessageSquare },
         { id: "sell", label: "ลงขายด่วน 🪄", icon: PlusCircle },
       ]
     : [];
@@ -92,6 +91,7 @@ export default function Header() {
   const navItems: HeaderNavItem[] = [
     { id: "home", label: "หน้าแรก", icon: Home },
     { id: "marketplace", label: "ตลาดรถยนต์", icon: Car },
+    { id: "chat", label: "คุยกับน้องเอ", icon: MessageSquare },
     ...dealerNavItems,
     { id: "my-listings", label: "ประกาศของฉัน", icon: ClipboardList },
     { id: "search", label: "ค้นหาละเอียด 🔍", icon: Search, badge: "แนะนำ" },
