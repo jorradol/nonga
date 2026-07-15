@@ -19,7 +19,81 @@
 }
 
 :root {
+  /* Compatibility alias — historical callers / P0C string guards */
   --nonga-scrollbar-track: var(--color-scrollbar-track);
+
+  /*
+   * Nong A semantic color foundation — Light (default)
+   * Class-based theme only (.dark on <html>). Do not use prefers-color-scheme here.
+   */
+  --nonga-bg-app: #fafafa;
+  --nonga-bg-surface: #ffffff;
+  --nonga-bg-elevated: #ffffff;
+  --nonga-bg-subtle: #f4f4f5;
+  --nonga-border: #e4e4e7;
+  --nonga-border-strong: #d4d4d8;
+
+  --nonga-text-primary: #18181b;
+  --nonga-text-secondary: #52525b;
+  --nonga-text-muted: #71717a;
+  --nonga-text-placeholder: #71717a;
+  --nonga-text-inverse: #fafafa;
+
+  --nonga-brand: #ff5a1f;
+  --nonga-brand-hover: #ea580c;
+  /* Darker orange + white label for future WCAG 2.2 AA primary actions */
+  --nonga-action-primary: #c2410c;
+  --nonga-action-primary-hover: #9a3412;
+  --nonga-action-primary-text: #ffffff;
+  --nonga-focus-ring: #c2410c;
+
+  --nonga-success: #16a34a;
+  --nonga-warning: #ca8a04;
+  --nonga-error: #dc2626;
+  --nonga-info: #2563eb;
+
+  /* Foundation scrollbar tokens (opaque). Selectors/consumers unchanged this round. */
+  --nonga-scrollbar-track: #e4e4e7;
+  --nonga-scrollbar-thumb: #f97316;
+  --nonga-scrollbar-thumb-hover: #ea580c;
+}
+
+/* Browser-native controls follow class-based app theme */
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --nonga-bg-app: #0a0a0a;
+  --nonga-bg-surface: #141416;
+  --nonga-bg-elevated: #1a1a1f;
+  --nonga-bg-subtle: #18181b;
+  --nonga-border: #27272a;
+  --nonga-border-strong: #3f3f46;
+
+  --nonga-text-primary: #e8e8ea;
+  --nonga-text-secondary: #a1a1aa;
+  --nonga-text-muted: #8b8b93;
+  --nonga-text-placeholder: #8b8b93;
+  --nonga-text-inverse: #18181b;
+
+  --nonga-brand: #ff5a1f;
+  --nonga-brand-hover: #ff7c47;
+  --nonga-action-primary: #c2410c;
+  --nonga-action-primary-hover: #9a3412;
+  --nonga-action-primary-text: #ffffff;
+  --nonga-focus-ring: #f97316;
+
+  --nonga-success: #22c55e;
+  --nonga-warning: #eab308;
+  --nonga-error: #f87171;
+  --nonga-info: #3b82f6;
+
+  --nonga-scrollbar-track: #27272a;
+  --nonga-scrollbar-thumb: #f97316;
+  --nonga-scrollbar-thumb-hover: #ea580c;
 }
 
 /* Custom animated gradient glow */
