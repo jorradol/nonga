@@ -63,7 +63,7 @@ export function PostGeneratorDashboard() {
   ];
 
   return (
-    <div className="w-full bg-slate-950 text-slate-100 min-h-screen px-4 py-8 relative overflow-hidden font-sans selection:bg-orange-500/30">
+    <div className="w-full bg-[#0a0a0a] text-slate-100 min-h-screen px-4 py-8 relative overflow-hidden font-sans selection:bg-orange-500/30">
       
       {/* Decorative gradient glowing orb */}
       <div className="absolute top-[-10%] left-[-10%] w-[350px] h-[350px] bg-orange-650/10 rounded-full blur-[100px] pointer-events-none" />
@@ -72,7 +72,7 @@ export function PostGeneratorDashboard() {
       <div className="max-w-4xl mx-auto space-y-6 relative z-10">
         
         {/* Banner Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 rounded-2xl border border-orange-550/15 bg-gradient-to-r from-orange-950/20 to-slate-900/40 backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 rounded-2xl border border-orange-550/15 bg-gradient-to-r from-orange-950/20 to-[#0c0c0e]/40 backdrop-blur-md">
           <div className="flex items-center gap-4 text-center sm:text-left flex-col sm:flex-row">
             <span className="p-4 rounded-xl bg-orange-600/10 text-orange-400 shrink-0">
               <Sparkles className="w-7 h-7 animate-pulse text-orange-500" />
@@ -148,7 +148,7 @@ export function PostGeneratorDashboard() {
               className="space-y-6"
             >
               
-              <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md space-y-6">
+              <div className="p-6 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md space-y-6">
                 <div>
                   <h3 className="text-sm font-black text-slate-100 flex items-center gap-1.5 border-b border-slate-800 pb-2.5">
                     <Car className="w-4 h-4 text-orange-500" />
@@ -261,7 +261,7 @@ export function PostGeneratorDashboard() {
 
               </div>
 
-              <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md">
+              <div className="p-6 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md">
                 <CarPostStyleSelector
                   value={postStyle}
                   onChange={updatePostStyle}
@@ -270,7 +270,7 @@ export function PostGeneratorDashboard() {
               </div>
 
               {/* Tones / Writing Presets Selector */}
-              <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md space-y-4">
+              <div className="p-6 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md space-y-4">
                 <div className="border-b border-slate-800 pb-2 flex items-center justify-between">
                   <h3 className="text-sm font-black text-slate-100 flex items-center gap-1.5">
                     <Sliders className="w-4 h-4 text-orange-500" />
@@ -288,7 +288,7 @@ export function PostGeneratorDashboard() {
                       className={`p-4 rounded-xl text-left border flex items-start gap-3.5 transition duration-300 cursor-pointer ${
                         options.tone === t.id
                           ? "bg-orange-500/[0.04] border-orange-500 text-slate-100 shadow-lg shadow-orange-500/5"
-                          : "bg-slate-950/60 border-slate-900 text-slate-400 hover:border-slate-800 hover:text-slate-200"
+                          : "bg-[#111113]/60 border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-200"
                       }`}
                     >
                       <span className="text-2xl p-1 shrink-0">{t.emoji}</span>
@@ -307,7 +307,7 @@ export function PostGeneratorDashboard() {
               </div>
 
               {/* Generator optimization toggles list */}
-              <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md space-y-4">
+              <div className="p-6 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md space-y-4">
                 <div>
                   <h3 className="text-sm font-black text-slate-100 flex items-center gap-1.5 border-b border-slate-800 pb-2.5">
                     <Sparkles className="w-4 h-4 text-orange-500" />
@@ -317,7 +317,7 @@ export function PostGeneratorDashboard() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Emoji selection */}
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-slate-900">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111113] border border-white/[0.06]">
                     <div className="flex items-center gap-2.5">
                       <span className="p-2 rounded-lg bg-orange-650/10 text-orange-400">🔥</span>
                       <div className="space-y-0.5">
@@ -337,7 +337,7 @@ export function PostGeneratorDashboard() {
                   </div>
 
                   {/* Hashtag Engine */}
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-slate-900">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111113] border border-white/[0.06]">
                     <div className="flex items-center gap-2.5">
                       <span className="p-2 rounded-lg bg-orange-650/10 text-orange-400">#️⃣</span>
                       <div className="space-y-0.5">
@@ -357,7 +357,7 @@ export function PostGeneratorDashboard() {
                   </div>
 
                   {/* SEO density parameters */}
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-slate-900">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111113] border border-white/[0.06]">
                     <div className="flex items-center gap-2.5">
                       <span className="p-2 rounded-lg bg-orange-650/10 text-orange-400">🔍</span>
                       <div className="space-y-0.5">
@@ -377,7 +377,7 @@ export function PostGeneratorDashboard() {
                   </div>
 
                   {/* Auto translation toggle */}
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-slate-900">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#111113] border border-white/[0.06]">
                     <div className="flex items-center gap-2.5">
                       <span className="p-2 rounded-lg bg-orange-650/10 text-orange-400">🌐</span>
                       <div className="space-y-0.5">
@@ -398,7 +398,7 @@ export function PostGeneratorDashboard() {
                 </div>
 
                 {options.autoTranslate && (
-                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-900 space-y-2 text-left">
+                  <div className="p-3 bg-[#111113] rounded-xl border border-white/[0.06] space-y-2 text-left">
                     <span className="text-[10px] text-orange-400 font-extrabold flex items-center gap-1">
                       <Globe className="w-3 h-3 text-orange-500" />
                       เลือกภาษาเป้าหมายการแปลเพิ่ม (Target Language for Multi-Language Translation)
@@ -429,7 +429,7 @@ export function PostGeneratorDashboard() {
               </div>
 
               {/* Usage Quota indicators */}
-              <div className="p-4.5 rounded-2xl border border-slate-900 bg-slate-950/40 space-y-3">
+              <div className="p-4.5 rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/40 space-y-3">
                 <UsageProgressBar featureId="post-generation" label="สถิติโควต้าใช้เขียนโฆษณาในแผนของคุณ" />
                 <p className="text-[10px] text-slate-500 leading-normal text-left">
                   * ดีลเรสัญญากับแผนใช้งานฟรีได้รับสิทธิ์วิเคราะห์ระบบได้ 5 ครั้ง / สัญญาใช้งาน โดยระบบจะเริ่มนับแต้มครั้งเฉพาะกรณีที่กดทำการทำโพสต์ออพชั่นเสร็จสมบูรณ์แล้วคร้าบ!
@@ -460,7 +460,7 @@ export function PostGeneratorDashboard() {
               className="space-y-5"
             >
               
-              <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md space-y-6">
+              <div className="p-6 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md space-y-6">
                 
                 <div className="flex items-center gap-3.5 border-b border-slate-800 pb-4">
                   <span className="w-9 h-9 rounded-xl bg-orange-650/10 text-orange-400 flex items-center justify-center">
@@ -484,7 +484,7 @@ export function PostGeneratorDashboard() {
                     {questions.map((q, idx) => (
                       <div 
                         key={q.id} 
-                        className="p-4 rounded-2xl bg-slate-950 border border-slate-900 space-y-3 font-sans transition-all duration-350 hover:border-slate-800/80 text-left"
+                        className="p-4 rounded-2xl bg-[#111113] border border-white/[0.06] space-y-3 font-sans transition-all duration-350 hover:border-white/[0.12] text-left"
                       >
                         <div className="flex gap-3">
                           <span className="font-black text-xs text-orange-400 shrink-0 select-none bg-orange-500/10 w-6 h-6 rounded-full flex items-center justify-center mt-0.5">
@@ -505,7 +505,7 @@ export function PostGeneratorDashboard() {
                       </div>
                     ))}
 
-                    <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sticky bottom-0 sm:static pb-2 sm:pb-0 bg-slate-950/90 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none -mx-1 px-1 sm:mx-0 sm:px-0">
+                    <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sticky bottom-0 sm:static pb-2 sm:pb-0 bg-[#0a0a0a]/90 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none -mx-1 px-1 sm:mx-0 sm:px-0">
                       <button
                         type="button"
                         disabled={isBusy}
@@ -538,7 +538,7 @@ export function PostGeneratorDashboard() {
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className="p-12 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md flex flex-col items-center justify-center text-center space-y-4"
+              className="p-12 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md flex flex-col items-center justify-center text-center space-y-4"
             >
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-xl shadow-orange-500/20 animate-bounce">
                 <Sparkles className="w-7 h-7" />
@@ -591,7 +591,7 @@ export function PostGeneratorDashboard() {
               {/* Title & Viral Hook quick blocks */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Marketplace Title */}
-                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-3 text-left">
+                <div className="p-4 rounded-xl bg-[#111113] border border-white/[0.06] flex flex-col justify-between gap-3 text-left">
                   <div className="space-y-0.5">
                     <span className="text-[9px] text-orange-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
                       <Star className="w-2.5 h-2.5 fill-current" />
@@ -620,7 +620,7 @@ export function PostGeneratorDashboard() {
                 </div>
 
                 {/* Viral Hook */}
-                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-3 text-left">
+                <div className="p-4 rounded-xl bg-[#111113] border border-white/[0.06] flex flex-col justify-between gap-3 text-left">
                   <div className="space-y-0.5">
                     <span className="text-[9px] text-orange-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
                       <Heart className="w-2.5 h-2.5 fill-current text-rose-500" />
@@ -650,7 +650,7 @@ export function PostGeneratorDashboard() {
               </div>
 
               {/* Main Copy-ready Tabs System */}
-              <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md space-y-4">
+              <div className="p-5 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md space-y-4">
                 
                 {/* Web Tabs Controllers */}
                 <div className="flex flex-wrap gap-2 border-b border-slate-800/80 pb-3">
@@ -667,8 +667,8 @@ export function PostGeneratorDashboard() {
                         onClick={() => setActiveTab(tab.id as any)}
                         className={`text-[11px] px-3 py-2 rounded-lg border font-bold flex items-center gap-1.5 transition cursor-pointer ${
                           activeTab === tab.id
-                            ? "bg-slate-950 border-orange-550 text-orange-450"
-                            : "bg-slate-950/40 border-slate-850 text-slate-400 hover:text-slate-200"
+                            ? "bg-[#111113] border-orange-550 text-orange-450"
+                            : "bg-[#111113]/40 border-white/[0.06] text-slate-400 hover:text-slate-200"
                         }`}
                       >
                         <IconComp className={`w-3.5 h-3.5 ${tab.color}`} />
@@ -704,7 +704,7 @@ export function PostGeneratorDashboard() {
                           )}
                         </button>
                       </div>
-                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 leading-relaxed font-sans text-slate-300 antialiased whitespace-pre-wrap max-h-[380px] overflow-y-auto selection:bg-orange-500/20 text-[11.5px]">
+                      <div className="bg-[#111113] p-4 rounded-xl border border-white/[0.06] leading-relaxed font-sans text-slate-300 antialiased whitespace-pre-wrap max-h-[380px] overflow-y-auto selection:bg-orange-500/20 text-[11.5px]">
                         {generatedResults.facebook}
                       </div>
                     </div>
@@ -731,7 +731,7 @@ export function PostGeneratorDashboard() {
                           )}
                         </button>
                       </div>
-                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 leading-relaxed font-sans text-slate-300 whitespace-pre-wrap max-h-[300px] overflow-y-auto font-mono text-[11px]">
+                      <div className="bg-[#111113] p-4 rounded-xl border border-white/[0.06] leading-relaxed font-sans text-slate-300 whitespace-pre-wrap max-h-[300px] overflow-y-auto font-mono text-[11px]">
                         {generatedResults.tiktok}
                       </div>
                     </div>
@@ -758,7 +758,7 @@ export function PostGeneratorDashboard() {
                           )}
                         </button>
                       </div>
-                      <p className="p-3 bg-slate-950 rounded-xl border border-slate-850 leading-relaxed text-slate-400 font-sans">
+                      <p className="p-3 bg-[#111113] rounded-xl border border-white/[0.06] leading-relaxed text-slate-400 font-sans">
                         {generatedResults.seoDescription}
                       </p>
                     </div>
@@ -777,7 +777,7 @@ export function PostGeneratorDashboard() {
                             {copiedKey === "sc_copy" ? "คัดลอกแล้ว!" : "คัดลอก"}
                           </button>
                         </div>
-                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-slate-300 min-h-[90px] leading-relaxed select-all">
+                        <div className="bg-[#111113] p-3 rounded-xl border border-white/[0.06] text-slate-300 min-h-[90px] leading-relaxed select-all">
                           {generatedResults.shortCaption}
                         </div>
                       </div>
@@ -793,7 +793,7 @@ export function PostGeneratorDashboard() {
                             {copiedKey === "cc_copy" ? "คัดลอกแล้ว!" : "คัดลอก"}
                           </button>
                         </div>
-                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-slate-300 min-h-[90px] leading-relaxed select-all">
+                        <div className="bg-[#111113] p-3 rounded-xl border border-white/[0.06] text-slate-300 min-h-[90px] leading-relaxed select-all">
                           {generatedResults.closingCta}
                         </div>
                       </div>
@@ -806,7 +806,7 @@ export function PostGeneratorDashboard() {
 
               {/* Hashtag Cloud Container */}
               {options.includeHashtags && (
-                <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-900 backdrop-blur-md text-left space-y-2.5">
+                <div className="p-5 rounded-2xl bg-[#0c0c0e]/90 border border-white/[0.06] backdrop-blur-md text-left space-y-2.5">
                   <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide flex items-center gap-1">
                     <Hash className="w-3.5 h-3.5 text-orange-500" />
                     คัดเลือกกลุ่มแฮชแท็กอภินันทนาการ (Optimal Hashtags Cloud)
@@ -815,7 +815,7 @@ export function PostGeneratorDashboard() {
                     {generatedResults.tags.map((tag) => (
                       <span 
                         key={tag} 
-                        className="px-2 py-1 bg-slate-950 border border-slate-850 text-slate-400 rounded-lg hover:border-orange-500/20 hover:text-orange-300 transition cursor-default"
+                        className="px-2 py-1 bg-[#111113] border border-white/[0.06] text-slate-400 rounded-lg hover:border-orange-500/20 hover:text-orange-300 transition cursor-default"
                         onClick={() => handleCopy(`#${tag}`, "tag_" + tag)}
                       >
                         #{tag}
@@ -843,7 +843,7 @@ export function PostGeneratorDashboard() {
         </AnimatePresence>
 
         {/* AI Premium Workspace Quotas & Management Console */}
-        <div className="pt-8 border-t border-slate-900/60 mt-10">
+        <div className="pt-8 border-t border-white/[0.06] mt-10">
           <AiUsageDashboard />
         </div>
 
