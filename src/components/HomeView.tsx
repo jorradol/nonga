@@ -2,69 +2,21 @@ import { useState } from "react";
 import { useAppStore } from "../store";
 import { useAuth } from "../hooks/auth/useAuth";
 import { useRole } from "../hooks/auth/useRole";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { 
   Sparkles, Car, MessageSquare, PlusCircle, Search, 
-  Store, Bot, ArrowRight, Upload, Flame, TrendingUp, 
-  BatteryCharging, Cpu, ClipboardCopy, RefreshCw, Star, 
-  CheckCircle2, Heart, ExternalLink, ShieldCheck
+  Store, Bot, ArrowRight, Upload, Flame, 
+  Cpu, RefreshCw, 
+  CheckCircle2, ShieldCheck
 } from "lucide-react";
 import { 
-  Container, 
   Section, 
-  AnimatedCard, 
-  GlassToolbar 
+  AnimatedCard
 } from "./LayoutSystem";
 import { queuePendingChatMessage } from "../utils/pendingChatMessage";
 
-// Mock Trending Cars (Dynamic Highlight Showcase for Home Page)
-const TRENDING_CARS_SHOWCASE = [
-  {
-    id: "tesla-model-3-2023",
-    title: "Tesla Model 3 Long Range AWD",
-    brand: "Tesla",
-    year: 2023,
-    price: 1350000,
-    mileage: 18000,
-    fuelType: "ไฟฟ้า 100% ⚡",
-    condition: "สภาพนางฟ้าเกรด S",
-    type: "ev",
-    image: "https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&q=80&w=600",
-    rating: 4.9,
-    comment: "น้องเอฟันธง: รุ่นท็อปขับสี่ประหยัดแบตเตอรี่ วิ่งทางไกล 620 กม. ตะลุยเมืองกรุงได้สบาย ปังปุริเย่!"
-  },
-  {
-    id: "porsche-taycan-4s-2022",
-    title: "Porsche Taycan 4S Sports Performance",
-    brand: "Porsche",
-    year: 2022,
-    price: 5890000,
-    mileage: 12000,
-    fuelType: "ไฟฟ้า 100% ⚡",
-    condition: "มือเดียวประวัติศูนย์ครบ",
-    type: "luxury",
-    image: "https://images.unsplash.com/photo-1611245801314-cfcc325d2c5c?auto=format&fit=crop&q=80&w=600",
-    rating: 5.0,
-    comment: "น้องเอวิจารณ์: ขนลุกในความพรีเมียม สไตล์สปอร์ตหรูหรา ซื้อคันนี้ไปจอดที่ไหนใครก็หันมอง ว้าว!"
-  },
-  {
-    id: "honda-civic-fe-2022",
-    title: "Honda Civic FE 1.5 Turbo EL+",
-    brand: "Honda",
-    year: 2022,
-    price: 849000,
-    mileage: 32000,
-    fuelType: "เบนซิน ⛽",
-    condition: "สวยเดิมสีบางนุ่นสปิต",
-    type: "used",
-    image: "https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&q=80&w=600",
-    rating: 4.7,
-    comment: "น้องเอแนะนำ: ขวัญใจวัยรุ่นและครอบครัว เครื่องเทอร์โบขับสนุก อะไหล่หาง่าย ราคาไม่มีดิ่งเหวครับ!"
-  }
-];
-
 export default function HomeView() {
-  const { isDarkMode, setView, favorites, toggleFavorite } = useAppStore();
+  const { isDarkMode, setView } = useAppStore();
   const { isSignedIn } = useAuth();
   const { isDealer, isAdmin } = useRole();
   
@@ -574,119 +526,7 @@ export default function HomeView() {
         </div>
       </Section>
 
-      {/* 4. EXCLUSIVE TRENDING CARS PREVIEW SHOWCASE */}
-      <Section
-        badge="NONG A EXCLUSIVE GALLERY"
-        title={
-          <span className="flex items-center gap-2">
-            <span>รถยนต์ยอดฮิตติดชาร์ตของสัปดาห์</span>
-            <TrendingUp className="w-5 h-5 text-orange-500 animate-pulse" />
-          </span>
-        }
-        description="รถสวยกริ๊บประมวลผลด่วน คัดสรรสเป็คอัจฉริยะพร้อมให้น้องเอผู้ช่วย AI ลงคำวิจารณ์เจาะลึกเพื่อสนับสนุนสัญญารับรอง"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {TRENDING_CARS_SHOWCASE.map((car) => {
-            const isFav = favorites.includes(car.id);
-            return (
-              <AnimatedCard key={car.id} hoverGlow className="flex flex-col justify-between">
-                <div>
-                  {/* Photo area with status badge overlay */}
-                  <div className="aspect-video relative bg-slate-950 overflow-hidden">
-                    <img 
-                      src={car.image} 
-                      alt={car.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                    />
-                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                      <span className="px-2 py-0.5 rounded text-[8.5px] font-mono font-black uppercase tracking-wider bg-black/85 text-orange-400 border border-orange-500/35">
-                        {car.brand}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[8.5px] font-mono font-black uppercase tracking-wider bg-orange-600 text-white flex items-center gap-1 shadow">
-                        <Flame className="w-2.5 h-2.5" /> HOT LISTING
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => toggleFavorite(car.id)}
-                      className={`absolute top-3 right-3 p-1.5 rounded-full transition-all ${
-                        isFav 
-                          ? "bg-red-500 text-white" 
-                          : "bg-black/60 text-white/80 hover:text-white hover:scale-110"
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${isFav ? "fill-current" : ""}`} />
-                    </button>
-                    
-                    <div className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded bg-[#0d0d0fca] backdrop-blur-md border border-white/5 flex items-center gap-1">
-                      <BatteryCharging className="w-3 h-3 text-orange-500" />
-                      <span className="text-[10px] font-bold text-slate-100">{car.fuelType}</span>
-                    </div>
-                  </div>
-
-                  {/* Body Content */}
-                  <div className="p-5 text-left space-y-4">
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
-                        <span>ปีผลิตรถยนต์: {car.year}</span>
-                        <span>ไมล์วิ่ง: {car.mileage.toLocaleString()} กม.</span>
-                      </div>
-                      <h4 className="font-display font-extrabold text-[16px] sm:text-[17px] tracking-tight leading-snug line-clamp-1">
-                        {car.title}
-                      </h4>
-                    </div>
-
-                    {/* Short simulated AI opinion box */}
-                    <div className="p-3.5 rounded-xl border border-orange-500/10 bg-orange-500/5 text-[11.5px] leading-relaxed relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-8 h-8 rounded-bl-3xl bg-orange-500/10 flex items-center justify-center">
-                        <Sparkles className="w-3.5 h-3.5 text-orange-400" />
-                      </div>
-                      <div className="text-slate-300 dark:text-slate-350 italic">
-                        {car.comment}
-                      </div>
-                    </div>
-
-                    {/* Pricing */}
-                    <div className="flex items-baseline justify-between border-t border-orange-500/5 pt-3.5">
-                      <span className="text-[11.5px] font-medium text-slate-500">ประมาณการเงินสด</span>
-                      <span className="font-display font-black text-orange-500 text-lg sm:text-xl">฿{car.price.toLocaleString()}</span>
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* Operations bar mapping view action triggers */}
-                <div className="grid grid-cols-2 gap-2 p-4 border-t border-orange-500/5 bg-slate-500/5">
-                  <button
-                    onClick={() => {
-                      setView("car-details", car.id);
-                    }}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-slate-350 dark:border-white/10 hover:bg-orange-500/5 hover:text-orange-500"
-                  >
-                    <span>เจาะลึกพับลิค</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const sessionTitle = `นัดคุยเรื่อง ${car.brand} 🤖`;
-                      goToFullChat(
-                        `สวัสดีจ้าน้องเอ! พี่สนใจคุยรายละเอียดตารางผ่อนรถยนต์คันยอดฮิต ${car.title} ปี ${car.year} นะครับ รบกวนช่วยประเมินการต่อรองให้ทีสิ! 🚗`
-                      );
-                    }}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-orange-600/15"
-                  >
-                    <span>ต่อราคากับ AI</span>
-                    <Bot className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </AnimatedCard>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* 5. BRAND MISSION STATEMENT BANNER */}
+      {/* 4. BRAND MISSION STATEMENT BANNER */}
       <div className={`p-8 sm:p-12 rounded-3xl border text-center max-w-4xl mx-auto relative overflow-hidden space-y-6 ${
         isDarkMode 
           ? "bg-gradient-to-br from-[#0c0c0e] to-[#121214] border-white/[0.06] text-white" 
