@@ -1,14 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useAdmin } from "../../hooks/admin/useAdmin";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { useRole } from "../../hooks/auth/useRole";
 import { useAppStore } from "../../store";
-import { AdminRole, PlatformUser, SupportTicket, ReportedItem } from "../../types";
+import { AdminRole } from "../../types";
 import { 
   Sparkles, ShieldCheck, ShieldAlert, Users, Store, Car, 
   History, TrendingUp, Search, 
-  Filter, CheckSquare, Square, Trash2, Mail, 
-  RefreshCw, Send, Plus, Upload,
+  CheckSquare, Square, Trash2, Mail, 
+  RefreshCw, Upload,
   Banknote, FlaskConical, LayoutGrid
 } from "lucide-react";
 import { AdminRevenueDashboardPreview } from "./revenue/AdminRevenueDashboardPreview";
@@ -66,30 +66,6 @@ export default function AdminDashboardView() {
       adminState.setAdminRole(effectiveAdminRole);
     }
   }, [adminState.adminProfile.role, adminState.setAdminRole, effectiveAdminRole]);
-  
-  // Local active item details modal (for ticket replies & reports dialog)
-  const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
-  const [ticketReplyText, setTicketReplyText] = useState("");
-  
-  const [activeReportId, setActiveReportId] = useState<string | null>(null);
-  const [reportResultText, setReportResultText] = useState("");
-
-  // Create User Modal Trigger
-  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserRole, setNewUserRole] = useState<"user" | "dealer" | "admin" | "moderator" | "AI manager">("user");
-
-  const activeTicket = adminState.tickets.find(t => t.id === activeTicketId);
-  const activeReport = adminState.reportedItems.find(r => r.id === activeReportId);
-
-  // Filter implementation
-  const filteredUsers = adminState.platformUsers.filter((u) => {
-    const matchesSearch = u.displayName.toLowerCase().includes(adminState.userSearchQuery.toLowerCase()) || 
-                          u.email.toLowerCase().includes(adminState.userSearchQuery.toLowerCase());
-    const matchesRole = adminState.userRoleFilter === "all" || u.role === adminState.userRoleFilter;
-    return matchesSearch && matchesRole;
-  });
 
   const filteredListings = adminState.cars.filter((car) => {
     const matchesSearch = car.title.toLowerCase().includes(adminState.listingSearchQuery.toLowerCase()) || 
@@ -100,12 +76,6 @@ export default function AdminDashboardView() {
 
   const showAdminRevenuePreview =
     effectiveAdminRole === "superadmin" || effectiveAdminRole === "admin";
-
-  const filteredTickets = adminState.tickets.filter((t) => {
-    const matchesPriority = adminState.ticketPriorityFilter === "all" || t.priority === adminState.ticketPriorityFilter;
-    const matchesStatus = adminState.ticketStatusFilter === "all" || t.status === adminState.ticketStatusFilter;
-    return matchesPriority && matchesStatus;
-  });
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 text-left selection:bg-orange-500/30 w-full max-w-full min-w-0">
@@ -180,7 +150,7 @@ export default function AdminDashboardView() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>ผู้ใช้งาน ({adminState.platformUsers.length})</span>
+              <span>ผู้ใช้งาน</span>
             </button>
 
             <button
@@ -251,55 +221,38 @@ export default function AdminDashboardView() {
 
             <button
               onClick={() => adminState.setActiveTab("dealers")}
-              className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between text-left transition ${
+              className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition ${
                 adminState.activeTab === "dealers"
                   ? "bg-orange-600 text-white shadow"
                   : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
               }`}
             >
-              <span className="flex items-center gap-2.5">
-                <Store className="w-4 h-4" />
-                <span>ดีลเลอร์สเป็คทอง ({adminState.dealers.length})</span>
-              </span>
-              <span className="text-[9.5px] px-1.5 py-0.2 bg-orange-500/15 text-orange-400 font-extrabold rounded">
-                {adminState.dealers.filter(d => !d.verified).length} รอตรวจ
-              </span>
+              <Store className="w-4 h-4" />
+              <span>ดีลเลอร์สเป็คทอง</span>
             </button>
 
             <button
               onClick={() => adminState.setActiveTab("tickets")}
-              className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between text-left transition ${
+              className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition ${
                 adminState.activeTab === "tickets"
                   ? "bg-orange-600 text-white shadow"
                   : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
               }`}
             >
-              <span className="flex items-center gap-2.5">
-                <Mail className="w-4 h-4" />
-                <span>ตั๋วช่วยเหลือ ({adminState.tickets.length})</span>
-              </span>
-              <span className="text-[10px] w-5 h-5 bg-orange-655 text-white flex items-center justify-center font-black rounded-full text-xs">
-                {adminState.tickets.filter(t => t.status === "open").length}
-              </span>
+              <Mail className="w-4 h-4" />
+              <span>ตั๋วช่วยเหลือ</span>
             </button>
 
             <button
               onClick={() => adminState.setActiveTab("moderation")}
-              className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between text-left transition ${
+              className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 text-left transition ${
                 adminState.activeTab === "moderation"
                   ? "bg-orange-600 text-white shadow"
                   : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
               }`}
             >
-              <span className="flex items-center gap-2.5">
-                <ShieldAlert className="w-4 h-4" />
-                <span>ศูนย์คัดกรอง AI</span>
-              </span>
-              {adminState.reportedItems.filter(r => r.status === "pending").length > 0 && (
-                <span className="px-1.5 py-0.2 bg-red-500/20 text-red-500 font-black rounded text-[9.5px]">
-                  {adminState.reportedItems.filter(r => r.status === "pending").length} คิว
-                </span>
-              )}
+              <ShieldAlert className="w-4 h-4" />
+              <span>ศูนย์คัดกรอง AI</span>
             </button>
 
             <button
@@ -489,228 +442,19 @@ export default function AdminDashboardView() {
         {/* TAB 2: USER MANAGEMENT */}
         {adminState.activeTab === "users" && (
           <div className="space-y-6 text-left">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-xl font-black text-white font-display">ระบบบริหารจัดการขอบข่ายผู้ใช้งาน (User Management Workspace)</h2>
-                <p className="text-slate-400 text-xs">อนุมัติ ตรวจสอบความถูกต้อง ส่งประกาศสิทธิ์ สั่งระงับพฤติกรรม และยกสิทธิ์กลุ่ม</p>
-              </div>
-
-              <button
-                onClick={() => setShowCreateUserModal(true)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-550 text-white text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
-              >
-                <Plus className="w-4 h-4" />
-                <span>จำลองสร้างบัญชีผู้ใช้บุคคล</span>
-              </button>
+            <div>
+              <h2 className="text-xl font-black text-white font-display">ระบบบริหารจัดการขอบข่ายผู้ใช้งาน (User Management Workspace)</h2>
+              <p className="text-slate-400 text-xs">อนุมัติ ตรวจสอบความถูกต้อง ส่งประกาศสิทธิ์ สั่งระงับพฤติกรรม และยกสิทธิ์กลุ่ม</p>
             </div>
 
-            {/* QUERY FILTER HUD */}
-            <div className="p-4 rounded-2xl bg-slate-900/40 border border-white/[0.04] flex flex-col sm:flex-row gap-4 justify-between items-center text-xs">
-              
-              <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-center">
-                {/* Search Bar */}
-                <div className="relative w-full sm:w-64">
-                  <input
-                    type="text"
-                    placeholder="พิมพ์ชื่อ นามสกุล หรืออีเมลตรวจสอบ..."
-                    value={adminState.userSearchQuery}
-                    onChange={(e) => adminState.setUserSearchQuery(e.target.value)}
-                    className="w-full px-3.5 py-2 pl-9 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                  />
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                </div>
-
-                {/* Role dropdown selector */}
-                <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                  <Filter className="w-3.5 h-3.5 text-slate-400" />
-                  <select
-                    value={adminState.userRoleFilter}
-                    onChange={(e) => adminState.setUserRoleFilter(e.target.value)}
-                    className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-[11px] font-bold text-slate-300 cursor-pointer"
-                  >
-                    <option value="all">กรองทุกบทบาท (All Roles)</option>
-                    <option value="user">สมาชิกบ้านธรรมดา (User)</option>
-                    <option value="dealer">ดีลเลอร์ทางการ (Dealer)</option>
-                    <option value="moderator">ผู้ตรวจสอบเนื้อหา (Moderator)</option>
-                    <option value="AI manager">AI Manager</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Bulk operations row */}
-              {adminState.selectedUserIds.length > 0 && (
-                <div className="flex gap-2 w-full sm:w-auto items-center justify-end p-2 bg-orange-600/10 border border-orange-500/20 rounded-xl">
-                  <span className="font-bold text-orange-400 text-[10px]">เลือก {adminState.selectedUserIds.length} รายการ:</span>
-                  <button
-                    onClick={() => adminState.bulkActionUsers("suspend")}
-                    className="px-2.5 py-1 bg-red-600/20 hover:bg-red-500 hover:text-white text-red-400 font-extrabold rounded text-[10px] cursor-pointer"
-                  >
-                    ✖ ระงับพร้อมกัน
-                  </button>
-                  <button
-                    onClick={() => adminState.bulkActionUsers("activate")}
-                    className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-500 hover:text-white text-emerald-400 font-extrabold rounded text-[10px] cursor-pointer"
-                  >
-                    ✓ เปิดใช้งานร่วม
-                  </button>
-                  <button
-                    onClick={adminState.clearSelectedUsers}
-                    className="text-slate-400 hover:text-white text-[10px] font-semibold"
-                  >
-                    ยกเลิก
-                  </button>
-                </div>
-              )}
-
+            <div
+              className="rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/95 p-8 text-center"
+              data-testid="admin-users-real-data-empty-state"
+            >
+              <p className="text-sm text-slate-400 leading-relaxed">
+                หน้านี้ยังไม่ได้เชื่อมต่อกับแหล่งข้อมูลผู้ใช้งานจริง จึงยังไม่แสดงรายชื่อผู้ใช้งาน
+              </p>
             </div>
-
-            {/* USERS DATA TABLE */}
-            <div className="rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/95 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[700px]">
-                  <thead className="bg-[#09090b] text-slate-400 font-mono uppercase text-[9.5px] border-b border-white/[0.1]">
-                    <tr>
-                      <th className="py-3 px-4 w-12 text-center">
-                        {/* Select all toggle logic */}
-                        <button
-                          onClick={() => {
-                            if (adminState.selectedUserIds.length === filteredUsers.length) {
-                              adminState.clearSelectedUsers();
-                            } else {
-                              filteredUsers.forEach(u => {
-                                if (!adminState.selectedUserIds.includes(u.id)) {
-                                  adminState.toggleSelectUser(u.id);
-                                }
-                              });
-                            }
-                          }}
-                          className="text-orange-500"
-                        >
-                          {adminState.selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0 ? (
-                            <CheckSquare className="w-4 h-4" />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-600" />
-                          )}
-                        </button>
-                      </th>
-                      <th className="py-3 px-4">ชื่อโปรไฟล์ & อีเมล</th>
-                      <th className="py-3 px-4">ระดับสิทธิ์ (Role)</th>
-                      <th className="py-3 px-4">วันที่ร่วมแบรนด์</th>
-                      <th className="py-3 px-4 text-center">แต้มเตือน (Strikes)</th>
-                      <th className="py-3 px-4">สถานะสะพาน</th>
-                      <th className="py-3 px-4 text-right">ปรับมาตรการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {filteredUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
-                          ไม่พบประวัติบัญชีสเป็คที่มองหาเลยครับคุณผู้ตรวจสอบ!
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredUsers.map((user) => {
-                        const isChecked = adminState.selectedUserIds.includes(user.id);
-                        return (
-                          <motion.tr 
-                            key={user.id}
-                            className={`hover:bg-white/[0.02] transition ${
-                              user.status === "suspended" ? "bg-red-500/[0.01]" : ""
-                            }`}
-                          >
-                            <td className="py-3.5 px-4 text-center">
-                              <button
-                                onClick={() => adminState.toggleSelectUser(user.id)}
-                                className="text-slate-400 hover:text-orange-500 transition"
-                              >
-                                {isChecked ? <CheckSquare className="w-4 h-4 text-orange-500" /> : <Square className="w-4 h-4 text-slate-700" />}
-                              </button>
-                            </td>
-
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-full bg-slate-800 border overflow-hidden shrink-0">
-                                  <img 
-                                    src={user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.displayName}`} 
-                                    alt={user.displayName}
-                                    className="w-full h-full object-cover" 
-                                  />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-white font-bold leading-none mb-0.5">{user.displayName}</p>
-                                  <span className="text-[10px] text-slate-500 font-mono tracking-wide leading-none">{user.email}</span>
-                                </div>
-                              </div>
-                            </td>
-
-                            <td className="py-3.5 px-4 font-mono font-bold uppercase text-[10.5px]">
-                              <select
-                                value={user.role}
-                                onChange={(e) => adminState.changeUserRole(user.id, e.target.value as any)}
-                                className="bg-slate-900 text-slate-300 font-bold border border-slate-800 px-2 py-0.5 rounded text-[10px] cursor-pointer"
-                              >
-                                <option value="user">USER</option>
-                                <option value="dealer">DEALER</option>
-                                <option value="moderator">MODERATOR</option>
-                                <option value="admin">ADMIN</option>
-                                <option value="AI manager">AI MANAGER</option>
-                              </select>
-                            </td>
-
-                            <td className="py-3.5 px-4 text-slate-400 font-mono text-[10.5px]">
-                              {new Date(user.joinedAt).toLocaleDateString("th-TH")}
-                            </td>
-
-                            <td className="py-3.5 px-4 text-center font-mono text-xs font-bold">
-                              <span className={`px-2 py-0.5 rounded font-black text-[10px] ${
-                                user.strikeCount > 0 ? "bg-red-500/10 text-red-500" : "bg-slate-800 text-slate-500"
-                              }`}>
-                                {user.strikeCount} / 3 Strikes
-                              </span>
-                            </td>
-
-                            <td className="py-3.5 px-4 font-bold text-[10px] uppercase">
-                              <span className={`px-2.5 py-0.5 rounded-full border ${
-                                user.status === "active" 
-                                  ? "bg-emerald-600/10 text-emerald-400 border-emerald-500/20"
-                                  : user.status === "suspended"
-                                  ? "bg-red-600/10 text-red-400 border-red-500/20"
-                                  : "bg-amber-600/10 text-amber-400 border-amber-500/20"
-                              }`}>
-                                {user.status === "active" ? "เปิดดีลปกติ" : user.status === "suspended" ? "สั่งระงับ" : "รอตรวจประวัติ"}
-                              </span>
-                            </td>
-
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex gap-1.5 justify-end">
-                                {user.status !== "active" ? (
-                                  <button
-                                    onClick={() => adminState.updateUserStatus(user.id, "active")}
-                                    className="p-1 px-2.5 bg-emerald-600/10 hover:bg-emerald-600 hover:text-white text-emerald-400 rounded text-[10px] font-black transition cursor-pointer"
-                                    title="อนุมัติบัญชีใช้งานปกติ"
-                                  >
-                                    เปิดใช้งาน
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => adminState.updateUserStatus(user.id, "suspended")}
-                                    className="p-1 px-2.5 bg-red-600/10 hover:bg-red-600 hover:text-white text-red-400 rounded text-[10px] font-black transition cursor-pointer"
-                                    title="ระงับบัญชีสเป็คนี้ชั่วคราว"
-                                  >
-                                    แบนทันที
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </motion.tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
           </div>
         )}
 
@@ -888,64 +632,14 @@ export default function AdminDashboardView() {
               <p className="text-slate-400 text-xs">ควบคุมใบอนุมัติสิทธิ์ สัญลักษณ์ความตรวจสอบได้ ตราประทับปลอดภัยสูงสุด</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {adminState.dealers.map((dealer) => {
-                return (
-                  <div 
-                    key={dealer.id}
-                    className="p-5 rounded-2xl bg-[#0c0c0e]/95 border border-white/[0.05] relative overflow-hidden flex flex-col justify-between text-left space-y-4"
-                  >
-                    <div className="aspect-video w-full rounded-xl bg-slate-950 overflow-hidden relative border border-white/[0.04]">
-                      <img src={dealer.coverImage} alt={dealer.name} className="w-full h-full object-cover" />
-                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded border border-white/10 text-[9.5px] font-bold flex items-center gap-1">
-                        🏆 ประสบการณ์ {dealer.experienceYears} ปี
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-display font-black text-white text-[15px] leading-tight block">{dealer.name}</h4>
-                        <div className="w-8 h-8 rounded bg-slate-900 overflow-hidden shrink-0">
-                          <img src={dealer.logo} alt="logo" className="w-full h-full object-cover" />
-                        </div>
-                      </div>
-
-                      <p className="text-[11.5px] text-slate-400 leading-normal line-clamp-3">{dealer.description}</p>
-                      
-                      <div className="flex gap-2 text-[10px] pt-1">
-                        <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-slate-450 font-bold">
-                          🚗 สต็อกที่เชื่อมโยง: {adminState.cars.filter(c => c.dealerId === dealer.id || c.ownerId === dealer.id).length} คัน
-                        </span>
-                        <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-amber-400 font-bold flex items-center gap-0.5">
-                          ★ {dealer.rating.toFixed(1)} คะแนน
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2.5 border-t border-white/[0.05] flex justify-between items-center bg-slate-950/20 p-2 rounded-xl">
-                      <div className="space-y-0.5 text-left">
-                        <span className="text-[9px] uppercase font-bold text-slate-500 block leading-none">สถานะสิทธิ์</span>
-                        <p className={`text-[10px] font-black leading-none ${dealer.verified ? "text-orange-400" : "text-amber-500"}`}>
-                          {dealer.verified ? "APPROVED CERTIFIED ✓" : "PENDING AUDIT"}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => adminState.toggleDealerVerification(dealer.id)}
-                        className={`px-3 py-1.8 rounded-lg text-[10.5px] font-black cursor-pointer transition active:scale-97 ${
-                          dealer.verified
-                            ? "bg-red-600/10 hover:bg-red-500 hover:text-white text-red-400 border border-red-500/10"
-                            : "bg-orange-600 hover:bg-orange-500 text-white shadow shadow-orange-500/10"
-                        }`}
-                      >
-                        {dealer.verified ? "ล้างสิทธิ์ตรา" : "อนุมัติตราปลอม ✓"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div
+              className="rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/95 p-8 text-center"
+              data-testid="admin-dealers-real-data-empty-state"
+            >
+              <p className="text-sm text-slate-400 leading-relaxed">
+                หน้านี้ยังไม่ได้เชื่อมต่อกับแหล่งข้อมูลดีลเลอร์จริง จึงยังไม่แสดงรายการดีลเลอร์
+              </p>
             </div>
-
           </div>
         )}
 
@@ -957,137 +651,14 @@ export default function AdminDashboardView() {
               <p className="text-slate-400 text-xs">ระดมทีมเทคนิคเพื่อประสานงานระบบ ช่วยเหลือลูกค้า ดีลราคารถ ตลอด 24 ชม.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold font-mono py-1">
-              <div className="p-3 bg-red-600/10 border border-red-500/10 rounded-xl">
-                <span className="text-red-400 block text-[10px] uppercase">เรื่องเร่งด่วนสูงสุด (High/Critical Priority):</span>
-                <p className="text-xl text-white font-black">{adminState.tickets.filter(t => t.priority === "high" || t.priority === "critical").length} เคสเดือด</p>
-              </div>
-              <div className="p-3 bg-orange-600/10 border border-orange-550/10 rounded-xl">
-                <span className="text-orange-400 block text-[10px] uppercase">ไม่ได้สะสาง (Unresolved Open Tickets):</span>
-                <p className="text-xl text-white font-black">{adminState.tickets.filter(t => t.status === "open" || t.status === "in_progress").length} ตั๋วรอ</p>
-              </div>
-              <div className="p-3 bg-blue-600/10 border border-blue-500/10 rounded-xl">
-                <span className="text-blue-400 block text-[10px] uppercase">สรุปเรื่องเสร็จสิ้น (Resolved Tickets):</span>
-                <p className="text-xl text-white font-black">{adminState.tickets.filter(t => t.status === "resolved").length} สำเร็จเสร็จสรรพ</p>
-              </div>
+            <div
+              className="rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/95 p-8 text-center"
+              data-testid="admin-tickets-real-data-empty-state"
+            >
+              <p className="text-sm text-slate-400 leading-relaxed">
+                หน้านี้ยังไม่ได้เชื่อมต่อกับระบบตั๋วช่วยเหลือจริง จึงยังไม่มีรายการให้ดำเนินการ
+              </p>
             </div>
-
-            {/* TICKETS LIST EXPANSION */}
-            <div className="space-y-4">
-              {filteredTickets.map((ticket) => {
-                const isOpen = ticket.status === "open";
-                const isUnderProgress = ticket.status === "in_progress";
-                const isCritical = ticket.priority === "critical" || ticket.priority === "high";
-
-                return (
-                  <div 
-                    key={ticket.id}
-                    style={{ contentVisibility: 'auto' }}
-                    className={`p-5 rounded-2xl border bg-[#0b0b0d]/90 relative overflow-hidden transition-all text-left space-y-3.5 ${
-                      isCritical ? "border-red-500/10 shadow-lg shadow-red-950/5" : "border-white/[0.05]"
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-mono text-orange-400 block uppercase font-bold tracking-widest">
-                          ID: #{ticket.id} • หมวด: {ticket.category.toUpperCase()}
-                        </span>
-                        <h4 className="text-[14.5px] font-semibold text-white leading-tight font-sans block">{ticket.title}</h4>
-                        <p className="text-xs text-slate-400 font-sans block pt-0.5">{ticket.message}</p>
-                      </div>
-
-                      {/* Meta states tags */}
-                      <div className="flex gap-1.5 flex-wrap shrink-0">
-                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold ${
-                          ticket.priority === "critical"
-                            ? "bg-red-650 text-white"
-                            : ticket.priority === "high"
-                            ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                            : "bg-slate-800 text-slate-400"
-                        }`}>
-                          {ticket.priority.toUpperCase()}
-                        </span>
-
-                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold uppercase ${
-                          ticket.status === "open"
-                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                            : ticket.status === "resolved"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/10"
-                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                        }`}>
-                          {ticket.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Replies stack */}
-                    {ticket.replies.length > 0 && (
-                      <div className="p-3.5 bg-slate-900/50 border border-white/[0.03] rounded-xl space-y-2.5">
-                        <span className="text-[9.5px] uppercase font-mono text-slate-500 font-bold block">บันทึกความช่วยเหลือ (Response Thread):</span>
-                        {ticket.replies.map((rep, rIdx) => (
-                          <div key={rIdx} className="text-xs space-y-0.5 border-l border-orange-500/20 pl-2 text-left">
-                            <span className="text-slate-400 block text-[10.5px]">
-                              🗣️ <strong>{rep.senderName}</strong> ({rep.senderRole}):
-                            </span>
-                            <p className="text-slate-300 font-sans">{rep.message}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Reply triggers row */}
-                    {ticket.status !== "resolved" && (
-                      <div className="pt-2 border-t border-white/[0.03] flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setActiveTicketId(ticket.id === activeTicketId ? null : ticket.id);
-                            setTicketReplyText("");
-                          }}
-                          className="px-3.5 py-1.8 bg-orange-600 hover:bg-orange-550 text-white rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1 shrink-0"
-                        >
-                          <Send className="w-3 h-3" />
-                          <span>เขียนคำตอบตกลงช่วยเหลือ</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => adminState.updateTicketStatus(ticket.id, "resolved")}
-                          className="px-3.5 py-1.8 bg-emerald-600/10 hover:bg-emerald-650 hover:text-white text-emerald-400 rounded-lg text-[10px] font-black transition cursor-pointer"
-                        >
-                          ปิดเรื่องเสร็จสิ้น (Mark Resolved)
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Reply dialog panel */}
-                    {activeTicketId === ticket.id && (
-                      <form 
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!ticketReplyText.trim()) return;
-                          adminState.replyToTicket(ticket.id, ticketReplyText);
-                          setActiveTicketId(null);
-                        }}
-                        className="space-y-2.5 pt-2 border-t border-white/[0.03]"
-                      >
-                        <textarea
-                          rows={2}
-                          value={ticketReplyText}
-                          onChange={(e) => setTicketReplyText(e.target.value)}
-                          placeholder="เขียนข้อความตอบกลับเพื่ออธิกายและยกสิทธิ์ให้คุณพี่ครับ..."
-                          required
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none"
-                        />
-                        <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-550 text-white font-black text-[10.5px] rounded-lg">
-                          ส่งและบันทึกประวัติเสร็จ
-                        </button>
-                      </form>
-                    )}
-
-                  </div>
-                );
-              })}
-            </div>
-
           </div>
         )}
 
@@ -1101,90 +672,14 @@ export default function AdminDashboardView() {
               </p>
             </div>
 
-            <div className="space-y-4">
-              {adminState.reportedItems.map((item) => {
-                const isPending = item.status === "pending";
-                const isFlagged = item.aiSafeVerdict === "flagged";
-                const isNeedsReview = item.aiSafeVerdict === "needs_manual_review";
-
-                return (
-                  <div 
-                    key={item.id}
-                    className="p-5 rounded-2xl border border-white/[0.05] bg-[#0c0c0e]/95 space-y-3.5 text-left"
-                  >
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono font-bold text-slate-500 block">
-                          คิวตรวจสอบ #{item.id} • หมวด: {item.targetType.toUpperCase()}
-                        </span>
-                        <h4 className="font-bold text-white text-[14px]">หัวข้อเป้าหมาย: <span className="text-orange-400">{item.targetTitle}</span></h4>
-                        <p className="text-xs text-slate-350 font-sans block">เหตุรับแจ้งเตือน: <strong>"{item.reason}"</strong></p>
-                        {item.details && <p className="text-[11px] text-slate-500 block font-sans">รายละเอียดแนบ: {item.details}</p>}
-                      </div>
-
-                      <div className="flex gap-2 items-center flex-wrap shrink-0">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                          isFlagged
-                            ? "bg-red-650 text-white"
-                            : isNeedsReview
-                            ? "bg-amber-600/10 text-amber-500 border border-amber-500/25"
-                            : "bg-slate-800 text-slate-400"
-                        }`}>
-                          AI Verdict: {item.aiSafeVerdict}
-                        </span>
-
-                        <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-[10px] rounded text-slate-400">
-                          สถานะ: {item.status.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Real-time calculated AI labels */}
-                    {item.aiClassification && (
-                      <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-900 text-[10.5px] flex items-center justify-between">
-                        <span className="text-slate-450 font-sans">🏷️ <strong>ผลประเมินความฉลาด (AI Classification):</strong></span>
-                        <code className="text-orange-400 font-mono font-bold">{item.aiClassification}</code>
-                      </div>
-                    )}
-
-                    {/* Operational panel */}
-                    {isPending && (
-                      <div className="pt-2 border-t border-white/[0.03] flex flex-wrap gap-2 items-center">
-                        <button
-                          onClick={() => adminState.triggerAIModerationCheck(item.id)}
-                          className="px-3.5 py-1.8 bg-orange-600/10 hover:bg-orange-500 text-orange-400 hover:text-white rounded-lg text-[10px] font-black transition cursor-pointer"
-                        >
-                          🔄 รันวินิจฉัยภาพ & เนื้อหาซ้ำด้วย Gemini
-                        </button>
-
-                        <button
-                          onClick={() => adminState.moderateReport(item.id, "resolve")}
-                          className="px-3.5 py-1.8 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-lg text-[10px] font-black transition cursor-pointer"
-                        >
-                          อนุมัติว่าปลอดภัย (Safe)
-                        </button>
-
-                        <button
-                          onClick={() => adminState.moderateReport(item.id, "removed")}
-                          className="px-3.5 py-1.8 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-lg text-[10px] font-black transition cursor-pointer"
-                        >
-                          แบนรูป/ความคิดเห็นถาวร (Delete Target)
-                        </button>
-
-                        <button
-                          onClick={() => adminState.moderateReport(item.id, "ignored")}
-                          className="px-3.5 py-1.8 bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-lg text-[10px] font-semibold transition cursor-pointer"
-                        >
-                          ซ่อนตู้รายงานนี้ (Ignore)
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-                );
-              })}
+            <div
+              className="rounded-2xl border border-white/[0.06] bg-[#0c0c0e]/95 p-8 text-center"
+              data-testid="admin-moderation-real-data-empty-state"
+            >
+              <p className="text-sm text-slate-400 leading-relaxed">
+                หน้านี้ยังไม่ได้เชื่อมต่อกับคิวรายงานจริง จึงยังไม่มีรายการให้ตรวจสอบ
+              </p>
             </div>
-
           </div>
         )}
 
@@ -1254,95 +749,6 @@ export default function AdminDashboardView() {
         )}
 
       </div>
-
-      {/* CREATE CONTROLLER USER SIMULATION DIALOG */}
-      {showCreateUserModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-55 flex items-center justify-center p-4">
-          <div className="w-full max-w-md p-6 bg-[#0c0c0e] border border-white/[0.08] rounded-3xl space-y-4 text-left">
-            <h3 className="text-base font-black text-white font-display flex items-center gap-1.5 leading-none">
-              <Plus className="w-5 h-5 text-orange-500" />
-              <span>สร้างผู้ใช้งานจำลองในระบบ (Create User Simulation)</span>
-            </h3>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!newUserName || !newUserEmail) return;
-                
-                adminState.addPlatformUser({
-                  id: `u-${Math.floor(1000 + Math.random() * 9000)}`,
-                  displayName: newUserName,
-                  email: newUserEmail,
-                  role: newUserRole as any,
-                  status: "active"
-                });
-
-                // Reset
-                setNewUserName("");
-                setNewUserEmail("");
-                setNewUserRole("user");
-                setShowCreateUserModal(false);
-              }}
-              className="space-y-4"
-            >
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase block pl-0.5">ชื่อเต็มของบัญชี</label>
-                <input 
-                  type="text" 
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                  placeholder="เช่น ดร.วิทยา บล็อกเชน"
-                  required
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase block pl-0.5">ที่อยู่อีเมลเข้าหลัก</label>
-                <input 
-                  type="email" 
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  placeholder="เช่น wittaya.nong@gmail.com"
-                  required
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase block pl-0.5">ระบุเลือกระดับสิทธิ์เริ่มต้น</label>
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as any)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                >
-                  <option value="user">สมาชิกทั่วไป (Private User)</option>
-                  <option value="dealer">ดีลเลอร์ผู้แทนจำหน่าย (Authorized Dealer)</option>
-                  <option value="moderator">ผู้ตรวจสอบคำเตือน (Moderator)</option>
-                  <option value="admin">ผู้ดูแลระบบคลัง (Admin)</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2 pt-2 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateUserModal(false)}
-                  className="px-4 py-2 border border-slate-800 text-slate-400 rounded-xl text-xs font-semibold hover:bg-slate-900 cursor-pointer"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="px-4.5 py-2.2 bg-orange-600 hover:bg-orange-550 text-white rounded-xl text-xs font-black cursor-pointer shadow shadow-orange-500/10"
-                >
-                  สร้างผู้ใช้อินเตอร์แอคทีฟ ✓
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );
