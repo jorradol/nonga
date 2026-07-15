@@ -228,41 +228,6 @@ export default function HomeView() {
           <span>หรือเปิดค้นหารถละเอียดระบุพิกัดเกรดอัจฉริยะ</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
-
-        {/* Floating Metrics Showcase Container */}
-        <div className="pt-8 sm:pt-14 max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-2 rounded-3xl border border-white/[0.04] bg-slate-500/[0.02]">
-            
-            <div className={`p-5 rounded-2xl border text-center ${
-              isDarkMode ? "bg-[#0d0d0f]/90 border-white/[0.06]" : "bg-white border-slate-100 shadow-sm"
-            }`}>
-              <div className="font-display font-black text-2xl sm:text-3xl text-orange-500">99.8%</div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium">ความแม่นยำ AI สเป็ควิเคราะห์</div>
-            </div>
-
-            <div className={`p-5 rounded-2xl border text-center ${
-              isDarkMode ? "bg-[#0d0d0f]/90 border-white/[0.06]" : "bg-white border-slate-100 shadow-sm"
-            }`}>
-              <div className="font-display font-black text-2xl sm:text-3xl text-orange-500">&lt; 3 วิ</div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium">วิเคราะห์คำนวณและประมวลผล</div>
-            </div>
-
-            <div className={`p-5 rounded-2xl border text-center ${
-              isDarkMode ? "bg-[#0d0d0f]/90 border-white/[0.06]" : "bg-white border-slate-100 shadow-sm"
-            }`}>
-              <div className="font-display font-black text-2xl sm:text-3xl text-orange-500">10,000+</div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium">รถบ้านลงทะเบียนผ่านดีลเลอร์</div>
-            </div>
-
-            <div className={`p-5 rounded-2xl border text-center ${
-              isDarkMode ? "bg-[#0d0d0f]/90 border-white/[0.06]" : "bg-white border-slate-100 shadow-sm"
-            }`}>
-              <div className="font-display font-black text-2xl sm:text-3xl text-orange-500">100%</div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium">คุ้มครองและปลอดภัยการซื้อขาย</div>
-            </div>
-
-          </div>
-        </div>
       </section>
 
       {/* 2. INTERACTIVE conversation SIMULATOR */}
