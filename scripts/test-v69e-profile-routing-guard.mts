@@ -99,8 +99,8 @@ ok(
   resolveViewFromPathname("/car-post-generator") === "car-post-generator"
 );
 ok(
-  "v6.9D seo-landing path still maps to seo-landing",
-  resolveViewFromPathname("/seo-landing") === "seo-landing"
+  "v6.9D/P8A seo-landing path maps to home (public SEO surface hidden)",
+  resolveViewFromPathname("/seo-landing") === "home"
 );
 ok("home path still maps to home", resolveViewFromPathname("/home") === "home");
 ok("chat path still maps to chat", resolveViewFromPathname("/chat") === "chat");

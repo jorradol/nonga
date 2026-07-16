@@ -60,6 +60,7 @@
     "test:v69c-onboarding-viral-captions-routing-staging-smoke-execution-record": "tsx scripts/test-v69c-onboarding-viral-captions-routing-staging-smoke-execution-record.mts",
     "test:v69d-similar-unmapped-routes-routing-guard": "tsx scripts/test-v69d-similar-unmapped-routes-routing-guard.mts",
     "test:v69d-similar-unmapped-routes-staging-smoke-execution-record": "tsx scripts/test-v69d-similar-unmapped-routes-staging-smoke-execution-record.mts",
+    "test:p8a-hide-unready-public-seo-surface": "tsx scripts/test-p8a-hide-unready-public-seo-surface.mts",
     "test:v69e-profile-routing-guard": "tsx scripts/test-v69e-profile-routing-guard.mts",
     "test:v69e-profile-routing-staging-smoke-execution-record": "tsx scripts/test-v69e-profile-routing-staging-smoke-execution-record.mts",
     "test:v69f-a-light-mode-contrast-quick-wins-execution-record": "tsx scripts/test-v69f-a-light-mode-contrast-quick-wins-execution-record.mts",

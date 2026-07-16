@@ -115,7 +115,8 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/viral-captions") return "viral-captions";
   if (path === "/car-vision") return "car-vision";
   if (path === "/car-post-generator") return "car-post-generator";
-  if (path === "/seo-landing") return "seo-landing";
+  // P8A: hide unready public SEO mock — treat as Home (URL rewrite in bootstrap).
+  if (path === "/seo-landing") return "home";
   if (path === "/register") return "register";
   if (path === "/forgot-password") return "forgot-password";
   if (path === "/admin/inventory-import") return "inventory-import";
@@ -165,7 +166,8 @@ export function resolvePathnameForView(
     case "car-post-generator":
       return "/car-post-generator";
     case "seo-landing":
-      return "/seo-landing";
+      // P8A: keep view key for backlog code paths; never expose /seo-landing publicly.
+      return "/home";
     case "login":
       return "/login";
     case "profile":
@@ -197,8 +199,21 @@ export function resolvePathnameForView(
   }
 }
 
+/**
+ * P8A — public SEO mock dashboard is not ready.
+ * Direct /seo-landing must land on Home with a canonical /home URL.
+ */
+export function redirectUnreadyPublicSeoLandingPath(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.pathname.toLowerCase() !== "/seo-landing") return false;
+  const { search, hash } = window.location;
+  window.history.replaceState(null, "", `/home${search}${hash}`);
+  return true;
+}
+
 export function bootstrapAppRouteState(): void {
   if (typeof window === "undefined") return;
   normalizeLegacyHashRoute();
   clearLegacyPinnedHomeView();
+  redirectUnreadyPublicSeoLandingPath();
 }

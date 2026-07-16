@@ -6,7 +6,7 @@ import {
   MessageSquare, Car, Sparkles, Heart, Store, ClipboardList, FileText,
   Sun, Moon, PlusCircle, Search, Menu, X, 
   ChevronRight, ArrowRight, ShieldCheck, UserCheck, 
-  Home, LogOut, Key, Sparkle, Camera, Crown, Rocket, Globe
+  Home, LogOut, Key, Sparkle, Camera, Crown, Rocket
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -82,12 +82,12 @@ export default function Header() {
         { id: "sell", label: "ลงขายด่วน 🪄", icon: PlusCircle },
       ]
     : [];
+  // P8A: SEO mock dashboard is not public-ready — omit from all Header nav surfaces.
   const sandboxNavItems: HeaderNavItem[] = showSandboxNavigation
     ? [
         { id: "car-vision", label: "วิเคราะห์รูปรถ 📸", icon: Camera, badge: "AI" },
         { id: "car-post-generator", label: "แต่งโพสต์ขายรถ 🪄", icon: Sparkles, badge: "ฮิต" },
         { id: "viral-captions", label: "เขียนแคปชั่น 👑", icon: Sparkle, badge: "ใหม่" },
-        { id: "seo-landing", label: "SEO หน้าพิเศษ 🔎", icon: Globe, badge: "ใหม่" },
       ]
     : [];
   const navItems: HeaderNavItem[] = [

@@ -30,8 +30,8 @@ ok(
   resolveViewFromPathname("/car-post-generator") === "car-post-generator"
 );
 ok(
-  "seo-landing path maps to seo-landing view",
-  resolveViewFromPathname("/seo-landing") === "seo-landing"
+  "seo-landing path redirects to home view (P8A)",
+  resolveViewFromPathname("/seo-landing") === "home"
 );
 ok(
   "car-vision path case-insensitive",
@@ -42,8 +42,8 @@ ok(
   resolveViewFromPathname("/Car-Post-Generator") === "car-post-generator"
 );
 ok(
-  "seo-landing path case-insensitive",
-  resolveViewFromPathname("/Seo-Landing") === "seo-landing"
+  "seo-landing path case-insensitive redirects to home (P8A)",
+  resolveViewFromPathname("/Seo-Landing") === "home"
 );
 ok(
   "car-vision view maps to /car-vision pathname",
@@ -54,8 +54,8 @@ ok(
   resolvePathnameForView("car-post-generator", "/") === "/car-post-generator"
 );
 ok(
-  "seo-landing view maps to /seo-landing pathname",
-  resolvePathnameForView("seo-landing", "/") === "/seo-landing"
+  "seo-landing view maps to /home pathname (P8A)",
+  resolvePathnameForView("seo-landing", "/") === "/home"
 );
 ok("car-vision not chat entry path", !isChatEntryPath("/car-vision"));
 ok(
@@ -72,7 +72,7 @@ ok(
   resolveViewFromPathname("/car-post-generator") !== "chat"
 );
 ok(
-  "seo-landing path does not fallback to chat",
+  "seo-landing path does not fallback to chat (P8A → home)",
   resolveViewFromPathname("/seo-landing") !== "chat"
 );
 
@@ -102,8 +102,8 @@ ok(
   /path === "\/car-post-generator"\) return "car-post-generator"/.test(routeSync)
 );
 ok(
-  "resolveViewFromPathname includes seo-landing route",
-  /path === "\/seo-landing"\) return "seo-landing"/.test(routeSync)
+  "resolveViewFromPathname maps seo-landing path to home (P8A)",
+  /path === "\/seo-landing"\) return "home"/.test(routeSync)
 );
 ok(
   "resolvePathnameForView includes car-vision case",
@@ -114,8 +114,8 @@ ok(
   /case "car-post-generator":[\s\S]*return "\/car-post-generator"/.test(routeSync)
 );
 ok(
-  "resolvePathnameForView includes seo-landing case",
-  /case "seo-landing":[\s\S]*return "\/seo-landing"/.test(routeSync)
+  "resolvePathnameForView maps seo-landing view to /home (P8A)",
+  /case "seo-landing":[\s\S]*return "\/home"/.test(routeSync)
 );
 ok(
   "App renders CarVisionDashboard case",
