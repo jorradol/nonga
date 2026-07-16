@@ -9,6 +9,7 @@ import {
 interface CarPostStyleSelectorProps {
   value: CarPostStyle;
   onChange: (style: CarPostStyle) => void;
+  /** Kept for caller compatibility; colors use semantic tokens via `.dark`. */
   isDarkMode?: boolean;
   compact?: boolean;
 }
@@ -19,7 +20,6 @@ interface CarPostStyleSelectorProps {
 export default function CarPostStyleSelector({
   value,
   onChange,
-  isDarkMode = true,
   compact = false,
 }: CarPostStyleSelectorProps) {
   const selected =
@@ -28,18 +28,18 @@ export default function CarPostStyleSelector({
 
   return (
     <div
-      className={`space-y-3 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+      className="space-y-3 nonga-text-primary"
       role="group"
       aria-label="เลือกสไตล์โพสต์ขายรถ"
     >
-      <div className="flex items-center gap-2 border-b border-orange-500/10 pb-2">
-        <Palette className="w-4 h-4 text-orange-500 shrink-0" />
+      <div className="flex items-center gap-2 border-b nonga-border pb-2">
+        <Palette className="w-4 h-4 text-[var(--nonga-brand)] shrink-0" />
         <div className="text-left min-w-0">
-          <h4 className="text-xs font-extrabold text-orange-500">
+          <h4 className="text-xs font-extrabold text-[var(--nonga-action-primary)]">
             เลือกสไตล์โพสต์ขายรถ (ก่อนสร้างด้วย AI)
           </h4>
           {!compact && (
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[10px] nonga-text-secondary mt-0.5">
               น้องเอจะปรับโทน ความยาว และ CTA ตามแนวที่เลือก — ค่าเริ่มต้น: Marketplace
             </p>
           )}
@@ -55,15 +55,15 @@ export default function CarPostStyleSelector({
               key={opt.id}
               type="button"
               onClick={() => onChange(opt.id)}
-              className={`shrink-0 px-3 py-2 rounded-full text-[10px] font-bold border transition flex items-center gap-1.5 ${
+              className={`shrink-0 px-3 py-2 rounded-full text-[10px] font-bold border transition flex items-center gap-1.5 nonga-focus-ring ${
                 active
-                  ? "bg-orange-600/20 border-orange-500 text-orange-300"
-                  : "bg-slate-900/60 border-white/10 text-slate-400"
+                  ? "bg-[color-mix(in_srgb,var(--nonga-brand)_14%,var(--nonga-bg-surface))] border-[var(--nonga-brand)] text-[var(--nonga-action-primary)]"
+                  : "nonga-bg-subtle border nonga-border nonga-text-secondary hover:border-[var(--nonga-border-strong)]"
               }`}
             >
               <span>{opt.emoji}</span>
               <span className="whitespace-nowrap">{opt.label}</span>
-              {active && <Check className="w-3 h-3 text-orange-400" />}
+              {active && <Check className="w-3 h-3 text-[var(--nonga-brand)]" />}
             </button>
           );
         })}
@@ -78,35 +78,40 @@ export default function CarPostStyleSelector({
               key={opt.id}
               type="button"
               onClick={() => onChange(opt.id)}
-              className={`p-3 rounded-xl text-left border transition flex items-start gap-2.5 ${
+              className={`p-3 rounded-xl text-left border transition flex items-start gap-2.5 nonga-focus-ring ${
                 active
-                  ? "bg-orange-500/10 border-orange-500/60 ring-1 ring-orange-500/20"
-                  : "bg-slate-900/40 border-white/5 hover:border-white/15 text-slate-400"
+                  ? "bg-[color-mix(in_srgb,var(--nonga-brand)_8%,var(--nonga-bg-surface))] border-[var(--nonga-brand)] ring-1 ring-[color-mix(in_srgb,var(--nonga-brand)_35%,transparent)]"
+                  : "nonga-bg-subtle border nonga-border hover:border-[var(--nonga-border-strong)] nonga-text-secondary"
               }`}
             >
               <span className="text-lg shrink-0">{opt.emoji}</span>
               <div className="min-w-0 flex-1">
                 <span
                   className={`text-[11px] font-extrabold block leading-tight ${
-                    active ? "text-orange-300" : "text-slate-200"
+                    active
+                      ? "text-[var(--nonga-action-primary)]"
+                      : "nonga-text-primary"
                   }`}
                 >
                   {opt.label}
                 </span>
-                <span className="text-[9.5px] text-slate-500 leading-snug block mt-0.5">
+                <span className="text-[9.5px] nonga-text-muted leading-snug block mt-0.5">
                   {opt.shortDesc}
                 </span>
               </div>
               {active && (
-                <Check className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                <Check className="w-4 h-4 text-[var(--nonga-brand)] shrink-0 mt-0.5" />
               )}
             </button>
           );
         })}
       </div>
 
-      <p className="text-[10px] text-slate-500 md:hidden">
-        เลือกแล้ว: <span className="text-orange-400 font-bold">{selected.label}</span>
+      <p className="text-[10px] nonga-text-muted md:hidden">
+        เลือกแล้ว:{" "}
+        <span className="text-[var(--nonga-action-primary)] font-bold">
+          {selected.label}
+        </span>
       </p>
     </div>
   );

@@ -16,7 +16,7 @@ export function PremiumAiBadge({ size = "md", animate = true }: { size?: "sm" | 
 
   if (!isPremium) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-900 text-slate-400 border border-slate-800">
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold nonga-bg-subtle nonga-text-secondary border nonga-border">
         Free Tier
       </span>
     );
@@ -29,7 +29,7 @@ export function PremiumAiBadge({ size = "md", animate = true }: { size?: "sm" | 
   };
 
   return (
-    <span className={`inline-flex items-center font-bold tracking-tight rounded-full bg-gradient-to-r from-orange-600 to-amber-500 text-white border border-amber-400/30 shadow-[0_0_12px_rgba(249,115,22,0.25)] ${sizeClasses[size]}`}>
+    <span className={`inline-flex items-center font-bold tracking-tight rounded-full nonga-action border border-[color-mix(in_srgb,var(--nonga-brand)_35%,transparent)] shadow-[0_0_12px_rgba(249,115,22,0.25)] ${sizeClasses[size]}`}>
       <Sparkles className={`w-3.5 h-3.5 ${animate ? "animate-pulse" : ""}`} />
       <span>NONG A PREMIUM</span>
     </span>
@@ -67,19 +67,19 @@ export function UsageProgressBar({
   return (
     <div className="space-y-1.5 w-full">
       <div className="flex items-center justify-between text-[11px] font-bold">
-        <span className="text-slate-400">{label || stat.info.thaiName}</span>
-        <span className="text-slate-300 font-mono">
+        <span className="nonga-text-secondary">{label || stat.info.thaiName}</span>
+        <span className="nonga-text-primary font-mono">
           {used} / {max} ครั้ง
         </span>
       </div>
-      <div className="w-full h-2 rounded-full bg-slate-900 border border-slate-800/60 overflow-hidden">
+      <div className="w-full h-2 rounded-full nonga-bg-subtle border nonga-border overflow-hidden">
         <div 
           className={`h-full rounded-full transition-all duration-500 ease-out ${barColorClass}`}
           style={{ width: `${percentage}%` }}
         />
       </div>
       {percentage >= 100 && (
-        <p className="text-[10px] text-rose-400 font-bold animate-pulse">
+        <p className="text-[10px] text-[var(--nonga-error)] font-bold animate-pulse">
           ⚠️ โควต้าฟรีของคุณหมดแล้วคร้าบ อัปเกรดเพื่ออันลิมิตทันควัน!
         </p>
       )}
@@ -319,18 +319,18 @@ export function AiUsageDashboard() {
   const isPremium = subscription?.tier === "premium";
 
   return (
-    <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/30 backdrop-blur-md space-y-6 text-left relative overflow-hidden">
+    <div className="p-6 rounded-2xl border nonga-border nonga-bg-surface space-y-6 text-left relative overflow-hidden nonga-text-primary">
       {/* Glow */}
       <div className="absolute top-[-100px] right-[-100px] w-64 h-64 bg-orange-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b nonga-border pb-5">
         <div className="space-y-1">
-          <h3 className="font-display font-black text-xl text-white flex items-center gap-2">
-            <Layers className="w-5 h-5 text-orange-550" />
-            แผงควบคุมโควต้าและฟีเจอร์พรีเมียม <span className="text-orange-500 text-base">Nong A Premium AI ⚡</span>
+          <h3 className="font-display font-black text-xl nonga-text-primary flex items-center gap-2">
+            <Layers className="w-5 h-5 text-[var(--nonga-brand)]" />
+            แผงควบคุมโควต้าและฟีเจอร์พรีเมียม <span className="text-[var(--nonga-action-primary)] text-base">Nong A Premium AI ⚡</span>
           </h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="text-xs nonga-text-secondary leading-relaxed">
             ตรวจสอบข้อมูลสถิติมูลค่าการใช้ความต้องการดีลเลอร์ บัญชีเครดิต และความก้าวหน้าความสามารถเครื่องมือ AI
           </p>
         </div>
@@ -339,7 +339,7 @@ export function AiUsageDashboard() {
           <button
             onClick={refreshStats}
             disabled={loading}
-            className="p-2 border border-slate-800 bg-slate-900/60 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white cursor-pointer active:scale-95 transition disabled:opacity-50"
+            className="p-2 border nonga-border nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)] rounded-xl nonga-text-secondary hover:text-[var(--nonga-text-primary)] cursor-pointer active:scale-95 transition disabled:opacity-50 nonga-focus-ring"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -347,14 +347,14 @@ export function AiUsageDashboard() {
           {isPremium ? (
             <button
               onClick={downgradeToFree}
-              className="px-3.5 py-1.5 border border-slate-800 hover:bg-slate-900 text-[11px] text-rose-400 font-bold rounded-xl active:scale-95 transition cursor-pointer"
+              className="px-3.5 py-1.5 border nonga-border hover:bg-[var(--nonga-bg-subtle)] text-[11px] text-[var(--nonga-error)] font-bold rounded-xl active:scale-95 transition cursor-pointer nonga-focus-ring"
             >
               รีเซ็ตกลับแผนเริ่มต้น
             </button>
           ) : (
             <button
               onClick={upgradeToPremium}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-orange-600 to-amber-500 text-white rounded-xl text-[11px] font-bold shadow-[0_0_15px_rgba(249,115,22,0.2)] active:scale-95 transition cursor-pointer"
+              className="px-3.5 py-1.5 nonga-action nonga-focus-ring rounded-xl text-[11px] font-bold shadow-[0_0_15px_rgba(249,115,22,0.2)] active:scale-95 transition cursor-pointer"
             >
               จำลองอัพเกรดเป็นพรีเมียม
             </button>
@@ -366,19 +366,21 @@ export function AiUsageDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Active plan overview block */}
-        <div className="p-4 rounded-xl border border-slate-850 bg-slate-900/40 space-y-3.5">
-          <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">บัญชีผู้ใช้ดีลเลอร์</span>
+        <div className="p-4 rounded-xl border nonga-border nonga-bg-elevated space-y-3.5">
+          <span className="text-[10px] nonga-text-muted font-bold block uppercase tracking-wider">บัญชีผู้ใช้ดีลเลอร์</span>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl font-bold ${
-              isPremium ? "bg-amber-500/10 border border-amber-500/20 text-amber-500" : "bg-slate-800 border border-slate-700 text-slate-400"
+              isPremium
+                ? "bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] border border-[color-mix(in_srgb,var(--nonga-brand)_30%,transparent)] text-[var(--nonga-action-primary)]"
+                : "nonga-bg-subtle border nonga-border nonga-text-secondary"
             }`}>
               {isPremium ? <Crown className="w-5 h-5 fill-amber-500/20" /> : <Award className="w-5 h-5" />}
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-200">
+              <h4 className="font-bold text-sm nonga-text-primary">
                 {isPremium ? "Premium Merchant" : "Free Creator Account"}
               </h4>
-              <p className="text-[10.5px] text-slate-500">
+              <p className="text-[10.5px] nonga-text-muted">
                 {isPremium ? "ปลดล็อคขีดความสามารถ AI 9 โมดูลแล้ว" : "จำกัดสิทธิ์เฉพาะฟีเจอร์พื้นฐาน"}
               </p>
             </div>
@@ -387,24 +389,24 @@ export function AiUsageDashboard() {
         </div>
 
         {/* Future Ready: Token balance pay-per-use card */}
-        <div className="p-4 rounded-xl border border-slate-850 bg-slate-900/40 space-y-3.5">
-          <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">โควต้าและเครดิตโทเค็น</span>
+        <div className="p-4 rounded-xl border nonga-border nonga-bg-elevated space-y-3.5">
+          <span className="text-[10px] nonga-text-muted font-bold block uppercase tracking-wider">โควต้าและเครดิตโทเค็น</span>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+            <div className="w-10 h-10 rounded-full bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] border border-[color-mix(in_srgb,var(--nonga-brand)_30%,transparent)] flex items-center justify-center text-[var(--nonga-brand)]">
               <Coins className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-200">
+              <h4 className="font-bold text-sm nonga-text-primary">
                 {isPremium ? "โทเค็นล้านใจไม่จำกัด ⚡" : `${subscription?.tokens || 0} เครดิตทดลองสี`}
               </h4>
-              <p className="text-[10.5px] text-slate-500">
+              <p className="text-[10.5px] nonga-text-muted">
                 ใช้งาน 1 ครั้งต่อการวิจัย/แต่งของระบบ
               </p>
             </div>
           </div>
           <div className="h-5">
             {!isPremium && (
-              <span className="inline-flex items-center gap-1.5 text-[10px] text-amber-500 font-bold bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10">
+              <span className="inline-flex items-center gap-1.5 text-[10px] text-[var(--nonga-action-primary)] font-bold bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] px-2 py-0.5 rounded border border-[color-mix(in_srgb,var(--nonga-brand)_25%,transparent)]">
                 <Plus className="w-3.5 h-3.5" /> สามารถเติมโทเค็นเพิ่มได้ในอนาคต
               </span>
             )}
@@ -412,22 +414,22 @@ export function AiUsageDashboard() {
         </div>
 
         {/* Next Billing/Quota dates */}
-        <div className="p-4 rounded-xl border border-slate-850 bg-slate-900/40 space-y-3.5">
-          <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">วันหมดอายุการใช้งาน</span>
+        <div className="p-4 rounded-xl border nonga-border nonga-bg-elevated space-y-3.5">
+          <span className="text-[10px] nonga-text-muted font-bold block uppercase tracking-wider">วันหมดอายุการใช้งาน</span>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-505/10 bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <div className="w-10 h-10 rounded-full bg-[color-mix(in_srgb,var(--nonga-info)_12%,transparent)] border border-[color-mix(in_srgb,var(--nonga-info)_30%,transparent)] flex items-center justify-center text-[var(--nonga-info)]">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-200">
+              <h4 className="font-bold text-sm nonga-text-primary">
                 {isPremium ? "ต่ออายุอัตโนมัติ 🪄" : "ตลอดชีพแผนเริ่มต้น"}
               </h4>
-              <p className="text-[10.5px] text-slate-500">
+              <p className="text-[10.5px] nonga-text-muted">
                 {isPremium ? `รอบบิลถัดไป: ${new Date(subscription?.expiresAt || '').toLocaleDateString('th-TH')}` : "ปรับแต่งเป็นพรีเมียมได้ไม่มีวันพ้นสิทธิ์"}
               </p>
             </div>
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[10px] nonga-text-secondary">
             {isPremium ? "ชำระรายเดือนด้วย PromptPay สะดวกสบาย" : "ไม่มีค่าบริการผูกมัดหรือแอบแฝง"}
           </div>
         </div>
@@ -435,52 +437,52 @@ export function AiUsageDashboard() {
       </div>
 
       {/* Feature Tracking and Progress Bars List */}
-      <div className="space-y-4 pt-4 border-t border-slate-900">
-        <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">
+      <div className="space-y-4 pt-4 border-t nonga-border">
+        <h4 className="text-xs font-black nonga-text-muted uppercase tracking-wider">
           สรุประดับโควต้าและเกตเวย์ความสามารถ AI
         </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1.5">
-          {featuresStats.map((stat, i) => {
+          {featuresStats.map((stat) => {
             const hasFreeLimit = stat.info.isUnlockedInFree;
             
             return (
               <div 
                 key={stat.info.id} 
-                className="p-4 rounded-xl border border-slate-850 hover:border-slate-800 bg-slate-900/20 space-y-3 relative overflow-hidden group transition-all"
+                className="p-4 rounded-xl border nonga-border hover:border-[var(--nonga-border-strong)] nonga-bg-elevated space-y-3 relative overflow-hidden group transition-all"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl">{stat.info.emoji}</span>
-                    <div>
-                      <h4 className="font-bold text-xs sm:text-sm text-slate-200 flex items-center gap-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-xl shrink-0">{stat.info.emoji}</span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-xs sm:text-sm nonga-text-primary flex items-center gap-1.5 flex-wrap">
                         {stat.info.name}
                         {!hasFreeLimit && (
-                          <span className="inline-flex items-center gap-0.5 text-[8.5px] bg-gradient-to-r from-orange-600 to-amber-500 text-white font-black px-1.5 py-0.5 rounded uppercase">
+                          <span className="inline-flex items-center gap-0.5 text-[8.5px] nonga-action font-black px-1.5 py-0.5 rounded uppercase">
                             Premium <Crown className="w-2 h-2" />
                           </span>
                         )}
                       </h4>
-                      <p className="text-[10.5px] text-slate-500">{stat.info.thaiName}</p>
+                      <p className="text-[10.5px] nonga-text-muted">{stat.info.thaiName}</p>
                     </div>
                   </div>
                   
                   {isPremium ? (
-                    <span className="text-[10.5px] font-black text-emerald-400 flex items-center gap-0.5 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/10">
+                    <span className="shrink-0 text-[10.5px] font-black text-[var(--nonga-success)] flex items-center gap-0.5 bg-[color-mix(in_srgb,var(--nonga-success)_12%,transparent)] px-2.5 py-0.5 rounded-full border border-[color-mix(in_srgb,var(--nonga-success)_30%,transparent)]">
                       <Unlock className="w-3 h-3 shrink-0" /> พร้อมใช้งานอันลิมิต
                     </span>
                   ) : stat.allowed ? (
-                    <span className="text-[10.5px] font-bold text-sky-400 flex items-center gap-0.5 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/10">
+                    <span className="shrink-0 text-[10.5px] font-bold text-[var(--nonga-info)] flex items-center gap-0.5 bg-[color-mix(in_srgb,var(--nonga-info)_12%,transparent)] px-2.5 py-0.5 rounded-full border border-[color-mix(in_srgb,var(--nonga-info)_30%,transparent)]">
                       <Unlock className="w-3 h-3 shrink-0" /> ปลดล็อก
                     </span>
                   ) : (
-                    <span className="text-[10.5px] font-bold text-rose-400 flex items-center gap-0.5 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/10">
+                    <span className="shrink-0 text-[10.5px] font-bold text-[var(--nonga-error)] flex items-center gap-0.5 bg-[color-mix(in_srgb,var(--nonga-error)_12%,transparent)] px-2.5 py-0.5 rounded-full border border-[color-mix(in_srgb,var(--nonga-error)_30%,transparent)]">
                       <Lock className="w-3 h-3 shrink-0" /> ล็อกโควต้าแล้ว
                     </span>
                   )}
                 </div>
 
-                <p className="text-[11px] text-slate-400 leading-relaxed text-left">
+                <p className="text-[11px] nonga-text-secondary leading-relaxed text-left">
                   {stat.info.description}
                 </p>
 
