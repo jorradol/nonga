@@ -96,6 +96,54 @@ html.dark {
   --nonga-scrollbar-thumb-hover: #ea580c;
 }
 
+/* Nong A semantic color utilities — presentation only, token-backed */
+.nonga-bg-app { background-color: var(--nonga-bg-app); }
+.nonga-bg-surface { background-color: var(--nonga-bg-surface); }
+.nonga-bg-elevated { background-color: var(--nonga-bg-elevated); }
+.nonga-bg-subtle { background-color: var(--nonga-bg-subtle); }
+.nonga-text-primary { color: var(--nonga-text-primary); }
+.nonga-text-secondary { color: var(--nonga-text-secondary); }
+.nonga-text-muted { color: var(--nonga-text-muted); }
+.nonga-text-placeholder { color: var(--nonga-text-placeholder); }
+.nonga-text-inverse { color: var(--nonga-text-inverse); }
+.nonga-border { border-color: var(--nonga-border); }
+.nonga-border-strong { border-color: var(--nonga-border-strong); }
+.nonga-placeholder::placeholder { color: var(--nonga-text-placeholder); }
+.nonga-action {
+  background-color: var(--nonga-action-primary);
+  color: var(--nonga-action-primary-text);
+}
+.nonga-action:hover {
+  background-color: var(--nonga-action-primary-hover);
+}
+.nonga-focus-ring:focus-visible {
+  outline: 2px solid var(--nonga-focus-ring);
+  outline-offset: 2px;
+}
+.nonga-header-bar {
+  background-color: color-mix(in srgb, var(--nonga-bg-surface) 92%, transparent);
+  border-color: var(--nonga-border);
+}
+.nonga-nav-idle {
+  color: var(--nonga-text-secondary);
+}
+.nonga-nav-idle:hover {
+  color: var(--nonga-brand);
+  background-color: var(--nonga-bg-subtle);
+}
+.nonga-menu-item {
+  color: var(--nonga-text-primary);
+}
+.nonga-menu-item:hover {
+  background-color: var(--nonga-bg-subtle);
+}
+.nonga-link-accent {
+  color: var(--nonga-action-primary);
+}
+.nonga-link-accent:hover {
+  color: var(--nonga-action-primary-hover);
+}
+
 /* Custom animated gradient glow */
 @keyframes pulseGlow {
   0%, 100% {

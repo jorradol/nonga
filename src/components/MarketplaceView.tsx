@@ -150,10 +150,10 @@ export default function MarketplaceView() {
     <div className="space-y-6 sm:space-y-10 pb-20">
       
       {/* Premium Hero Banner Block */}
-      <section className="relative overflow-hidden rounded-3xl bg-slate-950 text-white py-12 px-6 sm:px-12 border border-slate-800">
+      <section className="relative overflow-hidden rounded-3xl nonga-bg-elevated nonga-text-primary py-12 px-6 sm:px-12 border nonga-border">
         {/* Glow backdrop shapes */}
         <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-orange-600/20 blur-3xl brand-glow"></div>
-        <div className="absolute -bottom-16 -left-16 w-80 h-80 rounded-full bg-slate-800/40 blur-3xl"></div>
+        <div className="absolute -bottom-16 -left-16 w-80 h-80 rounded-full nonga-bg-subtle blur-3xl opacity-70"></div>
         
         <div className="relative max-w-4xl space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/10 rounded-full border border-orange-500/25 text-orange-500 text-xs font-semibold uppercase tracking-wider font-mono">
@@ -165,7 +165,7 @@ export default function MarketplaceView() {
             ขับเคลื่อนด้วย <span className="text-orange-500 bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent">AI อัจฉริยะ</span> ของ NongBot
           </h1>
           
-          <p className="text-slate-400 font-sans text-sm sm:text-base max-w-2xl leading-relaxed">
+          <p className="nonga-text-secondary font-sans text-sm sm:text-base max-w-2xl leading-relaxed">
             สัมผัสประสบการณ์ซื้อรถยุคใหม่ วิเคราะห์เปรียบเทียบราคาอย่างมั่นใจ ปังปุริเย่ไปกับน้องเอ AI Sales Expert สรุปข้อมูลครบจบในคลิกเดียว พร้อมให้ต่อรองและวิจารณ์สภาพรถแบบเจาะลึก!
           </p>
         </div>
@@ -174,18 +174,18 @@ export default function MarketplaceView() {
         <div className="relative mt-8 max-w-3xl">
           <div className="flex flex-col sm:flex-row gap-2.5">
             <div className="relative flex-grow">
-              <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-5 h-5 nonga-text-muted" />
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => setFilters({ search: e.target.value })}
                 placeholder="พิมพ์ยี่ห้อ รุ่น หรือคีย์เวิร์ดรถที่ชอบ... (เช่น Tesla Model 3, Fortuner)"
-                className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm transition-all"
+                className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl nonga-bg-subtle border nonga-border nonga-text-primary nonga-placeholder focus:outline-none focus:border-orange-500 text-sm transition-all nonga-focus-ring"
               />
               {filters.search && (
                 <button 
                   onClick={() => setFilters({ search: "" })}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 nonga-text-muted hover:text-[var(--nonga-text-primary)]"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -194,7 +194,7 @@ export default function MarketplaceView() {
             
             <button 
               onClick={() => setFilters({ sortBy: filters.sortBy === "latest" ? "price-asc" : "latest" })}
-              className="flex items-center justify-center gap-2 px-5 py-3.5 sm:py-4 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-2xl text-slate-300 hover:text-white transition-all text-sm font-medium"
+              className="flex items-center justify-center gap-2 px-5 py-3.5 sm:py-4 nonga-bg-subtle border nonga-border rounded-2xl nonga-text-secondary nonga-menu-item transition-all text-sm font-medium nonga-focus-ring"
             >
               <ArrowUpDown className="w-4 h-4 text-orange-500" />
               <span>{filters.sortBy === "price-asc" ? "ราคาต่ำสุดก่อน" : "เรียงตามล่าสุด"}</span>
@@ -202,13 +202,13 @@ export default function MarketplaceView() {
           </div>
 
           {hotTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mt-4 text-[12px] text-slate-400">
+            <div className="flex flex-wrap items-center gap-2 mt-4 text-[12px] nonga-text-secondary">
               <span>ยี่ห้อในตลาด:</span>
               {hotTags.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setFilters({ search: tag })}
-                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 font-sans transition-all"
+                  className="px-2.5 py-1 nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)] border nonga-border rounded-lg nonga-text-primary font-sans transition-all nonga-focus-ring"
                 >
                   {tag}
                 </button>
@@ -222,7 +222,7 @@ export default function MarketplaceView() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8 items-start">
         
         {/* Filters sidebar */}
-        <aside className={`lg:sticky lg:top-24 space-y-5 rounded-2xl p-5 ${isDarkMode ? "glass-panel" : "glass-panel-light"} border`}>
+        <aside className="lg:sticky lg:top-24 space-y-5 rounded-2xl p-5 nonga-bg-surface border nonga-border">
           <div className="flex items-center justify-between border-b pb-3 border-orange-500/10">
             <div className="flex items-center gap-2 font-display font-semibold">
               <SlidersHorizontal className="w-4.5 h-4.5 text-orange-500" />
@@ -238,7 +238,7 @@ export default function MarketplaceView() {
 
           {/* Budget Limit Slider */}
           <div className="space-y-2">
-            <label className="text-[13px] font-medium block text-slate-400">
+            <label className="text-[13px] font-medium block nonga-text-secondary">
               งบประมาณสูงสุด: <span className="font-mono text-orange-500 font-bold block sm:inline">฿{filters.maxPrice.toLocaleString()} บาท</span>
             </label>
             <input
@@ -248,9 +248,9 @@ export default function MarketplaceView() {
               step="50000"
               value={filters.maxPrice}
               onChange={(e) => setFilters({ maxPrice: Number(e.target.value) })}
-              className="w-full accent-orange-600 cursor-pointer h-1.5 rounded-lg bg-slate-200 dark:bg-slate-800"
+              className="w-full accent-orange-600 cursor-pointer h-1.5 rounded-lg nonga-bg-subtle"
             />
-            <div className="flex justify-between text-[11px] text-slate-500 font-mono">
+            <div className="flex justify-between text-[11px] nonga-text-muted font-mono">
               <span>฿100k</span>
               <span>฿10M</span>
             </div>
@@ -258,7 +258,7 @@ export default function MarketplaceView() {
 
           {/* Segment Selection lists */}
           <div className="space-y-2">
-            <span className="text-[13px] font-medium block text-slate-400">ประเภทเครื่องยนต์</span>
+            <span className="text-[13px] font-medium block nonga-text-secondary">ประเภทเครื่องยนต์</span>
             <div className="grid grid-cols-2 gap-1.5">
               {[
                 { id: "all", label: "ทั้งหมด" },
@@ -272,8 +272,8 @@ export default function MarketplaceView() {
                   onClick={() => setFilters({ fuelType: fuel.id })}
                   className={`px-3 py-2 rounded-xl text-left text-xs font-sans transition-all duration-150 border ${
                     filters.fuelType === fuel.id
-                      ? "bg-slate-900 border-orange-500 text-orange-500 font-medium"
-                      : "border-transparent bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/40 dark:hover:bg-slate-800/80 text-slate-400"
+                      ? "nonga-bg-elevated border-orange-500 text-orange-600 dark:text-orange-500 font-medium"
+                      : "border-transparent nonga-bg-subtle nonga-text-muted"
                   }`}
                 >
                   {fuel.label}
@@ -283,7 +283,7 @@ export default function MarketplaceView() {
           </div>
 
           {/* Quick Stats widget */}
-          <div className="border-t border-orange-500/10 pt-4 text-xs space-y-1.5 text-slate-500">
+          <div className="border-t border-orange-500/10 pt-4 text-xs space-y-1.5 nonga-text-muted">
             <div className="flex justify-between">
               <span>พบรถยนต์ทั้งหมด:</span>
               <span className="font-mono text-orange-500 font-semibold">{filteredCars.length} คัน</span>
@@ -312,10 +312,8 @@ export default function MarketplaceView() {
                   onClick={() => setFilters({ category: cat.id })}
                   className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-sans transition-all duration-200 border ${
                     filters.category === cat.id
-                      ? "bg-orange-600 text-white border-orange-600 shadow-md shadow-orange-600/15"
-                      : isDarkMode
-                      ? "bg-slate-900/40 border-slate-800/50 hover:border-slate-700 text-slate-300 hover:bg-slate-900"
-                      : "bg-white border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50"
+                      ? "nonga-action border-[var(--nonga-action-primary)] shadow-md shadow-orange-600/15"
+                      : "nonga-bg-surface border nonga-border nonga-text-secondary nonga-menu-item"
                   }`}
                 >
                   <span>{cat.label}</span>
@@ -338,7 +336,7 @@ export default function MarketplaceView() {
                 <p>{carsLoadError || "โหลดข้อมูลรถไม่สำเร็จชั่วคราว"}</p>
                 <button
                   onClick={() => void fetchCars()}
-                  className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-all"
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-semibold nonga-action nonga-focus-ring transition-all"
                 >
                   ลองใหม่
                 </button>
@@ -349,16 +347,12 @@ export default function MarketplaceView() {
           {uiState === "loading" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className={`animate-pulse rounded-2xl h-[380px] ${isDarkMode ? "bg-slate-900" : "bg-slate-100"}`}></div>
+                <div key={i} className="animate-pulse rounded-2xl h-[380px] nonga-bg-subtle"></div>
               ))}
             </div>
           ) : uiState === "error" ? (
             <div
-              className={`p-12 text-center rounded-2xl border ${
-                isDarkMode
-                  ? "bg-slate-900/10 border-slate-800"
-                  : "bg-slate-50 border-slate-200"
-              } space-y-4`}
+              className="p-12 text-center rounded-2xl border nonga-bg-subtle nonga-border space-y-4"
             >
               <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
                 <X className="w-8 h-8" />
@@ -367,24 +361,20 @@ export default function MarketplaceView() {
                 <h4 className="font-display font-semibold text-lg">
                   โหลดรายการรถไม่สำเร็จ
                 </h4>
-                <p className="text-slate-500 text-xs sm:text-sm">
+                <p className="nonga-text-muted text-xs sm:text-sm">
                   ข้อมูลอาจขัดข้องชั่วคราว กรุณาลองโหลดใหม่อีกครั้ง
                 </p>
               </div>
               <button
                 onClick={() => void fetchCars()}
-                className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-xs hover:bg-orange-700 transition-all font-medium"
+                className="px-5 py-2.5 nonga-action nonga-focus-ring rounded-xl text-xs transition-all font-medium"
               >
                 ลองโหลดใหม่
               </button>
             </div>
           ) : uiState === "empty" ? (
             <div
-              className={`p-12 text-center rounded-2xl border ${
-                isDarkMode
-                  ? "bg-slate-900/10 border-slate-800"
-                  : "bg-slate-50 border-slate-200"
-              } space-y-4`}
+              className="p-12 text-center rounded-2xl border nonga-bg-subtle nonga-border space-y-4"
             >
               <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center">
                 <CarIcon className="w-8 h-8" />
@@ -393,24 +383,20 @@ export default function MarketplaceView() {
                 <h4 className="font-display font-semibold text-lg">
                   ยังไม่มีรถในตลาด
                 </h4>
-                <p className="text-slate-500 text-xs sm:text-sm">
+                <p className="nonga-text-muted text-xs sm:text-sm">
                   เป็นคนแรกที่ลงประกาศขายรถได้เลยครับ — ข้อมูลจะแสดงทันทีหลังลงขาย
                 </p>
               </div>
               <button
                 onClick={() => setView("sell")}
-                className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-xs hover:bg-orange-700 transition-all font-medium"
+                className="px-5 py-2.5 nonga-action nonga-focus-ring rounded-xl text-xs transition-all font-medium"
               >
                 ลงประกาศขายรถ
               </button>
             </div>
           ) : uiState === "filtered-empty" ? (
             <div
-              className={`p-12 text-center rounded-2xl border ${
-                isDarkMode
-                  ? "bg-slate-900/10 border-slate-800"
-                  : "bg-slate-50 border-slate-200"
-              } space-y-4`}
+              className="p-12 text-center rounded-2xl border nonga-bg-subtle nonga-border space-y-4"
             >
               <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center">
                 <Search className="w-8 h-8" />
@@ -419,13 +405,13 @@ export default function MarketplaceView() {
                 <h4 className="font-display font-semibold text-lg">
                   ไม่พบรถตามตัวกรอง
                 </h4>
-                <p className="text-slate-500 text-xs sm:text-sm">
+                <p className="nonga-text-muted text-xs sm:text-sm">
                   มีรถ {cars.length} คันในตลาด — ลองปรับคำค้นหาหรือตัวกรอง
                 </p>
               </div>
               <button
                 onClick={resetFilters}
-                className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-xs hover:bg-orange-700 transition-all font-medium"
+                className="px-5 py-2.5 nonga-action nonga-focus-ring rounded-xl text-xs transition-all font-medium"
               >
                 ล้างตัวกรองทั้งหมด
               </button>
@@ -457,15 +443,11 @@ export default function MarketplaceView() {
                     aiScore={car.type === "ev" ? 92 : 86}
                   >
                     <article 
-                      className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border h-full transition-all duration-300 hover:scale-[1.01] ${
-                        isDarkMode 
-                          ? "glass-panel hover:border-orange-500/30 hover:glow-orange-sm text-white" 
-                          : "bg-white border-slate-150 shadow-sm hover:shadow-md hover:border-orange-500/30 text-slate-800"
-                      }`}
+                      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border nonga-border nonga-bg-surface nonga-text-primary h-full transition-all duration-300 hover:scale-[1.01] hover:border-orange-500/30 shadow-sm hover:shadow-md"
                     >
                       
                       {/* Top image — แตะรูปเข้าหน้ารายละเอียดรถ */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                      <div className="relative aspect-video w-full overflow-hidden nonga-bg-elevated">
                         <div
                           role="button"
                           tabIndex={0}
@@ -489,7 +471,7 @@ export default function MarketplaceView() {
                           />
                         </div>
 
-                        <span className="absolute top-3.5 left-3.5 z-10 pointer-events-none bg-slate-950/80 backdrop-blur-md text-[10px] sm:text-[11px] text-orange-500 font-semibold px-2.5 py-1 rounded-lg border border-orange-500/25">
+                        <span className="absolute top-3.5 left-3.5 z-10 pointer-events-none bg-black/75 backdrop-blur-md text-[10px] sm:text-[11px] text-orange-500 font-semibold px-2.5 py-1 rounded-lg border border-orange-500/25">
                           {smartBadge}
                         </span>
 
@@ -526,8 +508,8 @@ export default function MarketplaceView() {
                             <span className="text-[10px] font-mono tracking-wider font-semibold text-orange-500 uppercase">
                               {car.brand}
                             </span>
-                            <span className="w-1 h-1 rounded-full bg-slate-400"></span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            <span className="w-1 h-1 rounded-full nonga-bg-subtle ring-1 ring-[var(--nonga-border-strong)]"></span>
+                            <span className="text-[10px] nonga-text-muted">
                               ปี {car.year}
                             </span>
                           </div>
@@ -540,17 +522,17 @@ export default function MarketplaceView() {
                         </div>
 
                         {/* Spec metrics */}
-                        <div className="grid grid-cols-3 gap-2 py-2 border-y border-orange-500/5 text-[11px] text-slate-400 font-sans">
+                        <div className="grid grid-cols-3 gap-2 py-2 border-y border-orange-500/5 text-[11px] nonga-text-muted font-sans">
                           <div className="flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                            <Calendar className="w-3.5 h-3.5 nonga-text-muted flex-shrink-0" />
                             <span className="truncate">{car.year}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Gauge className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                            <Gauge className="w-3.5 h-3.5 nonga-text-muted flex-shrink-0" />
                             <span className="truncate font-mono">{car.mileage.toLocaleString()} กม.</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Fuel className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                            <Fuel className="w-3.5 h-3.5 nonga-text-muted flex-shrink-0" />
                             <span className="truncate uppercase">{car.fuelType}</span>
                           </div>
                         </div>
@@ -558,22 +540,18 @@ export default function MarketplaceView() {
                         {/* Display price block */}
                         <div className="flex items-baseline justify-between pt-1">
                           <div className="flex flex-col">
-                            <span className="text-[9px] text-slate-400 uppercase tracking-widest">ราคาเสนอขาย</span>
+                            <span className="text-[9px] nonga-text-muted uppercase tracking-widest">ราคาเสนอขาย</span>
                             <span className="font-mono font-black text-lg text-orange-500">
                               ฿{car.price.toLocaleString()}
                             </span>
                           </div>
-                          <span className={`text-[10px] px-2 py-0.5 rounded ${isDarkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-600"}`}>
+                          <span className="text-[10px] px-2 py-0.5 rounded nonga-bg-subtle nonga-text-secondary">
                             สภาพ {car.condition}
                           </span>
                         </div>
 
                         {/* AI Expert comment tag */}
-                        <div className={`p-2.5 rounded-xl border flex items-start text-[11.5px] leading-relaxed select-none ${
-                          isDarkMode 
-                            ? "bg-slate-900/80 border-slate-800/80 text-slate-300" 
-                            : "bg-orange-500/5 border-orange-500/10 text-slate-700"
-                        }`}>
+                        <div className="p-2.5 rounded-xl border border-orange-500/10 bg-orange-500/5 flex items-start text-[11.5px] leading-relaxed select-none nonga-text-secondary">
                           <Sparkles className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5 animate-pulse" />
                           <span className="line-clamp-2 pl-1.5">
                             <strong className="text-orange-500 font-bold block sm:inline">Nong A: </strong>
@@ -584,22 +562,18 @@ export default function MarketplaceView() {
                       </div>
 
                       {/* Button interactions footer */}
-                      <div className="grid grid-cols-2 gap-2 p-3 pt-0 border-t border-orange-500/5 bg-slate-900/5 dark:bg-slate-950/20">
+                      <div className="grid grid-cols-2 gap-2 p-3 pt-0 border-t border-orange-500/5 nonga-bg-subtle">
                         <button 
                           type="button"
                           onClick={openCarDetails}
-                          className={`flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-sans font-medium transition-all duration-150 ${
-                            isDarkMode 
-                              ? "bg-slate-800 hover:bg-slate-750 text-white" 
-                              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                          }`}
+                          className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-sans font-medium transition-all duration-150 nonga-bg-elevated border nonga-border nonga-text-primary nonga-menu-item nonga-focus-ring"
                         >
                           ดูสเป็คละเอียด <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                         
                         <button 
                           onClick={() => consultAIAboutCar(car)}
-                          className="flex items-center justify-center gap-1 px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white rounded-xl text-xs font-semibold glow-orange-sm transition-all"
+                          className="flex items-center justify-center gap-1 px-3 py-2 nonga-action nonga-focus-ring rounded-xl text-xs font-semibold glow-orange-sm transition-all"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                           <span>ถามน้องเอ AI</span>
@@ -609,7 +583,7 @@ export default function MarketplaceView() {
                         <button
                           type="button"
                           onClick={() => void reportListing(car)}
-                          className="text-[11px] text-slate-400 hover:text-orange-500 underline-offset-2 hover:underline"
+                          className="text-[11px] nonga-text-muted nonga-link-accent underline-offset-2 hover:underline"
                         >
                           รายงานประกาศ
                         </button>

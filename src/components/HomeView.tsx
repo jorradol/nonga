@@ -16,7 +16,7 @@ import {
 import { queuePendingChatMessage } from "../utils/pendingChatMessage";
 
 export default function HomeView() {
-  const { isDarkMode, setView } = useAppStore();
+  const { setView } = useAppStore();
   const { isSignedIn } = useAuth();
   const { isDealer, isAdmin } = useRole();
   
@@ -123,9 +123,7 @@ export default function HomeView() {
         {/* Welcome hero — shown on "/" only; full chat UI is on /chat */}
         <div className="space-y-5 max-w-3xl mx-auto">
           <h1
-            className={`font-display font-black text-3xl sm:text-5xl tracking-tight leading-[1.15] ${
-              isDarkMode ? "text-white" : "text-slate-900"
-            }`}
+            className="font-display font-black text-3xl sm:text-5xl tracking-tight leading-[1.15] nonga-text-primary"
           >
             <span className="block">คุยรถยนต์สับๆ กับ</span>
             <span className="relative inline-block mt-2 text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-red-500">
@@ -135,9 +133,7 @@ export default function HomeView() {
           </h1>
 
           <p
-            className={`text-base sm:text-lg font-sans max-w-2xl mx-auto leading-relaxed ${
-              isDarkMode ? "text-slate-300" : "text-slate-600"
-            }`}
+            className="text-base sm:text-lg font-sans max-w-2xl mx-auto leading-relaxed nonga-text-secondary"
           >
             สวัสดีครับ ผมคือน้องเอ อยากซื้อรถแบบไหน บอกงบ รุ่น หรือการใช้งานมาได้เลยครับ
             — ค้นหารถในตลาดและปรึกษาได้ทันทีโดยไม่ต้องล็อกอิน
@@ -149,7 +145,7 @@ export default function HomeView() {
             type="button"
             data-testid="home-cta-start-chat"
             onClick={() => goToFullChat()}
-            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-black text-base sm:text-lg rounded-2xl shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 hover:scale-[1.02] transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-orange-400/10 cursor-pointer"
+            className="w-full sm:w-auto px-8 py-4 nonga-action nonga-focus-ring font-black text-base sm:text-lg rounded-2xl shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 hover:scale-[1.02] transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <MessageSquare className="w-5 h-5" />
             <span>เริ่มคุยกับน้องเอ</span>
@@ -159,11 +155,7 @@ export default function HomeView() {
             type="button"
             data-testid="home-cta-marketplace"
             onClick={() => setView("marketplace")}
-            className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-sm sm:text-base border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              isDarkMode
-                ? "bg-[#111113] border-white/10 text-slate-200 hover:text-white hover:bg-[#18181b] hover:border-orange-500/30"
-                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-orange-500/40"
-            }`}
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-sm sm:text-base border nonga-border nonga-bg-surface nonga-text-primary hover:border-orange-500/40 nonga-menu-item nonga-focus-ring transition-all flex items-center justify-center gap-2 cursor-pointer" 
           >
             <Car className="w-5 h-5 text-orange-500" />
             <span>ไปที่ตลาดรถ</span>
@@ -178,11 +170,7 @@ export default function HomeView() {
                 "สวัสดีน้องเอ ผมต้องการซื้อรถ ช่วยถามงบประมาณ ไลฟ์สไตล์ และแนะนำประเภทรถที่เหมาะกับผมหน่อยครับ"
               )
             }
-            className={`group text-left p-5 rounded-3xl border transition-all hover:-translate-y-0.5 active:scale-[0.99] ${
-              isDarkMode
-                ? "bg-white/[0.04] border-white/[0.08] hover:border-orange-500/35 hover:bg-orange-500/[0.07]"
-                : "bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-lg"
-            }`}
+            className="group text-left p-5 rounded-3xl border nonga-border nonga-bg-surface nonga-text-primary shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.99] hover:border-orange-500/35 nonga-focus-ring" 
           >
             <div className="flex items-start gap-3">
               <span className="h-11 w-11 rounded-2xl bg-orange-500/15 text-orange-500 flex items-center justify-center shrink-0">
@@ -190,7 +178,7 @@ export default function HomeView() {
               </span>
               <span className="space-y-1.5">
                 <span className="block font-display font-black text-base">ฉันต้องการซื้อรถ</span>
-                <span className="block text-xs leading-relaxed text-slate-500">
+                <span className="block text-xs leading-relaxed nonga-text-muted">
                   ให้น้องเอช่วยถามงบ ไลฟ์สไตล์ และแนะนำรถที่เหมาะกับคุณ
                 </span>
               </span>
@@ -200,11 +188,7 @@ export default function HomeView() {
           <button
             type="button"
             onClick={goToSellFlow}
-            className={`group text-left p-5 rounded-3xl border transition-all hover:-translate-y-0.5 active:scale-[0.99] ${
-              isDarkMode
-                ? "bg-white/[0.04] border-white/[0.08] hover:border-orange-500/35 hover:bg-orange-500/[0.07]"
-                : "bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-lg"
-            }`}
+            className="group text-left p-5 rounded-3xl border nonga-border nonga-bg-surface nonga-text-primary shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.99] hover:border-orange-500/35 nonga-focus-ring" 
           >
             <div className="flex items-start gap-3">
               <span className="h-11 w-11 rounded-2xl bg-orange-500/15 text-orange-500 flex items-center justify-center shrink-0">
@@ -212,7 +196,7 @@ export default function HomeView() {
               </span>
               <span className="space-y-1.5">
                 <span className="block font-display font-black text-base">ฉันต้องการขายรถ / ฝากขายรถ</span>
-                <span className="block text-xs leading-relaxed text-slate-500">
+                <span className="block text-xs leading-relaxed nonga-text-muted">
                   เริ่มคุยเพื่อเตรียมข้อมูลรถ รูปภาพ และร่างประกาศขาย
                 </span>
               </span>
@@ -223,7 +207,7 @@ export default function HomeView() {
         {/* Sub CTA shortcut */}
         <button 
           onClick={() => setView("search")}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-orange-500 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold nonga-link-accent transition-colors"
         >
           <span>หรือเปิดค้นหารถละเอียดระบุพิกัดเกรดอัจฉริยะ</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -243,13 +227,11 @@ export default function HomeView() {
             <div className="space-y-4 text-left">
               <span className="text-[11px] font-mono tracking-wider font-extrabold text-orange-500 uppercase">ขั้นตอนที่ 1: แตะรูประบบสตาร์ทด้านล่างนี้</span>
               
-              <h3 className={`font-display font-extrabold text-lg sm:text-xl leading-tight ${
-                isDarkMode ? "text-white" : "text-slate-800"
-              }`}>
+              <h3 className="font-display font-extrabold text-lg sm:text-xl leading-tight nonga-text-primary">
                 จำลองการส่งใบสมัครขอวิเคราะห์รถครอบครัวคันเด็ดของคุณ
               </h3>
               
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 การวิเคราะห์สแกนรูปรถบ้านแท้ ตรวจสอบการพยาบาลสี รอยขูดขีดรอบตัวขอบประเสริฐ และแปลความหมายแบรนด์ พร้อมเปลี่ยนความท้าทายให้กลายเป็นบทบรรยายที่หอมกรุ่นน่าจอง
               </p>
             </div>
@@ -261,7 +243,7 @@ export default function HomeView() {
                 className={`relative group overflow-hidden rounded-2xl border text-left p-3.5 space-y-2.5 transition active:scale-95 ${
                   simulatorCarPhoto === "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600"
                     ? "border-orange-500 bg-orange-500/10" 
-                    : isDarkMode ? "border-white/10 bg-white/5 hover:bg-white/[0.08]" : "border-slate-200 bg-white shadow-sm"
+                    : "border nonga-border nonga-bg-surface shadow-sm"
                 }`}
               >
                 <div className="aspect-video relative rounded-lg bg-black overflow-hidden">
@@ -270,7 +252,7 @@ export default function HomeView() {
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[11px] font-bold block">Honda CR-V 2.4 EL</span>
-                  <span className="text-[9.5px] text-slate-500 block">วิ่ง 45,000 กม. เกรดบ้าน A+</span>
+                  <span className="text-[9.5px] nonga-text-muted block">วิ่ง 45,000 กม. เกรดบ้าน A+</span>
                 </div>
               </button>
 
@@ -279,7 +261,7 @@ export default function HomeView() {
                 className={`relative group overflow-hidden rounded-2xl border text-left p-3.5 space-y-2.5 transition active:scale-95 ${
                   simulatorCarPhoto === "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600"
                     ? "border-orange-500 bg-orange-500/10" 
-                    : isDarkMode ? "border-white/10 bg-white/5 hover:bg-white/[0.08]" : "border-slate-200 bg-white shadow-sm"
+                    : "border nonga-border nonga-bg-surface shadow-sm"
                 }`}
               >
                 <div className="aspect-video relative rounded-lg bg-black overflow-hidden">
@@ -288,22 +270,22 @@ export default function HomeView() {
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[11px] font-bold block">BMW 3 Series M-Sport</span>
-                  <span className="text-[9.5px] text-slate-500 block">วิ่ง 58,000 กม. กุญแจครบ 2 ดอก</span>
+                  <span className="text-[9.5px] nonga-text-muted block">วิ่ง 58,000 กม. กุญแจครบ 2 ดอก</span>
                 </div>
               </button>
             </div>
 
             {/* Navigation links direct help */}
             <div className="space-y-3.5 p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10 text-left">
-              <span className="text-[10px] font-bold tracking-widest text-[#0e0e0e] dark:text-slate-100 flex items-center gap-1.5 uppercase">
+              <span className="text-[10px] font-bold tracking-widest nonga-text-primary flex items-center gap-1.5 uppercase">
                 <ShieldCheck className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> ตรวจสอบสเป็คของจริง
               </span>
-              <p className="text-[11px] leading-relaxed text-slate-400 text-balance">
+              <p className="text-[11px] leading-relaxed nonga-text-muted text-balance">
                 การลงประกาศใช้ได้เฉพาะบัญชีดีลเลอร์ที่ได้รับสิทธิ์และเข้าสู่ระบบแล้ว ขณะนี้ยังไม่เปิดรับสมัครสาธารณะ
               </p>
               <button 
                 onClick={() => setView("sell")}
-                className="w-full py-2.5 px-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition text-center leading-snug"
+                className="w-full py-2.5 px-3 nonga-action nonga-focus-ring rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition text-center leading-snug"
               >
                 <span>ไปยังพื้นที่ลงประกาศสำหรับดีลเลอร์</span>
                 <PlusCircle className="w-3.5 h-3.5 shrink-0" />
@@ -422,7 +404,7 @@ export default function HomeView() {
             </div>
             <div className="space-y-1.5">
               <h4 className="font-display font-bold text-base sm:text-lg">1-Click AI Easy Posting</h4>
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 อัปโหลดรูปรถครอบครัวคันเด็ด ป้อนคุณลักษณะคร่าวๆ ระบบประมวลผลคำนวณสเปกเพื่อวางรากฐานโพสต์ขายให้ทันทีอย่างไร้รอยต่อ
               </p>
             </div>
@@ -434,7 +416,7 @@ export default function HomeView() {
             </div>
             <div className="space-y-1.5">
               <h4 className="font-display font-bold text-base sm:text-lg">AI Chat Expert Assistant</h4>
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 วิเคราะห์สภาพแบตเตอรี่เทียบประวัติเฉลี่ย ปรึกษาตารางดอกเบี้ย คุยต่อรองราคาขั้นบันไดกับน้องเอ AI อัจฉริยะได้ตลอด 24 ชั่วโมง
               </p>
             </div>
@@ -446,7 +428,7 @@ export default function HomeView() {
             </div>
             <div className="space-y-1.5">
               <h4 className="font-display font-bold text-base sm:text-lg">Semantic Smart Search</h4>
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 พิมพ์ค้นหาเสรีตามความต้องการของคุณพี่ "รถบ้านประหยัดงบผ่อน" หรือ "รถไฟฟ้าวิ่งต่างจังหวัด" น้องเอก็จัดหาข้อมูลตอบโจทย์ได้อย่างคล่องแคล่ว
               </p>
             </div>
@@ -458,7 +440,7 @@ export default function HomeView() {
             </div>
             <div className="space-y-1.5">
               <h4 className="font-display font-bold text-base sm:text-lg">Verified Dealer Network</h4>
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 เชื่อมต่อและเป็นพันธมิตรโดยตรงกับ คลัยน์/ดีลเลอร์ โชว์รูมตัวท็อปในไทย ได้รับหลักประกันและสัญญาคุ้มครองรถยนต์ของแท้จากกลุ่มประเมินหลัก
               </p>
             </div>
@@ -470,7 +452,7 @@ export default function HomeView() {
             </div>
             <div className="space-y-1.5">
               <h4 className="font-display font-bold text-base sm:text-lg">AI Viral Caption Generator</h4>
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 สร้างคำโพสต์ลงแพลตฟอร์ม Social (Facebook, TikTok) ในลายเซ็นต์เฉียบคม คมกริบสไตล์ตัวพ่อตัวแม่ ปังปุริเย่ ดึงกระแสยอดไลก์พุ่งกระฉูด
               </p>
             </div>
@@ -482,7 +464,7 @@ export default function HomeView() {
             </div>
             <div className="space-y-1.5">
               <h4 className="font-display font-bold text-base sm:text-lg">Intelligent Spec Evaluator</h4>
-              <p className="text-xs text-slate-400 leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
                 สกัดความคุ้มค่า อัตราเร่ง สัมประสิทธิ์ความปลอดภัยของแบตเตอรี่รถยนต์ EV และประวัติการบำรุงรักษาอย่างมีตรรกะระดับวิทยาศาสตร์คณิตศาสตร์
               </p>
             </div>
@@ -492,11 +474,7 @@ export default function HomeView() {
       </Section>
 
       {/* 4. BRAND MISSION STATEMENT BANNER */}
-      <div className={`p-8 sm:p-12 rounded-3xl border text-center max-w-4xl mx-auto relative overflow-hidden space-y-6 ${
-        isDarkMode 
-          ? "bg-gradient-to-br from-[#0c0c0e] to-[#121214] border-white/[0.06] text-white" 
-          : "bg-white border-slate-200 text-slate-900 shadow-xl"
-      }`}>
+      <div className="p-8 sm:p-12 rounded-3xl border nonga-border nonga-bg-surface nonga-text-primary text-center max-w-4xl mx-auto relative overflow-hidden space-y-6 shadow-xl">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-orange-500/5 blur-[50px] pointer-events-none" />
         
         <div className="w-12 h-12 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto text-orange-500">
@@ -507,7 +485,7 @@ export default function HomeView() {
           <h3 className="font-display font-black text-xl sm:text-2xl leading-snug">
             "ยกระดับการซื้อขายรถยนต์คู่ AI ให้คล่องตัวสว่างกระจ่างแจ้ง"
           </h3>
-          <p className="text-xs sm:text-[13.5px] leading-relaxed text-slate-400">
+          <p className="text-xs sm:text-[13.5px] leading-relaxed nonga-text-muted">
             ที่บริษัท Nong A เราไม่เพียงเปลี่ยนการซื้อรถให้กลายเป็นความสนุกทางเทคโนโลยี แต่สร้างมาตรฐานและตัวชี้วัดความแม่นยำด้านเอกสาร ประวัติศูนย์บริการ และการรับประกันที่เปิดเผย เพื่อส่งความพึงพอใจแด่พี่ออโต้ทุกคน ปังปุริเย่แน่นอน!
           </p>
         </div>
@@ -515,7 +493,7 @@ export default function HomeView() {
         <div className="pt-2">
           <button
             onClick={() => setView("search")}
-            className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:text-orange-500 font-bold text-xs rounded-xl border border-orange-500/20 transition active:scale-95 flex items-center justify-center gap-1.5 mx-auto"
+            className="px-6 py-3 nonga-bg-subtle nonga-link-accent font-bold text-xs rounded-xl border border-orange-500/20 transition active:scale-95 flex items-center justify-center gap-1.5 mx-auto nonga-focus-ring"
           >
             <span>ไปเปิดค้นหาและคัดกรองรถอัจฉริยะ</span>
             <ArrowRight className="w-3.5 h-3.5 text-orange-500" />

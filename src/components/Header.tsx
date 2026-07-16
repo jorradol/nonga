@@ -114,11 +114,7 @@ export default function Header() {
 
   return (
     <>
-      <header className={`sticky top-0 z-50 transition-all duration-300 ${
-        isDarkMode 
-          ? "bg-[#0d0d0d]/85 border-white/[0.08]" 
-          : "bg-white/90 border-slate-200/50"
-      } border-b backdrop-blur-xl`}>
+      <header className="sticky top-0 z-50 transition-all duration-300 nonga-header-bar border-b backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0 py-1.5 sm:py-2">
           {/* Header ชั้น 1: โลโก้ + ค้นหา + actions */}
           <div className="grid grid-cols-[auto_1fr_auto] gap-x-2 sm:gap-x-3 gap-y-1.5 items-center">
@@ -141,7 +137,7 @@ export default function Header() {
                     NongBot
                   </span>
                 </span>
-                <span className="hidden sm:block text-[8px] sm:text-[9px] text-slate-500 font-medium tracking-wide truncate">
+                <span className="hidden sm:block text-[8px] sm:text-[9px] nonga-text-muted font-medium tracking-wide truncate">
                   Premium AI Auto Platform
                 </span>
               </div>
@@ -149,7 +145,7 @@ export default function Header() {
 
             {/* ค้นหา — แสดงทุกขนาดจอ; มือถือเต็มแถว, desktop อยู่กลางแถวโลโก้ */}
             <div className="col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 flex items-center min-w-0 w-full lg:max-w-sm relative group">
-              <span className="absolute left-3 sm:left-3.5 text-slate-500 group-focus-within:text-orange-500 transition-colors pointer-events-none">
+              <span className="absolute left-3 sm:left-3.5 nonga-text-muted group-focus-within:text-orange-500 transition-colors pointer-events-none">
                 <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </span>
               <input
@@ -159,25 +155,19 @@ export default function Header() {
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="ค้นหารุ่นรถยนต์ ยี่ห้อ หรือสเป็กไฟฟ้า... (⌘K)"
                 aria-label="ค้นหารถในตลาด"
-                className={`w-full min-w-[10rem] max-w-full text-[11px] sm:text-xs font-sans pl-9 sm:pl-10 pr-7 sm:pr-8 py-1.5 sm:py-2 rounded-lg sm:rounded-xl transition-all outline-none border ${
-                  isDarkMode 
-                    ? "bg-[#141416]/90 border-white/[0.08] text-slate-200 placeholder-slate-500 focus:border-orange-500/40 focus:bg-black/40" 
-                    : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-orange-500/40 focus:bg-white"
-                }`}
+                className="w-full min-w-[10rem] max-w-full text-[11px] sm:text-xs font-sans pl-9 sm:pl-10 pr-7 sm:pr-8 py-1.5 sm:py-2 rounded-lg sm:rounded-xl transition-all outline-none border nonga-bg-subtle nonga-border nonga-text-primary nonga-placeholder focus:border-orange-500/40 nonga-focus-ring" 
               />
               {filters.search ? (
                 <button 
                   type="button"
                   onClick={clearSearch}
-                  className="absolute right-2 sm:right-2.5 p-1.5 sm:p-1 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800/10 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  className="absolute right-2 sm:right-2.5 p-1.5 sm:p-1 rounded-md nonga-text-muted nonga-menu-item min-h-[36px] min-w-[36px] flex items-center justify-center"
                   aria-label="ล้างคำค้นหา"
                 >
                   <X className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
               ) : (
-                <span className={`absolute right-2.5 sm:right-3 font-mono text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded hidden xs:inline ${
-                  isDarkMode ? "bg-slate-900 border-white/5 text-slate-500" : "bg-slate-200/50 text-slate-400"
-                } pointer-events-none`}>
+                <span className="absolute right-2.5 sm:right-3 font-mono text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded hidden xs:inline nonga-bg-subtle nonga-text-muted border nonga-border pointer-events-none">
                   ⌘K
                 </span>
               )}
@@ -188,11 +178,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={toggleDarkMode}
-                className={`p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border transition-all duration-200 flex-shrink-0 ${
-                  isDarkMode 
-                    ? "border-white/[0.08] bg-[#121214]/60 text-slate-300 hover:text-white hover:bg-[#18181b]" 
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:text-orange-500 hover:bg-slate-100"
-                }`}
+                className="p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 flex-shrink-0 nonga-focus-ring" 
                 title="สลับโหมดหน้าจอสีขาว/ดำ"
               >
                 {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -202,7 +188,7 @@ export default function Header() {
               {!isSignedIn ? (
                 <button
                   onClick={() => setView("login")}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 border border-orange-600 bg-gradient-to-br from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer"
                 >
                   <Key className="w-3.5 h-3.5" />
                   <span>เข้าสู่ระบบ AI 🪄</span>
@@ -211,17 +197,15 @@ export default function Header() {
                 <div className="relative flex-shrink-0">
                   <button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className={`hidden sm:flex items-center gap-2.5 pl-3 border-l cursor-pointer select-none active:scale-95 transition-all outline-none ${
-                      isDarkMode ? "border-white/[0.08]" : "border-slate-200"
-                    }`}
+                    className="hidden sm:flex items-center gap-2.5 pl-3 border-l cursor-pointer select-none active:scale-95 transition-all outline-none nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring"
                   >
                     <ProfileAvatar
                       user={user}
                       alt="Avatar"
-                      className="w-8 h-8 rounded-xl border border-orange-500/20 p-0.5 bg-slate-900/60 animate-fade-in object-contain"
+                      className="w-8 h-8 rounded-xl border border-orange-500/20 p-0.5 nonga-bg-elevated animate-fade-in object-contain"
                     />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] font-semibold leading-none text-slate-700 dark:text-slate-100 max-w-[110px] truncate">
+                      <span className="text-[12px] font-semibold leading-none nonga-text-primary max-w-[110px] truncate">
                         {user?.displayName}
                       </span>
                       <span className={`text-[9px] font-bold flex items-center gap-0.5 ${membershipDisplay?.textColor || "text-orange-500"}`}>
@@ -241,16 +225,12 @@ export default function Header() {
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className={`absolute right-0 mt-3 w-56 rounded-xl border p-4.5 z-20 space-y-4 shadow-2xl text-left ${
-                            isDarkMode 
-                              ? "bg-[#0d0d0e] border-white/[0.08] text-slate-100" 
-                              : "bg-white border-slate-200 text-slate-800"
-                          }`}
+                          className="absolute right-0 mt-3 w-56 rounded-xl border nonga-border nonga-bg-elevated nonga-text-primary p-4.5 z-20 space-y-4 shadow-2xl text-left" 
                         >
                           <div className="space-y-1 pb-3 border-b border-orange-500/10">
-                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">ข้อมูลบัญชีผู้ใช้</p>
+                            <p className="text-[10px] font-bold nonga-text-muted uppercase tracking-widest">ข้อมูลบัญชีผู้ใช้</p>
                             <p className="text-sm font-black truncate">{user?.displayName}</p>
-                            <p className="text-[10.5px] font-mono text-slate-400 truncate">{user?.email}</p>
+                            <p className="text-[10.5px] font-mono nonga-text-muted truncate">{user?.email}</p>
                           </div>
                           
                           <div className="space-y-1">
@@ -266,7 +246,7 @@ export default function Header() {
                                 setView("profile");
                                 setIsProfileOpen(false);
                               }}
-                              className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
+                              className="w-full text-left p-2 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer nonga-menu-item nonga-focus-ring"
                             >
                               <UserCheck className="w-4 h-4 text-orange-500" />
                               <span>การตั้งค่าโปรไฟล์และบทบาท</span>
@@ -279,7 +259,7 @@ export default function Header() {
                                     setView("billing");
                                     setIsProfileOpen(false);
                                   }}
-                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-400 hover:text-white"
+                                  className="w-full text-left p-2 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 nonga-focus-ring"
                                 >
                                   <Crown className="w-4 h-4 text-orange-400 animate-pulse" />
                                   <span>การเงินและแพ็กเกจสมาชิก 👑</span>
@@ -290,7 +270,7 @@ export default function Header() {
                                     setView("boost");
                                     setIsProfileOpen(false);
                                   }}
-                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-400 hover:text-white"
+                                  className="w-full text-left p-2 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 nonga-focus-ring"
                                 >
                                   <Rocket className="w-4 h-4 text-orange-500 animate-bounce" />
                                   <span>บูสต์จัดอันดับโพสต์ 🚀</span>
@@ -301,14 +281,14 @@ export default function Header() {
                                     setView("onboarding");
                                     setIsProfileOpen(false);
                                   }}
-                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
+                                  className="w-full text-left p-2 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer nonga-menu-item nonga-focus-ring"
                                 >
                                   <Sparkles className="w-4 h-4 text-amber-500" />
                                   <span>ไปทัวร์ Onboarding</span>
                                 </button>
                               </>
                             ) : (
-                              <div className="p-2 rounded-lg border border-amber-500/15 bg-amber-500/5 text-[10.5px] text-amber-200 leading-relaxed">
+                              <div className="p-2 rounded-lg border border-amber-500/15 bg-amber-500/5 text-[10.5px] text-amber-800 dark:text-amber-200 leading-relaxed">
                                 แพ็กเกจ, บูสต์ และทัวร์ระบบจะเปิดในรอบ Public Beta ถัดไป
                               </div>
                             )}
@@ -330,7 +310,7 @@ export default function Header() {
                                     setView("inventory-import");
                                     setIsProfileOpen(false);
                                   }}
-                                  className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
+                                  className="w-full text-left p-2 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer nonga-menu-item nonga-focus-ring"
                                 >
                                   <FileText className="w-4 h-4 text-teal-400" />
                                   <span>นำเข้าคลังรถ (CSV/Excel)</span>
@@ -348,7 +328,7 @@ export default function Header() {
                                     setView("dealer-portal");
                                     setIsProfileOpen(false);
                                   }}
-                                  className="w-full text-left p-2 hover:bg-orange-500/10 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-300 hover:text-white border border-orange-500/20"
+                                  className="w-full text-left p-2 hover:bg-orange-500/10 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-orange-700 dark:text-orange-300 border border-orange-500/20 nonga-focus-ring"
                                 >
                                   <Store className="w-4 h-4 text-orange-400" />
                                   <span>Dealer Portal (คลังรถ)</span>
@@ -359,7 +339,7 @@ export default function Header() {
                                       setView("dealer-dashboard");
                                       setIsProfileOpen(false);
                                     }}
-                                    className="w-full text-left p-2 hover:bg-white/5 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer text-slate-300 hover:text-white"
+                                    className="w-full text-left p-2 rounded-lg font-bold flex items-center gap-2 transition cursor-pointer nonga-menu-item nonga-focus-ring"
                                   >
                                     <Store className="w-4 h-4 text-teal-400" />
                                     <span>โชว์รูมฝ่ายขายดีลเลอร์</span>
@@ -391,11 +371,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-                className={`md:hidden p-2.5 rounded-xl border transition-all min-h-[40px] min-w-[40px] flex items-center justify-center ${
-                  isDarkMode 
-                    ? "border-white/[0.08] bg-[#141416] text-slate-300 hover:text-white" 
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:text-orange-500 focus:bg-slate-100"
-                }`}
+                className="md:hidden p-2.5 rounded-xl border transition-all min-h-[40px] min-w-[40px] flex items-center justify-center nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring"
                 aria-label={isMobileDrawerOpen ? "ปิดเมนูเพิ่มเติม" : "เปิดเมนูเพิ่มเติม"}
               >
                 {isMobileDrawerOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -405,23 +381,17 @@ export default function Header() {
 
           {/* Header ชั้น 2: เมนูหลัก (รวมใน Header เดียว) */}
           <div
-            className={`relative mt-1 pt-1 border-t ${
-              isDarkMode ? "border-white/[0.06]" : "border-slate-200/40"
-            }`}
+            className="relative mt-1 pt-1 border-t nonga-border" 
           >
             <p className="sr-only">
               เมนูหลัก — เลื่อนซ้ายขวาหรือใช้ลูกศรเมื่อโฟกัสที่แถบเมนู
             </p>
             <div
-              className={`pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 sm:w-12 bg-gradient-to-l to-transparent ${
-                isDarkMode ? "from-[#0d0d0d]/95" : "from-white/95"
-              }`}
+              className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 sm:w-12 bg-gradient-to-l from-[var(--nonga-bg-surface)] to-transparent" 
               aria-hidden
             />
             <div
-              className={`pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-4 bg-gradient-to-r to-transparent sm:hidden ${
-                isDarkMode ? "from-[#0d0d0d]/90" : "from-white/90"
-              }`}
+              className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-4 bg-gradient-to-r from-[var(--nonga-bg-surface)] to-transparent sm:hidden" 
               aria-hidden
             />
             <nav
@@ -444,10 +414,8 @@ export default function Header() {
                     }}
                     className={`relative shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1.5 min-h-[36px] sm:min-h-[40px] rounded-lg sm:rounded-xl font-sans text-[11px] sm:text-xs lg:text-[13px] font-semibold transition-all duration-200 select-none whitespace-nowrap ${
                       isActive
-                        ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white shadow-md shadow-orange-600/15"
-                        : isDarkMode
-                        ? "text-slate-300 hover:bg-slate-900/60 hover:text-white"
-                        : "text-slate-700 hover:bg-slate-100 hover:text-orange-600"
+                        ? "nonga-action shadow-md shadow-orange-600/15"
+                        : "nonga-nav-idle"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -489,11 +457,7 @@ export default function Header() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className={`fixed top-0 right-0 h-full w-full max-w-xs z-50 shadow-2xl p-6 flex flex-col justify-between lg:hidden ${
-                isDarkMode 
-                  ? "bg-[#0c0c0e] text-slate-100 border-l border-white/5" 
-                  : "bg-white text-slate-800 border-l border-slate-100"
-              }`}
+              className="fixed top-0 right-0 h-full w-full max-w-xs z-50 shadow-2xl p-6 flex flex-col justify-between lg:hidden nonga-bg-surface nonga-text-primary border-l nonga-border" 
             >
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -507,9 +471,7 @@ export default function Header() {
                   </div>
                   <button
                     onClick={() => setIsMobileDrawerOpen(false)}
-                    className={`p-1.5 rounded-xl border ${
-                      isDarkMode ? "border-white/5 bg-white/5" : "border-slate-100 bg-slate-50"
-                    }`}
+                    className="p-1.5 rounded-xl border nonga-border nonga-bg-subtle" 
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -517,7 +479,7 @@ export default function Header() {
 
                 {/* Mobile Search Inside Drawer */}
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 nonga-text-muted">
                     <Search className="w-4 h-4" />
                   </span>
                   <input
@@ -525,17 +487,13 @@ export default function Header() {
                     value={filters.search}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     placeholder="พิมพ์ชื่อแบรนด์หรือรุ่นรถ..."
-                    className={`w-full text-xs font-sans pl-10 pr-4 py-2.5 rounded-xl transition-all outline-none border ${
-                      isDarkMode 
-                        ? "bg-[#141416] border-white/10 text-slate-200 placeholder-slate-500 focus:border-orange-500" 
-                        : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-orange-500"
-                    }`}
+                    className="w-full text-xs font-sans pl-10 pr-4 py-2.5 rounded-xl transition-all outline-none border nonga-bg-subtle nonga-border nonga-text-primary nonga-placeholder focus:border-orange-500 nonga-focus-ring" 
                   />
                 </div>
 
                 {/* Drawer links */}
                 <div className="space-y-2 text-left">
-                  <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider block px-2">Navigation</span>
+                  <span className="text-[10px] font-mono nonga-text-muted font-bold uppercase tracking-wider block px-2">Navigation</span>
                   
                   {navItems.map((item) => {
                     const Icon = item.icon;
@@ -549,10 +507,8 @@ export default function Header() {
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all ${
                           isActive
-                            ? "bg-orange-600 text-white shadow-md shadow-orange-600/10"
-                            : isDarkMode
-                            ? "text-slate-300 hover:bg-white/5"
-                            : "text-slate-700 hover:bg-slate-50 hover:text-orange-600"
+                            ? "nonga-action shadow-md shadow-orange-600/10"
+                            : "nonga-nav-idle"
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -574,29 +530,29 @@ export default function Header() {
               </div>
 
               {/* Mobile Drawer Profile Area */}
-              <div className="space-y-4 pt-4 border-t border-white/5">
+              <div className="space-y-4 pt-4 border-t nonga-border">
                 {!isSignedIn ? (
                   <button
                     onClick={() => {
                       setView("login");
                       setIsMobileDrawerOpen(false);
                     }}
-                    className="w-full py-3 bg-gradient-to-r from-orange-600 to-orange-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-600/10 active:scale-95 transition-transform"
+                    className="w-full py-3 nonga-action nonga-focus-ring font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-600/10 active:scale-95 transition-transform"
                   >
                     <Key className="w-3.5 h-3.5" />
                     <span>เข้าสู่ระบบ AI 🪄</span>
                   </button>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/40">
+                    <div className="flex items-center gap-2.5 p-2 rounded-xl nonga-bg-subtle border nonga-border">
                       <ProfileAvatar
                         user={user}
                         alt="User avatar"
                         className="w-10 h-10 rounded-xl object-contain"
                       />
                       <div className="text-left flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-200 truncate">{user?.displayName}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+                        <p className="text-xs font-bold nonga-text-primary truncate">{user?.displayName}</p>
+                        <p className="text-[10px] nonga-text-muted truncate">{user?.email}</p>
                         <p className="text-[9.5px] text-orange-500 font-semibold flex items-center gap-0.5">
                           <UserCheck className="w-2.5 h-2.5 text-orange-500" /> สมาชิกตัวจริง
                         </p>
@@ -616,7 +572,7 @@ export default function Header() {
                   </div>
                 )}
 
-                <div className="text-[9px] text-slate-500 text-left leading-relaxed">
+                <div className="text-[9px] nonga-text-muted text-left leading-relaxed">
                   <p>✨ มิติใหม่แห่งการประมวลสเป็กและต่อรองรถยนต์ระดับพรีเมียมด้วยระบบน้องเอ AI Sales Assistant โดยกลุ่ม NongBot</p>
                 </div>
               </div>

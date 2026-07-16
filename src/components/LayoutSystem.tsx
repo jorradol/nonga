@@ -36,8 +36,6 @@ interface SectionProps extends LayoutProps {
 }
 
 export function Section({ children, title, description, badge, className = "", id }: SectionProps) {
-  const { isDarkMode } = useAppStore();
-
   return (
     <section id={id} className={`py-6 sm:py-10 space-y-6 ${className}`}>
       {(title || description || badge) && (
@@ -48,16 +46,12 @@ export function Section({ children, title, description, badge, className = "", i
             </span>
           )}
           {title && (
-            <h2 className={`font-display font-black text-2xl sm:text-3xl tracking-tight leading-tight ${
-              isDarkMode ? "text-white" : "text-slate-900"
-            }`}>
+            <h2 className="font-display font-black text-2xl sm:text-3xl tracking-tight leading-tight nonga-text-primary">
               {title}
             </h2>
           )}
           {description && (
-            <p className={`text-sm max-w-3xl leading-relaxed ${
-              isDarkMode ? "text-slate-400" : "text-slate-600"
-            }`}>
+            <p className="text-sm max-w-3xl leading-relaxed nonga-text-secondary">
               {description}
             </p>
           )}
@@ -79,7 +73,7 @@ export function GradientBackground() {
     return (
       <div className="fixed pointer-events-none inset-0 overflow-hidden z-0">
         <div className="absolute top-[5vh] left-[20vw] w-[300px] h-[300px] rounded-full bg-orange-500/5 blur-[90px] opacity-70"></div>
-        <div className="absolute bottom-[10vh] right-[10vw] w-[350px] h-[350px] rounded-full bg-slate-350/10 blur-[100px] opacity-60"></div>
+        <div className="absolute bottom-[10vh] right-[10vw] w-[350px] h-[350px] rounded-full nonga-bg-subtle blur-[100px] opacity-60"></div>
       </div>
     );
   }
@@ -117,7 +111,7 @@ export function GradientBackground() {
         className="absolute top-[35vh] right-[5vw] w-[350px] h-[350px] rounded-full bg-orange-500/5 blur-[110px]"
       />
       
-      <div className="absolute -bottom-10 left-[25vw] w-[400px] h-[400px] rounded-full bg-slate-900/40 blur-[130px]"></div>
+      <div className="absolute -bottom-10 left-[25vw] w-[400px] h-[400px] rounded-full nonga-bg-elevated blur-[130px] opacity-40"></div>
     </div>
   );
 }
@@ -132,24 +126,16 @@ interface AnimatedCardProps extends LayoutProps {
 }
 
 export function AnimatedCard({ children, className = "", onClick, hoverGlow = true, id }: AnimatedCardProps) {
-  const { isDarkMode } = useAppStore();
-
   return (
     <motion.div
       id={id}
       whileHover={onClick ? { y: -4, scale: 1.006 } : undefined}
       whileTap={onClick ? { scale: 0.995 } : undefined}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl border text-left flex flex-col justify-between transition-all duration-300 ${
+      className={`relative overflow-hidden rounded-2xl border nonga-border text-left flex flex-col justify-between transition-all duration-300 nonga-bg-surface nonga-text-primary ${
         onClick ? "cursor-pointer" : ""
       } ${
-        isDarkMode
-          ? "bg-[#0d0d0d]/90 hover:bg-[#111111]/95 text-slate-100 border-white/[0.08]" 
-          : "bg-white hover:bg-slate-50/50 text-slate-800 border-slate-200/60"
-      } ${
-        hoverGlow && isDarkMode && onClick ? "hover:shadow-[0_0_24px_rgba(234,88,12,0.1)] hover:border-orange-500/25" : ""
-      } ${
-        hoverGlow && !isDarkMode && onClick ? "hover:shadow-[0_12px_24px_rgba(0,0,0,0.03)] hover:border-slate-350" : ""
+        hoverGlow && onClick ? "hover:border-orange-500/25 hover:shadow-[0_0_24px_rgba(234,88,12,0.08)]" : ""
       } ${className}`}
     >
       {children}
@@ -162,16 +148,10 @@ export function AnimatedCard({ children, className = "", onClick, hoverGlow = tr
  * Minimalistic container featuring clean borders and absolute transparency elements
  */
 export function GlassToolbar({ children, className = "", id }: LayoutProps) {
-  const { isDarkMode } = useAppStore();
-
   return (
     <div
       id={id}
-      className={`rounded-2xl border p-4 backdrop-filter backdrop-blur-xl transition-all duration-300 ${
-        isDarkMode
-          ? "bg-[#0d0d0db0] border-white/[0.07] text-white shadow-xl"
-          : "bg-white/90 border-slate-200/60 text-slate-850 shadow-md shadow-slate-100"
-      } ${className}`}
+      className={`rounded-2xl border nonga-border nonga-bg-elevated nonga-text-primary p-4 backdrop-filter backdrop-blur-xl transition-all duration-300 shadow-md ${className}`}
     >
       {children}
     </div>
