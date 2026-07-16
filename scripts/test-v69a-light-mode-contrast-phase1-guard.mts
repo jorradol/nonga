@@ -214,8 +214,8 @@ for (const filePath of PHASE1_FILES) {
       !/bg-\[#141417\] border border-white\/\[0\.04\] text-slate-200/.test(home)
   );
   ok(
-    "Home simulator footer uses semantic muted",
-    /nonga-text-muted font-mono/.test(home) &&
+    "Home simulator footer uses semantic secondary",
+    /nonga-text-secondary font-mono/.test(home) &&
       !/text-xs text-slate-500 font-mono/.test(home)
   );
   ok(

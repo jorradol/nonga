@@ -307,7 +307,7 @@ export default function HomeView() {
                     <span>Nong A Expert Creator</span>
                     <span className="w-1.5 h-1.5 bg-[var(--nonga-success)] rounded-full animate-ping"></span>
                   </div>
-                  <p className="text-[9px] nonga-text-muted font-mono">www.nongbot.org/nonga - Live Service</p>
+                  <p className="text-[9px] nonga-text-secondary font-mono">www.nongbot.org/nonga - Live Service</p>
                 </div>
               </div>
 
@@ -373,14 +373,14 @@ export default function HomeView() {
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce"></span>
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                    <span className="text-[10px] nonga-text-muted font-mono ml-2">Nong A กำลังประมวลภาพและเรียบเรียงศัพท์เท็จจริง...</span>
+                    <span className="text-[10px] nonga-text-secondary font-mono ml-2">Nong A กำลังประมวลภาพและเรียบเรียงศัพท์เท็จจริง...</span>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Simulated Input area */}
-            <div className="p-3 nonga-bg-subtle border-t nonga-border flex items-center justify-between text-xs nonga-text-muted font-mono">
+            <div className="p-3 nonga-bg-subtle border-t nonga-border flex items-center justify-between text-xs nonga-text-secondary font-mono">
               <span>สถานะจำลอง: {simulatorStep === 0 ? "กรุณาคลิกเลือกรูปรถฝั่งซ้ายเพื่อลองอัปโหลด" : "ประมวลผลเสร็จสิ้น ปังปุริเย่!"}</span>
               <span>Nong A Creative Bot v2</span>
             </div>
