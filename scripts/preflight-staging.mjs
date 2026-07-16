@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import {
   EXPECTED_BRANCH,
+  EXPECTED_BUILD_PROVENANCE_GIT_COMMIT,
   EXPECTED_CLOUD_RUN_REGION,
   EXPECTED_CLOUD_RUN_REVISION,
   EXPECTED_CLOUD_RUN_SERVICE,
@@ -187,14 +188,11 @@ async function main() {
     return `commit=${parsedProvenance.gitCommit.slice(0, 12)}`;
   });
 
-  runCheck("staging build provenance commit matches local HEAD", () => {
+  runCheck("staging build provenance commit matches expected", () => {
     if (!parsedProvenance) {
       throw new Error("build provenance payload unavailable");
     }
-    if (!localHead) {
-      throw new Error("local HEAD unavailable");
-    }
-    expectEqual("build provenance commit", localHead, parsedProvenance.gitCommit);
+    expectEqual("build provenance commit", EXPECTED_BUILD_PROVENANCE_GIT_COMMIT, parsedProvenance.gitCommit);
     return parsedProvenance.gitCommit;
   });
 

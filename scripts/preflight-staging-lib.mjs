@@ -3,7 +3,10 @@ export const EXPECTED_PROJECT_ID = "nonga-ce93c";
 export const EXPECTED_HOSTING_SITE = "nonga-ce93c";
 export const EXPECTED_CLOUD_RUN_SERVICE = "nonga-staging";
 export const EXPECTED_CLOUD_RUN_REGION = "asia-southeast1";
-export const EXPECTED_CLOUD_RUN_REVISION = "nonga-staging-00215-dmx";
+export const EXPECTED_CLOUD_RUN_REVISION = "nonga-staging-00223-vqr";
+// Note: staging build provenance may not equal local git HEAD because staging deployments
+// can be produced from a different commit than the current developer worktree.
+export const EXPECTED_BUILD_PROVENANCE_GIT_COMMIT = "d848c7117b81539981c609b9501b09c171e4f4aa";
 export const EXPECTED_MARKETPLACE_COUNT = 15;
 export const EXPECTED_STAGING_URL = "https://a.nongbot.org";
 export const STAGING_HOSTNAME = "a.nongbot.org";
