@@ -19,6 +19,7 @@ const PHASE1_FILES = [
   "src/components/cars/details/SpecificationsList.tsx",
   "src/components/cars/details/FinancingCalculator.tsx",
   "src/components/cars/details/CommentsSection.tsx",
+  "src/components/HomeView.tsx",
 ] as const;
 
 const BANNED_PATTERNS: { name: string; pattern: RegExp }[] = [
@@ -195,6 +196,44 @@ for (const filePath of PHASE1_FILES) {
     specs.includes("nonga-text-muted") &&
       specs.includes("nonga-text-primary") &&
       !/font-bold text-slate-100/.test(specs)
+  );
+}
+
+{
+  const home = readFileSync("src/components/HomeView.tsx", "utf8");
+  ok(
+    "Home simulator preview uses semantic elevated surface",
+    home.includes("nonga-bg-elevated") &&
+      !home.includes('bg-[#0c0c0e]') &&
+      !home.includes('bg-[#111113]') &&
+      !home.includes('bg-[#141417]')
+  );
+  ok(
+    "Home simulator chat bubble theme-aware",
+    home.includes("nonga-bg-surface border nonga-border nonga-text-primary") &&
+      !/bg-\[#141417\] border border-white\/\[0\.04\] text-slate-200/.test(home)
+  );
+  ok(
+    "Home simulator footer uses semantic muted",
+    /nonga-text-muted font-mono/.test(home) &&
+      !/text-xs text-slate-500 font-mono/.test(home)
+  );
+  ok(
+    "Home simulator vehicle metadata readable tokens",
+    home.includes("Honda CR-V 2.4 EL") &&
+      /nonga-text-primary">Honda CR-V 2.4 EL/.test(home) &&
+      home.includes("nonga-text-secondary block")
+  );
+  ok(
+    "Home utilities cards drop forced white borders",
+    !home.includes("border-white/[0.05]")
+  );
+  ok(
+    "Home simulator behavior shell preserved",
+    home.includes("handleSimulatorUpload") &&
+      home.includes("resetSimulator") &&
+      home.includes("simulatorStep") &&
+      home.includes('setView("sell")')
   );
 }
 

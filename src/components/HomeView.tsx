@@ -225,13 +225,13 @@ export default function HomeView() {
           {/* Left panel: Trigger cars choice */}
           <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
             <div className="space-y-4 text-left">
-              <span className="text-[11px] font-mono tracking-wider font-extrabold text-orange-500 uppercase">ขั้นตอนที่ 1: แตะรูประบบสตาร์ทด้านล่างนี้</span>
+              <span className="text-[11px] font-mono tracking-wider font-extrabold text-[var(--nonga-action-primary)] uppercase">ขั้นตอนที่ 1: แตะรูประบบสตาร์ทด้านล่างนี้</span>
               
               <h3 className="font-display font-extrabold text-lg sm:text-xl leading-tight nonga-text-primary">
                 จำลองการส่งใบสมัครขอวิเคราะห์รถครอบครัวคันเด็ดของคุณ
               </h3>
               
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 การวิเคราะห์สแกนรูปรถบ้านแท้ ตรวจสอบการพยาบาลสี รอยขูดขีดรอบตัวขอบประเสริฐ และแปลความหมายแบรนด์ พร้อมเปลี่ยนความท้าทายให้กลายเป็นบทบรรยายที่หอมกรุ่นน่าจอง
               </p>
             </div>
@@ -240,47 +240,47 @@ export default function HomeView() {
             <div className="grid grid-cols-2 gap-4">
               <button 
                 onClick={() => handleSimulatorUpload("https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600", "Honda CR-V SUV ปี 2021")}
-                className={`relative group overflow-hidden rounded-2xl border text-left p-3.5 space-y-2.5 transition active:scale-95 ${
+                className={`relative group overflow-hidden rounded-2xl border text-left p-3.5 space-y-2.5 transition active:scale-95 nonga-focus-ring ${
                   simulatorCarPhoto === "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600"
                     ? "border-orange-500 bg-orange-500/10" 
-                    : "border nonga-border nonga-bg-surface shadow-sm"
+                    : "nonga-border nonga-bg-surface shadow-sm"
                 }`}
               >
-                <div className="aspect-video relative rounded-lg bg-black overflow-hidden">
+                <div className="aspect-video relative rounded-lg nonga-bg-subtle overflow-hidden">
                   <img src="https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=200" alt="Family SUV" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition duration-300"></div>
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-[11px] font-bold block">Honda CR-V 2.4 EL</span>
-                  <span className="text-[9.5px] nonga-text-muted block">วิ่ง 45,000 กม. เกรดบ้าน A+</span>
+                  <span className="text-[11px] font-bold block nonga-text-primary">Honda CR-V 2.4 EL</span>
+                  <span className="text-[9.5px] nonga-text-secondary block">วิ่ง 45,000 กม. เกรดบ้าน A+</span>
                 </div>
               </button>
 
               <button 
                 onClick={() => handleSimulatorUpload("https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600", "BMW 3 Series M-Sport ปี 2020")}
-                className={`relative group overflow-hidden rounded-2xl border text-left p-3.5 space-y-2.5 transition active:scale-95 ${
+                className={`relative group overflow-hidden rounded-2xl border text-left p-3.5 space-y-2.5 transition active:scale-95 nonga-focus-ring ${
                   simulatorCarPhoto === "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600"
                     ? "border-orange-500 bg-orange-500/10" 
-                    : "border nonga-border nonga-bg-surface shadow-sm"
+                    : "nonga-border nonga-bg-surface shadow-sm"
                 }`}
               >
-                <div className="aspect-video relative rounded-lg bg-black overflow-hidden">
+                <div className="aspect-video relative rounded-lg nonga-bg-subtle overflow-hidden">
                   <img src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=200" alt="Euro Coupe" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition duration-300"></div>
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-[11px] font-bold block">BMW 3 Series M-Sport</span>
-                  <span className="text-[9.5px] nonga-text-muted block">วิ่ง 58,000 กม. กุญแจครบ 2 ดอก</span>
+                  <span className="text-[11px] font-bold block nonga-text-primary">BMW 3 Series M-Sport</span>
+                  <span className="text-[9.5px] nonga-text-secondary block">วิ่ง 58,000 กม. กุญแจครบ 2 ดอก</span>
                 </div>
               </button>
             </div>
 
             {/* Navigation links direct help */}
-            <div className="space-y-3.5 p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10 text-left">
+            <div className="space-y-3.5 p-4 rounded-2xl nonga-bg-subtle border border-orange-500/20 text-left">
               <span className="text-[10px] font-bold tracking-widest nonga-text-primary flex items-center gap-1.5 uppercase">
-                <ShieldCheck className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> ตรวจสอบสเป็คของจริง
+                <ShieldCheck className="w-3.5 h-3.5 text-[var(--nonga-action-primary)] animate-pulse" /> ตรวจสอบสเป็คของจริง
               </span>
-              <p className="text-[11px] leading-relaxed nonga-text-muted text-balance">
+              <p className="text-[11px] leading-relaxed nonga-text-secondary text-balance">
                 การลงประกาศใช้ได้เฉพาะบัญชีดีลเลอร์ที่ได้รับสิทธิ์และเข้าสู่ระบบแล้ว ขณะนี้ยังไม่เปิดรับสมัครสาธารณะ
               </p>
               <button 
@@ -294,27 +294,27 @@ export default function HomeView() {
           </div>
 
           {/* Right panel: Chat UI Terminal container */}
-          <div className="lg:col-span-7 flex flex-col h-full min-h-[420px] rounded-2xl border border-white/[0.07] bg-[#0c0c0e] overflow-hidden shadow-2xl relative">
+          <div className="lg:col-span-7 flex flex-col h-full min-h-[420px] rounded-2xl border nonga-border nonga-bg-elevated overflow-hidden shadow-2xl relative">
             
             {/* Chat header panel */}
-            <div className="p-4 bg-[#111113] border-b border-white/[0.08] flex items-center justify-between">
+            <div className="p-4 nonga-bg-subtle border-b nonga-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-600/10 border border-orange-500/30 flex items-center justify-center text-orange-500">
-                  <Bot className="w-4 h-4 text-orange-500 animate-pulse" />
+                <div className="w-8 h-8 rounded-lg bg-orange-600/10 border border-orange-500/30 flex items-center justify-center text-[var(--nonga-action-primary)]">
+                  <Bot className="w-4 h-4 text-[var(--nonga-action-primary)] animate-pulse" />
                 </div>
                 <div className="text-left">
-                  <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <div className="text-xs font-bold nonga-text-primary flex items-center gap-1.5">
                     <span>Nong A Expert Creator</span>
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
+                    <span className="w-1.5 h-1.5 bg-[var(--nonga-success)] rounded-full animate-ping"></span>
                   </div>
-                  <p className="text-[9px] text-slate-500 font-mono">www.nongbot.org/nonga - Live Service</p>
+                  <p className="text-[9px] nonga-text-muted font-mono">www.nongbot.org/nonga - Live Service</p>
                 </div>
               </div>
 
               {simulatorStep > 0 && (
                 <button 
                   onClick={resetSimulator}
-                  className="px-2.5 py-1 rounded bg-white/5 border border-white/10 text-[9px] text-slate-300 hover:bg-white/10 active:scale-95 transition"
+                  className="px-2.5 py-1 rounded nonga-bg-surface border nonga-border text-[9px] nonga-text-secondary hover:text-[var(--nonga-text-primary)] active:scale-95 transition nonga-focus-ring"
                 >
                   <RefreshCw className="w-2.5 h-2.5 inline mr-1" /> เริ่มใหม่
                 </button>
@@ -322,7 +322,7 @@ export default function HomeView() {
             </div>
 
             {/* Chat list viewport */}
-            <div className="flex-1 p-5 overflow-y-auto space-y-4 text-left font-sans max-h-[350px]">
+            <div className="flex-1 p-5 overflow-y-auto space-y-4 text-left font-sans max-h-[350px] nonga-bg-elevated">
               {simulatorMessages.map((msg, index) => {
                 const isAI = msg.sender === "ai";
                 return (
@@ -338,7 +338,7 @@ export default function HomeView() {
                         A
                       </div>
                     ) : (
-                      <div className="w-7 h-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0 text-orange-500 font-bold text-[10px]">
+                      <div className="w-7 h-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0 text-[var(--nonga-action-primary)] font-bold text-[10px]">
                         Me
                       </div>
                     )}
@@ -346,8 +346,8 @@ export default function HomeView() {
                     <div className="space-y-2">
                       <div className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed ${
                         isAI 
-                          ? "bg-[#141417] border border-white/[0.04] text-slate-200" 
-                          : "bg-orange-600 text-white"
+                          ? "nonga-bg-surface border nonga-border nonga-text-primary" 
+                          : "nonga-action"
                       }`}>
                         {msg.text.split("\n\n").map((chunk, cIndex) => (
                           <p key={cIndex} className={cIndex > 0 ? "mt-2" : ""}>{chunk}</p>
@@ -355,7 +355,7 @@ export default function HomeView() {
                       </div>
 
                       {msg.image && (
-                        <div className="rounded-xl overflow-hidden border border-white/5 bg-black/60 max-w-sm">
+                        <div className="rounded-xl overflow-hidden border nonga-border nonga-bg-subtle max-w-sm">
                           <img src={msg.image} alt="Simulator car upload file preview" className="w-full object-cover max-h-36" />
                         </div>
                       )}
@@ -369,18 +369,18 @@ export default function HomeView() {
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-extrabold text-[10px]">
                     A
                   </div>
-                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#141417] border border-white/[0.04]">
+                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl nonga-bg-surface border nonga-border">
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce"></span>
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                    <span className="text-[10px] text-slate-500 font-mono ml-2">Nong A กำลังประมวลภาพและเรียบเรียงศัพท์เท็จจริง...</span>
+                    <span className="text-[10px] nonga-text-muted font-mono ml-2">Nong A กำลังประมวลภาพและเรียบเรียงศัพท์เท็จจริง...</span>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Simulated Input area */}
-            <div className="p-3 bg-[#111113] border-t border-white/[0.08] flex items-center justify-between text-xs text-slate-500 font-mono">
+            <div className="p-3 nonga-bg-subtle border-t nonga-border flex items-center justify-between text-xs nonga-text-muted font-mono">
               <span>สถานะจำลอง: {simulatorStep === 0 ? "กรุณาคลิกเลือกรูปรถฝั่งซ้ายเพื่อลองอัปโหลด" : "ประมวลผลเสร็จสิ้น ปังปุริเย่!"}</span>
               <span>Nong A Creative Bot v2</span>
             </div>
@@ -398,73 +398,73 @@ export default function HomeView() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
           
-          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left border-white/[0.05]">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-orange-500">
-              <Upload className="w-6 h-6 text-orange-500" />
+          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-[var(--nonga-action-primary)]">
+              <Upload className="w-6 h-6 text-[var(--nonga-action-primary)]" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="font-display font-bold text-base sm:text-lg">1-Click AI Easy Posting</h4>
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <h4 className="font-display font-bold text-base sm:text-lg nonga-text-primary">1-Click AI Easy Posting</h4>
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 อัปโหลดรูปรถครอบครัวคันเด็ด ป้อนคุณลักษณะคร่าวๆ ระบบประมวลผลคำนวณสเปกเพื่อวางรากฐานโพสต์ขายให้ทันทีอย่างไร้รอยต่อ
               </p>
             </div>
           </AnimatedCard>
 
-          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left border-white/[0.05]">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-orange-500">
-              <Bot className="w-6 h-6 text-orange-500" />
+          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-[var(--nonga-action-primary)]">
+              <Bot className="w-6 h-6 text-[var(--nonga-action-primary)]" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="font-display font-bold text-base sm:text-lg">AI Chat Expert Assistant</h4>
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <h4 className="font-display font-bold text-base sm:text-lg nonga-text-primary">AI Chat Expert Assistant</h4>
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 วิเคราะห์สภาพแบตเตอรี่เทียบประวัติเฉลี่ย ปรึกษาตารางดอกเบี้ย คุยต่อรองราคาขั้นบันไดกับน้องเอ AI อัจฉริยะได้ตลอด 24 ชั่วโมง
               </p>
             </div>
           </AnimatedCard>
 
-          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left border-white/[0.05]">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-orange-500">
-              <Search className="w-6 h-6 text-orange-500" />
+          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-[var(--nonga-action-primary)]">
+              <Search className="w-6 h-6 text-[var(--nonga-action-primary)]" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="font-display font-bold text-base sm:text-lg">Semantic Smart Search</h4>
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <h4 className="font-display font-bold text-base sm:text-lg nonga-text-primary">Semantic Smart Search</h4>
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 พิมพ์ค้นหาเสรีตามความต้องการของคุณพี่ "รถบ้านประหยัดงบผ่อน" หรือ "รถไฟฟ้าวิ่งต่างจังหวัด" น้องเอก็จัดหาข้อมูลตอบโจทย์ได้อย่างคล่องแคล่ว
               </p>
             </div>
           </AnimatedCard>
 
-          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left border-white/[0.05]">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-orange-500">
-              <Store className="w-6 h-6 text-orange-500" />
+          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-[var(--nonga-action-primary)]">
+              <Store className="w-6 h-6 text-[var(--nonga-action-primary)]" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="font-display font-bold text-base sm:text-lg">Verified Dealer Network</h4>
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <h4 className="font-display font-bold text-base sm:text-lg nonga-text-primary">Verified Dealer Network</h4>
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 เชื่อมต่อและเป็นพันธมิตรโดยตรงกับ คลัยน์/ดีลเลอร์ โชว์รูมตัวท็อปในไทย ได้รับหลักประกันและสัญญาคุ้มครองรถยนต์ของแท้จากกลุ่มประเมินหลัก
               </p>
             </div>
           </AnimatedCard>
 
-          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left border-white/[0.05]">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-orange-500">
-              <Flame className="w-6 h-6 text-orange-500" />
+          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-[var(--nonga-action-primary)]">
+              <Flame className="w-6 h-6 text-[var(--nonga-action-primary)]" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="font-display font-bold text-base sm:text-lg">AI Viral Caption Generator</h4>
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <h4 className="font-display font-bold text-base sm:text-lg nonga-text-primary">AI Viral Caption Generator</h4>
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 สร้างคำโพสต์ลงแพลตฟอร์ม Social (Facebook, TikTok) ในลายเซ็นต์เฉียบคม คมกริบสไตล์ตัวพ่อตัวแม่ ปังปุริเย่ ดึงกระแสยอดไลก์พุ่งกระฉูด
               </p>
             </div>
           </AnimatedCard>
 
-          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left border-white/[0.05]">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-orange-500">
-              <Cpu className="w-6 h-6 text-orange-500" />
+          <AnimatedCard hoverGlow={false} className="p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center text-[var(--nonga-action-primary)]">
+              <Cpu className="w-6 h-6 text-[var(--nonga-action-primary)]" />
             </div>
             <div className="space-y-1.5">
-              <h4 className="font-display font-bold text-base sm:text-lg">Intelligent Spec Evaluator</h4>
-              <p className="text-xs nonga-text-muted leading-relaxed sm:text-sm">
+              <h4 className="font-display font-bold text-base sm:text-lg nonga-text-primary">Intelligent Spec Evaluator</h4>
+              <p className="text-xs nonga-text-secondary leading-relaxed sm:text-sm">
                 สกัดความคุ้มค่า อัตราเร่ง สัมประสิทธิ์ความปลอดภัยของแบตเตอรี่รถยนต์ EV และประวัติการบำรุงรักษาอย่างมีตรรกะระดับวิทยาศาสตร์คณิตศาสตร์
               </p>
             </div>
