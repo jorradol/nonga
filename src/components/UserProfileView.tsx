@@ -29,34 +29,35 @@ import AvatarSelector from "./profile/AvatarSelector";
 const AI_TONES = [
   {
     id: "friendly",
-    name: "หนุ่มสุภาพกัลยาณมิตร (Friendly)",
-    example: "สวัสดีคร้าบ! น้องเอพร้อมช่วยเหลือคุณพี่เสาะหารถในฝันอย่างเต็มที่เลยน้าา มีอะไรถามน้องเอได้เสมอยินดีเป็นที่ปรึกษาตลอดเลยฮะ 🧡",
-    accent: "text-orange-400 bg-orange-500/10"
+    name: "เป็นกันเองและน่าเชื่อถือ (Friendly)",
+    example: "สวัสดีคร้าบ! น้องเอพร้อมพาไปดูคันที่ใช่แบบเข้าใจคุณพี่จริงๆ เลยฮะ 🧡",
+    accent: "text-orange-400 bg-orange-500/10",
   },
   {
-    id: "professional",
-    name: "วิศวกรผู้เชี่ยวชาญเชิงลึก (Professional)",
-    example: "สวัสดีครับ ยินดีให้บริการวิเคราะห์ข้อมูลสเปกทางวิชาการ เปรียบเทียบสมรรถนะคาร์และราคากลาง เพื่อคำนวณการลงทุนที่เหมาะสมที่สุดครับ 📈",
-    accent: "text-blue-400 bg-blue-500/10"
-  },
-  {
-    id: "funny",
-    name: "บล็อกเกอร์วัยรุ่นชวนคุยสนุก (Funny / Blogger)",
-    example: "ปังปุริเย่! สวยเป๊ะกริ๊บ สภาพหอมหัวใจวัยรุ่นสร้างตัวมาก คันนี้ล้อหมุนเป็นอวกาศ รถสวยจน AI ร้องไห้กระโดดข้ามสะพานพระรามแปดเลยพี่น้อง! 😂",
-    accent: "text-amber-400 bg-amber-500/10"
-  },
-  {
-    id: "luxury",
-    name: "ที่ปรึกษาหรูหราพรีเมียม (Luxury VIP)",
-    example: "ต้อนรับคุณผู้มีเกียรติเข้าสู่โชว์รูมแห่งเกียรติยศครับ ขอแนะนำยนตรกรรมระดับพาร์ทเนอร์ พร้อมการปรนนิบัติเลอค่าไร้ขีดจำกัดสูงสุด 🍷",
-    accent: "text-fuchsia-400 bg-fuchsia-500/10"
+    id: "dealer",
+    name: "มืออาชีพ เน้นข้อมูล (Dealer)",
+    example:
+      "สวัสดีครับ ยินดีให้บริการดีลเลอร์มืออาชีพ เน้นข้อมูลสเปกครบและคำอธิบายชัดเจนสำหรับการตัดสินใจครับ 📈",
+    accent: "text-blue-400 bg-blue-500/10",
   },
   {
     id: "youth",
-    name: "สายตึงดีลเด็ดแฟลชเซล (Youth Style)",
-    example: "คันนี้มีคนทักแน่ครับ 🔥 ทรงตึงจัด บิดแรงแซงทุกแรงม้า สเปกพรีเมียมเทคแบบคนเท่อย่างคุณพี่ ด่วนเลยก่อนโดนฉก!",
-    accent: "text-teal-400 bg-teal-500/10"
-  }
+    name: "สนุก อ่านง่าย เหมาะกับโซเชียล (Youth)",
+    example: "คันนี้ต้องมีคนทักแน่ครับ 🔥 โทนสนุก ตรงๆ อ่านง่าย ได้ใจสายโซเชียลเลย!",
+    accent: "text-teal-400 bg-teal-500/10",
+  },
+  {
+    id: "luxury",
+    name: "พรีเมียมและสุภาพ (Luxury)",
+    example: "ต้อนรับคุณผู้มีเกียรติครับ โทนพรีเมียมสุภาพ เน้นความครบถ้วนและบริการที่มีระดับ 🍷",
+    accent: "text-fuchsia-400 bg-fuchsia-500/10",
+  },
+  {
+    id: "tiktok",
+    name: "กระชับ ทันสมัย (TikTok)",
+    example: "สั้น กระชับ ทันเทรนด์! โทน TikTok อ่านแล้วหยุดไม่ได้ในไม่กี่จังหวะ 🎬",
+    accent: "text-amber-400 bg-amber-500/10",
+  },
 ];
 
 export default function UserProfileView() {
@@ -71,12 +72,10 @@ export default function UserProfileView() {
 
   // Custom User Hooks
   const { 
-    isLoading, 
     isUploading, 
     uploadProgress, 
     toasts, 
     showToast, 
-    updateProfileFields, 
     uploadAvatarImage, 
     handleToggleFavorite, 
     getFavoriteCars 
@@ -88,13 +87,14 @@ export default function UserProfileView() {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
   const [displayNameInput, setDisplayNameInput] = useState(user?.displayName || "");
   const [selectedAiTone, setSelectedAiTone] = useState(() => {
-    const p = user?.aiPersona || "";
-    if (p.includes("Professional") || p.includes("วิศวกร")) return "professional";
-    if (p.includes("Blogger") || p.includes("ชวนคุย")) return "funny";
-    if (p.includes("Luxury") || p.includes("หรูหรา")) return "luxury";
-    if (p.includes("Youth") || p.includes("สายตึง")) return "youth";
-    return "friendly";
+    const allowed = new Set(["dealer", "friendly", "youth", "luxury", "tiktok"]);
+    const raw = (user as any)?.dealerPostWritingStyle;
+    const v = String(raw ?? "").trim();
+    return allowed.has(v) ? v : "dealer";
   });
+
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+  const [isSavingWritingStyle, setIsSavingWritingStyle] = useState(false);
 
   // Simulated Showroom Form states
   const [showroomName, setShowroomName] = useState(user?.showroomName || `${user?.displayName || "NongBot"} Certified Space`);
@@ -185,9 +185,16 @@ export default function UserProfileView() {
 
   const handleSaveProfileForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    const toneObj = AI_TONES.find(t => t.id === selectedAiTone);
-    const resolvedPersona = toneObj ? `${toneObj.name.split(" (")[0]} - ${toneObj.example.slice(0, 30)}...` : "Friendly - ทั่วไป";
-    await updateProfileFields(displayNameInput, resolvedPersona);
+    if (!updateUserProfile) return;
+    try {
+      setIsSavingDisplayName(true);
+      await updateUserProfile({ displayName: displayNameInput } as any);
+      showToast("บันทึกข้อมูลชื่อโปรไฟล์เรียบร้อยแล้วครับ", "success");
+    } catch (e: any) {
+      showToast(e?.message || "ล้มเหลวในการบันทึกข้อมูลชื่อโปรไฟล์", "error");
+    } finally {
+      setIsSavingDisplayName(false);
+    }
   };
 
   const handleSaveShowroom = (e: React.FormEvent) => {
@@ -208,7 +215,19 @@ export default function UserProfileView() {
     }
   }, [user]);
 
-  const activeToneObj = AI_TONES.find(t => t.id === selectedAiTone) || AI_TONES[0];
+  // Hydrate current style from profile (fallback dealer on missing/invalid).
+  React.useEffect(() => {
+    const allowed = new Set(["dealer", "friendly", "youth", "luxury", "tiktok"]);
+    const raw = (user as any)?.dealerPostWritingStyle;
+    const v = String(raw ?? "").trim();
+    const next = allowed.has(v) ? v : "dealer";
+    setSelectedAiTone(next);
+  }, [user]);
+
+  const activeToneObj =
+    AI_TONES.find((t) => t.id === selectedAiTone) ||
+    AI_TONES.find((t) => t.id === "dealer") ||
+    AI_TONES[0];
 
   const borderSubtle = isDarkMode ? "border-white/5" : "border-slate-200";
   const surfaceMiniCard = isDarkMode
@@ -470,10 +489,10 @@ export default function UserProfileView() {
                     </p>
                     <button
                       type="submit"
-                      disabled={isLoading}
+                      disabled={isSavingDisplayName}
                       className="px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-550 text-white text-xs font-black rounded-xl cursor-pointer active:scale-95 hover:shadow-lg hover:shadow-orange-700/20 transition-all font-sans"
                     >
-                      {isLoading ? "กำลังประมวลผล..." : "บันทึกแก้ไขข้อมูลจำลอง 🪄"}
+                      {isSavingDisplayName ? "กำลังประมวลผล..." : "บันทึกแก้ไขข้อมูลจำลอง 🪄"}
                     </button>
                   </div>
 
@@ -493,12 +512,18 @@ export default function UserProfileView() {
                   
                   <div className="space-y-2 text-left">
                     <label className="text-xs font-black text-slate-400">
-                      🔊 เลือกบุคลิกและสไตล์การสื่อสารของน้องเอ (AI Voice & Tone Profile)
+                      ✍️ สไตล์การเขียนประกาศขายรถ
                     </label>
                     <p className="text-[10.5px] text-slate-500">
-                      สว่างของตัวเลือกส่งผลแก่น้ำเสียงและวรรคตอนเมื่อคุณคลิกประชดราคาหรือเขียนใบเสนอรถยนต์ครับ
+                      ตัวเลือกนี้ใช้เป็นค่าเริ่มต้นสำหรับ Car Post Generator เท่านั้น
                     </p>
                   </div>
+
+                  {isSavingWritingStyle && (
+                    <p className="text-[10px] text-slate-500">
+                      กำลังบันทึกสไตล์การเขียนประกาศขายรถ...
+                    </p>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2">
                     {AI_TONES.map((t) => {
@@ -506,12 +531,24 @@ export default function UserProfileView() {
                       return (
                         <button
                           key={t.id}
-                          onClick={() => {
+                          type="button"
+                          disabled={isSavingWritingStyle}
+                          onClick={async () => {
+                            if (!updateUserProfile) return;
+                            const prev = selectedAiTone;
                             setSelectedAiTone(t.id);
-                            // Sync back to context/DB
-                            const resolved = `${t.name.split(" (")[0]} - ${t.example.slice(0, 30)}...`;
-                            updateUserProfile({ aiPersona: resolved });
-                            showToast(`น้องเอเปลี่ยนโทนเสียงเป็น ${t.name.split(" (")[0]} เรียบร้อยฮะ! 🎙️`);
+                            setIsSavingWritingStyle(true);
+                            try {
+                              await updateUserProfile(
+                                { dealerPostWritingStyle: t.id } as any
+                              );
+                              showToast("บันทึกสไตล์การเขียนประกาศขายรถเรียบร้อยแล้วครับ", "success");
+                            } catch (err: any) {
+                              setSelectedAiTone(prev);
+                              showToast(err?.message || "ล้มเหลวในการบันทึกสไตล์การเขียนประกาศขายรถ", "error");
+                            } finally {
+                              setIsSavingWritingStyle(false);
+                            }
                           }}
                           className={`p-4 rounded-xl text-left transition border flex flex-col justify-between cursor-pointer group active:scale-98 duration-200 ${
                             isSelected
@@ -543,7 +580,7 @@ export default function UserProfileView() {
                     
                     <div className="flex items-center gap-2 text-xs font-black text-orange-400">
                       <Bot className="w-4 h-4 animate-bounce" />
-                      <span>จำลองเสียงคุยตอบกลับตามสไตล์จริง (Voice Live Preview)</span>
+                      <span>ตัวอย่างสำนวนการเขียนประกาศขายรถตามสไตล์ที่เลือก</span>
                     </div>
 
                     {/* Chat Bubble simulation */}
@@ -574,7 +611,9 @@ export default function UserProfileView() {
                     </div>
 
                     <div className="flex gap-2 justify-end text-[10px] text-slate-400">
-                      <span className="bg-white/5 p-1 px-2 rounded-md font-mono text-[9px]">MODEL: Gemini 1.5 Flash</span>
+                      <span className="bg-white/5 p-1 px-2 rounded-md font-mono text-[9px]">
+                        Car Post Generator Default
+                      </span>
                     </div>
                   </div>
 

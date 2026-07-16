@@ -11,6 +11,23 @@ type PersonalityPresetId = keyof typeof DEFAULT_PERSONALITIES;
 type UserSettingsTheme = "light" | "dark" | "system";
 type UserSettingsLanguage = "th" | "en";
 
+type DealerPostWritingStyle = "dealer" | "friendly" | "youth" | "luxury" | "tiktok";
+
+const DEALER_POST_WRITING_STYLE_ALLOWLIST = new Set<DealerPostWritingStyle>([
+  "dealer",
+  "friendly",
+  "youth",
+  "luxury",
+  "tiktok",
+]);
+
+function normalizeDealerPostWritingStyle(raw: unknown): DealerPostWritingStyle {
+  const value = String(raw ?? "").trim();
+  return DEALER_POST_WRITING_STYLE_ALLOWLIST.has(value as DealerPostWritingStyle)
+    ? (value as DealerPostWritingStyle)
+    : "dealer";
+}
+
 interface UserSettingsRecord {
   theme: UserSettingsTheme;
   emailNotifications: boolean;
@@ -295,6 +312,7 @@ export function registerUserSelfRoutes(app: Express): void {
         totalPosts: Number(row.totalPosts ?? 0),
         favoriteCars: Array.isArray(row.favoriteCars) ? row.favoriteCars : [],
         aiPersona: String(row.aiPersona ?? "Professional - เน้นข้อมูลสเปกเชิงลึก"),
+        dealerPostWritingStyle: normalizeDealerPostWritingStyle(row.dealerPostWritingStyle),
         premiumExpireDate: row.premiumExpireDate ?? null,
         createdAt:
           typeof row.createdAt === "string" ? row.createdAt : new Date().toISOString(),
@@ -320,6 +338,7 @@ export function registerUserSelfRoutes(app: Express): void {
       "lastLogin",
       "favoriteCars",
       "aiPersona",
+      "dealerPostWritingStyle",
       "premiumExpireDate",
     ]);
     for (const key of Object.keys(input)) {
@@ -345,6 +364,17 @@ export function registerUserSelfRoutes(app: Express): void {
     }
     if ("aiPersona" in input && typeof input.aiPersona !== "string") {
       return badRequest(res, "aiPersona ต้องเป็นข้อความ");
+    }
+    if ("dealerPostWritingStyle" in input) {
+      if (typeof input.dealerPostWritingStyle !== "string") {
+        return badRequest(res, "dealerPostWritingStyle ต้องเป็นข้อความ");
+      }
+      const trimmed = input.dealerPostWritingStyle.trim();
+      if (!DEALER_POST_WRITING_STYLE_ALLOWLIST.has(trimmed as DealerPostWritingStyle)) {
+        return badRequest(res, "dealerPostWritingStyle ไม่อนุญาต");
+      }
+      // Persist canonical trimmed value
+      input.dealerPostWritingStyle = trimmed as DealerPostWritingStyle;
     }
     if (
       "premiumExpireDate" in input &&

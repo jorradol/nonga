@@ -25,6 +25,11 @@ export interface UserProfileData {
   lastLogin: string;
   favoriteCars: string[];
   aiPersona: string;
+  /**
+   * Car Post Generator writing style.
+   * Authoritative default is always `dealer`.
+   */
+  dealerPostWritingStyle: "dealer" | "friendly" | "youth" | "luxury" | "tiktok";
   membershipType: "free" | "pro" | "dealer" | "enterprise";
   postLimit: number;
   totalPosts: number;
@@ -58,6 +63,23 @@ const DEFAULT_SETTINGS: UserUserSettings = {
   language: "th",
   updatedAt: new Date().toISOString()
 };
+
+const DEALER_POST_WRITING_STYLE_ALLOWLIST = new Set([
+  "dealer",
+  "friendly",
+  "youth",
+  "luxury",
+  "tiktok",
+] as const);
+
+function normalizeDealerPostWritingStyle(
+  raw: unknown
+): UserProfileData["dealerPostWritingStyle"] {
+  const value = String(raw ?? "").trim();
+  return DEALER_POST_WRITING_STYLE_ALLOWLIST.has(value as any)
+    ? (value as UserProfileData["dealerPostWritingStyle"])
+    : "dealer";
+}
 
 export const userService = {
   _profileReadyInflight: new Map<string, Promise<void>>(),
@@ -135,6 +157,7 @@ export const userService = {
           ? (data.favoriteCars as string[])
           : [],
         aiPersona: String(data.aiPersona ?? "Professional - เน้นข้อมูลสเปกเชิงลึก"),
+        dealerPostWritingStyle: normalizeDealerPostWritingStyle(data.dealerPostWritingStyle),
         membershipType: String(data.membershipType ?? "free") as UserProfileData["membershipType"],
         postLimit: Number(data.postLimit ?? 5),
         totalPosts: Number(data.totalPosts ?? 0),
@@ -173,11 +196,17 @@ export const userService = {
         "lastLogin",
         "favoriteCars",
         "aiPersona",
+        "dealerPostWritingStyle",
         "premiumExpireDate",
       ]);
       const sanitized: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(updates)) {
-        if (allowedKeys.has(key)) sanitized[key] = value;
+        if (!allowedKeys.has(key)) continue;
+        if (key === "dealerPostWritingStyle") {
+          sanitized[key] = normalizeDealerPostWritingStyle(value);
+          continue;
+        }
+        sanitized[key] = value;
       }
       if (Object.keys(sanitized).length === 0) return;
       const headers = await requireFirebaseAuthHeaders({ contentType: "json" });

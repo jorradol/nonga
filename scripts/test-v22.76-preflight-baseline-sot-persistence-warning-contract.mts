@@ -99,7 +99,7 @@ async function runStaticContracts(): Promise<void> {
   ok(
     "A7 preflight validates staging build provenance commit/asset parity",
     preflight.includes("staging build provenance payload") &&
-      preflight.includes("staging build provenance commit matches local HEAD") &&
+      preflight.includes("staging build provenance commit matches expected") &&
       preflight.includes("staging build provenance main asset matches index")
   );
   ok(

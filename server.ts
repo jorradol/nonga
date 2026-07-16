@@ -1454,7 +1454,13 @@ app.post("/api/ai/post-generator/generate", async (req, res) => {
   const condition = specs?.condition || "ยอดเยี่ยม";
   const modifications = specs?.modifications || "เดิมๆ ทรงสปอร์ตพรีเมียม";
   const highlights = specs?.highlights || "เจ้าของปล่อยเอง ทะนุถนอมประหนึ่งลูกในไส้";
-  const tone = options?.tone || "youth";
+  const toneAllowlist = new Set(["dealer", "friendly", "youth", "luxury", "tiktok"]);
+  const rawTone = (options as any)?.tone;
+  // Only allowlist tone values may reach prompt generation / mock selection.
+  // Invalid or free-text tone values must not be injected.
+  const tone = typeof rawTone === "string" && toneAllowlist.has(rawTone.trim())
+    ? rawTone.trim()
+    : "dealer";
 
   // Build questionnaire answers summary
   const answersSummary = Array.isArray(answers) 
@@ -1475,7 +1481,16 @@ app.post("/api/ai/post-generator/generate", async (req, res) => {
     let cta = `📞 อยากมาชมตัวจริง ส่องพิกัดทดลองขับ แอดไลน์ @NongACars หรือโทรสายด่วนมาได้เลยคร้าบพี่!`;
     let tags = ["รถสวยมือสอง", brand, model, "รถบ้านเจ้าของขายเอง", "รถมือสองสภาพดี"];
 
-    if (tone === "luxury") {
+    if (tone === "dealer") {
+      title = `👔 ${brand} ${model} ปี ${year} ดีลเลอร์มืออาชีพพร้อมข้อมูลชัดเจน`;
+      hook = `ถ้าคุณอยากได้รถที่ตัดสินใจได้ง่ายจากข้อมูลครบๆ คันนี้ใช่เลยครับ`;
+      fb = `👔 ${brand} ${model} ปี ${year}\n\nจุดเด่นตามข้อมูลที่ให้ไว้:\n- ${highlights}\n\nรายการดัดแปลง/อุปกรณ์เสริมที่ระบุได้:\n- ${modifications}\n\nไมล์แท้ ${formattedMileage} กม. • ราคา ฿${formattedPrice} บาท\n\n${answersSummary}\n\nสนใจทักแชทเพื่อขอรายละเอียดเพิ่มเติมหรือนัดดูคันจริงได้เลยคร้าบ!`;
+      tk = `🎬 ดีลเลอร์สรุปเร็ว ${brand} ${model} ปี ${year} ไมล์ ${formattedMileage} กม. ราคา ฿${formattedPrice} บาท #รถมือสอง #สเปครบ #รถพร้อมดูหน้างาน`;
+      seo = `${brand} ${model} ปี ${year} ราคา ฿${formattedPrice} ไมล์ ${formattedMileage} กม. ดีลเลอร์แนะนำ พร้อมจุดเด่น: ${highlights} และข้อมูลดัดแปลง: ${modifications}`;
+      shortC = `👔 ${brand} ${model} ปี ${year} สเปกชัด ราคา ฿${formattedPrice} บาท (ไมล์ ${formattedMileage} กม.)`;
+      cta = `📞 สนใจดีลเลอร์แนะนำคันนี้ ทักแชทเพื่อขอข้อมูลและนัดดูรถได้เลยคร้าบ!`;
+      tags = ["Dealerมืออาชีพ", brand, model, "สเปครบ", "รถพร้อมดูหน้างาน", "รถมือสองสภาพดี"];
+    } else if (tone === "luxury") {
       title = `💎 Luxury Exclusive Edition — ${brand} ${model} ${year}`;
       hook = `รถสวยหรูหราจน AI ใจสั่น 😆 ยกระดับความสง่างามและความสปอร์ตเร้าอารมณ์บนท้องถนน`;
       fb = `💎 เลอค่า หรูหรา สง่างามอย่างมีระดับในรถคันเดียว...\n\nขอต้อนรับผู้มีรสนิยมทุกท่านสู่การเป็นเจ้าของ ${brand} ${model} ปี ${year} ขับเคลื่อนความหรูหราด้วยเฉดสีคมเข้ม ล้อหรูแม็กสเกลแบรนด์ดังระดับโลก ✨\n\n📌 อัตลักษณ์อันตระการตา:\n- สภาพสีตัวถังดีเลิศ ไร้จุดด่างพร้อยดึงดูดสายตา\n- การดูแลระดับไมโครจากเจ้าของตัวจริง เช็คประวัติละเอียด\n- ดัดแปลงอัพเกรดสเป็ค: ${modifications}\n- ไมล์แท้วิ่งน้อยพรีเมียมเพียง ${formattedMileage} กม.\n\n💵 มูลค่าแห่งความเป็นเจ้าของสุดล้ำค่า: ฿${formattedPrice} บาท\n\nคันนี้มีคนทักแน่ครับ 🔥 รถสวยระดับแบรนเนชั่นเนลคู่ควรกับภาพลักษณ์หรูหราของคุณ`;
@@ -1502,7 +1517,7 @@ app.post("/api/ai/post-generator/generate", async (req, res) => {
 
   if (!canUseLegacyGemini()) {
     console.log("Gemini API not configured. Serving rich formatted mock post based on tone...");
-    return res.json({ success: true, isMock: true, posts: getMockPackage() });
+    return res.json({ success: false, isMock: true, posts: getMockPackage() });
   }
 
   try {
@@ -1518,10 +1533,15 @@ Car Specifications:
 - Custom Modifications: ${modifications}
 - Key Highlights & Seller Notes: ${highlights}
 
+Facts constraint (NO INVENT / NO ALTER):
+- You MUST use the exact provided values above for Brand/Model/Year/Price/Mileage/Condition/Custom Modifications/Key Highlights & Seller Notes.
+- Do NOT invent or alter facts (including equipment, ownership/history, mileage claims, promotional offers, or any other factual numbers) beyond what is explicitly provided.
+
 Additional context from follow-up answers:
 ${answersSummary}
 
 Requested Copywriting Tone: "${tone}" (dealer, youth, luxury, friendly, or tiktok)
+Style scope: The tone controls ONLY voice/pacing, structure, length, and CTA. It must not change factual fields.
 Options:
 - Has hashtags: ${options?.includeHashtags ? "Yes" : "No"}
 - Emoji Optimization: ${options?.emojiOptimization ? "Full Creative Emojis" : "Minimal/Standard"}
@@ -1573,11 +1593,11 @@ You MUST output ONLY a valid, strict JSON object following this format EXACTLY. 
       res.json({ success: true, isMock: false, posts: parsedResults });
     } catch {
       console.warn("Could not parse Gemini generation outputs, fallback to mock generation pack.");
-      res.json({ success: true, isMock: true, posts: getMockPackage() });
+      res.json({ success: false, isMock: true, posts: getMockPackage() });
     }
   } catch (error: any) {
     console.error("Gemini multi-channel post generation failed:", error);
-    res.json({ success: true, isMock: true, posts: getMockPackage() });
+    res.json({ success: false, isMock: true, posts: getMockPackage() });
   }
 });
 

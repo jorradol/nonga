@@ -14,6 +14,7 @@ import { CarPostRegenerateMode } from "../../../services/ai/post-generator/regen
 import { postGeneratorService } from "../../../services/ai/post-generator/generatorService";
 import { POST_GENERATE_FAILED_ERROR } from "../../../services/ai/post-generator/apiHelpers";
 import { useAiPremium } from "../../ai-premium/useAiPremium";
+import { useAuthContext } from "../../../contexts/auth/AuthContext";
 
 const REGENERATE_COOLDOWN_MS = 1200;
 const BRAIN_DEBOUNCE_MS = 450;
@@ -32,7 +33,7 @@ const initialSpecs: CarSpecsInput = {
 };
 
 const initialOptions: GeneratorOptions = {
-  tone: "youth",
+  tone: "dealer",
   includeHashtags: true,
   emojiOptimization: true,
   seoOptimization: true,
@@ -42,6 +43,7 @@ const initialOptions: GeneratorOptions = {
 
 export function useCarPostGenerator() {
   const { checkGate, triggerUsage } = useAiPremium();
+  const { user } = useAuthContext();
 
   const [specs, setSpecs] = useState<CarSpecsInput>(initialSpecs);
   const [options, setOptions] = useState<GeneratorOptions>(initialOptions);
@@ -64,6 +66,23 @@ export function useCarPostGenerator() {
 
   const lastRegenerateAtRef = useRef(0);
   const brainDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const profileToneRef = useRef<GeneratorOptions["tone"]>(initialOptions.tone);
+  const didHydrateToneRef = useRef(false);
+
+  const normalizeTone = useCallback((raw: unknown): GeneratorOptions["tone"] => {
+    const allowed = new Set<GeneratorOptions["tone"]>(["dealer", "friendly", "youth", "luxury", "tiktok"]);
+    const v = String(raw ?? "").trim();
+    return allowed.has(v as any) ? (v as GeneratorOptions["tone"]) : "dealer";
+  }, []);
+
+  useEffect(() => {
+    if (didHydrateToneRef.current) return;
+    if (!user) return;
+    const next = normalizeTone((user as any)?.dealerPostWritingStyle);
+    profileToneRef.current = next;
+    setOptions((prev) => ({ ...prev, tone: next }));
+    didHydrateToneRef.current = true;
+  }, [user, normalizeTone]);
   const isBusy = isLoading || isRegenerating;
 
   const scheduleBrainRefresh = useCallback(
@@ -234,7 +253,7 @@ export function useCarPostGenerator() {
       clearTimeout(brainDebounceRef.current);
     }
     setSpecs(initialSpecs);
-    setOptions(initialOptions);
+    setOptions({ ...initialOptions, tone: profileToneRef.current });
     setPostStyle(DEFAULT_CAR_POST_STYLE);
     setQuestions([]);
     setGeneratedResults(null);

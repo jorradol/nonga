@@ -65,6 +65,8 @@ export function PostGeneratorDashboard() {
     { id: "tiktok", label: "ติ๊กต๊อกเกอร์ไวรัลเพลย์", desc: "สั้น กระชับ มีฮุคเรียกกระแส ดึงความสนใจใน 3 วินาที", emoji: "🎬" },
   ];
 
+  const activeTone = tones.find((t) => t.id === options.tone) || tones[0];
+
   return (
     <div className="w-full nonga-bg-app nonga-text-primary min-h-screen px-4 py-8 relative overflow-hidden font-sans selection:bg-orange-500/30">
       
@@ -281,6 +283,10 @@ export function PostGeneratorDashboard() {
                   </h3>
                   <span className="text-[9px] nonga-bg-subtle border nonga-border nonga-text-secondary px-2 py-0.5 rounded font-extrabold">ทรงพลังดึงดูดปาดตา</span>
                 </div>
+
+                <p className="text-[10px] text-left nonga-text-muted -mt-1">
+                  สไตล์ที่กำลังใช้: <span className="font-black">{activeTone.label}</span>
+                </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {tones.map((t) => (

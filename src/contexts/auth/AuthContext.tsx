@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             lastLogin: currentTime,
             favoriteCars: [],
             aiPersona: "Professional - เน้นข้อมูลสเปกเชิงลึก",
+            dealerPostWritingStyle: "dealer",
             premiumExpireDate: null
           };
           savedUsers[uid] = profile;
@@ -157,12 +158,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      const updatesAny = updates as any;
       const allowedProfilePatch: Partial<{
         displayName: string;
         photoURL: string;
         lastLogin: string;
         favoriteCars: string[];
         aiPersona: string;
+        dealerPostWritingStyle: "dealer" | "friendly" | "youth" | "luxury" | "tiktok";
         premiumExpireDate: string | null;
       }> = {};
       if (typeof updates.displayName === "string") {
@@ -179,6 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (typeof updates.aiPersona === "string") {
         allowedProfilePatch.aiPersona = updates.aiPersona;
+      }
+      if (typeof updatesAny.dealerPostWritingStyle === "string") {
+        allowedProfilePatch.dealerPostWritingStyle = updatesAny.dealerPostWritingStyle as any;
       }
       if (updates.premiumExpireDate === null || typeof updates.premiumExpireDate === "string") {
         allowedProfilePatch.premiumExpireDate = updates.premiumExpireDate;
@@ -252,7 +258,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           postLimit: 0,
           totalPosts: 0,
           favoriteCars: [],
-          aiPersona: "Professional - เน้นข้อมูลสเปกเชิงลึก"
+          aiPersona: "Professional - เน้นข้อมูลสเปกเชิงลึก",
+          // Car Post Generator default writing style
+          dealerPostWritingStyle: "dealer"
         };
         syncUser(defaultGuest);
         setLoading(false);
