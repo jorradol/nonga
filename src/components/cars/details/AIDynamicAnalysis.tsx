@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Sparkles, CheckCircle, AlertCircle, Quote, TrendingUp, Info } from "lucide-react";
+import { Sparkles, CheckCircle, AlertCircle, Quote, Info } from "lucide-react";
 import { Car } from "../../../types";
 
 interface AIDynamicAnalysisProps {
@@ -8,7 +8,7 @@ interface AIDynamicAnalysisProps {
   isDarkMode?: boolean;
 }
 
-export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicAnalysisProps) {
+export default function AIDynamicAnalysis({ car }: AIDynamicAnalysisProps) {
   // Score calculations or presets based on car specifications
   const getAIScores = () => {
     const brandLower = car.brand.toLowerCase();
@@ -84,31 +84,27 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
       ];
 
   return (
-    <div className={`p-6 sm:p-8 rounded-3xl border ${
-      isDarkMode 
-        ? "bg-slate-900/40 border-white/[0.06] text-white" 
-        : "bg-white border-slate-250 text-slate-800"
-    } shadow-2xl space-y-8 relative overflow-hidden`}>
+    <div className="p-6 sm:p-8 rounded-3xl border nonga-bg-surface nonga-border nonga-text-primary shadow-2xl space-y-8 relative overflow-hidden">
       
       {/* Decorative orange ambient glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none" />
 
       {/* Header section with Nong A bot persona badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-orange-500/10 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-orange-500/20 pb-5">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-orange-600/10 border border-orange-500/25 flex items-center justify-center text-orange-500 shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-orange-600/10 border border-orange-500/25 flex items-center justify-center text-[var(--nonga-action-primary)] shrink-0">
             <Sparkles className="w-6 h-6 animate-pulse" />
           </div>
           <div className="text-left">
-            <h3 className="font-display font-black text-lg text-white">Nong A AI วิเคราะห์วิจารณ์เชิงลึก</h3>
-            <p className="text-[11px] text-slate-400 font-mono">POWERED BY GEMINI PRO AUTOMOTIVE MODEL</p>
+            <h3 className="font-display font-black text-lg nonga-text-primary">Nong A AI วิเคราะห์วิจารณ์เชิงลึก</h3>
+            <p className="text-[11px] nonga-text-muted font-mono">POWERED BY GEMINI PRO AUTOMOTIVE MODEL</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-orange-600/15 border border-orange-500/25 rounded-2xl px-4 py-2 self-start sm:self-auto shadow-md">
-          <span className="text-[11px] font-bold text-orange-500 uppercase tracking-widest font-mono">คะแนนภาพรวม AI</span>
-          <span className="font-mono font-black text-xl text-orange-500">{scores.average}</span>
-          <span className="text-[11px] text-slate-400 font-bold">/100</span>
+        <div className="flex items-center gap-2 nonga-bg-subtle border border-orange-500/25 rounded-2xl px-4 py-2 self-start sm:self-auto shadow-md">
+          <span className="text-[11px] font-bold text-[var(--nonga-action-primary)] uppercase tracking-widest font-mono">คะแนนภาพรวม AI</span>
+          <span className="font-mono font-black text-xl text-[var(--nonga-action-primary)]">{scores.average}</span>
+          <span className="text-[11px] nonga-text-secondary font-bold">/100</span>
         </div>
       </div>
 
@@ -117,7 +113,7 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
         
         {/* Core metrics charts */}
         <div className="lg:col-span-5 space-y-5">
-          <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest block text-left">
+          <span className="text-[11px] font-mono font-bold nonga-text-muted uppercase tracking-widest block text-left">
             การประเมิน 5 ดัชนีทางเทคนิค
           </span>
           
@@ -125,10 +121,10 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
             {scores.metrics.map((metric, idx) => (
               <div key={idx} className="space-y-1.5 text-left">
                 <div className="flex justify-between text-xs font-semibold">
-                  <span className={isDarkMode ? "text-slate-300" : "text-slate-700"}>{metric.name}</span>
-                  <span className="font-mono text-orange-500 font-bold">{metric.score}%</span>
+                  <span className="nonga-text-secondary">{metric.name}</span>
+                  <span className="font-mono text-[var(--nonga-action-primary)] font-bold">{metric.score}%</span>
                 </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 w-full nonga-bg-subtle border nonga-border rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${metric.score}%` }}
@@ -140,9 +136,9 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
             ))}
           </div>
 
-          <div className="p-3.5 rounded-xl bg-orange-600/[0.02] border border-orange-500/10 text-left flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-slate-400 leading-normal">
+          <div className="p-3.5 rounded-xl nonga-bg-subtle border border-orange-500/15 text-left flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-[var(--nonga-action-primary)] shrink-0 mt-0.5" />
+            <p className="text-[10px] nonga-text-secondary leading-normal">
               คะแนนวิเคราะห์ข้างต้นสังเคราะห์โดย Nong A AI อิงจากดัชนีราคาเฉลี่ยตลาดรถยนต์ในไทย ปีจดทะเบียน เลขไมล์สะสม ข้อมูลระบบฟังก์ชันตัวถัง และพฤติกรรมความชอบของลูกค้าชาวไทยอย่างจริงใจเป็นหลักครับ
             </p>
           </div>
@@ -150,15 +146,13 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
 
         {/* Dynamic AI voice and details review text */}
         <div className="lg:col-span-7 space-y-6">
-          <div className={`p-5 rounded-2xl border ${
-            isDarkMode ? "bg-slate-950/60 border-slate-850" : "bg-slate-50 border-slate-200"
-          } space-y-3`}>
+          <div className="p-5 rounded-2xl border nonga-bg-elevated nonga-border space-y-3">
             <div className="flex items-center gap-1">
-              <Quote className="w-4 h-4 text-orange-500 flip-x" />
-              <span className="text-[11px] font-bold text-orange-500">บทเกณฑ์คัดสรรของน้องเอ:</span>
+              <Quote className="w-4 h-4 text-[var(--nonga-action-primary)] flip-x" />
+              <span className="text-[11px] font-bold text-[var(--nonga-action-primary)]">บทเกณฑ์คัดสรรของน้องเอ:</span>
             </div>
             
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed text-left font-serif italic">
+            <p className="text-xs sm:text-sm nonga-text-secondary leading-relaxed text-left font-serif italic">
               "Nong A วิเคราะห์ประทับใจสุดๆ เลยครับคุณพี่! คันนี้นะครับเป็น {car.brand} {car.model} ปี {car.year} ที่สเป็กสวยกริ๊บ {isEv ? "ขับเคลื่อนด้วยพลังไฟฟ้าสุดคุ้ม 100% ตอบโจทย์ยุคประหยัดพลังงานเงียบสงัดล้ำยุค" : "เครื่องยนต์พละกำลังเหนือระดับ ขับนิ่มนวล ทนทานบำรุงรักษาง่ายที่สุด"} สำหรับตัวเลขไมล์ {car.mileage.toLocaleString()} กม. เทียบกับปีบอกเลยว่าน่าจับตามองมาก ราคาจำหน่ายจัดว่าสมน้ำสมเนื้อ คุ้มกับคุณภาพพรีเมียมแบบนี้แน่นอนครับผม ซื้อไปสะกดสายตาบนท้องถนน คันนี้มีคนทักทาย ดึงใจชัวร์ล้านเปอร์เซ็นต์คร้าบ! ✨"
             </p>
           </div>
@@ -166,14 +160,14 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
           {/* Pros & Cons stack */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Pros card */}
-            <div className="p-4.5 rounded-2xl border border-emerald-500/10 bg-emerald-500/[0.01] space-y-3 text-left">
-              <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <CheckCircle className="w-4 h-4 text-emerald-500" /> จุดเด่นและข้อดีพิเศษ
+            <div className="p-4.5 rounded-2xl border border-[color-mix(in_srgb,var(--nonga-success)_35%,var(--nonga-border))] bg-[color-mix(in_srgb,var(--nonga-success)_8%,var(--nonga-bg-surface))] space-y-3 text-left">
+              <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <CheckCircle className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> จุดเด่นและข้อดีพิเศษ
               </span>
-              <ul className="text-[11px] text-slate-300 space-y-2 list-none pl-1">
+              <ul className="text-[11px] nonga-text-secondary space-y-2 list-none pl-1">
                 {pros.map((p, i) => (
                   <li key={i} className="flex items-start gap-1.5 leading-relaxed">
-                    <span className="text-emerald-500 select-none mt-0.5">•</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 select-none mt-0.5">•</span>
                     <span>{p}</span>
                   </li>
                 ))}
@@ -181,14 +175,14 @@ export default function AIDynamicAnalysis({ car, isDarkMode = true }: AIDynamicA
             </div>
 
             {/* Cons card */}
-            <div className="p-4.5 rounded-2xl border border-rose-500/10 bg-rose-500/[0.01] space-y-3 text-left">
-              <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <AlertCircle className="w-4 h-4 text-rose-500" /> ข้อสังเกตเพื่อพิจารณา
+            <div className="p-4.5 rounded-2xl border border-[color-mix(in_srgb,var(--nonga-error)_35%,var(--nonga-border))] bg-[color-mix(in_srgb,var(--nonga-error)_8%,var(--nonga-bg-surface))] space-y-3 text-left">
+              <span className="text-[11px] font-bold text-rose-800 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <AlertCircle className="w-4 h-4 text-rose-700 dark:text-rose-400" /> ข้อสังเกตเพื่อพิจารณา
               </span>
-              <ul className="text-[11px] text-slate-300 space-y-2 list-none pl-1">
+              <ul className="text-[11px] nonga-text-secondary space-y-2 list-none pl-1">
                 {cons.map((c, i) => (
                   <li key={i} className="flex items-start gap-1.5 leading-relaxed">
-                    <span className="text-rose-500 select-none mt-0.5">•</span>
+                    <span className="text-rose-700 dark:text-rose-400 select-none mt-0.5">•</span>
                     <span>{c}</span>
                   </li>
                 ))}

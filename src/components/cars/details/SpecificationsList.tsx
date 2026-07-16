@@ -10,7 +10,7 @@ interface SpecificationsListProps {
   isDarkMode?: boolean;
 }
 
-export default function SpecificationsList({ car, isDarkMode = true }: SpecificationsListProps) {
+export default function SpecificationsList({ car }: SpecificationsListProps) {
   const [activeTab, setActiveTab] = useState<"specifications" | "features" | "tags">("specifications");
 
   // Format conditions nicely
@@ -49,14 +49,10 @@ export default function SpecificationsList({ car, isDarkMode = true }: Specifica
   ];
 
   return (
-    <div className={`p-6 sm:p-8 rounded-3xl border ${
-      isDarkMode 
-        ? "bg-slate-900/40 border-white/[0.06] text-white" 
-        : "bg-white border-slate-250 text-slate-800"
-    } shadow-2xl space-y-6 text-left`}>
+    <div className="p-6 sm:p-8 rounded-3xl border nonga-bg-surface nonga-border nonga-text-primary shadow-2xl space-y-6 text-left">
 
       {/* Tabs list menu */}
-      <div className="flex border-b border-orange-500/10 pb-0 gap-4">
+      <div className="flex border-b border-orange-500/20 pb-0 gap-4">
         {[
           { id: "specifications", label: "ข้อมูลทางเทคนิคของรถ" },
           { id: "features", label: `อุปกรณ์อำนวยความสะดวก (${car.features?.length || 8})` },
@@ -64,16 +60,16 @@ export default function SpecificationsList({ car, isDarkMode = true }: Specifica
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-3.5 text-xs font-bold relative transition-all cursor-pointer ${
+            onClick={() => setActiveTab(tab.id as "specifications" | "features" | "tags")}
+            className={`pb-3.5 text-xs font-bold relative transition-all cursor-pointer nonga-focus-ring ${
               activeTab === tab.id
-                ? "text-orange-500 select-none"
-                : "text-slate-450 hover:text-white"
+                ? "text-[var(--nonga-action-primary)] select-none"
+                : "nonga-text-muted hover:text-[var(--nonga-text-primary)]"
             }`}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <span className="absolute bottom-0 inset-x-0 h-[2.5px] bg-orange-600 rounded-full" />
+              <span className="absolute bottom-0 inset-x-0 h-[2.5px] bg-[var(--nonga-action-primary)] rounded-full" />
             )}
           </button>
         ))}
@@ -88,14 +84,14 @@ export default function SpecificationsList({ car, isDarkMode = true }: Specifica
               return (
                 <div 
                   key={i} 
-                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-950/20 transition-all border border-transparent hover:border-slate-850"
+                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-[var(--nonga-bg-subtle)] transition-all border border-transparent hover:border-[var(--nonga-border)]"
                 >
-                  <div className="p-2 rounded-lg bg-orange-600/10 text-orange-500 shrink-0">
+                  <div className="p-2 rounded-lg bg-orange-600/10 text-[var(--nonga-action-primary)] shrink-0">
                     <IconComp className="w-4 h-4" />
                   </div>
                   <div className="text-left leading-tight">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wide block mb-0.5">{spec.label}</span>
-                    <span className="text-xs sm:text-[13px] font-bold text-slate-100">{spec.value}</span>
+                    <span className="text-[10px] nonga-text-muted uppercase tracking-wide block mb-0.5 font-semibold">{spec.label}</span>
+                    <span className="text-xs sm:text-[13px] font-bold nonga-text-primary">{spec.value}</span>
                   </div>
                 </div>
               );
@@ -118,10 +114,10 @@ export default function SpecificationsList({ car, isDarkMode = true }: Specifica
               ]).map((feat, idx) => (
                 <div 
                   key={idx} 
-                  className="p-3 bg-slate-950/40 border border-slate-850/80 rounded-xl flex items-center gap-2"
+                  className="p-3 nonga-bg-subtle border nonga-border rounded-xl flex items-center gap-2"
                 >
-                  <CheckCircle className="w-4 h-4 text-orange-500 shrink-0" />
-                  <span className="text-xs text-slate-350 line-clamp-1">{feat}</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--nonga-action-primary)] shrink-0" />
+                  <span className="text-xs nonga-text-secondary line-clamp-1">{feat}</span>
                 </div>
               ))}
             </div>
@@ -130,7 +126,7 @@ export default function SpecificationsList({ car, isDarkMode = true }: Specifica
 
         {activeTab === "tags" && (
           <div className="space-y-4 animate-fadeIn text-left">
-            <span className="text-[10px] font-sans font-bold text-slate-450 uppercase tracking-widest block">
+            <span className="text-[10px] font-sans font-bold nonga-text-muted uppercase tracking-widest block">
               แท็กจัดหมวดหมู่โดย น้องเอ AI และโบรกเกอร์ (Tags Classified)
             </span>
             <div className="flex flex-wrap gap-2">
@@ -145,7 +141,7 @@ export default function SpecificationsList({ car, isDarkMode = true }: Specifica
               ]).map((tg, idx) => (
                 <span 
                   key={idx}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-600/10 border border-orange-500/25 text-orange-400 shadow-sm"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold nonga-bg-subtle border border-orange-500/25 text-[var(--nonga-action-primary)] shadow-sm"
                 >
                   #{tg}
                 </span>

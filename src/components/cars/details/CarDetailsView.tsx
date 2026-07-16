@@ -241,10 +241,10 @@ export default function CarDetailsView() {
   if (!car) {
     if (isLoadingCars || carsLoadState === "loading" || carsLoadState === "idle") {
       return (
-        <div className="text-center py-24 text-slate-400">
-          <HelpCircle className="w-14 h-14 mx-auto mb-4 text-orange-500 animate-pulse" />
-          <h3 className="text-lg font-bold text-white">กำลังโหลดข้อมูลรถยนต์</h3>
-          <p className="text-xs text-slate-400 mt-1">
+        <div className="text-center py-24 nonga-text-secondary">
+          <HelpCircle className="w-14 h-14 mx-auto mb-4 text-[var(--nonga-action-primary)] animate-pulse" />
+          <h3 className="text-lg font-bold nonga-text-primary">กำลังโหลดข้อมูลรถยนต์</h3>
+          <p className="text-xs nonga-text-muted mt-1">
             กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุดจากตลาดรถ
           </p>
         </div>
@@ -253,22 +253,22 @@ export default function CarDetailsView() {
 
     if (carsLoadState === "error") {
       return (
-        <div className="text-center py-24 text-slate-400">
-          <HelpCircle className="w-14 h-14 mx-auto mb-4 text-orange-500" />
-          <h3 className="text-lg font-bold text-white">ยังโหลดรายละเอียดรถไม่สำเร็จ</h3>
-          <p className="text-xs text-slate-400 mt-1">
+        <div className="text-center py-24 nonga-text-secondary">
+          <HelpCircle className="w-14 h-14 mx-auto mb-4 text-[var(--nonga-action-primary)]" />
+          <h3 className="text-lg font-bold nonga-text-primary">ยังโหลดรายละเอียดรถไม่สำเร็จ</h3>
+          <p className="text-xs nonga-text-muted mt-1">
             เครือข่ายอาจขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <button
               onClick={() => void fetchCars()}
-              className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-lg"
+              className="px-6 py-2.5 nonga-action font-bold rounded-xl text-xs transition-all cursor-pointer shadow-lg nonga-focus-ring"
             >
               ลองโหลดใหม่
             </button>
             <button
               onClick={() => setView("marketplace")}
-              className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs transition-all cursor-pointer"
+              className="px-6 py-2.5 nonga-bg-subtle border nonga-border nonga-text-primary font-bold rounded-xl text-xs transition-all cursor-pointer nonga-focus-ring"
             >
               กลับสู่โชว์รูมตลาดรถยนต์
             </button>
@@ -278,15 +278,15 @@ export default function CarDetailsView() {
     }
 
     return (
-      <div className="text-center py-24 text-slate-400">
-        <HelpCircle className="w-14 h-14 mx-auto mb-4 text-orange-500 animate-bounce" />
-        <h3 className="text-lg font-bold text-white">ไม่พบข้อมูลรถยนต์ที่คุณตามหา</h3>
-        <p className="text-xs text-slate-400 mt-1">
+      <div className="text-center py-24 nonga-text-secondary">
+        <HelpCircle className="w-14 h-14 mx-auto mb-4 text-[var(--nonga-action-primary)] animate-bounce" />
+        <h3 className="text-lg font-bold nonga-text-primary">ไม่พบข้อมูลรถยนต์ที่คุณตามหา</h3>
+        <p className="text-xs nonga-text-muted mt-1">
           ลิงก์อาจไม่ถูกต้อง หรือประกาศอาจไม่มีอยู่แล้วในรายการล่าสุด
         </p>
         <button 
           onClick={() => setView("marketplace")}
-          className="mt-6 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs hover:scale-103 active:scale-97 transition-all cursor-pointer shadow-lg"
+          className="mt-6 px-6 py-2.5 nonga-action font-bold rounded-xl text-xs hover:scale-103 active:scale-97 transition-all cursor-pointer shadow-lg nonga-focus-ring"
         >
           กลับสู่โชว์รูมตลาดรถยนต์
         </button>
@@ -316,13 +316,9 @@ export default function CarDetailsView() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => setView("marketplace")}
-          className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-102 active:scale-98 cursor-pointer ${
-            isDarkMode 
-              ? "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white" 
-              : "bg-slate-100 text-slate-600"
-          }`}
+          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-102 active:scale-98 cursor-pointer nonga-bg-subtle border nonga-border nonga-text-secondary hover:text-[var(--nonga-text-primary)] nonga-focus-ring"
         >
-          <ArrowLeft className="w-4 h-4 text-orange-500" />
+          <ArrowLeft className="w-4 h-4 text-[var(--nonga-action-primary)]" />
           <span>ย้อนกลับไปตลาดรถยนต์</span>
         </button>
 
@@ -330,28 +326,28 @@ export default function CarDetailsView() {
           {/* Share Trigger */}
           <button
             onClick={() => setShareOpen(true)}
-            className="p-2.5 rounded-xl bg-slate-900/10 border border-slate-800 text-slate-400 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 text-xs"
+            className="p-2.5 rounded-xl nonga-bg-subtle border nonga-border nonga-text-secondary hover:text-[var(--nonga-text-primary)] transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 text-xs nonga-focus-ring"
             title="แชร์ลิงก์"
           >
-            <Share2 className="w-4 h-4 text-orange-500" />
+            <Share2 className="w-4 h-4 text-[var(--nonga-action-primary)]" />
             <span className="hidden sm:inline">แชร์รายละเอียด</span>
           </button>
 
           {/* Favorite Toggle */}
           <button
             onClick={() => toggleFavorite(car.id)}
-            className={`p-2.5 rounded-xl border flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs ${
+            className={`p-2.5 rounded-xl border flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs nonga-focus-ring ${
               isFav 
                 ? "bg-red-500 border-red-500 text-white shadow-md shadow-red-500/20" 
-                : "bg-slate-900/10 border-slate-800 text-slate-400 hover:text-white"
+                : "nonga-bg-subtle nonga-border nonga-text-secondary hover:text-[var(--nonga-text-primary)]"
             }`}
           >
-            <Heart className={`w-4 h-4 ${isFav ? "fill-current animate-pulse text-white" : "text-orange-500"}`} />
+            <Heart className={`w-4 h-4 ${isFav ? "fill-current animate-pulse text-white" : "text-[var(--nonga-action-primary)]"}`} />
             <span>{isFav ? "บันทึกแล้ว" : "บันทึกคันนี้"}</span>
           </button>
           <button
             onClick={() => void reportListing()}
-            className="p-2.5 rounded-xl border border-slate-800 text-slate-400 hover:text-orange-500 transition-all text-xs"
+            className="p-2.5 rounded-xl border nonga-border nonga-text-secondary hover:text-[var(--nonga-action-primary)] transition-all text-xs nonga-focus-ring"
             title="รายงานประกาศ"
           >
             รายงานประกาศ
@@ -362,7 +358,7 @@ export default function CarDetailsView() {
       {/* 2. Hero Interactive Media Showcase */}
       <section className="w-full">
         {hasOnlyPlaceholderImages && (
-          <div className="mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <div className="mb-3 rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-200 font-medium">
             รูปภาพรายการนี้ยังโหลดไม่ได้หรือยังไม่เปิดสิทธิ์ลิงก์สาธารณะ ระบบจึงใช้รูปสำรองชั่วคราว
           </div>
         )}
@@ -381,46 +377,44 @@ export default function CarDetailsView() {
         <div className="lg:col-span-8 space-y-6 sm:space-y-8">
           
           {/* Main Title & Price card (for mobile/tablet it is prominent) */}
-          <div className={`p-5 sm:p-7 rounded-3xl border text-left space-y-4 ${
-            isDarkMode ? "bg-slate-900/40 border-white/[0.06]" : "bg-white border-slate-200"
-          }`}>
+          <div className="p-5 sm:p-7 rounded-3xl border text-left space-y-4 nonga-bg-surface nonga-border">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1.5">
-                <span className="text-[10px] font-mono tracking-widest font-black text-orange-500 uppercase">
+                <span className="text-[10px] font-mono tracking-widest font-black text-[var(--nonga-action-primary)] uppercase">
                   {car.brand} • PLATINUM AUTO CHOICE
                 </span>
-                <h1 className="font-display font-black text-xl sm:text-2xl text-white tracking-tight leading-snug">
+                <h1 className="font-display font-black text-xl sm:text-2xl nonga-text-primary tracking-tight leading-snug">
                   {car.title}
                 </h1>
-                <div className="flex items-center gap-4 text-xs text-slate-400">
+                <div className="flex items-center gap-4 text-xs nonga-text-secondary">
                   <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-orange-500" /> ปีจดทะเบียน {car.year}
+                    <Calendar className="w-3.5 h-3.5 text-[var(--nonga-action-primary)]" /> ปีจดทะเบียน {car.year}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Eye className="w-3.5 h-3.5 text-orange-500" /> ยอดเข้าชม 412 ครั้ง
+                    <Eye className="w-3.5 h-3.5 text-[var(--nonga-action-primary)]" /> ยอดเข้าชม 412 ครั้ง
                   </span>
                 </div>
               </div>
 
               {/* Price callout accent badge */}
-              <div className="p-4 rounded-2xl bg-orange-600/10 border border-orange-500/20 text-left sm:text-right self-start sm:self-auto min-w-[200px] shadow-inner">
-                <span className="text-[10px] text-slate-400 uppercase leading-none block font-semibold mb-0.5">ราคาขายสุทธิ (Net Price)</span>
-                <span className="font-mono font-black text-2xl sm:text-3xl text-orange-500">฿{car.price.toLocaleString()}</span>
-                <span className="text-[9px] text-slate-400 block mt-1">ผ่อนเริ่มต้นเพียง ฿{Math.round(car.price / 160).toLocaleString()} บ./เดือน*</span>
+              <div className="p-4 rounded-2xl bg-[color-mix(in_srgb,var(--nonga-brand)_10%,var(--nonga-bg-surface))] border border-orange-500/25 text-left sm:text-right self-start sm:self-auto min-w-[200px] shadow-inner">
+                <span className="text-[10px] nonga-text-muted uppercase leading-none block font-semibold mb-0.5">ราคาขายสุทธิ (Net Price)</span>
+                <span className="font-mono font-black text-2xl sm:text-3xl text-[var(--nonga-action-primary)]">฿{car.price.toLocaleString()}</span>
+                <span className="text-[9px] nonga-text-muted block mt-1">ผ่อนเริ่มต้นเพียง ฿{Math.round(car.price / 160).toLocaleString()} บ./เดือน*</span>
               </div>
             </div>
 
-            <div className="border-t border-slate-800/80 pt-4 sm:pt-5">
-              <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+            <div className="border-t nonga-border pt-4 sm:pt-5">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest nonga-text-muted mb-3">
                 รายละเอียดประกาศ
               </h2>
               <ListingDescription
                 text={car.description}
                 variant="full"
-                tone="dark"
+                tone={isDarkMode ? "dark" : "light"}
                 fallback={
                   <p
-                    className="text-sm text-slate-300 leading-[1.75]"
+                    className={`text-sm leading-[1.75] ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
                     รถยนต์คัดสภาพพิเศษผ่านการตรวจเช็คสภาพเครื่องยนต์ ตัวถัง ช่วงล่าง อะไหล่ และระบบประจุไฟฟ้ารวมกว่า 200 รายการพร้อมใช้งานทันใจ เล่มทะเบียนครบบริบูรณ์ มั่นใจร้อยเปอร์เซ็นต์คร้าบ!
@@ -431,7 +425,7 @@ export default function CarDetailsView() {
               <BuyerFriendlyListingCopyDetailSection
                 gate={buyerFriendlyPreviewGate}
                 result={buyerFriendlyPreviewResult}
-                tone="dark"
+                tone={isDarkMode ? "dark" : "light"}
               />
             </div>
           </div>
@@ -475,14 +469,14 @@ export default function CarDetailsView() {
           />
 
           {/* Chat with AI side prompt */}
-          <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-850 text-left space-y-4 shadow-xl">
+          <div className="p-5 rounded-3xl nonga-bg-elevated border nonga-border text-left space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-orange-600/10 text-orange-500 shrink-0">
+              <div className="p-2.5 rounded-xl bg-orange-600/10 text-[var(--nonga-action-primary)] shrink-0">
                 <Sparkles className="w-5 h-5 animate-pulse" />
               </div>
               <div className="text-left space-y-0.5">
-                <h4 className="font-display font-black text-sm text-orange-500">ที่ปรึกษารถยนต์ Nong A AI</h4>
-                <p className="text-[11.5px] text-slate-400 font-sans leading-normal">
+                <h4 className="font-display font-black text-sm text-[var(--nonga-action-primary)]">ที่ปรึกษารถยนต์ Nong A AI</h4>
+                <p className="text-[11.5px] nonga-text-secondary font-sans leading-normal">
                   ต้องการต่อรองราคากลาง, ขอนัดดูสภาพตัวถังรถจริงในพื้นที่พัทยา หรือวิเคราะห์ความจุแบตเตอรี่แบบคุยมิตรภาพใช่หรือไม่? เริ่มพูดคุยด่วนคร้าบ!
                 </p>
               </div>
@@ -490,7 +484,7 @@ export default function CarDetailsView() {
             
             <button
               onClick={handleStartAIConsult}
-              className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-black rounded-xl text-xs sm:text-sm shadow-lg shadow-orange-650/10 transition-all select-none cursor-pointer active:scale-97"
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-3 nonga-action font-black rounded-xl text-xs sm:text-sm shadow-lg shadow-orange-650/10 transition-all select-none cursor-pointer active:scale-97 nonga-focus-ring"
             >
               <MessageSquare className="w-4 h-4 animate-shake" />
               <span>เริ่มคุยปรึกษา Nong A ด่วนคร้าบ 💬</span>
@@ -498,12 +492,12 @@ export default function CarDetailsView() {
           </div>
 
           {/* Safety advice and guarantees badge block */}
-          <div className="p-4.5 rounded-2xl bg-orange-600/[0.01] border border-orange-500/10 text-left text-[11px] text-slate-500 space-y-2">
-            <div className="flex items-center gap-1 text-slate-400 font-bold">
-              <Award className="w-4 h-4 text-orange-500" />
+          <div className="p-4.5 rounded-2xl nonga-bg-subtle border border-orange-500/15 text-left text-[11px] nonga-text-secondary space-y-2">
+            <div className="flex items-center gap-1 nonga-text-primary font-bold">
+              <Award className="w-4 h-4 text-[var(--nonga-action-primary)]" />
               <span>เกณฑ์วานรันตีความปลอดภัยสากล:</span>
             </div>
-            <p className="leading-relaxed font-sans">
+            <p className="leading-relaxed font-sans nonga-text-secondary">
               เพื่อประโยชน์และความสุขสูงสุดของท่านสมาชิกทุกท่าน แนะนำนัดทดลองขับและประสานเช็คข้อมูลเอกสาร ณ สถานที่ปลอดภัยหรือพื้นที่โชว์รูมดีลเลอร์พันธมิตร ไม่แนะนำโอนเงินมัดจำล่วงหน้าเด็ดขาดคร้าบ!
             </p>
           </div>
@@ -514,13 +508,13 @@ export default function CarDetailsView() {
 
       {/* 4. Similar cars - horizontal recommendation slider */}
       {similarCars.length > 0 && (
-        <section className="space-y-4 pt-10 border-t border-slate-800">
+        <section className="space-y-4 pt-10 border-t nonga-border">
           <div className="flex justify-between items-end">
             <div className="text-left">
-              <span className="text-[10px] bg-orange-600/10 text-orange-500 font-bold px-2 py-0.5 rounded uppercase tracking-widest font-mono">
+              <span className="text-[10px] bg-orange-600/10 text-[var(--nonga-action-primary)] font-bold px-2 py-0.5 rounded uppercase tracking-widest font-mono">
                 Matching Recommendations
               </span>
-              <h3 className="font-display font-black text-lg text-white mt-1.5">รถยนต์อื่นที่ใกล้เคียงกันที่คุณอาจสนใจ</h3>
+              <h3 className="font-display font-black text-lg nonga-text-primary mt-1.5">รถยนต์อื่นที่ใกล้เคียงกันที่คุณอาจสนใจ</h3>
             </div>
           </div>
 
@@ -529,17 +523,17 @@ export default function CarDetailsView() {
               <div
                 key={sim.id}
                 onClick={() => setView("car-details", sim.id)}
-                className="group cursor-pointer rounded-2xl overflow-hidden border border-slate-850 bg-slate-900/20 hover:border-orange-500/30 transition-all flex flex-col h-full"
+                className="group cursor-pointer rounded-2xl overflow-hidden border nonga-border nonga-bg-surface hover:border-orange-500/30 transition-all flex flex-col h-full nonga-focus-ring"
               >
                 {/* Image */}
-                <div className="aspect-video relative overflow-hidden bg-slate-950">
+                <div className="aspect-video relative overflow-hidden nonga-bg-subtle">
                   <img
                     src={getListingPrimaryImage(sim)}
                     alt={sim.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103"
                     referrerPolicy="no-referrer"
                   />
-                  <span className="absolute bottom-2.5 left-2.5 py-0.5 px-2.5 rounded-lg text-[9px] font-bold bg-black/60 text-orange-400 border border-orange-500/20 uppercase font-mono">
+                  <span className="absolute bottom-2.5 left-2.5 py-0.5 px-2.5 rounded-lg text-[9px] font-bold bg-black/60 text-orange-300 border border-orange-500/20 uppercase font-mono">
                     {sim.fuelType?.toUpperCase() || "ELECTRIC"}
                   </span>
                 </div>
@@ -547,18 +541,18 @@ export default function CarDetailsView() {
                 {/* Content */}
                 <div className="p-4 text-left flex-1 flex flex-col justify-between space-y-3">
                   <div className="space-y-1">
-                    <span className="text-[9px] text-slate-500 font-mono font-bold uppercase">{sim.brand} • {sim.year}</span>
-                    <h4 className="font-bold text-xs text-white line-clamp-1 group-hover:text-orange-500 transition-colors">
+                    <span className="text-[9px] nonga-text-muted font-mono font-bold uppercase">{sim.brand} • {sim.year}</span>
+                    <h4 className="font-bold text-xs nonga-text-primary line-clamp-1 group-hover:text-[var(--nonga-action-primary)] transition-colors">
                       {sim.title}
                     </h4>
                   </div>
 
-                  <div className="flex justify-between items-center pt-2.5 border-t border-slate-850">
+                  <div className="flex justify-between items-center pt-2.5 border-t nonga-border">
                     <div className="text-left leading-none">
-                      <span className="text-[9px] text-slate-500 block mb-0.5">ราคาตลาด</span>
-                      <span className="font-mono font-black text-xs text-orange-500">฿{sim.price.toLocaleString()}</span>
+                      <span className="text-[9px] nonga-text-muted block mb-0.5">ราคาตลาด</span>
+                      <span className="font-mono font-black text-xs text-[var(--nonga-action-primary)]">฿{sim.price.toLocaleString()}</span>
                     </div>
-                    <span className="text-[9.5px] font-mono text-slate-400">
+                    <span className="text-[9.5px] font-mono nonga-text-secondary">
                       🧭 8.2k กม.
                     </span>
                   </div>
