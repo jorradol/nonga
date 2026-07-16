@@ -3,6 +3,8 @@ steps:
     args:
       - build
       - --build-arg
+      - BUILD_GIT_COMMIT=${_BUILD_GIT_COMMIT}
+      - --build-arg
       - VITE_FIREBASE_API_KEY=${_VITE_FIREBASE_API_KEY}
       - --build-arg
       - VITE_FIREBASE_AUTH_DOMAIN=${_VITE_FIREBASE_AUTH_DOMAIN}

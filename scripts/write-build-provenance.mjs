@@ -20,8 +20,18 @@ function resolveMainAsset() {
   return mainAsset;
 }
 
+function resolveGitCommit() {
+  const fromEnv = process.env.BUILD_GIT_COMMIT?.trim();
+  if (fromEnv) return fromEnv;
+  try {
+    return run("git rev-parse HEAD");
+  } catch {
+    return "unknown";
+  }
+}
+
 function writeBuildProvenance() {
-  const gitCommit = run("git rev-parse HEAD");
+  const gitCommit = resolveGitCommit();
   const mainAsset = resolveMainAsset();
   const outputPath = path.join(process.cwd(), "dist", "build-provenance.json");
   const payload = {
