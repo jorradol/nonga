@@ -300,6 +300,8 @@ export function registerUserSelfRoutes(app: Express): void {
           typeof row.createdAt === "string" ? row.createdAt : new Date().toISOString(),
         lastLogin:
           typeof row.lastLogin === "string" ? row.lastLogin : new Date().toISOString(),
+        ...(auth.dealerId ? { dealerId: auth.dealerId } : {}),
+        ...(auth.dealerName ? { dealerName: auth.dealerName } : {}),
       },
     });
   });

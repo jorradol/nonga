@@ -76,16 +76,36 @@ export function resolveParentDealerGroup(dealerId: string): string | null {
   return null;
 }
 
+/** Opaque Firebase uid — not a canonical dealer partition id. */
+export function isOpaqueFirebaseUid(id: string): boolean {
+  const normalized = id.trim();
+  if (!normalized) return false;
+  return /^[A-Za-z0-9]{20,}$/.test(normalized) && !normalized.includes("-");
+}
+
+/** Canonical dealer id from profile/header — never a raw Firebase uid. */
+export function resolveCanonicalDealerId(
+  value: string | null | undefined
+): string | null {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed || isOpaqueFirebaseUid(trimmed)) return null;
+  return normalizeDealerId(trimmed);
+}
+
+function resolveLegacyDealerUidScope(uid: string): string | null {
+  if (!uid.startsWith("dealer-")) return null;
+  return normalizeDealerId(uid.replace(/^dealer-/, "") || THOR_AUTO_DEALER_ID);
+}
+
 export function resolveDealerIdFromUser(user: {
   dealerId?: string;
   uid?: string;
   role?: string;
 } | null): string {
-  if (user?.dealerId?.trim()) return normalizeDealerId(user.dealerId);
-  if (user?.role === "dealer" && user?.uid?.startsWith("dealer-")) {
-    return normalizeDealerId(user.uid.replace(/^dealer-/, "") || THOR_AUTO_DEALER_ID);
-  }
-  if (user?.uid?.trim()) return normalizeDealerId(user.uid);
+  const fromProfile = resolveCanonicalDealerId(user?.dealerId);
+  if (fromProfile) return fromProfile;
+  const fromLegacyUid = user?.uid ? resolveLegacyDealerUidScope(user.uid) : null;
+  if (fromLegacyUid) return fromLegacyUid;
   return THOR_AUTO_DEALER_ID;
 }
 
@@ -94,8 +114,12 @@ export function resolveDealerInventoryScopeId(
   user: { dealerId?: string; uid?: string; role?: string } | null,
   role: string | undefined
 ): string | null {
-  if (user?.dealerId?.trim()) return normalizeDealerId(user.dealerId);
-  if (role === "dealer") return resolveDealerIdFromUser(user);
+  const fromProfile = resolveCanonicalDealerId(user?.dealerId);
+  if (fromProfile) return fromProfile;
+  if (role === "dealer") {
+    const fromLegacyUid = user?.uid ? resolveLegacyDealerUidScope(user.uid) : null;
+    if (fromLegacyUid) return fromLegacyUid;
+  }
   return null;
 }
 

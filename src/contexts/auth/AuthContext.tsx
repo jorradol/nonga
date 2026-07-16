@@ -91,11 +91,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await userService.ensureProfileReady(uid);
       const profile = await userService.getUserProfile(uid);
       if (!profile) return baseSession;
+      const dealerName = profile.dealerName?.trim();
       return {
         ...baseSession,
         ...profile,
         role: profile.role,
-        status: (profile as { status?: UserSession["status"] }).status ?? baseSession.status,
+        status: profile.status ?? baseSession.status,
+        ...(profile.dealerId ? { dealerId: profile.dealerId } : {}),
+        ...(dealerName
+          ? {
+              showroomName: dealerName,
+              dealerProfile: {
+                ...baseSession.dealerProfile,
+                showroomName: dealerName,
+                dealerId: profile.dealerId,
+              },
+            }
+          : {}),
       };
     } catch (err) {
       console.warn("Profile readiness fallback to baseline session");

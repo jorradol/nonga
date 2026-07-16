@@ -20,6 +20,7 @@ export interface UserProfileData {
   email: string;
   photoURL: string;
   role: "guest" | "member" | "dealer" | "premium" | "admin" | "superadmin";
+  status?: "active" | "pending" | "suspended";
   createdAt: string;
   lastLogin: string;
   favoriteCars: string[];
@@ -28,6 +29,9 @@ export interface UserProfileData {
   postLimit: number;
   totalPosts: number;
   premiumExpireDate?: string | null;
+  /** Authoritative dealer partition from server auth context */
+  dealerId?: string;
+  dealerName?: string;
 }
 
 type ProfileReadyEnvelope = ApiJsonEnvelope & {
@@ -111,12 +115,20 @@ export const userService = {
       });
       const data = json.data;
       if (!data) return null;
+      const dealerId = String(data.dealerId ?? "").trim();
+      const dealerName = String(data.dealerName ?? "").trim();
       return {
         uid: String(data.uid ?? uid),
         displayName: String(data.displayName ?? ""),
         email: String(data.email ?? ""),
         photoURL: String(data.photoURL ?? ""),
         role: (String(data.role ?? "member") as UserProfileData["role"]) ?? "member",
+        status:
+          data.status === "active" ||
+          data.status === "pending" ||
+          data.status === "suspended"
+            ? data.status
+            : undefined,
         createdAt: String(data.createdAt ?? new Date().toISOString()),
         lastLogin: String(data.lastLogin ?? new Date().toISOString()),
         favoriteCars: Array.isArray(data.favoriteCars)
@@ -128,6 +140,8 @@ export const userService = {
         totalPosts: Number(data.totalPosts ?? 0),
         premiumExpireDate:
           data.premiumExpireDate == null ? null : String(data.premiumExpireDate),
+        ...(dealerId ? { dealerId } : {}),
+        ...(dealerName ? { dealerName } : {}),
       };
     } catch (err) {
       if (err instanceof FirebaseAuthUnavailableError) return null;
