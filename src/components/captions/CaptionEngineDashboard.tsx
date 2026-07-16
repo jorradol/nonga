@@ -7,7 +7,6 @@ import {
   TrendingUp, AlertCircle, Sparkle, Lock, Crown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useAppStore } from "../../store";
 import { captionService } from "../../services/ai/captions/captionService";
 import { hookService } from "../../services/ai/hooks/hookService";
 import { useAiPremium } from "../../hooks/ai-premium/useAiPremium";
@@ -52,8 +51,8 @@ const SAMPLE_PREFILLS = [
 ];
 
 export function CaptionEngineDashboard() {
-  const { isDarkMode, cars } = useAppStore();
   const { checkGate, triggerUsage, subscription } = useAiPremium();
+  // Theme colors use semantic tokens via html.dark (app theme toggle).
 
   // 1. Core State Input specs
   const [specs, setSpecs] = useState<CarSpecsInput>({
@@ -205,11 +204,7 @@ export function CaptionEngineDashboard() {
     <div className="space-y-8 animate-fade-in text-left">
       
       {/* 1. Header Hero Segment */}
-      <div className={`relative p-6 sm:p-8 rounded-2xl border text-left overflow-hidden ${
-        isDarkMode 
-          ? "bg-slate-900/40 border-white/[0.06] shadow-[0_4px_30px_rgba(0,0,0,0.4)]" 
-          : "bg-gradient-to-br from-slate-150 to-white border-slate-200"
-      }`}>
+      <div className="relative p-6 sm:p-8 rounded-2xl border nonga-bg-elevated nonga-border nonga-text-primary text-left overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -222,21 +217,17 @@ export function CaptionEngineDashboard() {
               </span>
             </div>
             
-            <h1 className="font-display font-black text-2xl sm:text-3xl text-gray-900 dark:text-white tracking-tight">
+            <h1 className="font-display font-black text-2xl sm:text-3xl nonga-text-primary tracking-tight">
               ระบบแต่งแคปชั่นสลักไวรัล <span className="text-orange-500">เรียกหมื่นไลก์ ล้านยอดแชร์ 💎</span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm nonga-text-secondary max-w-2xl leading-relaxed">
               สกัดเค้นเสน่ห์แบรนด์ ยัดถ้อยคำเด็ดลื่นหูลื่นใจ พร้อมอิโมจิจับตาและระบบการให้คะแนนความน่าจะเป็นไวรัลโดยโมเดลอัจฉริยะ Nong A AI เพื่อปิดจองในช้อนชาเดียว!
             </p>
           </div>
 
-          <div
-            className={`border border-orange-500/15 p-4 rounded-xl shrink-0 min-w-[200px] text-right space-y-2.5 ${
-              isDarkMode ? "bg-black/40" : "bg-white shadow-sm border-slate-200"
-            }`}
-          >
+          <div className="border nonga-border nonga-bg-surface p-4 rounded-xl shrink-0 min-w-[200px] text-right space-y-2.5">
             <UsageProgressBar featureId="caption-generator" label="โควต้าปั่นแคปชั่นของคุณ" />
-            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+            <div className="text-[10px] nonga-text-muted">
               * สมาชิกแบบพรีเมียมสามารถใช้งานได้ไม่จำกัดและปลดล็อกโหมดลึกสูงสุด
             </div>
           </div>
@@ -250,23 +241,21 @@ export function CaptionEngineDashboard() {
         <div className="lg:col-span-7 space-y-8">
           
           {/* A. Specifications block */}
-          <div className={`p-5 sm:p-6 rounded-2xl border ${
-            isDarkMode ? "bg-[#0f0f11]/90 border-white/[0.06]" : "bg-white border-slate-200 shadow-sm"
-          } space-y-5 text-left`}>
+          <div className="p-5 sm:p-6 rounded-2xl border nonga-bg-surface nonga-border space-y-5 text-left">
             
             <div className="flex items-center justify-between border-b pb-3 border-orange-500/10">
-              <h3 className="font-display font-black text-base text-gray-900 dark:text-white flex items-center gap-1.5">
+              <h3 className="font-display font-black text-base nonga-text-primary flex items-center gap-1.5">
                 <FileText className="w-4.5 h-4.5 text-orange-500" />
                 <span>ระบุสเป็ครถที่คุณต้องการแต่งแคปชั่น</span>
               </h3>
               
               <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-2">สุ่มรถตัวอย่าง:</span>
+                <span className="text-[11px] font-bold nonga-text-secondary mr-2">สุ่มรถตัวอย่าง:</span>
                 {["Civic FE 🚗", "Legender 🏔️", "BYD Atto 🔋"].map((prefTitle, index) => (
                   <button
                     key={index}
                     onClick={() => handleRandomPrefill(index)}
-                    className="p-1 px-2 border hover:border-orange-500 text-[10px] font-semibold rounded bg-slate-500/5 hover:bg-orange-500/10 transition cursor-pointer text-slate-300 hover:text-orange-400"
+                    className="p-1 px-2 border nonga-border hover:border-[var(--nonga-brand)] text-[10px] font-semibold rounded nonga-bg-subtle hover:bg-[color-mix(in_srgb,var(--nonga-brand)_10%,transparent)] transition cursor-pointer nonga-text-secondary hover:text-[var(--nonga-brand)] nonga-focus-ring"
                   >
                     {prefTitle}
                   </button>
@@ -276,122 +265,104 @@ export function CaptionEngineDashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">ยี่ห้อ (Brand)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">ยี่ห้อ (Brand)</label>
                 <input 
                   type="text" 
                   value={specs.brand}
                   onChange={(e) => setSpecs({ ...specs, brand: e.target.value })}
                   placeholder="เช่น Honda, Toyota, BYD..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">รุ่นย่อย/เกรด (Model)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">รุ่นย่อย/เกรด (Model)</label>
                 <input 
                   type="text" 
                   value={specs.model}
                   onChange={(e) => setSpecs({ ...specs, model: e.target.value })}
                   placeholder="เช่น Civic FE EL+, Fortuner..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">ปีจดทะเบียน (Year)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">ปีจดทะเบียน (Year)</label>
                 <input 
                   type="text" 
                   value={specs.year}
                   onChange={(e) => setSpecs({ ...specs, year: e.target.value })}
                   placeholder="เช่น 2022 หรือ 2565..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">ราคาแสนบาท (Price in THB)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">ราคาแสนบาท (Price in THB)</label>
                 <input 
                   type="number" 
                   value={specs.price}
                   onChange={(e) => setSpecs({ ...specs, price: e.target.value })}
                   placeholder="เช่น 849000..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">เลขไมล์วิ่ง (Mileage in KM)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">เลขไมล์วิ่ง (Mileage in KM)</label>
                 <input 
                   type="number" 
                   value={specs.mileage}
                   onChange={(e) => setSpecs({ ...specs, mileage: e.target.value })}
                   placeholder="เช่น 28000..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">สภาพตัวรถยนต์ (Condition Detailed)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">สภาพตัวรถยนต์ (Condition Detailed)</label>
                 <textarea 
                   rows={2}
                   value={specs.condition}
                   onChange={(e) => setSpecs({ ...specs, condition: e.target.value })}
                   placeholder="เช่น สภาพสวยบางเดิม ไม่ลุยชนน็อต ยางเพิ่งเปลี่ยน..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none resize-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring resize-none"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">ของแต่งเพิ่มเติม (Custom Modifications)</label>
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase">ของแต่งเพิ่มเติม (Custom Modifications)</label>
                 <textarea 
                   rows={2}
                   value={specs.modifications}
                   onChange={(e) => setSpecs({ ...specs, modifications: e.target.value })}
                   placeholder="เช่น แม็กซ์ขอบ 18 แท้ ฟิล์มคาร์บอน พาร์ทชุดแต่ง..."
-                  className={`w-full text-xs p-2.5 rounded-lg border outline-none resize-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring resize-none"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">ข้อความดึงดูด/ประวัติตัวจริงจากคุณผู้ขายเพิ่มเติม (Notes/Custom Story)</label>
+              <label className="text-[11px] font-bold nonga-text-secondary uppercase">ข้อความดึงดูด/ประวัติตัวจริงจากคุณผู้ขายเพิ่มเติม (Notes/Custom Story)</label>
               <input 
                 type="text" 
                 value={specs.customNotes}
                 onChange={(e) => setSpecs({ ...specs, customNotes: e.target.value })}
                 placeholder="เช่น รถคันโปรดใช้ถนอมมาก แถมรับประกันภัยชั้นหนึ่งเคลือบแก้วให้ฟรี"
-                className={`w-full text-xs p-2.5 rounded-lg border outline-none ${
-                  isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                }`}
+                className="w-full text-xs p-2.5 rounded-lg border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
               />
             </div>
 
           </div>
 
           {/* B. Settings Option Block */}
-          <div className={`p-5 sm:p-6 rounded-2xl border ${
-            isDarkMode ? "bg-[#0f0f11]/90 border-white/[0.06]" : "bg-white border-slate-200 shadow-sm"
-          } space-y-6 text-left`}>
+          <div className="p-5 sm:p-6 rounded-2xl border nonga-bg-surface nonga-border space-y-6 text-left">
             
             {/* Split B1: Platform selection tabs */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 pb-1 border-b border-orange-500/10">
                 <Smartphone className="w-4 h-4 text-orange-500" />
-                <h4 className="font-display font-bold text-xs sm:text-sm text-gray-900 dark:text-white">
+                <h4 className="font-display font-bold text-xs sm:text-sm nonga-text-primary">
                   เลือกช่องทางโฆษณาเป้าหมาย (Format Target Platform)
                 </h4>
               </div>
@@ -400,12 +371,10 @@ export function CaptionEngineDashboard() {
                   <button
                     key={p.id}
                     onClick={() => setActivePlatform(p.id)}
-                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center gap-1.5 transition-all select-none cursor-pointer ${
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center gap-1.5 transition-all select-none cursor-pointer nonga-focus-ring ${
                       activePlatform === p.id
-                        ? "bg-gradient-to-br from-orange-600 to-orange-500 border-orange-500 text-white shadow-md shadow-orange-600/10 scale-102 font-black"
-                        : isDarkMode
-                        ? "bg-slate-950 border-white/5 text-slate-400 hover:text-white hover:bg-slate-900"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-orange-500"
+                        ? "bg-[color-mix(in_srgb,var(--nonga-brand)_14%,var(--nonga-bg-surface))] border-[var(--nonga-brand)] text-[var(--nonga-action-primary)] shadow-md shadow-orange-600/10 scale-102 font-black"
+                        : "nonga-bg-subtle border nonga-border nonga-text-secondary hover:border-[var(--nonga-border-strong)] hover:text-[var(--nonga-text-primary)]"
                     }`}
                   >
                     <span className="text-sm">{p.emoji}</span>
@@ -419,7 +388,7 @@ export function CaptionEngineDashboard() {
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 pb-1 border-b border-orange-500/10">
                 <Sparkles className="w-4 h-4 text-orange-500" />
-                <h4 className="font-display font-bold text-xs sm:text-sm text-gray-900 dark:text-white">
+                <h4 className="font-display font-bold text-xs sm:text-sm nonga-text-primary">
                   เลือกสไตล์ออพติไมเซชันไวรัล (Select Tone/Caption Type)
                 </h4>
               </div>
@@ -436,24 +405,22 @@ export function CaptionEngineDashboard() {
                     <button
                       key={t.id}
                       onClick={() => setActiveType(t.id)}
-                      className={`p-3 rounded-xl border relative text-left flex flex-col justify-between gap-2.5 transition group cursor-pointer ${
+                      className={`p-3 rounded-xl border relative text-left flex flex-col justify-between gap-2.5 transition group cursor-pointer nonga-focus-ring ${
                         isActive
-                          ? "bg-orange-950/20 border-orange-500 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
-                          : isDarkMode
-                          ? "bg-slate-950 border-white/5 text-slate-350 hover:bg-slate-900"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                          ? "bg-[color-mix(in_srgb,var(--nonga-brand)_8%,var(--nonga-bg-surface))] border-[var(--nonga-brand)] shadow-[0_0_15px_rgba(249,115,22,0.06)]"
+                          : "nonga-bg-subtle border nonga-border hover:border-[var(--nonga-border-strong)] hover:bg-[var(--nonga-bg-elevated)]"
                       }`}
                     >
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className={`text-xs font-black ${isActive ? "text-orange-500" : "text-gray-900 dark:text-white"}`}>
+                          <span className={`text-xs font-black ${isActive ? "text-[var(--nonga-action-primary)]" : "nonga-text-primary"}`}>
                             {t.thaiName}
                           </span>
                           {isPremiumOnly && !isUserPremium && (
                             <Crown className="w-3 h-3 text-amber-500 shrink-0" />
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed leading-none">
+                        <p className="text-[10px] nonga-text-muted line-clamp-2 leading-relaxed">
                           {t.desc}
                         </p>
                       </div>
@@ -466,7 +433,7 @@ export function CaptionEngineDashboard() {
             {/* Split B3: Emoji density selector and trend check */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1">
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase flex items-center gap-1">
                   <Smile className="w-3.5 h-3.5 text-orange-500" /> ระดับความหนาแน่นอิโมจิ (Emoji Optimizing Scale)
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -478,12 +445,10 @@ export function CaptionEngineDashboard() {
                     <button
                       key={e.id}
                       onClick={() => setEmojiOption(e.id as EmojiOption)}
-                      className={`p-2 rounded-lg border text-center text-xs font-semibold flex items-center justify-center gap-1 transition-all select-none cursor-pointer ${
+                      className={`p-2 rounded-lg border text-center text-xs font-semibold flex items-center justify-center gap-1 transition-all select-none cursor-pointer nonga-focus-ring ${
                         emojiOption === e.id
-                          ? "bg-orange-500/15 border-orange-500 text-orange-400 font-bold"
-                          : isDarkMode
-                          ? "bg-[#111112] border-white/5 text-slate-400 hover:text-white"
-                          : "bg-slate-200/50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                          ? "bg-[color-mix(in_srgb,var(--nonga-brand)_15%,transparent)] border-[var(--nonga-brand)] text-[var(--nonga-action-primary)] font-bold"
+                          : "nonga-bg-subtle border nonga-border nonga-text-secondary hover:text-[var(--nonga-text-primary)]"
                       }`}
                     >
                       <span>{e.emoji}</span>
@@ -494,22 +459,22 @@ export function CaptionEngineDashboard() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1">
+                <label className="text-[11px] font-bold nonga-text-secondary uppercase flex items-center gap-1">
                   <LineChart className="w-3.5 h-3.5 text-orange-500" /> ดึงแสลงไวรัล 2026 (Trend Multiplier Integration)
                 </label>
                 <div 
                   onClick={() => setTrendMultiplier(!trendMultiplier)}
-                  className={`p-2 px-3 border rounded-lg flex items-center justify-between cursor-pointer transition select-none ${
+                  className={`p-2 px-3 border rounded-lg flex items-center justify-between cursor-pointer transition select-none nonga-focus-ring ${
                     trendMultiplier 
-                      ? "bg-orange-500/10 border-orange-500/40 text-orange-400" 
-                      : isDarkMode ? "bg-slate-950 border-white/5 text-slate-500" : "bg-slate-100 border-slate-200 text-slate-500"
+                      ? "bg-[color-mix(in_srgb,var(--nonga-brand)_10%,transparent)] border-[color-mix(in_srgb,var(--nonga-brand)_40%,transparent)] text-[var(--nonga-action-primary)]" 
+                      : "nonga-bg-subtle border nonga-border nonga-text-muted"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider">{trendMultiplier ? "เปิดดึงกระแส (ON)" : "ปิดดึงกระแส (OFF)"}</span>
                     {trendMultiplier && <Sparkle className="w-3.5 h-3.5 animate-bounce text-orange-500" />}
                   </div>
-                  <div className={`w-8 h-4 rounded-full p-0.5 transition-all ${trendMultiplier ? "bg-orange-500" : "bg-slate-700"}`}>
+                  <div className={`w-8 h-4 rounded-full p-0.5 transition-all ${trendMultiplier ? "bg-[var(--nonga-brand)]" : "bg-[var(--nonga-border-strong)]"}`}>
                     <div className={`w-3 h-3 rounded-full bg-white transition-all ${trendMultiplier ? "translate-x-4" : "translate-x-0"}`} />
                   </div>
                 </div>
@@ -521,7 +486,7 @@ export function CaptionEngineDashboard() {
               <button
                 disabled={isGenerating}
                 onClick={handleGenerateCaption}
-                className="w-full py-4.5 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 disabled:opacity-50 text-white font-display font-black text-sm uppercase tracking-wider rounded-2xl cursor-pointer active:scale-98 transition shadow-[0_6px_25px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2"
+                className="w-full py-4.5 nonga-action nonga-focus-ring disabled:opacity-50 font-display font-black text-sm uppercase tracking-wider rounded-2xl cursor-pointer active:scale-98 transition shadow-[0_6px_25px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2"
               >
                 {isGenerating ? (
                   <>
@@ -541,13 +506,11 @@ export function CaptionEngineDashboard() {
 
           {/* C. Trend Analysis Info Block */}
           {recentTrends.length > 0 && (
-            <div className={`p-5 sm:p-6 rounded-2xl border ${
-              isDarkMode ? "bg-[#0f0f11]/90 border-white/[0.06]" : "bg-white border-slate-200 shadow-sm"
-            } space-y-4 text-left`}>
+            <div className="p-5 sm:p-6 rounded-2xl border nonga-bg-surface nonga-border space-y-4 text-left">
               
               <div className="flex items-center gap-1.5 pb-1.5 border-b border-orange-500/10">
                 <TrendingUp className="w-4.5 h-4.5 text-orange-500" />
-                <h3 className="font-display font-black text-xs sm:text-sm text-gray-900 dark:text-white">
+                <h3 className="font-display font-black text-xs sm:text-sm nonga-text-primary">
                   สถิติคีย์เวิร์ดยอดนิยมและอัตราการโตในประเทศไทย (Nong Bot Social Pulse 🚀)
                 </h3>
               </div>
@@ -562,24 +525,22 @@ export function CaptionEngineDashboard() {
                         customNotes: prev.customNotes ? `${prev.customNotes} ${t.keyword}` : t.keyword
                       }));
                     }}
-                    className={`p-3 rounded-xl border text-left space-y-1 hover:border-orange-500 transition cursor-pointer select-none relative group ${
-                      isDarkMode ? "bg-slate-950 border-white/5" : "bg-slate-50 border-slate-200"
-                    }`}
+                    className="p-3 rounded-xl border nonga-border nonga-bg-elevated text-left space-y-1 hover:border-[var(--nonga-brand)] transition cursor-pointer select-none relative group"
                   >
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 font-mono font-bold leading-none uppercase">
                       {t.category}
                     </span>
-                    <h5 className="font-bold text-[11px] text-gray-900 dark:text-white line-clamp-1 group-hover:text-orange-400">
+                    <h5 className="font-bold text-[11px] nonga-text-primary line-clamp-1 group-hover:text-[var(--nonga-brand)]">
                       "{t.keyword}"
                     </h5>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold font-mono">
+                    <div className="flex items-center justify-between text-[10px] nonga-text-muted font-bold font-mono">
                       <span>โต {t.growth}</span>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] nonga-text-muted">
                 * คลิกการ์ดกระแสเพื่อเพิ่มคำสำคัญเข้าไปในบันทึกผู้สร้างของคุณทันที อัปเดตข้อมูลพิกเซลสตรีมเมอร์เรียลไทม์
               </p>
 
@@ -587,19 +548,17 @@ export function CaptionEngineDashboard() {
           )}
 
           {/* D. Custom Hook Sandbox / Evaluator */}
-          <div className={`p-5 sm:p-6 rounded-2xl border ${
-            isDarkMode ? "bg-[#0f0f11]/90 border-white/[0.06]" : "bg-white border-slate-200 shadow-sm"
-          } space-y-5 text-left`}>
+          <div className="p-5 sm:p-6 rounded-2xl border nonga-bg-surface nonga-border space-y-5 text-left">
             
             <div className="flex items-center gap-1.5 pb-2 border-b border-orange-500/10">
               <Lightbulb className="w-4.5 h-4.5 text-orange-500" />
-              <h3 className="font-display font-black text-xs sm:text-sm text-gray-900 dark:text-white">
+              <h3 className="font-display font-black text-xs sm:text-sm nonga-text-primary">
                 สนามประลองประเมินคำพาดหัว (Hook Evaluation & Tuning Sandbox)
               </h3>
             </div>
 
             <div className="space-y-3.5">
-              <p className="text-[11px] text-slate-400 sm:max-w-xl leading-relaxed">
+              <p className="text-[11px] nonga-text-secondary sm:max-w-xl leading-relaxed">
                 พิมพ์แต่งประโยคจู่โจมสายตาลูกค้าคนโปรดของคุณ แล้วดูสรุปเกรดวัดคุณภาพและการสแกนปรับแต่งดั้งเดิมจากดีลเซอร์อัจฉริยะของน้องเอ
               </p>
 
@@ -609,9 +568,7 @@ export function CaptionEngineDashboard() {
                   value={customHookCandidate}
                   onChange={(e) => setCustomHookCandidate(e.target.value)}
                   placeholder="เช่น ปังปุริเย่! รถบ้านแท้สี่ล้อ คันนี้หล่อดึงตาเเสงไฟเลยคนทักแน่นอน..."
-                  className={`w-full text-xs p-3.5 rounded-xl border outline-none ${
-                    isDarkMode ? "bg-slate-950 border-white/5 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
+                  className="w-full text-xs p-3.5 rounded-xl border outline-none nonga-bg-elevated nonga-border-strong nonga-text-primary nonga-placeholder nonga-focus-ring"
                 />
               </div>
 
@@ -631,11 +588,11 @@ export function CaptionEngineDashboard() {
                     <span className="text-[10px] font-bold uppercase tracking-wider">สรุปการตรวจสอบเนื้อหา</span>
                     <h4 className="font-black text-sm flex items-center gap-1.5">
                       <span>คะแนน: {hookEvaluationResult.score} / 100</span>
-                      <span className="text-xs py-0.5 px-1.5 rounded bg-black/40 text-orange-400 font-bold border border-orange-500/10">
+                      <span className="text-xs py-0.5 px-1.5 rounded nonga-bg-subtle text-[var(--nonga-action-primary)] font-bold border nonga-border">
                         {hookEvaluationResult.label}
                       </span>
                     </h4>
-                    <p className="text-xs text-slate-400 pt-0.5 leading-relaxed">
+                    <p className="text-xs nonga-text-secondary pt-0.5 leading-relaxed">
                       💡 คำติชม: {hookEvaluationResult.feedback}
                     </p>
                   </div>
@@ -645,7 +602,7 @@ export function CaptionEngineDashboard() {
                       setSpecs(prev => ({ ...prev, customNotes: customHookCandidate }));
                       setCustomHookCandidate("");
                     }}
-                    className="p-2 bg-slate-900 border border-slate-800 text-[10.5px] font-bold rounded-xl text-slate-300 hover:text-white cursor-pointer active:scale-95 transition"
+                    className="p-2 nonga-bg-elevated border nonga-border text-[10.5px] font-bold rounded-xl nonga-text-secondary hover:text-[var(--nonga-text-primary)] cursor-pointer active:scale-95 transition nonga-focus-ring"
                   >
                     ใช้วลีนี้แต่งโพสต์หลัก 🎯
                   </button>
@@ -654,15 +611,13 @@ export function CaptionEngineDashboard() {
 
               {/* Ready-to-use hooks package */}
               <div className="space-y-2 pt-1 border-t border-orange-500/5">
-                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-550 block">ถ้อยคำพาดหัวสำเร็จรูปนำรหัส (Nong A Signature Hooks Choice):</span>
+                <span className="text-[11px] font-bold nonga-text-secondary block">ถ้อยคำพาดหัวสำเร็จรูปนำรหัส (Nong A Signature Hooks Choice):</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {hookService.getPrecalculatedViralHooks(specs.brand, specs.model, specs.year).map((h, i) => (
                     <div 
                       key={i}
                       onClick={() => setCustomHookCandidate(h.text)}
-                      className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-orange-500 text-left transition select-none flex justify-between items-center ${
-                        isDarkMode ? "bg-slate-950 border-white/5 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700"
-                      }`}
+                      className="p-2.5 rounded-lg border nonga-border nonga-bg-elevated nonga-text-primary text-xs cursor-pointer hover:border-[var(--nonga-brand)] text-left transition select-none flex justify-between items-center nonga-focus-ring"
                     >
                       <span className="line-clamp-1 text-[11px]">{h.text}</span>
                       <ChevronRight className="w-3.5 h-3.5 opacity-50 text-orange-500" />
@@ -681,9 +636,7 @@ export function CaptionEngineDashboard() {
         <div className="lg:col-span-5 space-y-8">
           
           {/* E. Large Live Generative Presentation Screen */}
-          <div className={`p-5 sm:p-6 rounded-2xl border ${
-            isDarkMode ? "bg-[#0b0c0f] border-orange-500/10 shadow-2xl relative" : "bg-white border-slate-200"
-          } space-y-6 text-left min-h-[500px] flex flex-col justify-between`}>
+          <div className="p-5 sm:p-6 rounded-2xl border nonga-bg-surface nonga-border relative space-y-6 text-left min-h-[500px] flex flex-col justify-between">
             
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 rounded-t-2xl" />
 
@@ -694,7 +647,7 @@ export function CaptionEngineDashboard() {
                   <div className="w-5.5 h-5.5 rounded-lg bg-orange-600/15 flex items-center justify-center text-orange-500 font-bold text-xs">
                     เอ
                   </div>
-                  <span className="font-display font-black text-sm text-gray-900 dark:text-white">
+                  <span className="font-display font-black text-sm nonga-text-primary">
                     กล่องแสดงผลไวรัลแคปชั่น (Output Display)
                   </span>
                 </div>
@@ -703,10 +656,10 @@ export function CaptionEngineDashboard() {
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={handleToggleFavorite}
-                      className={`p-1.5 rounded-lg border transition ${
+                      className={`p-1.5 rounded-lg border transition nonga-focus-ring ${
                         favorites.some(f => f.id === generatedResult.id)
                           ? "bg-rose-500/10 border-rose-500/30 text-rose-500"
-                          : isDarkMode ? "border-white/5 bg-slate-950 hover:bg-slate-900 text-slate-400" : "border-slate-200 bg-slate-50 text-slate-500"
+                          : "nonga-border nonga-bg-subtle nonga-text-muted hover:bg-[var(--nonga-bg-elevated)]"
                       }`}
                       title="เก็บแคปชั่นนี้เข้าคลังโปรด"
                     >
@@ -714,7 +667,7 @@ export function CaptionEngineDashboard() {
                     </button>
                     <button
                       onClick={() => triggerCopyNotification("text", generatedResult.text)}
-                      className="p-1.5 rounded-lg border border-white/5 bg-slate-950 text-slate-400 hover:bg-slate-900 hover:text-white transition flex items-center gap-1 text-[10.5px]"
+                      className="p-1.5 rounded-lg border nonga-border nonga-bg-subtle nonga-text-muted hover:bg-[var(--nonga-bg-elevated)] hover:text-[var(--nonga-text-primary)] transition flex items-center gap-1 text-[10.5px] nonga-focus-ring"
                     >
                       {copyStatus["text"] ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                       <span>{copyStatus["text"] ? "คัดลอกแล้ว!" : "คัดลอกโพสต์"}</span>
@@ -729,8 +682,8 @@ export function CaptionEngineDashboard() {
                     🦄
                   </div>
                   <div className="space-y-1.5">
-                    <h4 className="font-black font-display text-sm text-slate-900 dark:text-white">พร้อมเริ่มปั้นคำโดนใจวัยรุ่นแล้วครับ</h4>
-                    <p className="text-xs text-slate-500 max-w-xs leading-relaxed mx-auto">
+                    <h4 className="font-black font-display text-sm text-slate-900 dark:text-white nonga-text-primary">พร้อมเริ่มปั้นคำโดนใจวัยรุ่นแล้วครับ</h4>
+                    <p className="text-xs nonga-text-secondary max-w-xs leading-relaxed mx-auto">
                       กรอกรายละเอียดรถเกรดบ้านด้านซ้ายมือ เลือกช่องทางและสไตล์ จากนั้นระเบิดระนาบปุ่มสร้างได้ทันทีเลยคร้าบ!
                     </p>
                   </div>
@@ -749,33 +702,33 @@ export function CaptionEngineDashboard() {
                   </div>
 
                   {/* Core Caption Body Box */}
-                  <div className={`p-4 rounded-xl border font-mono text-[11.5px] leading-relaxed select-text whitespace-pre-wrap selection:bg-orange-500/20 text-gray-900 border-slate-200 bg-slate-50 dark:bg-black/80 dark:border-white/[0.05] dark:text-slate-300 max-h-[300px] overflow-y-auto`}>
+                  <div className="p-4 rounded-xl border font-mono text-[11.5px] leading-relaxed select-text whitespace-pre-wrap selection:bg-orange-500/20 nonga-text-primary nonga-border nonga-bg-elevated max-h-[300px] overflow-y-auto">
                     {generatedResult.text}
                   </div>
 
                   {/* Key Highlights Segment split hooks & CTAs */}
                   <div className="grid grid-cols-1 gap-3 pt-1">
                     
-                    <div className="p-3.5 rounded-xl border border-white/5 bg-slate-950/60 text-left space-y-1.5">
+                    <div className="p-3.5 rounded-xl border nonga-border nonga-bg-elevated text-left space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold nonga-text-muted uppercase tracking-wider flex items-center gap-1.5">
                           <Flame className="w-3.5 h-3.5 text-orange-500" /> ประโยคพาดหัวเด็ดสกัดได้ (Primary Hook)
                         </span>
                         <button 
                           onClick={() => triggerCopyNotification("hook", generatedResult.hook)}
-                          className="text-[10px] text-orange-400 hover:text-orange-300 font-bold"
+                          className="text-[10px] nonga-link-accent font-bold"
                         >
                           {copyStatus["hook"] ? "คัดลอกแล้ว!" : "คัดลอกเฉพาะฮุก 🎯"}
                         </button>
                       </div>
-                      <p className="text-[11px] font-bold text-white leading-relaxed">
+                      <p className="text-[11px] font-bold nonga-text-primary leading-relaxed">
                         "{generatedResult.hook}"
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-xl border border-white/5 bg-slate-950/60 text-left space-y-1.5">
+                    <div className="p-3.5 rounded-xl border nonga-border nonga-bg-elevated text-left space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold nonga-text-muted uppercase tracking-wider flex items-center gap-1.5">
                           <Send className="w-3.5 h-3.5 text-orange-500" /> คำปิดท้ายเชิญจองปิดดีล (Principal CTA)
                         </span>
                         <button 
@@ -785,7 +738,7 @@ export function CaptionEngineDashboard() {
                           {copyStatus["cta"] ? "คัดลอกแล้ว!" : "คัดลอกเฉพาะ CTA 📞"}
                         </button>
                       </div>
-                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                      <p className="text-[11px] nonga-text-secondary leading-relaxed">
                         {generatedResult.cta}
                       </p>
                     </div>
@@ -793,13 +746,13 @@ export function CaptionEngineDashboard() {
                   </div>
 
                   {/* F. Viral Potential Scoring breakdown */}
-                  <div className="p-4 rounded-xl border border-orange-500/10 bg-orange-500/[0.02] text-left space-y-4">
+                  <div className="p-4 rounded-xl border border-orange-500/10 bg-[color-mix(in_srgb,var(--nonga-brand)_4%,var(--nonga-bg-elevated))] text-left space-y-4">
                     
                     <div className="flex items-center justify-between border-b pb-2 border-orange-500/5">
-                      <h4 className="font-display font-black text-xs text-white uppercase tracking-widest flex items-center gap-1.5">
+                      <h4 className="font-display font-black text-xs nonga-text-primary uppercase tracking-widest flex items-center gap-1.5">
                         <Award className="w-4 h-4 text-amber-500" /> สรุปคะแนนประมูลไวรัส (Viral Quality Analysis)
                       </h4>
-                      <span className="font-mono text-base font-black text-orange-500">
+                      <span className="font-mono text-base font-black text-[var(--nonga-action-primary)]">
                         {generatedResult.score.overall} / 100
                       </span>
                     </div>
@@ -808,12 +761,12 @@ export function CaptionEngineDashboard() {
                       {generatedResult.score.breakdown.map((b, idx) => (
                         <div key={idx} className="space-y-1">
                           <div className="flex items-center justify-between text-[10px] font-bold">
-                            <span className="text-slate-400">{b.title}</span>
-                            <span className="font-mono text-slate-200">{b.score} / 100</span>
+                            <span className="nonga-text-muted">{b.title}</span>
+                            <span className="font-mono nonga-text-primary">{b.score} / 100</span>
                           </div>
-                          <div className="w-full h-1.5 rounded-full bg-slate-900 border border-slate-800/40 relative overflow-hidden">
+                          <div className="w-full h-1.5 rounded-full nonga-bg-subtle border nonga-border relative overflow-hidden">
                             <div 
-                              className="h-full rounded-full bg-orange-500"
+                              className="h-full rounded-full bg-[var(--nonga-brand)]"
                               style={{ width: `${b.score}%` }}
                             />
                           </div>
@@ -823,8 +776,8 @@ export function CaptionEngineDashboard() {
 
                     {/* AI Expert Suggestions List */}
                     <div className="space-y-2 pt-2 border-t border-orange-500/5">
-                      <span className="text-[10px] font-black text-white uppercase tracking-wider block">ข้อแนะนำดั้งเดิมเพิ่มพลังโพสต์ยอดฮิต (AI Advisor Checklist):</span>
-                      <ul className="text-[10.5px] text-slate-400 space-y-1.5 pl-1 text-[11px]">
+                      <span className="text-[10px] font-black nonga-text-primary uppercase tracking-wider block">ข้อแนะนำดั้งเดิมเพิ่มพลังโพสต์ยอดฮิต (AI Advisor Checklist):</span>
+                      <ul className="text-[10.5px] nonga-text-secondary space-y-1.5 pl-1 text-[11px]">
                         {generatedResult.score.suggestions.map((s, idx) => (
                           <li key={idx} className="flex gap-2 items-start leading-relaxed">
                             <span className="text-orange-500 shrink-0 select-none">✔</span>
@@ -844,13 +797,13 @@ export function CaptionEngineDashboard() {
             {/* Deck of Hashtags */}
             {generatedResult && generatedResult.hashtags.length > 0 && (
               <div className="pt-4 border-t border-orange-500/5 text-left">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">แท็กกระแสดันฟีด:</span>
+                <span className="text-[10px] font-bold nonga-text-muted uppercase tracking-widest block mb-2">แท็กกระแสดันฟีด:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {generatedResult.hashtags.map((h, i) => (
                     <span 
                       key={i}
                       onClick={() => triggerCopyNotification(`tag_${i}`, `#${h}`)}
-                      className="px-2 py-0.5 rounded text-[10px] font-mono hover:text-white hover:border-orange-500 cursor-pointer select-none transition border border-white/5 bg-slate-950 text-slate-400"
+                      className="px-2 py-0.5 rounded text-[10px] font-mono hover:text-[var(--nonga-brand)] hover:border-[var(--nonga-brand)] cursor-pointer select-none transition border nonga-border nonga-bg-elevated nonga-text-muted"
                       title="คลิกเพื่อคัดลอกแท็กนี้"
                     >
                       #{h}
@@ -864,12 +817,10 @@ export function CaptionEngineDashboard() {
 
           {/* G. Saved Favorites Deck Panel */}
           {favorites.length > 0 && (
-            <div className={`p-5 sm:p-6 rounded-2xl border ${
-              isDarkMode ? "bg-[#0f0f11]/90 border-white/[0.06]" : "bg-white border-slate-200 shadow-sm"
-            } space-y-4 text-left`}>
+            <div className="p-5 sm:p-6 rounded-2xl border nonga-bg-surface nonga-border space-y-4 text-left">
               
               <div className="flex items-center justify-between border-b pb-2 border-orange-500/10">
-                <h3 className="font-display font-black text-xs sm:text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                <h3 className="font-display font-black text-xs sm:text-sm nonga-text-primary flex items-center gap-1.5">
                   <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
                   <span>คลังแคปชั่นสุดโปรดของคุณ ({favorites.length} โพสต์)</span>
                 </h3>
@@ -879,44 +830,42 @@ export function CaptionEngineDashboard() {
                 {favorites.map((fav) => (
                   <div 
                     key={fav.favoriteId}
-                    className={`p-3.5 rounded-xl border text-left space-y-3 relative group ${
-                      isDarkMode ? "bg-slate-950 border-white/5" : "bg-slate-50 border-slate-200"
-                    }`}
+                    className="p-3.5 rounded-xl border nonga-border nonga-bg-elevated text-left space-y-3 relative group"
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase bg-orange-500/10 text-orange-400">
                           {fav.platform.toUpperCase()}
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase bg-slate-900 border border-slate-800 text-slate-350">
+                        <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase nonga-bg-subtle border nonga-border nonga-text-muted">
                           {fav.type}
                         </span>
-                        <span className="text-[10px] font-bold text-white dark:text-slate-300">
+                        <span className="text-[10px] font-bold nonga-text-primary">
                           {fav.specsUsed.brand} {fav.specsUsed.model} ({fav.specsUsed.year})
                         </span>
                       </div>
                       
                       <button 
                         onClick={() => handleRemoveFavorite(fav.favoriteId)}
-                        className="p-1 rounded hover:bg-rose-500/10 text-slate-500 hover:text-rose-500 cursor-pointer transition select-none"
+                        className="p-1 rounded hover:bg-rose-500/10 nonga-text-muted hover:text-rose-500 cursor-pointer transition select-none"
                         title="ลบออกจากคลังด่วน"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <p className="text-xs text-slate-300 line-clamp-3 leading-relaxed whitespace-pre-wrap select-text selection:bg-orange-500/20 py-1 bg-black/30 p-2 rounded border border-white/[0.02]">
+                    <p className="text-xs nonga-text-secondary line-clamp-3 leading-relaxed whitespace-pre-wrap select-text selection:bg-orange-500/20 py-1 nonga-bg-subtle p-2 rounded border nonga-border">
                       {fav.text}
                     </p>
 
-                    <div className="flex justify-between items-center bg-black/10 p-2 rounded text-[10.5px]">
-                      <span className="text-[9.5px] font-mono text-slate-500">
+                    <div className="flex justify-between items-center nonga-bg-subtle p-2 rounded text-[10.5px] border nonga-border">
+                      <span className="text-[9.5px] font-mono nonga-text-muted">
                         เรตติ้งศักยภาพ {fav.score.overall}%
                       </span>
                       
                       <button
                         onClick={() => triggerCopyNotification(fav.favoriteId, fav.text)}
-                        className="text-[10px] text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 shrink-0"
+                        className="text-[10px] nonga-link-accent font-bold flex items-center gap-1 shrink-0"
                       >
                         {copyStatus[fav.favoriteId] ? "คัดลอกสำเร็จ!" : "คัดลอกโพสต์หลัก 📋"}
                       </button>

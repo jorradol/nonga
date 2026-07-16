@@ -103,6 +103,31 @@ for (const filePath of PHASE1_FILES) {
     "Caption hook score heading no forced white",
     !/font-black text-sm text-white/.test(captions)
   );
+  ok(
+    "Caption uses semantic surfaces",
+    captions.includes("nonga-bg-surface") &&
+      captions.includes("nonga-bg-elevated") &&
+      captions.includes("nonga-text-primary") &&
+      captions.includes("nonga-text-secondary") &&
+      captions.includes("nonga-placeholder")
+  );
+  ok(
+    "Caption no navy input/card surfaces",
+    !captions.includes("bg-slate-950") &&
+      !captions.includes("bg-[#0f0f11]") &&
+      !captions.includes("bg-[#0b0c0f]") &&
+      !captions.includes("dark:bg-black/80")
+  );
+  ok(
+    "Caption primary action contract",
+    captions.includes("nonga-action") &&
+      captions.includes("handleGenerateCaption")
+  );
+  ok(
+    "Caption no hard-coded isDarkMode color branches",
+    !/isDarkMode\s*\?\s*"[^"]*bg-slate/.test(captions) &&
+      !/isDarkMode\s*\?\s*"bg-\[#/.test(captions)
+  );
 }
 
 let repoAntiPatternCount = 0;
