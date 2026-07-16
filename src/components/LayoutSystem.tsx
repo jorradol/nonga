@@ -41,7 +41,7 @@ export function Section({ children, title, description, badge, className = "", i
       {(title || description || badge) && (
         <div className="text-left space-y-2">
           {badge && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-orange-500/10 text-orange-500 border border-orange-500/20">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20">
               {badge}
             </span>
           )}
