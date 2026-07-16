@@ -17,6 +17,10 @@ export interface Car {
   ownerName: string;
   ownerPhone: string;
   showroomName?: string;
+  /** Public marketplace DTO — listing-baked dealer/seller display (no ownership ids). */
+  sellerDisplayName?: string;
+  dealerDisplayName?: string;
+  dealerSlug?: string;
   registrationProvince?: string;
   licensePlateMasked?: string;
   isSold: boolean;
