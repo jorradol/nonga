@@ -7,7 +7,7 @@ import {
   User, Mail, ShieldCheck, Key, Bot, Star, Sparkles, 
   Settings, History, Check, Trash2, Sliders, ExternalLink, 
   MessageCircle, AlertCircle, Phone, MapPin, Store, BarChart2, 
-  Sparkle, ShieldAlert, Heart, Languages, BellRing, Eye, Users, FileCheck2
+  Sparkle, Heart, Languages, BellRing
 } from "lucide-react";
 
 import { getListingPrimaryImage } from "../utils/listingImages";
@@ -96,11 +96,6 @@ export default function UserProfileView() {
   const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
   const [isSavingWritingStyle, setIsSavingWritingStyle] = useState(false);
 
-  // Simulated Showroom Form states
-  const [showroomName, setShowroomName] = useState(user?.showroomName || `${user?.displayName || "NongBot"} Certified Space`);
-  const [showroomPhone, setShowroomPhone] = useState("081-234-5678");
-  const [showroomAddress, setShowroomAddress] = useState("20 Thai SaaS Avenue, Huai Khwang, Bangkok");
-  const [showroomBanner, setShowroomBanner] = useState("https://images.unsplash.com/photo-1562575214-da9fcf59b907?auto=format&fit=crop&q=80&w=800");
   const [dealerEntryHint, setDealerEntryHint] = useState<string | null>(() =>
     dealerEntryHintMessage(consumeDealerEntryHint())
   );
@@ -195,17 +190,6 @@ export default function UserProfileView() {
     } finally {
       setIsSavingDisplayName(false);
     }
-  };
-
-  const handleSaveShowroom = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateUserProfile({
-      showroomName: showroomName
-    })
-    .then(() => {
-      showToast("ปรับปรุงรายละเอียดพิกัดทางดีลเลอร์พรีเมียมเสร็จสิ้นคร้าบ! 🏛️");
-    })
-    .catch(() => showToast("ล้มเหลวในการจัดเก็บแผนร้านค้า", "error"));
   };
 
   // Pre-load display inputs when user context refreshes
@@ -695,163 +679,6 @@ export default function UserProfileView() {
                     ))}
                   </div>
                 )}
-              </SettingsCard>
-            )}
-
-            {/* TABS 4: Dealer Section */}
-            {activeTab === "dealer" && (
-              <SettingsCard
-                key="tab-dealer"
-                title="พื้นที่ควบคุมดีลเลอร์ผู้ขายพรีเมียม (Premium Dealer Partner)"
-                description="จัดการดีลพิกัด มาร้าน แบนเนอร์หน้า และดูสถิติส่วนแบ่งตลาดคาร์แบบออโต้"
-                icon={<Store className="w-5 h-5" />}
-              >
-                {!isDealer && !isAdmin && (
-                  <div className="p-6 rounded-xl border border-teal-500/15 bg-teal-500/[0.02] text-left space-y-4">
-                    <div className="inline-flex p-2.5 bg-teal-500/10 text-teal-400 rounded-lg">
-                      <ShieldAlert className="w-6 h-6 animate-pulse" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className={`text-sm font-bold ${textHeading}`}>โหมดสิทธิ์คุณยังไม่ได้ถูกเลื่อนระดับเป็นดีลเลอร์พาร์ตเนอร์ครับ 🔒</h4>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        แผงนี้ถูกสงวนไว้เฉพาะสำหรับผู้ขายที่ผ่านการยืนยันตัวตน มีสิทธิ์ <strong>Dealer Partner</strong> หรือผู้บริหารระบบเท่านั้น อย่างไรก็ตาม ในระบบ Sandbox เพื่อความพรีเมียม คุณสามารถทดสอบแก้ไขปรับจูนแบนเนอร์หรือตรวจเช็คสถิติแบบพรีเมียมจำลองได้ทันที!
-                      </p>
-                    </div>
-                    {demoToolsEnabled && (
-                    <div className="pt-2">
-                      <button
-                        onClick={() => handleSandboxRoleChange("dealer")}
-                        className="px-4.5 py-2.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-black rounded-xl text-xs cursor-pointer active:scale-95 transition-all text-center animate-pulse"
-                      >
-                        สวิตช์บทบาทเป็นดีลเลอร์สุดตึงทันที ✨
-                      </button>
-                    </div>
-                    )}
-                  </div>
-                )}
-
-                <form onSubmit={handleSaveShowroom} className="space-y-6">
-                  
-                  {/* Dealer stats dashboard mockup */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                      📊 รายงานสถิติแบนด์โชว์รูม (Live Studio Analytics)
-                    </label>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className={`p-4 rounded-xl text-left space-y-1 border ${
-                        isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
-                      }`}>
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                          <Eye className="w-3.5 h-3.5 text-orange-400" /> วิวยอดส่องร้าน
-                        </span>
-                        <p className={`text-xl font-extrabold ${textHeading}`}>41,208 ครั้ง</p>
-                        <p className="text-[9px] text-emerald-400 font-semibold">+18.5% จากสัปดาห์ก่อน</p>
-                      </div>
-
-                      <div className={`p-4 rounded-xl text-left space-y-1 border ${
-                        isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
-                      }`}>
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-teal-400" /> ลูกค้านัดสเปกคุย
-                        </span>
-                        <p className={`text-xl font-extrabold ${textHeading}`}>142 สาย</p>
-                        <p className="text-[9px] text-emerald-400 font-semibold">+4.2% นัดชิงแชมป์</p>
-                      </div>
-
-                      <div className={`p-4 rounded-xl text-left space-y-1 border ${
-                        isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-slate-200 bg-slate-50"
-                      }`}>
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                          <FileCheck2 className="w-3.5 h-3.5 text-amber-400" /> ใบยืนยันขายรถยนต์
-                        </span>
-                        <p className={`text-xl font-extrabold ${textHeading}`}>28 คัน</p>
-                        <p className="text-[9px] text-amber-400 font-semibold">เฉลี่ยจบดีลภายใน 4 วัน</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Showroom metadata form */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                    <div className="space-y-2 text-left">
-                      <label className="text-xs font-black text-slate-400">ชื่อศูนย์จำลองจำหน่ายพรีเมียม (Showroom Name)</label>
-                      <input 
-                        type="text" 
-                        value={showroomName}
-                        onChange={(e) => setShowroomName(e.target.value)}
-                        required
-                        className={`w-full rounded-xl p-3 text-xs border ${inputField}`}
-                      />
-                    </div>
-
-                    <div className="space-y-2 text-left">
-                      <label className="text-xs font-black text-slate-400">เบอร์ติดต่อดีลเลอร์ผู้แทน (Showroom Hotline)</label>
-                      <input 
-                        type="text" 
-                        value={showroomPhone}
-                        onChange={(e) => setShowroomPhone(e.target.value)}
-                        required
-                        className={`w-full rounded-xl p-3 text-xs border ${inputField}`}
-                      />
-                    </div>
-
-                    <div className="space-y-2 text-left md:col-span-2">
-                      <label className="text-xs font-black text-slate-400">ที่ตั้งหน้าร้านแสนพัทยา (Showroom Location Address)</label>
-                      <input 
-                        type="text" 
-                        value={showroomAddress}
-                        onChange={(e) => setShowroomAddress(e.target.value)}
-                        required
-                        className={`w-full rounded-xl p-3 text-xs border ${inputField}`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Preset Banner image seed selections */}
-                  <div className="space-y-3">
-                    <label className="text-xs font-black text-slate-400 block text-left">
-                      🖼️ เลือกภาพแบนเนอร์ปกหน้าร้านดีลเลอร์ (Showroom Cover Photo Preset)
-                    </label>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {[
-                        { bg: "https://images.unsplash.com/photo-1562575214-da9fcf59b907?auto=format&fit=crop&q=80&w=800", name: "Modern Neon Garage" },
-                        { bg: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800", name: "Luxury Showroom" },
-                        { bg: "https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&q=80&w=800", name: "Cozy Premium Minimal" }
-                      ].map((preset) => {
-                        const isChosen = showroomBanner === preset.bg;
-                        return (
-                          <button
-                            type="button"
-                            key={preset.name}
-                            onClick={() => {
-                              setShowroomBanner(preset.bg);
-                              showToast(`เปลี่ยนภาพปกเป็นธีม ${preset.name} แล้วคร้าบ 🎨`, "info");
-                            }}
-                            className={`p-1.5 rounded-xl border text-left cursor-pointer transition overflow-hidden relative ${
-                              isChosen ? "border-teal-500 bg-teal-500/10" : isDarkMode ? "border-white/5 bg-slate-900/45" : "border-slate-200 bg-slate-50"
-                            }`}
-                          >
-                            <div className={`h-16 rounded-lg overflow-hidden border ${isDarkMode ? "border-white/5" : "border-slate-200"}`}>
-                              <img src={preset.bg} alt={preset.name} className="w-full h-full object-cover" />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-300 block text-center pt-2">{preset.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className={`pt-4 border-t flex justify-end ${borderSubtle}`}>
-                    <button
-                      type="submit"
-                      className="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white text-xs font-black rounded-xl active:scale-95 transition-all text-center cursor-pointer"
-                    >
-                      ปรับเปลี่ยนข้อมูลโชว์รูมสัญญาทีม 🏷️
-                    </button>
-                  </div>
-
-                </form>
               </SettingsCard>
             )}
 
