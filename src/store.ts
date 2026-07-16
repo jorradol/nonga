@@ -498,7 +498,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Favorites
-  favorites: ["tesla-model-3-2023"],
+  favorites: [],
   toggleFavorite: (carId) => {
     set((state) => {
       const isFav = state.favorites.includes(carId);

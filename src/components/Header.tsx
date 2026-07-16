@@ -11,6 +11,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ProfileAvatar from "./profile/ProfileAvatar";
+import { resolveVisibleFavoriteCount } from "../utils/resolveVisibleFavorites";
 
 export default function Header() {
   const { 
@@ -18,7 +19,8 @@ export default function Header() {
     setView, 
     isDarkMode, 
     toggleDarkMode, 
-    favorites, 
+    favorites,
+    cars,
     user, 
     filters, 
     setFilters 
@@ -97,7 +99,7 @@ export default function Header() {
     { id: "search", label: "ค้นหาละเอียด 🔍", icon: Search, badge: "แนะนำ" },
     ...sandboxNavItems,
     { id: "dealers", label: "ดีลเลอร์และศูนย์บริการ", icon: Store },
-    { id: "saved", label: "ที่บันทึกไว้", icon: Heart, count: favorites.length },
+    { id: "saved", label: "ที่บันทึกไว้", icon: Heart, count: resolveVisibleFavoriteCount(favorites, cars) },
   ];
 
   const handleSearchChange = (value: string) => {

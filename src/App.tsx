@@ -57,6 +57,7 @@ import {
   GradientBackground, 
   AnimatedCard 
 } from "./components/LayoutSystem";
+import { resolveVisibleFavoriteCars } from "./utils/resolveVisibleFavorites";
 
 import { 
   Sparkles, Heart, RefreshCw, Star, Info, 
@@ -112,7 +113,7 @@ export default function App() {
 
   // Client-side visual for Saved Favorites panel
   const renderSavedFavorites = () => {
-    const savedCars = cars.filter((c) => favorites.includes(c.id));
+    const savedCars = resolveVisibleFavoriteCars(favorites, cars);
     
     return (
       <Section
