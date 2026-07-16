@@ -40,7 +40,7 @@ ok("expected project", EXPECTED_PROJECT_ID === "nonga-ce93c");
 ok("expected hosting site", EXPECTED_HOSTING_SITE === "nonga-ce93c");
 ok("expected cloud run service", EXPECTED_CLOUD_RUN_SERVICE === "nonga-staging");
 ok("expected cloud run region", EXPECTED_CLOUD_RUN_REGION === "asia-southeast1");
-ok("expected cloud run revision", EXPECTED_CLOUD_RUN_REVISION === "nonga-staging-00223-vqr");
+ok("expected cloud run revision", EXPECTED_CLOUD_RUN_REVISION === "nonga-staging-00224-mpp");
 ok("expected marketplace count", EXPECTED_MARKETPLACE_COUNT === 15);
 ok("expected staging url", EXPECTED_STAGING_URL === "https://a.nongbot.org");
 ok("staging url guard accepts expected URL", isExpectedStagingUrl(EXPECTED_STAGING_URL));
@@ -66,8 +66,8 @@ ok("parseJsonStrict throws on invalid json", parseError);
 ok(
   "getCloudRunRevision reads latestReadyRevisionName",
   getCloudRunRevision({
-    status: { latestReadyRevisionName: "nonga-staging-00223-vqr" },
-  }) === "nonga-staging-00223-vqr"
+    status: { latestReadyRevisionName: "nonga-staging-00224-mpp" },
+  }) === "nonga-staging-00224-mpp"
 );
 ok("getCloudRunRevision handles missing status", getCloudRunRevision({}) === "");
 
