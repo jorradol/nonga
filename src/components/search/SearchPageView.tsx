@@ -32,7 +32,6 @@ export default function SearchPageView() {
     favorites, 
     createChatSession, 
     sendChatMessage,
-    isDarkMode 
   } = useAppStore();
 
   const {
@@ -140,18 +139,18 @@ export default function SearchPageView() {
     <div className="space-y-6 sm:space-y-8 pb-20">
       
       {/* 1. Page Header & Premium Glow Showcase */}
-      <div className="relative text-left rounded-3xl overflow-hidden py-10 px-6 sm:px-10 border bg-gradient-to-br from-slate-950 to-slate-900 border-white/[0.04]">
+      <div className="relative text-left rounded-3xl overflow-hidden py-10 px-6 sm:px-10 border nonga-bg-elevated nonga-border nonga-text-primary">
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-orange-500/10 blur-3xl"></div>
-        <div className="absolute -bottom-16 -left-16 w-60 h-60 rounded-full bg-orange-650/5 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-16 -left-16 w-60 h-60 rounded-full bg-orange-500/5 blur-3xl animate-pulse"></div>
 
         <div className="relative z-10 max-w-4xl space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-600/10 to-orange-500/20 rounded-full border border-orange-500/20 text-orange-500 text-[10.5px] font-mono tracking-wider font-extrabold uppercase">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-600/10 to-orange-500/20 rounded-full border border-orange-500/20 text-orange-600 dark:text-orange-500 text-[10.5px] font-mono tracking-wider font-extrabold uppercase">
             <Sparkles className="w-3.5 h-3.5 animate-spin" /> Advanced Workspace Search
           </div>
-          <h1 className="font-display font-black text-2xl sm:text-4xl leading-tight text-white tracking-tight">
-            ตรวจพิกัดและ <span className="text-orange-500 bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent">คัดเกรดสเป็ครถยนต์</span> อัจฉริยะ
+          <h1 className="font-display font-black text-2xl sm:text-4xl leading-tight nonga-text-primary tracking-tight">
+            ตรวจพิกัดและ <span className="text-orange-600 dark:text-orange-500 bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">คัดเกรดสเป็ครถยนต์</span> อัจฉริยะ
           </h1>
-          <p className="text-slate-400 font-sans text-xs sm:text-sm max-w-3xl leading-relaxed">
+          <p className="nonga-text-secondary font-sans text-xs sm:text-sm max-w-3xl leading-relaxed">
             ระบบค้นหาละเอียดแบบ Instant Sync เชื่อมโยงดัชนีผสม Google Firestore รวดเร็วฉับไว พร้อมระบบให้คะแนนความคุ้มประเมินโดย Nong A AI ตัวท็อป สะท้อนสภาพจริงร้อยเปอร์เซ็นต์คร้าบ
           </p>
         </div>
@@ -160,7 +159,7 @@ export default function SearchPageView() {
         <div className="relative mt-8 max-w-3xl z-30" ref={dropdownRef}>
           <form onSubmit={handleQuerySubmit} className="flex gap-2.5">
             <div className="relative flex-grow">
-              <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-5 h-5 nonga-text-muted" />
               <input
                 type="text"
                 value={localSearchText}
@@ -170,9 +169,7 @@ export default function SearchPageView() {
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 placeholder="พิมพ์ยี่ห้อ, รุ่น, เช่น Tesla Model 3, Fortuner RS หรือรถไฟฟ้า..."
-                className={`w-full pl-12 pr-12 py-3.5 rounded-2xl text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-all ${
-                  isDarkMode ? "bg-slate-900 border border-slate-800" : "bg-white text-slate-800 border-slate-200"
-                }`}
+                className="w-full pl-12 pr-12 py-3.5 rounded-2xl text-xs sm:text-sm nonga-bg-surface border nonga-border nonga-text-primary nonga-placeholder focus:outline-none focus:border-orange-500 transition-all nonga-focus-ring"
               />
               {localSearchText && (
                 <button
@@ -181,7 +178,7 @@ export default function SearchPageView() {
                     setLocalSearchText("");
                     setFilters({ search: "" });
                   }}
-                  className="absolute right-4.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-500 hover:text-white transition"
+                  className="absolute right-4.5 top-1/2 -translate-y-1/2 p-1 rounded-full nonga-text-muted nonga-menu-item transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -192,7 +189,7 @@ export default function SearchPageView() {
             <button
               type="button"
               onClick={() => toggleFilterDrawer()}
-              className="lg:hidden flex items-center justify-center p-3.5 bg-orange-600 text-white rounded-2xl hover:bg-orange-700 transition"
+              className="lg:hidden flex items-center justify-center p-3.5 nonga-action nonga-focus-ring rounded-2xl transition"
               title="เปิดตัวกรองโมบาย"
             >
               <SlidersHorizontal className="w-5 h-5" />
@@ -206,17 +203,17 @@ export default function SearchPageView() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute left-0 right-0 mt-2 bg-slate-950 border border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden text-left"
+                className="absolute left-0 right-0 mt-2 nonga-bg-elevated border nonga-border rounded-2xl shadow-xl z-50 overflow-hidden text-left nonga-text-primary"
               >
                 {/* Popular Keywords section */}
-                <div className="p-4 border-b border-slate-900 space-y-2">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-bold block">คำแนะนำยอดค้นหา</span>
+                <div className="p-4 border-b nonga-border space-y-2">
+                  <span className="text-[10px] nonga-text-muted uppercase tracking-widest font-mono font-bold block">คำแนะนำยอดค้นหา</span>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {["Tesla Highland", "Fortuner Legender", "Camry Hybrid", "Honda Civic FE", "Ducati V4"].map((item) => (
                       <button
                         key={item}
                         onClick={() => handleSuggestionClick(item)}
-                        className="px-2.5 py-1 bg-slate-900 hover:bg-orange-500 hover:text-white rounded-lg text-[11px] text-slate-300 font-sans transition"
+                        className="px-2.5 py-1 nonga-bg-subtle nonga-text-primary hover:bg-[var(--nonga-action-primary)] hover:text-[var(--nonga-action-primary-text)] rounded-lg text-[11px] font-sans transition nonga-focus-ring"
                       >
                         {item}
                       </button>
@@ -227,28 +224,28 @@ export default function SearchPageView() {
                 {/* Recent history section */}
                 {recentSearches.length > 0 ? (
                   <div className="p-4 max-h-[220px] overflow-y-auto space-y-2.5">
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                    <div className="flex justify-between items-center text-[10px] nonga-text-secondary font-mono">
                       <span className="font-bold uppercase tracking-wider">ประวัติบันทึกค้นหาล่าสุด</span>
-                      <button onClick={clearRecentSearches} className="text-orange-500 hover:underline">
+                      <button onClick={clearRecentSearches} className="nonga-link-accent hover:underline">
                         ล้างประวัติ
                       </button>
                     </div>
                     <div className="space-y-1.5 pt-1">
                       {recentSearches.map((term, index) => (
-                        <div key={index} className="flex items-center justify-between group py-1 border-b border-white/[0.02]">
+                        <div key={index} className="flex items-center justify-between group py-1 border-b nonga-border">
                           <button
                             onClick={() => handleSuggestionClick(term)}
-                            className="text-xs text-slate-200 hover:text-orange-500 transition text-left"
+                            className="text-xs nonga-text-primary nonga-link-accent transition text-left"
                           >
                             🧭 {term}
                           </button>
-                          <span className="text-[9px] text-slate-500 font-mono">ค้นหาครั้งล่าสุด</span>
+                          <span className="text-[9px] nonga-text-muted font-mono">ค้นหาครั้งล่าสุด</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 text-xs text-slate-500 text-center py-6">
+                  <div className="p-4 text-xs nonga-text-muted text-center py-6">
                     คุณยังไม่มีความทรงจำในประวัติการค้นล่าสุด คีย์บอร์ดรถในฝันได้เลยคร้าบ!
                   </div>
                 )}
@@ -258,8 +255,8 @@ export default function SearchPageView() {
         </div>
 
         {/* Indexable Filter Link presets for SEO and organic crawlers discovery */}
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-900 pt-4 text-left">
-          <span className="text-[11px] text-slate-500 font-medium font-sans flex items-center gap-1">
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t nonga-border pt-4 text-left">
+          <span className="text-[11px] nonga-text-muted font-medium font-sans flex items-center gap-1">
             <Compass className="w-3.5 h-3.5 text-orange-500" /> ทางลัดยอดนิยม (SEO Preset):
           </span>
           <div className="flex flex-wrap gap-2 items-center">
@@ -272,7 +269,7 @@ export default function SearchPageView() {
                     setLocalSearchText(preset.filters.brand);
                   }
                 }}
-                className="text-[11px] text-slate-400 hover:text-orange-500 border-b border-transparent hover:border-orange-500 transition-all font-mono py-0.5"
+                className="text-[11px] nonga-text-secondary nonga-link-accent border-b border-transparent hover:border-orange-500 transition-all font-mono py-0.5"
               >
                 {preset.label}
               </button>
@@ -286,9 +283,7 @@ export default function SearchPageView() {
         
         {/* DESKTOP SIDEBAR: Sticky, pristine styled Filter panel (col-span-3) */}
         <aside className="hidden lg:block lg:col-span-3 sticky top-24">
-          <div className={`p-5 rounded-3xl border ${
-            isDarkMode ? "bg-slate-950/70 border-white/[0.04]" : "bg-white border-slate-200"
-          } shadow-xl backdrop-blur-xl`}>
+          <div className="p-5 rounded-3xl border nonga-bg-surface nonga-border shadow-xl backdrop-blur-xl">
             <FilterPanel 
               brands={brands} 
               models={models} 
@@ -304,25 +299,23 @@ export default function SearchPageView() {
           {/* Header toolbar: Total Count + Dynamic Sorting Options */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-orange-500/5">
             <div className="text-left">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block mb-0.5">Showroom Intelligence</span>
-              <h2 className="font-display font-black text-slate-100 text-lg flex items-baseline gap-1.5 leading-none">
+              <span className="text-[10px] uppercase font-mono tracking-wider nonga-text-muted block mb-0.5">Showroom Intelligence</span>
+              <h2 className="font-display font-black nonga-text-primary text-lg flex items-baseline gap-1.5 leading-none">
                 <span>พบ</span>
-                <span className="font-mono text-orange-500 text-xl font-black">{isLoading ? "..." : filteredCount}</span>
-                <span className="text-xs text-slate-400 font-normal">คัน จากทั้งหมด {catalogCount} คัน</span>
+                <span className="font-mono text-orange-600 dark:text-orange-500 text-xl font-black">{isLoading ? "..." : filteredCount}</span>
+                <span className="text-xs nonga-text-secondary font-normal">คัน จากทั้งหมด {catalogCount} คัน</span>
               </h2>
             </div>
 
             {/* Sort Choices panel */}
             <div className="flex items-center gap-2.5 self-start sm:self-auto">
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <span className="text-[11px] font-medium nonga-text-secondary flex items-center gap-1">
                 <ArrowUpDown className="w-3.5 h-3.5 text-orange-500" /> เรียงสเป็กโดย:
               </span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className={`px-3 py-2 rounded-xl text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer ${
-                  isDarkMode ? "bg-slate-900 border border-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
-                }`}
+                className="px-3 py-2 rounded-xl text-xs font-semibold focus:outline-none focus:border-orange-500 cursor-pointer nonga-bg-subtle border nonga-border nonga-text-primary nonga-focus-ring"
               >
                 <option value="relevance">ลำดับความเหมาะสม (Relevance)</option>
                 <option value="price-asc">ราคาขาย: ถูกสุดไปแพงสุด</option>
@@ -338,22 +331,22 @@ export default function SearchPageView() {
           {filteredCount > 0 && (
             <div className="p-4 rounded-2xl bg-orange-600/[0.02] border border-orange-500/10 text-left grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <span className="text-[9px] text-slate-500 dark:text-slate-500 tracking-wider block uppercase">ราคากลางเฉลี่ย</span>
-                <span className="font-mono font-black text-sm text-slate-200">฿{aiInsights.averagePrice.toLocaleString()} บ.</span>
+                <span className="text-[9px] nonga-text-muted tracking-wider block uppercase">ราคากลางเฉลี่ย</span>
+                <span className="font-mono font-black text-sm nonga-text-primary">฿{aiInsights.averagePrice.toLocaleString()} บ.</span>
               </div>
               <div>
-                <span className="text-[9px] text-slate-500 dark:text-slate-500 tracking-wider block uppercase">จำนวนสตรีม EV/ไฟฟ้า</span>
+                <span className="text-[9px] nonga-text-muted tracking-wider block uppercase">จำนวนสตรีม EV/ไฟฟ้า</span>
                 <span className="font-mono font-black text-sm text-orange-500">{aiInsights.evCount} คัน ⚡</span>
               </div>
               <div>
-                <span className="text-[9px] text-slate-500 dark:text-slate-500 tracking-wider block uppercase">ยี่ห้อมาแรงในระบบ</span>
+                <span className="text-[9px] nonga-text-muted tracking-wider block uppercase">ยี่ห้อมาแรงในระบบ</span>
                 <span className="font-sans font-black text-sm text-lime-500 truncate block">{aiInsights.topBrand}</span>
               </div>
               <div>
-                <span className="text-[9px] text-slate-500 dark:text-slate-500 tracking-wider block uppercase">ดีลเด็ดดวงคัดพิเศษ</span>
+                <span className="text-[9px] nonga-text-muted tracking-wider block uppercase">ดีลเด็ดดวงคัดพิเศษ</span>
                 <button 
                   onClick={() => aiInsights.bestValueCarId && setView("car-details", aiInsights.bestValueCarId)}
-                  className="font-mono font-black text-xs text-orange-400 hover:underline transition text-left block truncate"
+                  className="font-mono font-black text-xs nonga-link-accent hover:underline transition text-left block truncate"
                 >
                   ✨ คลิกดูดีลคุ้มสุด
                 </button>
@@ -367,30 +360,26 @@ export default function SearchPageView() {
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div 
                   key={i} 
-                  className={`animate-pulse rounded-3xl h-[420px] ${
-                    isDarkMode ? "bg-slate-900/40 border border-slate-900" : "bg-slate-100"
-                  }`}
+                  className="animate-pulse rounded-3xl h-[420px] nonga-bg-subtle border nonga-border"
                 />
               ))}
             </div>
           ) : cars.length === 0 ? (
             
             /* EMPTY STATE: Visual callout recommending a reset with search assists */
-            <div className={`p-12 text-center rounded-3xl border space-y-5 max-w-xl mx-auto ${
-              isDarkMode ? "bg-slate-950/40 border-white/[0.04]" : "bg-slate-50 border-slate-200"
-            }`}>
+            <div className="p-12 text-center rounded-3xl border nonga-bg-subtle nonga-border space-y-5 max-w-xl mx-auto">
               <div className="w-16 h-16 mx-auto rounded-full bg-orange-600/10 text-orange-500 flex items-center justify-center">
                 <AlertCircle className="w-8 h-8 animate-bounce" />
               </div>
               <div className="space-y-1.5 text-center">
-                <h4 className="font-display font-black text-lg text-white">ไม่พบรถตามพารามิเตอร์ที่คุณระบุครับผม</h4>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
+                <h4 className="font-display font-black text-lg nonga-text-primary">ไม่พบรถตามพารามิเตอร์ที่คุณระบุครับผม</h4>
+                <p className="nonga-text-muted text-xs leading-relaxed max-w-sm mx-auto">
                   อาจเป็นไปได้ว่าช่วงงบสูงสุดน้อยเกินไป หรือระบุเครื่องยนต์ที่ไม่สอดคล้องกัน ลองคลิกด้านล่างเพื่อล้างสเปกตารางค้นหรือเริ่มเจรจาใหม่นะคร้าบ!
                 </p>
               </div>
               <button
                 onClick={resetAllFilters}
-                className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow-lg transition hover:scale-103 cursor-pointer"
+                className="px-6 py-2.5 nonga-action nonga-focus-ring text-xs font-bold rounded-xl shadow-lg transition hover:scale-103 cursor-pointer"
               >
                 ล้างข้อมูลตัวกรองเพื่อเรียกดูรถทั้งหมด
               </button>
@@ -420,14 +409,10 @@ export default function SearchPageView() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.4) }}
-                    className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl border transition-all duration-300 hover:shadow-2xl ${
-                      isDarkMode 
-                        ? "bg-slate-950/70 border-white/[0.05] hover:border-orange-500/30 hover:shadow-orange-950/5 text-white" 
-                        : "bg-white border-slate-200 text-slate-800"
-                    }`}
+                    className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border nonga-border nonga-bg-surface nonga-text-primary transition-all duration-300 hover:shadow-2xl hover:border-orange-500/30"
                   >
                     {/* Upper gallery display */}
-                    <div className="aspect-video relative overflow-hidden bg-slate-900 shrink-0">
+                    <div className="aspect-video relative overflow-hidden nonga-bg-elevated shrink-0">
                       <img
                         src={getListingPrimaryImage(car)}
                         alt={car.title}
@@ -458,7 +443,7 @@ export default function SearchPageView() {
 
                       {/* Sold Out Banner */}
                       {car.isSold && (
-                        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
                           <span className="text-white bg-red-600/90 font-display font-black text-sm tracking-widest uppercase border-2 border-white px-4 py-1 rotate-[-10deg]">
                             SOLD OUT / ขายแล้ว
                           </span>
@@ -473,7 +458,7 @@ export default function SearchPageView() {
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider font-extrabold text-orange-500 uppercase">
                           <span>{car.brand}</span>
-                          <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+                          <span className="w-1 h-1 rounded-full nonga-bg-subtle ring-1 ring-[var(--nonga-border-strong)]"></span>
                           <span>{car.condition}</span>
                         </div>
                         <h4 
@@ -485,7 +470,7 @@ export default function SearchPageView() {
                       </div>
 
                       {/* Specs catalog table */}
-                      <div className="grid grid-cols-3 gap-1 py-2.5 border-y border-orange-500/5 text-[10.5px] text-slate-400 font-sans">
+                      <div className="grid grid-cols-3 gap-1 py-2.5 border-y border-orange-500/5 text-[10.5px] nonga-text-muted font-sans">
                         <div className="flex items-center gap-1 min-w-0" title="ปีจดทะเบียน">
                           <Calendar className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
                           <span className="truncate">ปี {car.year}</span>
@@ -504,13 +489,13 @@ export default function SearchPageView() {
                       <div className="space-y-2">
                         {/* Dynamic rating scale */}
                         <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-400 flex items-center gap-1">
+                          <span className="nonga-text-muted flex items-center gap-1">
                             <Sparkles className="w-3.5 h-3.5 text-orange-500 animate-pulse" />
                             <span>AI ประเมินคะแนนคุ้มค่า</span>
                           </span>
                           <span className="text-emerald-500 font-extrabold">{aiRatingScore} / 100</span>
                         </div>
-                        <div className="w-full bg-slate-900 h-1 rounded-full overflow-hidden">
+                        <div className="w-full nonga-bg-subtle h-1 rounded-full overflow-hidden">
                           <div 
                             className="bg-gradient-to-r from-orange-500 to-[#10b981] h-full rounded-full transition-all duration-500"
                             style={{ width: `${aiRatingScore}%` }}
@@ -518,7 +503,7 @@ export default function SearchPageView() {
                         </div>
                         
                         {/* Quote bubble from advisor */}
-                        <p className="text-[10px] leading-normal font-sans italic text-slate-400 border-l-2 border-orange-500/40 pl-2">
+                        <p className="text-[10px] leading-normal font-sans italic nonga-text-muted border-l-2 border-orange-500/40 pl-2">
                           {aiQuote}
                         </p>
                       </div>
@@ -526,7 +511,7 @@ export default function SearchPageView() {
                       {/* Price callout */}
                       <div className="flex items-center justify-between pt-1 border-t border-white/[0.02]">
                         <div className="text-left">
-                          <span className="text-[9px] text-slate-500 uppercase tracking-widest block leading-none mb-0.5">เงินดาวน์ + ราคาขายสุทธิ</span>
+                          <span className="text-[9px] nonga-text-muted uppercase tracking-widest block leading-none mb-0.5">เงินดาวน์ + ราคาขายสุทธิ</span>
                           <span className="font-mono font-black text-lg text-orange-500">฿{car.price.toLocaleString()}</span>
                         </div>
                         {car.showroomName ? (
@@ -534,7 +519,7 @@ export default function SearchPageView() {
                             <BookmarkCheck className="w-3 h-3" /> DECert
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[9.5px] bg-slate-900 text-slate-400 font-bold">
+                          <span className="px-2 py-0.5 rounded text-[9.5px] nonga-bg-subtle nonga-text-secondary font-bold">
                             รถบ้านแท้
                           </span>
                         )}
@@ -543,14 +528,10 @@ export default function SearchPageView() {
                     </div>
 
                     {/* Action execution panel */}
-                    <div className="grid grid-cols-2 gap-2 p-3 border-t border-orange-500/5 bg-slate-900/5 dark:bg-slate-950/20">
+                    <div className="grid grid-cols-2 gap-2 p-3 border-t border-orange-500/5 nonga-bg-subtle">
                       <button
                         onClick={() => setView("car-details", car.id)}
-                        className={`flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold hover:scale-102 transition-all ${
-                          isDarkMode
-                            ? "bg-slate-900 hover:bg-slate-800 text-white"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                        }`}
+                        className="flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold hover:scale-102 transition-all nonga-bg-elevated border nonga-border nonga-text-primary nonga-menu-item nonga-focus-ring"
                       >
                         ดูสเปกละเอียด
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -558,7 +539,7 @@ export default function SearchPageView() {
                       
                       <button
                         onClick={() => handleConsultAI(car)}
-                        className="flex items-center justify-center gap-1 py-2.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-md shadow-orange-600/10 hover:scale-102 transition"
+                        className="flex items-center justify-center gap-1 py-2.5 nonga-action nonga-focus-ring rounded-xl text-xs font-black shadow-md shadow-orange-600/10 hover:scale-102 transition"
                       >
                         <MessageSquare className="w-3.5 h-3.5 animate-bounce" />
                         <span>ต่อราคาพี่เอ AI 🤖</span>
@@ -577,7 +558,7 @@ export default function SearchPageView() {
               <button
                 onClick={onLoadMore}
                 disabled={isShuffling}
-                className={`relative px-8 py-3.5 bg-slate-900/40 hover:bg-slate-900 hover:scale-103 active:scale-97 border border-slate-800 rounded-2xl text-[11.5px] font-bold text-white transition-all inline-flex items-center gap-1.5 select-none ${
+                className={`relative px-8 py-3.5 nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)] hover:scale-103 active:scale-97 border nonga-border rounded-2xl text-[11.5px] font-bold nonga-text-primary transition-all inline-flex items-center gap-1.5 select-none nonga-focus-ring ${
                   isShuffling ? "animate-pulse" : "cursor-pointer"
                 }`}
               >
@@ -619,20 +600,16 @@ export default function SearchPageView() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className={`fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[32px] border-t z-50 overflow-y-auto no-scrollbar shadow-2xl p-6 ${
-                isDarkMode 
-                  ? "bg-slate-950/95 backdrop-blur-2xl border-white/[0.08]" 
-                  : "bg-white border-slate-200"
-              }`}
+              className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[32px] border-t z-50 overflow-y-auto no-scrollbar shadow-2xl p-6 nonga-bg-elevated nonga-border backdrop-blur-2xl"
             >
               <div className="flex justify-between items-center mb-5">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-4.5 h-4.5 text-orange-500" />
-                  <span className="font-display font-black text-sm text-slate-100">ตัวกรองสเป็กละเอียด</span>
+                  <span className="font-display font-black text-sm nonga-text-primary">ตัวกรองสเป็กละเอียด</span>
                 </div>
                 <button
                   onClick={() => toggleFilterDrawer(false)}
-                  className="p-1 px-3 rounded-full bg-slate-900 text-slate-400 hover:text-white transition-all text-xs border border-slate-800"
+                  className="p-1 px-3 rounded-full nonga-bg-subtle nonga-text-secondary nonga-menu-item transition-all text-xs border nonga-border nonga-focus-ring"
                 >
                   เสร็จสิ้น (Done)
                 </button>
