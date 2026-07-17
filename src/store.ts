@@ -16,6 +16,10 @@ import {
   resolveCarIdFromPathname,
   resolveViewFromPathname,
 } from "./utils/appRouteSync";
+import {
+  readStoredDarkModePreference,
+  writeStoredDarkModePreference,
+} from "./hooks/settings/themeSync";
 
 if (typeof window !== "undefined") {
   bootstrapAppRouteState();
@@ -36,8 +40,10 @@ interface AppState {
   firebaseReady: boolean;
   setUser: (user: any | null) => void;
   
-  // Theme State
+  // Theme State — runtime SoT is isDarkMode (+ DOM .dark). themeEpoch bumps on every user/system set.
   isDarkMode: boolean;
+  themeEpoch: number;
+  setDarkMode: (nextDark: boolean) => void;
   toggleDarkMode: () => void;
 
   // Layout View Routing (replicates App Router within clean, single-screen transitions)
@@ -121,14 +127,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   firebaseReady: false,
   setUser: (user) => set({ user }),
 
-  // Theme State
-  isDarkMode: true, // Defaults to beautiful dark mode
-  toggleDarkMode: () => {
-    const nextDark = !get().isDarkMode;
-    set({ isDarkMode: nextDark });
+  // Theme State — bootstrap from localStorage so Header toggles survive refresh
+  isDarkMode: readStoredDarkModePreference(true),
+  themeEpoch: 0,
+  setDarkMode: (nextDark) => {
+    if (get().isDarkMode === nextDark) return;
+    set({ isDarkMode: nextDark, themeEpoch: get().themeEpoch + 1 });
+    writeStoredDarkModePreference(nextDark);
     if (typeof document !== "undefined") {
       document.documentElement.classList.toggle("dark", nextDark);
     }
+  },
+  toggleDarkMode: () => {
+    get().setDarkMode(!get().isDarkMode);
   },
 
   // View system
@@ -581,7 +592,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   ]
 }));
 
-/** v6.9A Phase 1.5 — align initial `.dark` with default isDarkMode for class-only dark variant */
-if (typeof document !== "undefined" && useAppStore.getState().isDarkMode) {
-  document.documentElement.classList.add("dark");
+/** v6.9A Phase 1.5 — align initial `.dark` with bootstrapped isDarkMode for class-only dark variant */
+if (typeof document !== "undefined") {
+  if (useAppStore.getState().isDarkMode) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
 }

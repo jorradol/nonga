@@ -74,28 +74,26 @@ ok(
 );
 
 ok(
-  "useSettings load effect does not depend on storeIsDarkMode",
-  /}, \[user, authLoading, showToast\]\);/.test(settingsHook) &&
-    !/}, \[user, authLoading, showToast, storeIsDarkMode, toggleDarkMode\]\);/.test(
-      settingsHook
-    )
+  "useSettings load effect does not depend on showToast or storeIsDarkMode",
+  /}, \[user, authLoading, setDarkMode\]\);/.test(settingsHook) &&
+    !/storeIsDarkMode, toggleDarkMode/.test(settingsHook) &&
+    settingsHook.includes("showToastRef")
 );
 
 ok(
-  "useSettings aligns local theme when store changes (Header path)",
-  settingsHook.includes("Keep local settings.theme aligned with runtime store") &&
-    settingsHook.includes('const desiredTheme = storeIsDarkMode ? "dark" : "light"')
+  "useSettings rejects stale GET via resolveThemeAfterStaleLoad",
+  settingsHook.includes("resolveThemeAfterStaleLoad") &&
+    settingsHook.includes("applyLoadedThemeToStore")
 );
 
 ok(
-  "useSettings save always aligns store to desired theme",
-  settingsHook.includes("useAppStore.getState().isDarkMode") &&
-    settingsHook.includes("Always align runtime store to the desired theme")
+  "useSettings save applies setDarkMode optimistically",
+  settingsHook.includes('setDarkMode(nextSettings.theme === "dark")')
 );
 
 ok(
-  "useSettings load sync uses getState (no storeIsDarkMode dep fight)",
-  settingsHook.includes("useAppStore.getState().toggleDarkMode()")
+  "useSettings reports persist failure without silent theme revert",
+  settingsHook.includes("ธีมบนหน้าจอยังตามที่เลือกไว้")
 );
 
 console.log(

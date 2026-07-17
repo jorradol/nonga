@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuthContext } from "../../contexts/auth/AuthContext";
 import { userService, UserUserSettings } from "../../services/user/userService";
 import { useAppStore } from "../../store";
 import { AppFriendlyError } from "../../utils/appFriendlyError";
+import { resolveThemeAfterStaleLoad } from "./themeSync";
 
 export function useSettings(showToast?: (msg: string, type?: "success" | "info" | "error") => void) {
   const { user, loading: authLoading } = useAuthContext();
   const storeIsDarkMode = useAppStore((state) => state.isDarkMode);
-  const toggleDarkMode = useAppStore((state) => state.toggleDarkMode);
+  const setDarkMode = useAppStore((state) => state.setDarkMode);
 
   const [settings, setSettings] = useState<UserUserSettings>({
     theme: storeIsDarkMode ? "dark" : "light",
@@ -20,46 +21,108 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+  // showToast from useUserProfile is a new function every render — never put it in
+  // effect deps or a theme toggle re-render will re-GET settings and snap the theme back.
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  const persistReadyRef = useRef(false);
+  const savingRef = useRef(false);
+
+  const persistThemePreference = async (
+    uid: string,
+    next: UserUserSettings,
+    options?: { quietSuccess?: boolean }
+  ) => {
+    try {
+      await userService.ensureProfileReady(uid);
+      await userService.updateUserSettings(uid, next);
+      if (!options?.quietSuccess) {
+        showToastRef.current?.("บันทึกการตั้งค่าระบบเรียบร้อยแล้วครับผม 🛡️");
+      }
+    } catch (err) {
+      // Keep runtime theme; never silently snap back on persist failure.
+      if (err instanceof AppFriendlyError && err.code === "network") {
+        showToastRef.current?.(
+          "เครือข่ายไม่พร้อม ธีมบนหน้าจอยังตามที่เลือกไว้ แต่ยังซิงก์ขึ้นเซิร์ฟเวอร์ไม่ได้",
+          "info"
+        );
+      } else {
+        console.error("Failed to persist settings:", err);
+        showToastRef.current?.(
+          "บันทึกการตั้งค่าขึ้นเซิร์ฟเวอร์ไม่สำเร็จ ธีมบนหน้าจอยังตามที่เลือกไว้",
+          "error"
+        );
+      }
+      throw err;
+    }
+  };
+
   // Load user settings on mount / auth identity change only.
-  // Do NOT re-fetch when storeIsDarkMode changes — that fought Header toggles
-  // and snapped the UI back to the last saved theme (double-toggle feel).
   useEffect(() => {
     let active = true;
+    persistReadyRef.current = false;
+
     if (authLoading) return;
     if (!user || user.uid === "guest-user-100") {
       setIsLoadingSettings(false);
+      persistReadyRef.current = true;
       return;
     }
+
+    const epochAtLoadStart = useAppStore.getState().themeEpoch;
+    const uid = user.uid;
 
     async function load() {
       setIsLoadingSettings(true);
       try {
-        await userService.ensureProfileReady(user.uid);
-        const loaded = await userService.getUserSettings(user.uid);
-        if (active) {
-          setSettings(loaded);
+        await userService.ensureProfileReady(uid);
+        const loaded = await userService.getUserSettings(uid);
+        if (!active) return;
 
-          // Align runtime theme to persisted settings once after load
-          const targetDark = loaded.theme === "dark";
-          const currentDark = useAppStore.getState().isDarkMode;
-          if (targetDark !== currentDark) {
-            useAppStore.getState().toggleDarkMode();
+        const { themeEpoch, isDarkMode } = useAppStore.getState();
+        const resolved = resolveThemeAfterStaleLoad({
+          loadedTheme: loaded.theme,
+          epochAtLoadStart,
+          epochNow: themeEpoch,
+          runtimeIsDark: isDarkMode,
+        });
+
+        const merged: UserUserSettings = {
+          ...loaded,
+          theme: resolved.theme,
+        };
+        setSettings(merged);
+        settingsRef.current = merged;
+
+        if (resolved.applyLoadedThemeToStore) {
+          setDarkMode(loaded.theme === "dark");
+        } else if (loaded.theme !== resolved.theme) {
+          // User toggled while GET was in flight — keep UI, push newer theme to API.
+          try {
+            await persistThemePreference(uid, merged, { quietSuccess: true });
+          } catch {
+            // toast already shown; UI stays on user choice
           }
         }
       } catch (err) {
         if (active) {
           if (err instanceof AppFriendlyError && err.code === "network") {
-            showToast?.(
+            showToastRef.current?.(
               "ตอนนี้เครือข่ายไม่เสถียร กำลังใช้ค่าที่บันทึกในเครื่องชั่วคราว",
               "info"
             );
           } else {
-            showToast?.("ไม่สามารถโหลดการตั้งค่าจากเซิร์ฟเวอร์ได้", "error");
+            showToastRef.current?.("ไม่สามารถโหลดการตั้งค่าจากเซิร์ฟเวอร์ได้", "error");
           }
         }
       } finally {
         if (active) {
           setIsLoadingSettings(false);
+          persistReadyRef.current = true;
         }
       }
     }
@@ -68,58 +131,60 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
     return () => {
       active = false;
     };
-  }, [user, authLoading, showToast]);
+  }, [user, authLoading, setDarkMode]);
 
-  // Keep local settings.theme aligned with runtime store when Header toggles,
-  // so Profile click/save does not skip the store sync path.
+  /**
+   * Persist runtime theme when Header toggles after settings load has settled.
+   * Skips while Profile saveSettings is already writing.
+   */
   useEffect(() => {
+    if (!persistReadyRef.current) return;
+    if (savingRef.current) return;
+    if (!user || user.uid === "guest-user-100") return;
+
     const desiredTheme = storeIsDarkMode ? "dark" : "light";
-    setSettings((prev) =>
-      prev.theme === desiredTheme ? prev : { ...prev, theme: desiredTheme }
-    );
-  }, [storeIsDarkMode]);
+    if (settingsRef.current.theme === desiredTheme) return;
+
+    const updated: UserUserSettings = {
+      ...settingsRef.current,
+      theme: desiredTheme,
+      updatedAt: new Date().toISOString(),
+    };
+    settingsRef.current = updated;
+    setSettings(updated);
+
+    void persistThemePreference(user.uid, updated, { quietSuccess: true }).catch(() => {
+      // toast already shown; do not revert store
+    });
+  }, [storeIsDarkMode, user]);
 
   /**
    * Save settings back to database
    */
   const saveSettings = async (nextSettings: Partial<UserUserSettings>) => {
     if (!user) return;
-    
+
+    savingRef.current = true;
     setIsSavingSettings(true);
-    const updated = {
-      ...settings,
+    const updated: UserUserSettings = {
+      ...settingsRef.current,
       ...nextSettings,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
-    // Keep state sync
+    // Optimistic local + runtime theme — UI must flip immediately
     setSettings(updated);
+    settingsRef.current = updated;
+    if (nextSettings.theme) {
+      setDarkMode(nextSettings.theme === "dark");
+    }
 
     try {
-      await userService.ensureProfileReady(user.uid);
-      await userService.updateUserSettings(user.uid, updated);
-      
-      // Always align runtime store to the desired theme (not only when
-      // settings.theme previously differed — Header may have already flipped store).
-      if (nextSettings.theme) {
-        const wantsDark = nextSettings.theme === "dark";
-        const hasDarkNow = useAppStore.getState().isDarkMode;
-        if (wantsDark !== hasDarkNow) {
-          toggleDarkMode();
-        }
-      }
-
-      if (showToast) {
-        showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้วครับผม 🛡️");
-      }
-    } catch (err) {
-      if (err instanceof AppFriendlyError && err.code === "network") {
-        showToast?.("เครือข่ายไม่พร้อม ระบบจะพยายามซิงก์อีกครั้งเมื่อออนไลน์", "info");
-      } else {
-        console.error("Failed to push settings updates:", err);
-        showToast("ไม่สามารถอัปเดตการตั้งค่าระยะไกลได้ กรุณาลองใหม่อีกครั้ง", "error");
-      }
+      await persistThemePreference(user.uid, updated);
+    } catch {
+      // keep chosen theme; error already toasted
     } finally {
+      savingRef.current = false;
       setIsSavingSettings(false);
     }
   };
@@ -128,7 +193,7 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
    * Trigger theme toggle
    */
   const toggleThemeState = async () => {
-    const nextTheme = storeIsDarkMode ? "light" : "dark";
+    const nextTheme = useAppStore.getState().isDarkMode ? "light" : "dark";
     await saveSettings({ theme: nextTheme });
   };
 
