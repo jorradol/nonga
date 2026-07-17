@@ -36,8 +36,8 @@
 
   --nonga-text-primary: #0f172a;
   --nonga-text-secondary: #334155;
-  --nonga-text-muted: #64748b;
-  --nonga-text-placeholder: #64748b;
+  --nonga-text-muted: #475569;
+  --nonga-text-placeholder: #475569;
   --nonga-text-inverse: #f8fafc;
 
   --nonga-brand: #f97316;
@@ -78,16 +78,16 @@ html.dark {
   --nonga-text-primary: #f1f5f9;
   --nonga-text-secondary: #cbd5e1;
   --nonga-text-muted: #94a3b8;
-  --nonga-text-placeholder: #64748b;
+  --nonga-text-placeholder: #94a3b8;
   --nonga-text-inverse: #0f172a;
 
   --nonga-brand: #f97316;
   --nonga-brand-hover: #fb923c;
   /* Orange-600 for white-label CTA contrast on dark slate */
-  --nonga-action-primary: #ea580c;
-  --nonga-action-primary-hover: #f97316;
+  --nonga-action-primary: #c2410c;
+  --nonga-action-primary-hover: #9a3412;
   --nonga-action-primary-text: #ffffff;
-  --nonga-focus-ring: #f97316;
+  --nonga-focus-ring: #c2410c;
 
   --nonga-success: #22c55e;
   --nonga-warning: #eab308;
