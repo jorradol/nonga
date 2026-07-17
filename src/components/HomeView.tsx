@@ -111,9 +111,6 @@ export default function HomeView() {
         data-testid="home-landing-hero"
         className="relative text-center space-y-8 pt-6 sm:pt-12"
       >
-        {/* Ambient background light circle */}
-        <div className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-[80%] max-w-4xl h-[350px] rounded-full bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-red-600/5 blur-[120px] pointer-events-none -z-10" />
-
         {/* Highlight Tag */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11.5px] font-mono font-extrabold tracking-widest uppercase bg-orange-500/10 text-orange-500 border border-orange-500/15 animate-bounce">
           <Sparkles className="w-3.5 h-3.5 fill-current text-orange-500" />
