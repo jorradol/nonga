@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "isolated-staging": "OWNER_APPROVED_ISOLATED_PROJECT_ID"
+  },
+  "targets": {
+    "OWNER_APPROVED_ISOLATED_PROJECT_ID": {
+      "hosting": {
+        "isolated-staging": ["OWNER_APPROVED_ISOLATED_HOSTING_SITE_ID"]
+      }
+    }
+  },
+  "_comment": "Planning example only. No default alias and no Production identity. Deploy flows must still pass an explicit --project after separate Gate E approval."
+}

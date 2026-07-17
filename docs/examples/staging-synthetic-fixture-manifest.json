@@ -1,0 +1,131 @@
+{
+  "manifestVersion": "1.0.0",
+  "purpose": "Synthetic fixture plan for isolated staging UI smoke — no production copy",
+  "status": "PLAN_ONLY",
+  "projectTargetEnv": "NONGA_ISOLATED_STAGING_PROJECT_ID",
+  "proposedProjectIdForOwnerReviewOnly": "nonga-staging-2026",
+  "targetIdentityPolicy": "No runtime defaults; all target identifiers must be explicit",
+  "safetyDefaults": {
+    "leadCaptureEnabled": false,
+    "publicSignupEnabled": false,
+    "dealerNotificationEnabled": false,
+    "aiUserVisibleEnabled": false,
+    "copyFromProduction": false
+  },
+  "authAccounts": {
+    "note": "Create in Firebase Auth console for staging project only. Passwords out-of-band.",
+    "member": {
+      "role": "member",
+      "status": "active",
+      "envUidKey": "NONGA_TEST_MEMBER_UID",
+      "envEmailKey": "NONGA_TEST_MEMBER_EMAIL",
+      "displayNameExample": "STAGING FICTIONAL MEMBER 001"
+    },
+    "dealer": {
+      "role": "dealer",
+      "status": "active",
+      "dealerId": "stg-fixture-dealer-001",
+      "dealerName": "STAGING FICTIONAL DEALER 001",
+      "envUidKey": "NONGA_TEST_DEALER_UID",
+      "envEmailKey": "NONGA_TEST_DEALER_EMAIL",
+      "dealerMembersDocIdPattern": "{synthetic-uid}_stg-fixture-dealer-001",
+      "roleInDealer": "owner"
+    },
+    "admin": {
+      "role": "admin",
+      "status": "active",
+      "envUidKey": "NONGA_TEST_ADMIN_UID",
+      "envEmailKey": "NONGA_TEST_ADMIN_EMAIL",
+      "displayNameExample": "STAGING FICTIONAL ADMIN 001"
+    }
+  },
+  "listings": {
+    "publishedCountTarget": 15,
+    "minimumForOptionB": 4,
+    "dealerPartitionForPublicCards": "stg-fixture-dealer-001",
+    "dealerPartitionForPortalTests": "stg-fixture-dealer-001",
+    "labelRequiredInTitleOrDescription": "TEST",
+    "forbiddenFields": [
+      "realPhone",
+      "fullLicensePlate",
+      "maskedLicensePlate",
+      "vin",
+      "ownerAddress",
+      "buyerPii",
+      "productionListingId",
+      "productionImportKey"
+    ],
+    "syntheticListingTemplates": [
+      {
+        "id": "stg-car-001",
+        "brand": "Toyota",
+        "model": "Corolla",
+        "year": 2020,
+        "priceThb": 520000,
+        "dealerId": "stg-fixture-dealer-001",
+        "imageCountMin": 1
+      },
+      {
+        "id": "stg-car-002",
+        "brand": "Toyota",
+        "model": "Corolla",
+        "year": 2021,
+        "priceThb": 580000,
+        "dealerId": "stg-fixture-dealer-001",
+        "imageCountMin": 1
+      },
+      {
+        "id": "stg-car-003",
+        "brand": "Honda",
+        "model": "CR-V",
+        "year": 2019,
+        "priceThb": 890000,
+        "dealerId": "stg-fixture-dealer-001",
+        "imageCountMin": 1
+      },
+      {
+        "id": "stg-car-004",
+        "brand": "Toyota",
+        "model": "Camry",
+        "year": 2019,
+        "priceThb": 750000,
+        "dealerId": "stg-fixture-dealer-001",
+        "imageCountMin": 1
+      },
+      {
+        "id": "stg-car-005",
+        "brand": "Mazda",
+        "model": "CX-30",
+        "year": 2022,
+        "priceThb": 920000,
+        "dealerId": "stg-fixture-dealer-001",
+        "imageCountMin": 1
+      }
+    ],
+    "fillToCount15": {
+      "strategy": "duplicate-template-variation",
+      "note": "Add stg-car-006..015 with varied brand/model/year; all synthetic; no production IDs"
+    }
+  },
+  "images": {
+    "backend": "firebase-storage",
+    "pathPattern": "listing-images/{dealerId}/{listingId}/",
+    "requirements": [
+      "Staging-generated placeholder SVG assets or Owner-approved licensed fixture images without people or plates",
+      "At least one image per published listing for card/detail smoke",
+      "No hotlink to production storage URLs"
+    ],
+    "imageRightsNote": "Use generated Staging-only placeholders by default; any photo requires documented rights before Gate D"
+  },
+  "uiSmokeRoutes": {
+    "guest": ["/", "/home", "/chat", "/marketplace", "/search", "/login"],
+    "member": ["/profile"],
+    "dealer": ["/dealer", "/dealer/drafts", "/dealer/inventory"],
+    "admin": ["/admin/dashboard", "/admin/pending-listings"],
+    "themeChecks": ["cold-load-dark", "toggle-light", "header-drawer-contrast"]
+  },
+  "seedCommandsPlanOnly": [
+    "npm run seed:v50-firebase-role-test-users -- --example --json",
+    "npm run seed:isolated-staging-fixtures -- --dry-run --json"
+  ]
+}
