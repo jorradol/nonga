@@ -32,6 +32,7 @@ export default function Header() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navScrollRef = useRef<HTMLElement>(null);
+  const mobileNavScrollRef = useRef<HTMLElement>(null);
 
   // Global shortcut 'Slash' or 'Ctrl/Command + K' to focus search
   useEffect(() => {
@@ -39,7 +40,18 @@ export default function Header() {
       // Focus on status or search triggers
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        const desktop = document.querySelector<HTMLInputElement>(
+          '[data-testid="header-search-desktop"] input'
+        );
+        const mobile = document.querySelector<HTMLInputElement>(
+          '[data-testid="header-mobile-stack"] input'
+        );
+        const preferDesktop =
+          typeof window !== "undefined" &&
+          window.matchMedia("(min-width: 768px)").matches;
+        const target =
+          (preferDesktop ? desktop : mobile) ?? searchInputRef.current;
+        target?.focus();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -47,23 +59,41 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement !== el) return;
-      const step = 120;
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        el.scrollBy({ left: step, behavior: "smooth" });
-      }
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        el.scrollBy({ left: -step, behavior: "smooth" });
-      }
+    const attachArrowScroll = (el: HTMLElement | null) => {
+      if (!el) return () => {};
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (document.activeElement !== el) return;
+        const step = 120;
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          el.scrollBy({ left: step, behavior: "smooth" });
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          el.scrollBy({ left: -step, behavior: "smooth" });
+        }
+      };
+      el.addEventListener("keydown", onKeyDown);
+      return () => el.removeEventListener("keydown", onKeyDown);
     };
-    el.addEventListener("keydown", onKeyDown);
-    return () => el.removeEventListener("keydown", onKeyDown);
+    const detachDesktop = attachArrowScroll(navScrollRef.current);
+    const detachMobile = attachArrowScroll(mobileNavScrollRef.current);
+    return () => {
+      detachDesktop();
+      detachMobile();
+    };
   }, []);
+
+  useEffect(() => {
+    const scrollActiveIntoView = (root: HTMLElement | null) => {
+      if (!root || root.scrollWidth <= root.clientWidth) return;
+      root
+        .querySelector<HTMLElement>(`[data-header-nav="${currentView}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    };
+    scrollActiveIntoView(navScrollRef.current);
+    scrollActiveIntoView(mobileNavScrollRef.current);
+  }, [currentView]);
 
   type AppView = Parameters<typeof setView>[0];
   type HeaderNavItem = {
@@ -114,24 +144,101 @@ export default function Header() {
     if (searchInputRef.current) searchInputRef.current.value = "";
   };
 
+  const renderInlineNavItems = () =>
+    navItems.map((item) => {
+      const Icon = item.icon;
+      const isActive = currentView === item.id;
+      return (
+        <button
+          key={item.id}
+          type="button"
+          data-header-nav={item.id}
+          aria-current={isActive ? "page" : undefined}
+          onClick={() => {
+            setView(item.id);
+            setIsMobileDrawerOpen(false);
+          }}
+          className={`relative shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1.5 min-h-[36px] sm:min-h-[40px] rounded-lg sm:rounded-xl font-sans text-[11px] sm:text-xs lg:text-[13px] font-semibold transition-all duration-200 select-none whitespace-nowrap ${
+            isActive
+              ? "nonga-action shadow-md shadow-orange-600/15"
+              : "nonga-nav-idle"
+          }`}
+        >
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="whitespace-nowrap">{item.label}</span>
+          {"count" in item && item.count > 0 && (
+            <span className="flex-shrink-0 ml-0.5 sm:ml-1 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center leading-none">
+              {item.count}
+            </span>
+          )}
+          {"badge" in item && (
+            <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[8px] font-mono tracking-wider font-black px-1.5 py-0.5 rounded-full uppercase leading-none scale-90 whitespace-nowrap">
+              {item.badge}
+            </span>
+          )}
+        </button>
+      );
+    });
+
+  // Expand desktop search from filters.search only — no duplicate query SoT
+  const desktopSearchHasQuery = Boolean(filters.search);
+
+  const searchField = (opts: {
+    ref?: typeof searchInputRef;
+    showShortcutHint?: boolean;
+    /** Desktop collapsed: truncate long placeholder with ellipsis */
+    truncatePlaceholder?: boolean;
+  }) => (
+    <div className="relative group flex items-center min-w-0 w-full">
+      <span className="absolute left-3 sm:left-3.5 nonga-text-muted group-focus-within:text-orange-500 transition-colors pointer-events-none">
+        <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+      </span>
+      <input
+        ref={opts.ref}
+        type="search"
+        value={filters.search}
+        onChange={(e) => handleSearchChange(e.target.value)}
+        placeholder="ค้นหารุ่นรถยนต์ ยี่ห้อ หรือสเป็กไฟฟ้า... (⌘K)"
+        aria-label="ค้นหารถในตลาด"
+        className={`w-full min-w-0 max-w-full text-[11px] sm:text-xs font-sans pl-9 sm:pl-10 pr-7 sm:pr-8 py-1.5 sm:py-2 rounded-lg sm:rounded-xl transition-[border-color,box-shadow,color] outline-none border nonga-bg-subtle nonga-border nonga-text-primary nonga-placeholder focus:border-orange-500/40 nonga-focus-ring${
+          opts.truncatePlaceholder ? " truncate" : ""
+        }`}
+      />
+      {filters.search ? (
+        <button
+          type="button"
+          onClick={clearSearch}
+          className="absolute right-2 sm:right-2.5 p-1.5 sm:p-1 rounded-md nonga-text-muted nonga-menu-item min-h-[36px] min-w-[36px] flex items-center justify-center"
+          aria-label="ล้างคำค้นหา"
+        >
+          <X className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+        </button>
+      ) : opts.showShortcutHint ? (
+        <span className="absolute right-2.5 sm:right-3 font-mono text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded hidden group-focus-within:inline nonga-bg-subtle nonga-text-muted border nonga-border pointer-events-none">
+          ⌘K
+        </span>
+      ) : null}
+    </div>
+  );
+
   return (
     <>
       <header className="sticky top-0 z-50 transition-all duration-300 nonga-header-bar border-b backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0 py-1.5 sm:py-2">
-          {/* Header ชั้น 1: โลโก้ + ค้นหา + actions */}
-          <div className="grid grid-cols-[auto_1fr_auto] gap-x-2 sm:gap-x-3 gap-y-1.5 items-center">
-            <div 
+          {/* Desktop single row: Logo → Nav → Search → Theme/Account; mobile keeps logo+actions then stacked search/nav */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 w-full">
+            <div
               onClick={() => {
                 setView("home");
                 setIsMobileDrawerOpen(false);
-              }} 
-              className="col-start-1 row-start-1 flex items-center gap-2 cursor-pointer group flex-shrink-0 self-center min-w-0"
+              }}
+              className="flex items-center gap-2 cursor-pointer group shrink-0 min-w-0"
               id="header-branding-logo"
             >
               <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-md shadow-orange-600/20 group-hover:scale-105 transition-transform duration-300">
                 <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
               </div>
-              
+
               <div className="flex flex-col min-w-0 leading-tight">
                 <span className="font-display font-black text-lg sm:text-xl lg:text-2xl tracking-tight flex items-center gap-1 nonga-text-primary">
                   Nong <span className="text-orange-500">A</span>
@@ -145,42 +252,50 @@ export default function Header() {
               </div>
             </div>
 
-            {/* ค้นหา — แสดงทุกขนาดจอ; มือถือเต็มแถว, desktop อยู่กลางแถวโลโก้ */}
-            <div className="col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 flex items-center min-w-0 w-full lg:max-w-sm relative group">
-              <span className="absolute left-3 sm:left-3.5 nonga-text-muted group-focus-within:text-orange-500 transition-colors pointer-events-none">
-                <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </span>
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={filters.search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="ค้นหารุ่นรถยนต์ ยี่ห้อ หรือสเป็กไฟฟ้า... (⌘K)"
-                aria-label="ค้นหารถในตลาด"
-                className="w-full min-w-[10rem] max-w-full text-[11px] sm:text-xs font-sans pl-9 sm:pl-10 pr-7 sm:pr-8 py-1.5 sm:py-2 rounded-lg sm:rounded-xl transition-all outline-none border nonga-bg-subtle nonga-border nonga-text-primary nonga-placeholder focus:border-orange-500/40 nonga-focus-ring" 
+            {/* Desktop nav — flex-1 + min-w-0 so overflow scrolls here, not the page */}
+            <div className="relative hidden md:block flex-1 min-w-0">
+              <p className="sr-only">
+                เมนูหลัก — เลื่อนซ้ายขวาหรือใช้ลูกศรเมื่อโฟกัสที่แถบเมนู
+              </p>
+              <div
+                className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 lg:w-12 bg-gradient-to-l from-[var(--nonga-bg-surface)] to-transparent"
+                aria-hidden
               />
-              {filters.search ? (
-                <button 
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute right-2 sm:right-2.5 p-1.5 sm:p-1 rounded-md nonga-text-muted nonga-menu-item min-h-[36px] min-w-[36px] flex items-center justify-center"
-                  aria-label="ล้างคำค้นหา"
-                >
-                  <X className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
-                </button>
-              ) : (
-                <span className="absolute right-2.5 sm:right-3 font-mono text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded hidden xs:inline nonga-bg-subtle nonga-text-muted border nonga-border pointer-events-none">
-                  ⌘K
-                </span>
-              )}
+              <nav
+                ref={navScrollRef}
+                role="navigation"
+                aria-label="เมนูหลัก"
+                tabIndex={0}
+                data-testid="header-nav-desktop"
+                className="header-nav-scroll flex w-full min-w-0 flex-nowrap items-center gap-1 sm:gap-1.5 py-1 px-0.5 min-h-[36px] sm:min-h-[40px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth touch-pan-x focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
+              >
+                {renderInlineNavItems()}
+              </nav>
             </div>
 
-            <div className="col-start-3 row-start-1 flex items-center gap-1.5 sm:gap-2 flex-shrink-0 justify-self-end self-center">
+            {/* Desktop search — ~150px idle; ~290px on focus-within or when filters.search has value */}
+            <div
+              data-testid="header-search-desktop"
+              data-search-expanded={desktopSearchHasQuery ? "true" : "false"}
+              className={`hidden md:block shrink-0 min-w-0 transition-[width] duration-200 ease-out motion-reduce:transition-none ${
+                desktopSearchHasQuery
+                  ? "w-[min(290px,36vw)] max-w-[290px]"
+                  : "w-[min(150px,28vw)] max-w-[150px] focus-within:w-[min(290px,36vw)] focus-within:max-w-[290px]"
+              }`}
+            >
+              {searchField({
+                ref: searchInputRef,
+                showShortcutHint: true,
+                truncatePlaceholder: true,
+              })}
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto md:ml-0">
               {/* Theme Toggle Button — icon/label = next action when pressed */}
               <button
                 type="button"
                 onClick={toggleDarkMode}
-                className="p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 flex-shrink-0 nonga-focus-ring" 
+                className="p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 nonga-focus-ring"
                 title={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
                 aria-label={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
                 data-testid="header-theme-toggle"
@@ -192,13 +307,13 @@ export default function Header() {
               {!isSignedIn ? (
                 <button
                   onClick={() => setView("login")}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer shrink-0"
                 >
                   <Key className="w-3.5 h-3.5" />
                   <span>เข้าสู่ระบบ AI 🪄</span>
                 </button>
               ) : (
-                <div className="relative flex-shrink-0">
+                <div className="relative shrink-0">
                   <button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="hidden sm:flex items-center gap-2.5 pl-3 border-l cursor-pointer select-none active:scale-95 transition-all outline-none nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring"
@@ -221,22 +336,22 @@ export default function Header() {
                   <AnimatePresence>
                     {isProfileOpen && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-10" 
+                        <div
+                          className="fixed inset-0 z-10"
                           onClick={() => setIsProfileOpen(false)}
                         />
                         <motion.div
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute right-0 mt-3 w-56 rounded-xl border nonga-border nonga-bg-elevated nonga-text-primary p-4.5 z-20 space-y-4 shadow-2xl text-left" 
+                          className="absolute right-0 mt-3 w-56 rounded-xl border nonga-border nonga-bg-elevated nonga-text-primary p-4.5 z-20 space-y-4 shadow-2xl text-left"
                         >
                           <div className="space-y-1 pb-3 border-b border-orange-500/10">
                             <p className="text-[10px] font-bold nonga-text-muted uppercase tracking-widest">ข้อมูลบัญชีผู้ใช้</p>
                             <p className="text-sm font-black truncate">{user?.displayName}</p>
                             <p className="text-[10.5px] font-mono nonga-text-muted truncate">{user?.email}</p>
                           </div>
-                          
+
                           <div className="space-y-1">
                             <div className="p-2 py-2.5 rounded-lg bg-orange-500/5 border border-orange-500/10 text-[10px] leading-relaxed flex items-center gap-1.5 text-orange-400">
                               <Sparkle className="w-3.5 h-3.5 shrink-0 animate-pulse" />
@@ -375,7 +490,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-                className="md:hidden p-2.5 rounded-xl border transition-all min-h-[40px] min-w-[40px] flex items-center justify-center nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring"
+                className="md:hidden p-2.5 rounded-xl border transition-all min-h-[40px] min-w-[40px] flex items-center justify-center nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring shrink-0"
                 aria-label={isMobileDrawerOpen ? "ปิดเมนูเพิ่มเติม" : "เปิดเมนูเพิ่มเติม"}
               >
                 {isMobileDrawerOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -383,61 +498,29 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Header ชั้น 2: เมนูหลัก (รวมใน Header เดียว) */}
-          <div
-            className="relative mt-1 pt-1 border-t nonga-border" 
-          >
-            <p className="sr-only">
-              เมนูหลัก — เลื่อนซ้ายขวาหรือใช้ลูกศรเมื่อโฟกัสที่แถบเมนู
-            </p>
-            <div
-              className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 sm:w-12 bg-gradient-to-l from-[var(--nonga-bg-surface)] to-transparent" 
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-4 bg-gradient-to-r from-[var(--nonga-bg-surface)] to-transparent sm:hidden" 
-              aria-hidden
-            />
-            <nav
-              ref={navScrollRef}
-              role="navigation"
-              aria-label="เมนูหลัก"
-              tabIndex={0}
-              className="header-nav-scroll flex w-full min-w-0 flex-nowrap items-center gap-1 sm:gap-1.5 py-1 px-0.5 min-h-[36px] sm:min-h-[40px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth touch-pan-x focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
-            >
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setView(item.id);
-                      setIsMobileDrawerOpen(false);
-                    }}
-                    className={`relative shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1.5 min-h-[36px] sm:min-h-[40px] rounded-lg sm:rounded-xl font-sans text-[11px] sm:text-xs lg:text-[13px] font-semibold transition-all duration-200 select-none whitespace-nowrap ${
-                      isActive
-                        ? "nonga-action shadow-md shadow-orange-600/15"
-                        : "nonga-nav-idle"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                    <span className="whitespace-nowrap">{item.label}</span>
-                    {"count" in item && item.count > 0 && (
-                      <span className="flex-shrink-0 ml-0.5 sm:ml-1 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center leading-none">
-                        {item.count}
-                      </span>
-                    )}
-                    {"badge" in item && (
-                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[8px] font-mono tracking-wider font-black px-1.5 py-0.5 rounded-full uppercase leading-none scale-90 whitespace-nowrap">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
+          {/* Mobile: keep search + horizontal nav + drawer pattern (do not cram into one row) */}
+          <div className="md:hidden mt-1.5 space-y-1 min-w-0" data-testid="header-mobile-stack">
+            {searchField({ showShortcutHint: false })}
+            <div className="relative min-w-0">
+              <div
+                className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-[var(--nonga-bg-surface)] to-transparent"
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-4 bg-gradient-to-r from-[var(--nonga-bg-surface)] to-transparent"
+                aria-hidden
+              />
+              <nav
+                ref={mobileNavScrollRef}
+                role="navigation"
+                aria-label="เมนูหลัก"
+                tabIndex={0}
+                data-testid="header-nav-mobile"
+                className="header-nav-scroll flex w-full min-w-0 flex-nowrap items-center gap-1 py-1 px-0.5 min-h-[36px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth touch-pan-x focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
+              >
+                {renderInlineNavItems()}
+              </nav>
+            </div>
           </div>
         </div>
       </header>
