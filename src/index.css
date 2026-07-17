@@ -132,6 +132,17 @@ html.dark {
   background-color: color-mix(in srgb, var(--nonga-bg-surface) 92%, transparent);
   border-color: var(--nonga-border);
 }
+/* Header account pill — rounded control aligned with search + theme toggle */
+.header-account-pill {
+  border-color: var(--nonga-border);
+  background-color: var(--nonga-bg-subtle);
+}
+.header-account-pill:hover {
+  border-color: color-mix(in srgb, var(--nonga-brand) 35%, var(--nonga-border));
+}
+html:not(.dark) .header-account-role {
+  color: var(--nonga-text-secondary);
+}
 .nonga-nav-idle {
   color: var(--nonga-text-secondary);
 }

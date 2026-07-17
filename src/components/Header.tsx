@@ -315,20 +315,31 @@ export default function Header() {
               ) : (
                 <div className="relative shrink-0">
                   <button
+                    type="button"
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="hidden sm:flex items-center gap-2.5 pl-3 border-l cursor-pointer select-none active:scale-95 transition-all outline-none nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring"
+                    aria-expanded={isProfileOpen}
+                    aria-haspopup="true"
+                    data-testid="header-account-control"
+                    className="header-account-pill hidden sm:flex items-center gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 min-h-[36px] sm:min-h-[40px] max-w-[min(180px,28vw)] rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
                   >
                     <ProfileAvatar
                       user={user}
                       alt="Avatar"
-                      className="w-8 h-8 rounded-xl border border-orange-500/20 p-0.5 nonga-bg-elevated animate-fade-in object-contain"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border border-orange-500/20 p-0.5 nonga-bg-elevated animate-fade-in object-contain shrink-0"
                     />
-                    <div className="flex flex-col text-left">
-                      <span className="text-[12px] font-semibold leading-none nonga-text-primary max-w-[110px] truncate">
+                    <div className="flex flex-col text-left min-w-0">
+                      <span className="text-[12px] font-semibold leading-none nonga-text-primary truncate">
                         {user?.displayName}
                       </span>
-                      <span className={`text-[9px] font-bold flex items-center gap-0.5 ${membershipDisplay?.textColor || "text-orange-500"}`}>
-                        <span>{membershipDisplay?.icon || "🚗"}</span> <span>{membershipDisplay?.name?.split(" ")[0]}</span>
+                      <span
+                        className={`text-[9px] font-bold flex items-center gap-0.5 truncate header-account-role ${
+                          isDarkMode
+                            ? membershipDisplay?.textColor || "text-orange-400"
+                            : "nonga-text-secondary"
+                        }`}
+                      >
+                        <span>{membershipDisplay?.icon || "🚗"}</span>{" "}
+                        <span>{membershipDisplay?.name?.split(" ")[0]}</span>
                       </span>
                     </div>
                   </button>
