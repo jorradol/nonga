@@ -408,6 +408,9 @@ export const postGeneratorService = {
     postStyle: CarPostStyle = DEFAULT_CAR_POST_STYLE,
     regenerateMode?: CarPostRegenerateMode | null
   ): Promise<GeneratedPosts> {
+    if (import.meta.env.VITE_NONGA_UI_FIXTURE === "true") {
+      throw new Error("ปิดในโหมดตรวจสอบหน้าจอ");
+    }
     const validationError = validateCarSpecsInput(specs);
     if (validationError) {
       throw new Error(validationError);

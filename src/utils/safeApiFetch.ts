@@ -4,6 +4,7 @@ import {
   networkFriendlyError,
   notJsonResponseError,
 } from "./appFriendlyError";
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../fixture/uiFixtureMode";
 
 export interface ApiJsonEnvelope {
   success?: boolean;
@@ -34,6 +35,17 @@ async function readBodyPreview(res: Response, max = 120): Promise<string> {
   } catch {
     return "";
   }
+}
+
+function fixtureMutationBlockedError(url: string, method: string): AppFriendlyError {
+  return new AppFriendlyError({
+    code: "forbidden",
+    friendlyTitle: UI_FIXTURE_DISABLED_REASON,
+    friendlyMessage: UI_FIXTURE_DISABLED_REASON,
+    technicalDetail: `fixture-blocked ${method} ${url}`,
+    status: 403,
+    url,
+  });
 }
 
 /**
@@ -68,6 +80,9 @@ export async function parseApiJsonResponse<T extends ApiJsonEnvelope>(
         : typeof json.error === "string" && json.error === "PAYLOAD_TOO_LARGE"
           ? "ข้อมูลรูปภาพใหญ่เกินไป กรุณาลดจำนวนรูปหรือขนาดรูป แล้วลองใหม่อีกครั้ง"
           : undefined;
+    if (serverMsg === UI_FIXTURE_DISABLED_REASON) {
+      throw fixtureMutationBlockedError(url, "RESPONSE");
+    }
     throw mapHttpStatusToFriendly(res.status, url, serverMsg);
   }
 
@@ -78,6 +93,10 @@ export async function safeApiFetch<T extends ApiJsonEnvelope>(
   url: string,
   init?: SafeApiFetchOptions
 ): Promise<T> {
+  const method = String(init?.method || "GET").toUpperCase();
+  if (isUiFixtureBuild && method !== "GET" && method !== "HEAD") {
+    throw fixtureMutationBlockedError(url, method);
+  }
   try {
     const res = await fetch(url, init);
     init?.onResponseMeta?.({

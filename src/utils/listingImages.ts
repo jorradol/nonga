@@ -7,20 +7,27 @@ import {
   googleDriveFileViewUrl,
   parseGoogleDriveFileId,
 } from "./inventoryImport/imageLinkExtractor";
+import { isUiFixtureBuild } from "../fixture/uiFixtureMode";
+import { FIXTURE_LOCAL_IMAGE } from "../fixture/fixtureAssets";
 
-export const LISTING_PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
+export const LISTING_PLACEHOLDER_IMAGE = isUiFixtureBuild
+  ? FIXTURE_LOCAL_IMAGE
+  : "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
 
 /** รูป demo/stock ที่เคยใช้เป็น fallback — ไม่นับเป็นรูปจริงของประกาศ */
-export const LEGACY_STOCK_IMAGE_URLS = new Set([
-  LISTING_PLACEHOLDER_IMAGE,
-  "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=600",
-  "https://images.unsplash.com/photo-1562575214-da9fcf59b907?auto=format&fit=crop&q=80&w=800",
-  "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800",
-]);
+export const LEGACY_STOCK_IMAGE_URLS = new Set(
+  isUiFixtureBuild
+    ? [FIXTURE_LOCAL_IMAGE]
+    : [
+        LISTING_PLACEHOLDER_IMAGE,
+        "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=600",
+        "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600",
+        "https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&q=80&w=600",
+        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=600",
+        "https://images.unsplash.com/photo-1562575214-da9fcf59b907?auto=format&fit=crop&q=80&w=800",
+        "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800",
+      ]
+);
 
 export function isLocalListingImageUrl(url: string): boolean {
   return String(url).startsWith("/storage/listings/");
@@ -50,7 +57,9 @@ export function extractStorageListingId(url: string): string | null {
 function isLegacyStockImage(url: string): boolean {
   const u = String(url).trim();
   if (LEGACY_STOCK_IMAGE_URLS.has(u)) return true;
-  if (u.includes("unsplash.com/photo-1533473359331-0135ef1b58bf")) return true;
+  if (!isUiFixtureBuild && u.includes("unsplash.com/photo-1533473359331-0135ef1b58bf")) {
+    return true;
+  }
   return false;
 }
 

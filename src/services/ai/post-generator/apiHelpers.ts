@@ -1,4 +1,5 @@
 import { GeneratedPosts } from "../../../types/ai/post-generator";
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../../../fixture/uiFixtureMode";
 
 const DEFAULT_FETCH_TIMEOUT_MS = 90_000;
 
@@ -8,6 +9,12 @@ export async function fetchWithTimeout(
   init: RequestInit = {},
   timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
 ): Promise<Response> {
+  if (isUiFixtureBuild) {
+    const method = String(init.method || "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD") {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 

@@ -1,12 +1,17 @@
 import { useAuthContext } from "../../contexts/auth/AuthContext";
 import { useAppStore } from "../../store";
+import { isUiFixtureBuild } from "../../fixture/uiFixtureMode";
 
 export function useAuth() {
   const context = useAuthContext();
   const setView = useAppStore((state) => state.setView);
 
-  // Safe checks for user registration status
-  const isSignedIn = !!context.user && context.user.uid !== "guest-user-100";
+  // Fixture branch is tree-shaken from Production builds.
+  const isSignedIn = isUiFixtureBuild
+    ? !!context.user &&
+      context.user.providerId === "fixture" &&
+      context.user.role !== "guest"
+    : !!context.user && context.user.uid !== "guest-user-100";
 
   /**
    * Protected Route Guard Helper: Checks if the user is authenticated; 

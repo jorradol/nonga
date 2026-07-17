@@ -20,6 +20,7 @@ import {
   readStoredDarkModePreference,
   writeStoredDarkModePreference,
 } from "./hooks/settings/themeSync";
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "./fixture/uiFixtureMode";
 
 if (typeof window !== "undefined") {
   bootstrapAppRouteState();
@@ -250,6 +251,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchCars: async () => {
     set({ isLoadingCars: true, carsLoadState: "loading", carsLoadError: null });
     try {
+      // Keep the direct compile-time check: normal Vite builds must not emit
+      // the synthetic fixture chunk at all.
+      if (import.meta.env.VITE_NONGA_UI_FIXTURE === "true") {
+        const { getSyntheticFixtureCarsPayload } = await import("./fixture/syntheticCars");
+        const result = getSyntheticFixtureCarsPayload();
+        const next = applyCarsFetchPayload({ cars: get().cars }, result);
+        set(next);
+        return;
+      }
       const response = await fetch("/api/cars", { cache: "no-store" });
       const result = await response.json();
       const next = applyCarsFetchPayload({ cars: get().cars }, result);
@@ -268,7 +278,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error("Store error loading cars list", err);
       set({
         carsLoadState: "error",
-        carsLoadError: "เชื่อมต่อรายการรถไม่สำเร็จชั่วคราว กรุณาลองใหม่",
+        carsLoadError: isUiFixtureBuild
+          ? "โหลดข้อมูลสมมติไม่สำเร็จ — ไม่มีการ fallback ไประบบจริง"
+          : "เชื่อมต่อรายการรถไม่สำเร็จชั่วคราว กรุณาลองใหม่",
       });
     } finally {
       set({ isLoadingCars: false });
@@ -276,6 +288,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addCarListing: async (carData) => {
+    if (isUiFixtureBuild) {
+      console.warn(UI_FIXTURE_DISABLED_REASON, "addCarListing");
+      return null;
+    }
     try {
       const response = await fetch("/api/cars", {
         method: "POST",
@@ -295,6 +311,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteCarListing: async (id) => {
+    if (isUiFixtureBuild) {
+      console.warn(UI_FIXTURE_DISABLED_REASON, "deleteCarListing");
+      return;
+    }
     try {
       await fetch(`/api/cars/${id}`, { method: "DELETE" });
       await get().fetchCars();
@@ -386,6 +406,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
 
     try {
+      if (isUiFixtureBuild) {
+        const aiMessage: ChatMessage = {
+          id: `msg-ai-${Date.now()}`,
+          sender: "ai",
+          text: `${UI_FIXTURE_DISABLED_REASON} — นี่เป็นข้อความตัวอย่างสำหรับตรวจ layout แชทเท่านั้น ไม่เรียก AI จริง`,
+          createdAt: new Date().toISOString()
+        };
+        set((state) => ({
+          chatMessages: {
+            ...state.chatMessages,
+            [sessionId]: [...(state.chatMessages[sessionId] || []), aiMessage]
+          },
+          isGeneratingAI: false
+        }));
+        return;
+      }
       const history = get().chatMessages[sessionId] || [];
       const response = await fetch("/api/gemini/chat", {
         method: "POST",
@@ -453,6 +489,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   generateAIDescription: async (carDetails) => {
     set({ isWritingAI: true });
     try {
+      if (isUiFixtureBuild) {
+        const description = UI_FIXTURE_DISABLED_REASON;
+        set({ lastAIGeneratedDescription: description });
+        return description;
+      }
       const response = await fetchWithTimeout(
         "/api/gemini/generate-post",
         {

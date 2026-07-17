@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
 import path from 'path';
 import {defineConfig} from 'vite';
+import { hostingOnlyFixtureIsolationPlugin } from './scripts/vite-hosting-only-fixture-plugin.mts';
 
 function firebaseProductionConfigGuard() {
   return {
@@ -10,6 +11,7 @@ function firebaseProductionConfigGuard() {
     apply: 'build' as const,
     buildStart() {
       if (process.env.SKIP_FIREBASE_PRODUCTION_GUARD === 'true') return;
+      if (process.env.VITE_NONGA_UI_FIXTURE === 'true') return;
       execSync('tsx scripts/verify-vite-production-firebase.mts', {
         stdio: 'inherit',
         env: process.env,
@@ -20,7 +22,12 @@ function firebaseProductionConfigGuard() {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), firebaseProductionConfigGuard()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      hostingOnlyFixtureIsolationPlugin(),
+      firebaseProductionConfigGuard(),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

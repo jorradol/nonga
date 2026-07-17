@@ -3,6 +3,7 @@
 import { isMarketplaceSearchIntent } from "./marketplaceChatSearch";
 import { detectBuyerAdvisorTopic } from "./chatBuyerAdvisorTemplates";
 import { CHAT_PILOT_CLOSED_INVITE_NOTICE } from "./chatDraftAccess";
+import { PUBLIC_NONGA_BASE_URL } from "../../../utils/publicNongaUrl";
 
 export type HelpOnboardingTopic =
   | "generalHelp"
@@ -153,7 +154,7 @@ export function buildHelpOnboardingReply(
           "กดคัดลอกโพสต์ขาย / โพสต์สั้น / สเปกรถ แล้วนำไปลง Facebook หรือ LINE เอง",
           "ตอบคำถามผู้สนใจและนัดดูรถจริงตามที่สะดวก",
         ]),
-        "ลิงก์ประกาศสาธารณะจะเป็นโดเมัน a.nongbot.org ครับ",
+        `ลิงก์ประกาศสาธารณะจะเป็นโดเมัน ${new URL(PUBLIC_NONGA_BASE_URL).hostname} ครับ`,
       ]);
     case "sellerShareCopy":
       return joinLines([

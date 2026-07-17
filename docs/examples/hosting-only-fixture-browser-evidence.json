@@ -1,0 +1,58 @@
+{
+  "version": "gate-d1-remediation-evidence",
+  "capturedAt": "2026-07-17T21:40:00+07:00",
+  "origin": "http://127.0.0.1:4177",
+  "network": {
+    "hostsObservedAcrossMatrix": ["127.0.0.1"],
+    "fetchProduction": "blocked",
+    "xhrRemoteOpen": "blocked",
+    "sendBeaconProduction": "returned-false",
+    "webSocketProduction": "blocked",
+    "postApiCars": {
+      "status": 403,
+      "message": "ปิดในโหมดตรวจสอบหน้าจอ"
+    }
+  },
+  "firebaseRuntimeCounters": {
+    "initializeApp": 0,
+    "getAuth": 0,
+    "getFirestore": 0,
+    "getStorage": 0,
+    "getApp": 0,
+    "getApps": 0,
+    "authApi": 0,
+    "firestoreApi": 0
+  },
+  "commonAssertions": {
+    "fixtureBanner": true,
+    "horizontalOverflow": false,
+    "externalImageHosts": [],
+    "routeErrors": [],
+    "darkAndLightVerified": true
+  },
+  "routes": [
+    { "path": "/home", "role": "guest", "result": "rendered" },
+    { "path": "/marketplace", "role": "guest", "result": "rendered" },
+    { "path": "/search", "role": "guest", "result": "rendered" },
+    { "path": "/cars/fx-car-001", "role": "guest", "result": "rendered" },
+    { "path": "/chat", "role": "guest", "result": "rendered-no-ai-request" },
+    { "path": "/sell", "role": "guest", "result": "login-guard" },
+    { "path": "/profile", "role": "guest", "result": "login-guard" },
+    { "path": "/dealer", "role": "guest", "result": "login-guard" },
+    { "path": "/admin/dashboard", "role": "guest", "result": "login-guard" },
+    { "path": "/car-post-generator", "role": "guest", "result": "rendered" },
+    { "path": "/viral-captions", "role": "guest", "result": "rendered" },
+    { "path": "/profile", "role": "member", "result": "rendered" },
+    { "path": "/chat", "role": "member", "result": "rendered-no-ai-request" },
+    { "path": "/sell", "role": "dealer", "result": "rendered-form" },
+    { "path": "/dealer", "role": "dealer", "result": "rendered-dashboard" },
+    { "path": "/car-post-generator", "role": "dealer", "result": "rendered" },
+    { "path": "/viral-captions", "role": "dealer", "result": "rendered" },
+    { "path": "/admin/dashboard", "role": "admin", "result": "rendered-dashboard" }
+  ],
+  "fonts": {
+    "fixtureDecision": "remote Google Fonts removed",
+    "fallback": "system font stack",
+    "productionDependency": false
+  }
+}

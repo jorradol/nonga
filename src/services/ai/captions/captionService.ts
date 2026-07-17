@@ -1,4 +1,5 @@
 import { GeneratedCaption, CarSpecsInput, CaptionType, SocialPlatform, EmojiOption, FavoritedCaption, CaptionTrend } from "../../../types/ai/captions";
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../../../fixture/uiFixtureMode";
 
 class CaptionService {
   private FAVORITES_KEY = "nonga_favorited_captions";
@@ -13,6 +14,9 @@ class CaptionService {
     emojiOption: EmojiOption,
     trendMultiplier: boolean = false
   ): Promise<GeneratedCaption> {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     const response = await fetch("/api/ai/captions/generate", {
       method: "POST",
       headers: {

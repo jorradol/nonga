@@ -1,4 +1,5 @@
 import { ChatMessage } from "../../types";
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../../fixture/uiFixtureMode";
 
 export const aiService = {
   /**
@@ -19,6 +20,10 @@ export const aiService = {
     onComplete: () => void,
     onError: (err: Error) => void
   ): Promise<void> {
+    if (isUiFixtureBuild) {
+      onError(new Error(UI_FIXTURE_DISABLED_REASON));
+      return;
+    }
     try {
       const response = await fetch("/api/gemini/chat-stream", {
         method: "POST",

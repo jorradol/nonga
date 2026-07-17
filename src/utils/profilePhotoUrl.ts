@@ -1,3 +1,6 @@
+import { isUiFixtureBuild } from "../fixture/uiFixtureMode";
+import { FIXTURE_LOCAL_IMAGE } from "../fixture/fixtureAssets";
+
 export type ProfilePhotoUserLike = {
   photoURL?: string | null;
   displayName?: string | null;
@@ -26,6 +29,7 @@ export function resolveProfilePhotoSeed(
 export function resolveProfilePhotoFallbackUrl(
   user: ProfilePhotoUserLike | null | undefined
 ): string {
+  if (isUiFixtureBuild) return FIXTURE_LOCAL_IMAGE;
   return `https://api.dicebear.com/7.x/${PROFILE_AVATAR_STYLE}/svg?seed=${resolveProfilePhotoSeed(user)}`;
 }
 

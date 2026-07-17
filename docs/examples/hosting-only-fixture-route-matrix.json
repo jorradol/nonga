@@ -1,0 +1,21 @@
+{
+  "version": "gate-d1-hosting-only-fixture",
+  "disclaimer": "ข้อมูลสมมติสำหรับตรวจสอบหน้าจอ — ไม่ใช่ประกาศขายจริง",
+  "roles": ["guest", "member", "dealer", "admin"],
+  "routes": [
+    { "path": "/home", "view": "home", "roles": ["guest", "member", "dealer", "admin"] },
+    { "path": "/marketplace", "view": "marketplace", "roles": ["guest", "member", "dealer", "admin"] },
+    { "path": "/search", "view": "search", "roles": ["guest", "member", "dealer", "admin"] },
+    { "path": "/cars/fx-car-001", "view": "car-details", "roles": ["guest", "member", "dealer", "admin"] },
+    { "path": "/chat", "view": "chat", "roles": ["guest", "member", "dealer", "admin"] },
+    { "path": "/sell", "view": "sell", "roles": ["dealer", "admin"], "guestExpect": "route-guard" },
+    { "path": "/profile", "view": "profile", "roles": ["member", "dealer", "admin"], "guestExpect": "route-guard" },
+    { "path": "/dealer", "view": "dealer-portal", "roles": ["dealer", "admin"], "guestExpect": "route-guard" },
+    { "path": "/admin/dashboard", "view": "admin-dashboard", "roles": ["admin"], "guestExpect": "route-guard" },
+    { "path": "/car-post-generator", "view": "car-post-generator", "roles": ["dealer", "admin", "member", "guest"] },
+    { "path": "/viral-captions", "view": "viral-captions", "roles": ["dealer", "admin", "member", "guest"] }
+  ],
+  "states": ["empty", "error", "disabled-mutation", "dark", "light"],
+  "viewports": ["1366", "1280", "1024", "mobile"],
+  "zoom": ["80%", "100%", "125%"]
+}

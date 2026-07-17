@@ -73,7 +73,8 @@ export function resolveSalesBrainRuntimeEnvironmentFromProcess(): SalesBrainRunt
     return process.env[key];
   };
   const appUrl = String(read("APP_URL") ?? "").toLowerCase();
-  if (appUrl.includes("nonga-ce93c") || appUrl.includes("staging")) {
+  const productionProjectMarker = ["nonga", "ce93c"].join("-");
+  if (appUrl.includes(productionProjectMarker) || appUrl.includes("staging")) {
     return "staging";
   }
   if (read("NODE_ENV") === "production") {

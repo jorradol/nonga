@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../../firebase-applet-config.json";
+import { isUiFixtureBuild } from "../../fixture/uiFixtureMode";
 import {
   FIREBASE_AUTH_UNAVAILABLE_THAI,
   detectFirebaseClientConfig,
@@ -17,25 +18,59 @@ let app;
 let auth: ReturnType<typeof getAuth>;
 let db: ReturnType<typeof getFirestore>;
 
-const firebaseClientConfig = resolveFirebaseClientConfig(firebaseConfig);
+const emptyFixtureFirebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: "",
+};
+
+const firebaseClientConfig = isUiFixtureBuild
+  ? emptyFixtureFirebaseConfig
+  : resolveFirebaseClientConfig(firebaseConfig);
 const firebaseClientConfigReport = detectFirebaseClientConfig(firebaseClientConfig);
-reportFirebaseClientConfig(firebaseClientConfigReport);
+if (!isUiFixtureBuild) {
+  reportFirebaseClientConfig(firebaseClientConfigReport);
+}
 
-const firebaseClientAuthMode = firebaseClientConfigReport.mode;
-const firebaseClientAuthEnvironment =
-  firebaseAuthEnvironment(firebaseClientConfigReport);
-const isFirebaseAuthReady = firebaseClientConfigReport.isUsableForFirebaseAuth;
-const isMockConfig = shouldAllowMockAuth(firebaseClientConfigReport);
-const isMockAuthStorageEnabled = shouldAllowMockAuth(firebaseClientConfigReport);
-const isSandboxAuthToolsEnabled = shouldAllowSandboxTools(firebaseClientConfigReport);
-const firebaseAuthUnavailableMessage = FIREBASE_AUTH_UNAVAILABLE_THAI;
+const firebaseClientAuthMode = isUiFixtureBuild
+  ? ("invalid-production-config" as const)
+  : firebaseClientConfigReport.mode;
+const firebaseClientAuthEnvironment = isUiFixtureBuild
+  ? {
+      isLocalDev: false,
+      isProduction: true,
+      isBetaMode: false,
+      isFirebaseAuthMode: false,
+      isInvalidProductionConfig: true,
+    }
+  : firebaseAuthEnvironment(firebaseClientConfigReport);
+const isFirebaseAuthReady = isUiFixtureBuild
+  ? false
+  : firebaseClientConfigReport.isUsableForFirebaseAuth;
+const isMockConfig = isUiFixtureBuild
+  ? false
+  : shouldAllowMockAuth(firebaseClientConfigReport);
+const isMockAuthStorageEnabled = isUiFixtureBuild
+  ? false
+  : shouldAllowMockAuth(firebaseClientConfigReport);
+const isSandboxAuthToolsEnabled = isUiFixtureBuild
+  ? false
+  : shouldAllowSandboxTools(firebaseClientConfigReport);
+const firebaseAuthUnavailableMessage = isUiFixtureBuild
+  ? "ปิดในโหมดตรวจสอบหน้าจอ"
+  : FIREBASE_AUTH_UNAVAILABLE_THAI;
 
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseClientConfig) : getApp();
-  auth = getAuth(app);
-  db = getFirestore(app);
-} catch (error) {
-  console.warn("⚠️ Firebase fell back to lazy initialization or mock states due to config issues:", error);
+if (!isUiFixtureBuild) {
+  try {
+    app = getApps().length === 0 ? initializeApp(firebaseClientConfig) : getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+  } catch (error) {
+    console.warn("⚠️ Firebase fell back to lazy initialization or mock states due to config issues:", error);
+  }
 }
 
 export {

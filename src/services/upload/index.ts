@@ -3,6 +3,9 @@
  * Supports client-side canvas-based image resizing and asynchronous upload progress callbacks.
  */
 
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../../fixture/uiFixtureMode";
+import { FIXTURE_LOCAL_IMAGE } from "../../fixture/fixtureAssets";
+
 export interface CompressorOptions {
   maxWidth?: number;
   maxHeight?: number;
@@ -79,11 +82,15 @@ export async function compressImage(file: File, options: CompressorOptions = {})
   });
 }
 
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../../fixture/uiFixtureMode";
+import { FIXTURE_LOCAL_IMAGE } from "../../fixture/fixtureAssets";
+
 /**
  * Simulated premium upload engine with customizable progress reporting
  */
-const PREVIEW_PLACEHOLDER =
-  "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
+const PREVIEW_PLACEHOLDER = isUiFixtureBuild
+  ? FIXTURE_LOCAL_IMAGE
+  : "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=600";
 
 async function fileToPreviewDataUrl(file: File): Promise<string> {
   let processed = file;
@@ -113,6 +120,10 @@ export async function uploadCarImage(
   file: File,
   onProgress?: (percent: number) => void
 ): Promise<string> {
+  if (isUiFixtureBuild) {
+    onProgress?.(100);
+    throw new Error(UI_FIXTURE_DISABLED_REASON);
+  }
   let currentProgress = 0;
   const tick = () => {
     const step = Math.floor(Math.random() * 15) + 8;

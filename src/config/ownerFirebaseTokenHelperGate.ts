@@ -1,3 +1,4 @@
+import { isUiFixtureBuild } from "../fixture/uiFixtureMode";
 import { canAccessAdmin } from "../utils/rbac";
 
 export const OWNER_FIREBASE_TOKEN_HELPER_FLAG_ENV =
@@ -6,8 +7,13 @@ export const OWNER_GEMINI_ONE_RUN_HELPER_FLAG_ENV =
   "VITE_NONGA_OWNER_GEMINI_ONE_RUN_HELPER_ENABLED";
 export const OWNER_FIREBASE_TOKEN_HELPER_ALLOWLIST_UIDS_ENV =
   "VITE_NONGA_OWNER_FIREBASE_TOKEN_HELPER_ALLOWLIST_UIDS";
-export const OWNER_FIREBASE_TOKEN_HELPER_STAGING_HOST = "a.nongbot.org";
-export const OWNER_FIREBASE_TOKEN_HELPER_STAGING_PROJECT_ID = "nonga-ce93c";
+/** Fixture builds tree-shake Production host/project identifiers. */
+export const OWNER_FIREBASE_TOKEN_HELPER_STAGING_HOST = isUiFixtureBuild
+  ? "nonga-staging-2026.web.app"
+  : "a.nongbot.org";
+export const OWNER_FIREBASE_TOKEN_HELPER_STAGING_PROJECT_ID = isUiFixtureBuild
+  ? "nonga-staging-2026"
+  : "nonga-ce93c";
 export const OWNER_FIREBASE_TOKEN_HELPER_GUEST_UID = "guest-user-100";
 
 export type OwnerFirebaseTokenHelperGateReason =

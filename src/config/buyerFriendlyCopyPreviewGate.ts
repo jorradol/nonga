@@ -1,6 +1,9 @@
 /**
  * v6.3B.2 — Buyer-friendly listing copy preview gate (default-deny, staging + allowlist).
+ * Hosting-only fixture builds tree-shake Production host/project identifiers.
  */
+
+import { isUiFixtureBuild } from "../fixture/uiFixtureMode";
 
 export const BUYER_FRIENDLY_COPY_PREVIEW_FLAG_ENV =
   "VITE_NONGA_BUYER_FRIENDLY_COPY_PREVIEW_ENABLED";
@@ -8,9 +11,13 @@ export const BUYER_FRIENDLY_COPY_PREVIEW_FLAG_ENV =
 export const BUYER_FRIENDLY_COPY_PREVIEW_ALLOWLIST_UIDS_ENV =
   "VITE_NONGA_BUYER_FRIENDLY_COPY_PREVIEW_ALLOWLIST_UIDS";
 
-export const STAGING_BUYER_FRIENDLY_COPY_HOST = "a.nongbot.org";
+export const STAGING_BUYER_FRIENDLY_COPY_HOST = isUiFixtureBuild
+  ? "nonga-staging-2026.web.app"
+  : "a.nongbot.org";
 
-export const STAGING_BUYER_FRIENDLY_COPY_PROJECT_ID = "nonga-ce93c";
+export const STAGING_BUYER_FRIENDLY_COPY_PROJECT_ID = isUiFixtureBuild
+  ? "nonga-staging-2026"
+  : "nonga-ce93c";
 
 export const GUEST_SIMULATED_UID = "guest-user-100";
 

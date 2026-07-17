@@ -1,10 +1,14 @@
 import { AICarAnalysis } from "../../../types/ai/vision";
+import { isUiFixtureBuild, UI_FIXTURE_DISABLED_REASON } from "../../../fixture/uiFixtureMode";
 
 export const aiVisionService = {
   /**
    * Submits a base64 encoded car image to server-side Gemini Vision model.
    */
   async analyzeCarImage(imageBase64: string): Promise<AICarAnalysis> {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     try {
       const response = await fetch("/api/ai/vision/analyze", {
         method: "POST",

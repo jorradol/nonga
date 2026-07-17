@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useState, ReactNode } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { authService, UserSession } from "../../services/auth/authService";
 import {
@@ -11,6 +11,8 @@ import {
 } from "../../lib/firebase";
 import { useAppStore } from "../../store";
 import { userService } from "../../services/user/userService";
+import { isUiFixtureBuild } from "../../fixture/uiFixtureMode";
+import { UI_FIXTURE_DISABLED_REASON } from "../../fixture/uiFixtureMode";
 
 interface AuthContextType {
   user: UserSession | null;
@@ -30,9 +32,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function readFixtureUserForInitialState(): UserSession | null {
+  if (!isUiFixtureBuild || typeof window === "undefined") return null;
+  const api = (
+    window as Window & {
+      __nongaFixtureRoles?: {
+        buildFixtureRoleSession: (role: "guest" | "member" | "dealer" | "admin") => UserSession;
+        readStoredFixtureRole: () => "guest" | "member" | "dealer" | "admin";
+      };
+    }
+  ).__nongaFixtureRoles;
+  if (!api) return null;
+  return api.buildFixtureRoleSession(api.readStoredFixtureRole());
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<UserSession | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [user, setUserState] = useState<UserSession | null>(() =>
+    readFixtureUserForInitialState()
+  );
+  // Fixture bootstrap in main.tsx preloads role helpers before first paint.
+  const [loading, setLoading] = useState<boolean>(() => !isUiFixtureBuild);
   const [error, setError] = useState<string | null>(null);
   const setUserInStore = useAppStore((state) => state.setUser);
 
@@ -42,6 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserInStore(session);
     authService.persistSession(session);
   };
+
+  // Fixture first paint: AuthContext user is ready, but Zustand still has the guest default.
+  useLayoutEffect(() => {
+    if (!isUiFixtureBuild) return;
+    const initial = readFixtureUserForInitialState();
+    if (initial) {
+      setUserInStore(initial);
+      authService.persistSession(initial);
+    }
+  }, [setUserInStore]);
 
   // Helper to fetch profile via API mediation (or simulated local storage)
   const fetchOrCreateUserProfile = async (uid: string, baseSession: UserSession): Promise<UserSession> => {
@@ -119,6 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = async (updates: Partial<UserSession>) => {
     if (!user) {
       throw new Error("ไม่พบบัญชีผู้ใช้ — กรุณาเข้าสู่ระบบก่อน");
+    }
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
     }
     const uid = user.uid;
     const isSimulated =
@@ -210,6 +242,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let unsubscribeAuth: (() => void) | undefined;
     const initializeAuth = async () => {
+      if (isUiFixtureBuild) {
+        const api =
+          (
+            window as Window & {
+              __nongaFixtureRoles?: {
+                buildFixtureRoleSession: (
+                  role: "guest" | "member" | "dealer" | "admin"
+                ) => UserSession;
+                readStoredFixtureRole: () => "guest" | "member" | "dealer" | "admin";
+              };
+            }
+          ).__nongaFixtureRoles ??
+          (await import("../../fixture/fixtureRoles"));
+        const role = api.readStoredFixtureRole();
+        syncUser(api.buildFixtureRoleSession(role));
+        setLoading(false);
+        return;
+      }
+
       const realFirebaseAuth =
         auth &&
         isFirebaseAuthReady &&
@@ -272,6 +323,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setUserInStore]);
 
   const loginWithEmail = async (email: string, password: string) => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -289,6 +343,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const registerWithEmail = async (email: string, password: string, displayName: string) => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -306,6 +363,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -320,6 +380,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -337,6 +400,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithFacebook = async () => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -353,6 +419,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithLINE = async () => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -369,6 +438,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    if (isUiFixtureBuild) {
+      throw new Error(UI_FIXTURE_DISABLED_REASON);
+    }
     setLoading(true);
     try {
       await authService.logout();
@@ -396,10 +468,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateUserProfile,
         completeOnboarding,
         isSimulatedState:
+          isUiFixtureBuild ||
           isMockConfig ||
           !!user?.isSimulated ||
           user?.uid === "guest-user-100" ||
-          !!user?.uid?.startsWith("sim-")
+          !!user?.uid?.startsWith("sim-") ||
+          !!user?.uid?.startsWith("fixture-")
       }}
     >
       {children}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="Synthetic fixture car placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <rect x="120" y="210" width="560" height="120" rx="36" fill="#64748b"/>
+  <circle cx="240" cy="340" r="42" fill="#1e293b" stroke="#94a3b8" stroke-width="8"/>
+  <circle cx="560" cy="340" r="42" fill="#1e293b" stroke="#94a3b8" stroke-width="8"/>
+  <text x="400" y="120" text-anchor="middle" fill="#f8fafc" font-family="Segoe UI, sans-serif" font-size="28" font-weight="700">I-!9%*!!4*3+#1#'*-+I2-</text>
+  <text x="400" y="160" text-anchor="middle" fill="#cbd5e1" font-family="Segoe UI, sans-serif" font-size="18">Fixture placeholder  not a real listing</text>
+</svg>
