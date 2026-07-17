@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { Send, Menu, Sparkles, Sliders, ChevronDown, Car } from "lucide-react";
+import { Send, Menu, Sparkles, ChevronDown, Car } from "lucide-react";
 import {
   ChatImageAttachmentInput,
   ChatImageAttachmentPreview,
@@ -336,14 +336,6 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
               <Car className="w-3.5 h-3.5 text-orange-400" />
               <span className="max-sm:hidden">ไปที่ตลาดรถ</span>
               <span className="sm:hidden">ตลาด</span>
-            </button>
-            <button
-              onClick={() => setShowMobileProps(!showMobileProps)}
-              className="xl:hidden text-xs bg-slate-800 border border-slate-700 text-orange-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:bg-slate-700/80 transition cursor-pointer"
-              title="ตั้งค่าสมรรถนะบอท"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">ตั้งค่าบอท</span>
             </button>
           </div>
         </div>

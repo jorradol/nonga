@@ -53,6 +53,9 @@ function main(): void {
   mustInclude(container, "h-12 md:h-16", "mobile-compact-header");
   mustInclude(container, "md:h-16", "desktop-header-preserved");
   mustInclude(container, "max-md:min-w-11", "mobile-touch-send");
+  mustNotInclude(container, "ตั้งค่าบอท", "chat-header-no-bot-settings-label");
+  mustNotInclude(container, 'title="ตั้งค่าสมรรถนะบอท"', "chat-header-no-bot-settings-entry-point");
+  mustInclude(container, 'title="ไปที่ตลาดรถ"', "chat-header-marketplace-entry-point-preserved");
 
   mustInclude(aiView, "min-h-0", "ai-chat-root-min-h-0");
   mustInclude(aiView, "matchMedia(\"(min-width: 768px)\")", "sidebar-viewport-sync");
