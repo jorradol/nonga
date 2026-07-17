@@ -176,14 +176,16 @@ export default function Header() {
             </div>
 
             <div className="col-start-3 row-start-1 flex items-center gap-1.5 sm:gap-2 flex-shrink-0 justify-self-end self-center">
-              {/* Theme Toggle Button */}
+              {/* Theme Toggle Button — icon/label = next action when pressed */}
               <button
                 type="button"
                 onClick={toggleDarkMode}
                 className="p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 flex-shrink-0 nonga-focus-ring" 
-                title="สลับโหมดหน้าจอสีขาว/ดำ"
+                title={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+                aria-label={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+                data-testid="header-theme-toggle"
               >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDarkMode ? <Sun className="w-4 h-4" aria-hidden="true" /> : <Moon className="w-4 h-4" aria-hidden="true" />}
               </button>
 
               {/* Verified Badge or Login Trigger for Authenticated or Guest User */}

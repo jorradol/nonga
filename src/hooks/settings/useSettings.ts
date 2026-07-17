@@ -20,7 +20,9 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  // Load user settings on mount
+  // Load user settings on mount / auth identity change only.
+  // Do NOT re-fetch when storeIsDarkMode changes — that fought Header toggles
+  // and snapped the UI back to the last saved theme (double-toggle feel).
   useEffect(() => {
     let active = true;
     if (authLoading) return;
@@ -36,11 +38,12 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
         const loaded = await userService.getUserSettings(user.uid);
         if (active) {
           setSettings(loaded);
-          
-          // Align store's dark mode to fetched settings theme
+
+          // Align runtime theme to persisted settings once after load
           const targetDark = loaded.theme === "dark";
-          if (targetDark !== storeIsDarkMode) {
-            toggleDarkMode();
+          const currentDark = useAppStore.getState().isDarkMode;
+          if (targetDark !== currentDark) {
+            useAppStore.getState().toggleDarkMode();
           }
         }
       } catch (err) {
@@ -65,7 +68,16 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
     return () => {
       active = false;
     };
-  }, [user, authLoading, showToast, storeIsDarkMode, toggleDarkMode]);
+  }, [user, authLoading, showToast]);
+
+  // Keep local settings.theme aligned with runtime store when Header toggles,
+  // so Profile click/save does not skip the store sync path.
+  useEffect(() => {
+    const desiredTheme = storeIsDarkMode ? "dark" : "light";
+    setSettings((prev) =>
+      prev.theme === desiredTheme ? prev : { ...prev, theme: desiredTheme }
+    );
+  }, [storeIsDarkMode]);
 
   /**
    * Save settings back to database
@@ -87,10 +99,11 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
       await userService.ensureProfileReady(user.uid);
       await userService.updateUserSettings(user.uid, updated);
       
-      // Handle theme change toggle locally if mismatch exists
-      if (nextSettings.theme && nextSettings.theme !== settings.theme) {
+      // Always align runtime store to the desired theme (not only when
+      // settings.theme previously differed — Header may have already flipped store).
+      if (nextSettings.theme) {
         const wantsDark = nextSettings.theme === "dark";
-        const hasDarkNow = storeIsDarkMode;
+        const hasDarkNow = useAppStore.getState().isDarkMode;
         if (wantsDark !== hasDarkNow) {
           toggleDarkMode();
         }
@@ -115,7 +128,7 @@ export function useSettings(showToast?: (msg: string, type?: "success" | "info" 
    * Trigger theme toggle
    */
   const toggleThemeState = async () => {
-    const nextTheme = settings.theme === "dark" ? "light" : "dark";
+    const nextTheme = storeIsDarkMode ? "light" : "dark";
     await saveSettings({ theme: nextTheme });
   };
 

@@ -707,18 +707,22 @@ export default function UserProfileView() {
 
                     <div>
                       <button
+                        type="button"
                         onClick={() => {
-                          const isCurrentlyDark = settings.theme === "dark";
-                          const changeTo = isCurrentlyDark ? "light" : "dark";
+                          // Next-action semantics (mirror Header): dark → switch to light
+                          const changeTo = isDarkMode ? "light" : "dark";
                           saveSettings({ theme: changeTo });
                         }}
-                        className={`p-2 px-4 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 border ${
-                          settings.theme === "dark" 
-                            ? "bg-slate-900 border-orange-500 text-orange-400" 
-                            : "bg-white border-slate-300 text-slate-800"
+                        title={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+                        aria-label={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+                        data-testid="profile-theme-toggle"
+                        className={`p-2 px-4 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 border outline-none focus-visible:ring-2 focus-visible:ring-orange-500/70 focus-visible:ring-offset-2 ${
+                          isDarkMode
+                            ? "bg-slate-900 border-orange-500 text-orange-400 focus-visible:ring-offset-slate-950"
+                            : "bg-white border-slate-300 text-slate-800 focus-visible:ring-offset-white"
                         }`}
                       >
-                        {settings.theme === "dark" ? "🌙 ลุยโหมดมืด" : "☀️ ลุยโหมดสว่าง"}
+                        {isDarkMode ? "☀️ เปลี่ยนเป็นโหมดสว่าง" : "🌙 เปลี่ยนเป็นโหมดมืด"}
                       </button>
                     </div>
                   </div>
