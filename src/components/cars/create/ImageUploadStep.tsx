@@ -202,9 +202,7 @@ export default function ImageUploadStep({
         className={`p-8 rounded-2xl border-2 border-dashed cursor-pointer text-center transition-all ${
           isDragging
             ? "border-orange-500 bg-orange-500/10 scale-[1.01]"
-            : isDarkMode
-            ? "border-white/10 hover:border-orange-500/30 hover:bg-orange-500/[0.02]"
-            : "border-slate-300 hover:border-orange-500/50 hover:bg-orange-500/[0.01]"
+            : "nonga-border nonga-bg-subtle hover:border-orange-500/40 hover:bg-[color-mix(in_srgb,var(--nonga-brand)_4%,transparent)]"
         }`}
       >
         <input
@@ -221,8 +219,8 @@ export default function ImageUploadStep({
             <ImageIcon className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-bold">ลากและวางรูปถ่ายของคุณที่นี่</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm font-bold nonga-text-primary">ลากและวางรูปถ่ายของคุณที่นี่</p>
+            <p className="text-xs nonga-text-secondary">
               หรือ <span className="text-orange-500 font-semibold underline">คลิกพรีวิวอัปเดต</span> จากโฟลเดอร์คอมพิวเตอร์ของคุณ
             </p>
           </div>
@@ -233,7 +231,7 @@ export default function ImageUploadStep({
                 e.stopPropagation();
                 startCameraSimulator();
               }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+              className="px-4 py-2 nonga-bg-elevated border nonga-border nonga-text-primary hover:border-orange-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95 nonga-focus-ring"
             >
               <Camera className="w-3.5 h-3.5 text-orange-500" />
               <span>เปิดกล้องถ่ายภาพ 📸</span>

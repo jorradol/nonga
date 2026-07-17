@@ -62,7 +62,7 @@ export default function PreviewPublishStep({
         <Eye className="w-5 h-5 text-orange-500" />
         <div className="text-left">
           <h3 className="text-base font-extrabold text-orange-500">7. ตรวจทานพรีวิวรายละเอียดก่อนขึ้นแผงจริง</h3>
-          <p className="text-[11px] text-slate-400">เช็คสภาพเกรดคำประกาศความพร้อมของข้อมูลด้วยระบบวิเคราะห์ Nong A AI</p>
+          <p className="text-[11px] nonga-text-secondary">เช็คสภาพเกรดคำประกาศความพร้อมของข้อมูลด้วยระบบวิเคราะห์ Nong A AI</p>
         </div>
       </div>
 
@@ -72,12 +72,12 @@ export default function PreviewPublishStep({
         <div className="lg:col-span-3 space-y-5">
           
           {/* AI Auditor result panel */}
-          <div className="p-5 rounded-2xl border bg-gradient-to-br from-[#0e0e12] to-[#12121a] border-orange-500/15 relative overflow-hidden">
+          <div className="p-5 rounded-2xl border nonga-bg-subtle border-orange-500/15 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl"></div>
             
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-orange-500/10 flex flex-col items-center justify-center border border-orange-550 shrink-0">
-                <span className="text-[11px] font-bold text-slate-400 font-mono uppercase tracking-widest leading-none">SCORE</span>
+                <span className="text-[11px] font-bold nonga-text-muted font-mono uppercase tracking-widest leading-none">SCORE</span>
                 <span className="text-xl font-black font-mono text-orange-500 leading-none pt-0.5">{aiScore}%</span>
               </div>
               <div className="space-y-1">
@@ -85,7 +85,7 @@ export default function PreviewPublishStep({
                   <Sparkles className="w-3.5 h-3.5 animate-bounce" />
                   Nong A AI Certified Score Validation
                 </span>
-                <h4 className="font-display font-medium text-xs leading-relaxed text-slate-300">
+                <h4 className="font-display font-medium text-xs leading-relaxed nonga-text-secondary">
                   {aiAssessment}
                 </h4>
               </div>
@@ -93,8 +93,8 @@ export default function PreviewPublishStep({
           </div>
 
           {/* Validation Checklist / errors list */}
-          <div className="p-4 rounded-xl border border-white/5 bg-slate-900/30 space-y-3">
-            <span className="text-xs font-bold text-slate-400 block">รายงานตรวจสอบระบบข้อมูลความพร้อมขาย</span>
+          <div className="p-4 rounded-xl border nonga-border nonga-bg-subtle space-y-3">
+            <span className="text-xs font-bold nonga-text-secondary block">รายงานตรวจสอบระบบข้อมูลความพร้อมขาย</span>
             
             {validationErrors.length > 0 ? (
               <div className="space-y-2">
@@ -120,16 +120,16 @@ export default function PreviewPublishStep({
 
           {/* Core Technical Highlights specs sheet list */}
           <div className="space-y-2.5">
-            <span className="text-xs font-bold text-slate-400 block pl-1">สรุปข้อมูลรายละเอียดสินค้าสเปกตัวรถ</span>
-            <div className="grid grid-cols-2 gap-3 text-xs bg-[#0b0b0e] border border-white/5 p-4 rounded-xl">
-              <div><span className="text-slate-500 block">แบรนด์/ยี่ห้อ:</span> <strong className="text-white">{formData.brand || "โปรดกรอกข้อมูล"}</strong></div>
-              <div><span className="text-slate-500 block">โมเดล/รุ่น:</span> <strong className="text-white">{formData.model || "โปรดกรอกข้อมูล"}</strong></div>
-              <div><span className="text-slate-500 block">เกียร์:</span> <strong className="text-white font-mono uppercase">{formData.transmission}</strong></div>
-              <div><span className="text-slate-500 block">เชื้อเพลิง:</span> <strong className="text-white uppercase">{formData.fuelType}</strong></div>
-              <div><span className="text-slate-500 block">เลขไมล์สะสม:</span> <strong className="text-white font-mono text-orange-400">{(formData.mileage).toLocaleString()} กม.</strong></div>
-              <div><span className="text-slate-500 block">จังหวัดที่จอดรถ:</span> <strong className="text-white">{formData.province || "-"}</strong></div>
-              <div><span className="text-slate-550 block">ชื่อผู้ติดต่อสัมภาษณ์:</span> <strong className="text-white">{formData.contactName || "สมเกียรติ มั่นคง"}</strong></div>
-              <div><span className="text-slate-550 block">เบอร์ติดต่อกลับ:</span> <strong className="text-white font-mono">{formData.contactPhone || "-"}</strong></div>
+            <span className="text-xs font-bold nonga-text-secondary block pl-1">สรุปข้อมูลรายละเอียดสินค้าสเปกตัวรถ</span>
+            <div className="grid grid-cols-2 gap-3 text-xs nonga-bg-subtle border nonga-border p-4 rounded-xl">
+              <div><span className="nonga-text-muted block">แบรนด์/ยี่ห้อ:</span> <strong className="nonga-text-primary">{formData.brand || "โปรดกรอกข้อมูล"}</strong></div>
+              <div><span className="nonga-text-muted block">โมเดล/รุ่น:</span> <strong className="nonga-text-primary">{formData.model || "โปรดกรอกข้อมูล"}</strong></div>
+              <div><span className="nonga-text-muted block">เกียร์:</span> <strong className="nonga-text-primary font-mono uppercase">{formData.transmission}</strong></div>
+              <div><span className="nonga-text-muted block">เชื้อเพลิง:</span> <strong className="nonga-text-primary uppercase">{formData.fuelType}</strong></div>
+              <div><span className="nonga-text-muted block">เลขไมล์สะสม:</span> <strong className="font-mono text-orange-400">{(formData.mileage).toLocaleString()} กม.</strong></div>
+              <div><span className="nonga-text-muted block">จังหวัดที่จอดรถ:</span> <strong className="nonga-text-primary">{formData.province || "-"}</strong></div>
+              <div><span className="nonga-text-muted block">ชื่อผู้ติดต่อสัมภาษณ์:</span> <strong className="nonga-text-primary">{formData.contactName || "สมเกียรติ มั่นคง"}</strong></div>
+              <div><span className="nonga-text-muted block">เบอร์ติดต่อกลับ:</span> <strong className="nonga-text-primary font-mono">{formData.contactPhone || "-"}</strong></div>
             </div>
           </div>
 
@@ -137,10 +137,10 @@ export default function PreviewPublishStep({
 
         {/* Right hand premium simulated mobile layout card preview */}
         <div className="lg:col-span-2 space-y-3.5">
-          <span className="text-xs font-mono tracking-wider font-bold text-slate-500 uppercase block pl-1">ตัวอย่างหน้ารายละเอียดสดในสมาร์ทโฟน</span>
+          <span className="text-xs font-mono tracking-wider font-bold nonga-text-muted uppercase block pl-1">ตัวอย่างหน้ารายละเอียดสดในสมาร์ทโฟน</span>
           
-          <div className="rounded-2xl border border-white/10 bg-[#0c0c0e] overflow-hidden shadow-2xl pb-4">
-            <div className="aspect-video relative bg-slate-900 border-b border-white/5">
+          <div className="rounded-2xl border nonga-border nonga-bg-elevated overflow-hidden shadow-2xl pb-4">
+            <div className="aspect-video relative bg-slate-900 border-b nonga-border">
               {formData.coverImage ? (
                 <img
                   src={formData.coverImage}
@@ -171,27 +171,27 @@ export default function PreviewPublishStep({
                 <span className="text-[10px] uppercase font-bold text-orange-500 tracking-wider flex items-center gap-1 font-mono">
                   <MapPin className="w-3.5 h-3.5 text-orange-400" /> {formData.province || "กรุงเทพมหานคร"} • ปี {formData.year}
                 </span>
-                <h4 className="font-display font-extrabold text-[#ffffff] text-base leading-tight">
+                <h4 className="font-display font-extrabold nonga-text-primary text-base leading-tight">
                   {formData.brand} {formData.model ? formData.model : "รุ่นระบุตัวอย่าง"}
                 </h4>
               </div>
 
               <div className="flex justify-between items-baseline py-2.5 border-y border-orange-500/5">
-                <span className="text-[10px] text-slate-500 uppercase font-bold font-mono">ราคาเสนอตลาด:</span>
+                <span className="text-[10px] nonga-text-muted uppercase font-bold font-mono">ราคาเสนอตลาด:</span>
                 <span className="font-mono text-base text-orange-500 font-extrabold">฿{(formData.price).toLocaleString()}</span>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-white/5 bg-slate-900/40">
-                <span className="font-bold text-slate-300 block mb-2 text-[11px]">
+              <div className="p-3.5 rounded-xl border nonga-border nonga-bg-subtle">
+                <span className="font-bold nonga-text-secondary block mb-2 text-[11px]">
                   รายละเอียดประกาศ (ตัวอย่าง)
                 </span>
                 <ListingDescription
                   text={formData.description}
                   variant="preview"
-                  tone="dark"
+                  tone={isDarkMode ? "dark" : "light"}
                   fallback={
                     <p
-                      className="text-sm text-slate-400 leading-[1.75]"
+                      className="text-sm nonga-text-secondary leading-[1.75]"
                       style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                     >
                       ความคุ้มค่าครบถ้วน พร้อมจดโอนเล่มทะเบียนทันที!
@@ -201,7 +201,7 @@ export default function PreviewPublishStep({
               </div>
 
               {/* Verified Badge placeholder */}
-              <div className="p-3 rounded-lg bg-orange-550/5 border border-orange-500/10 text-[10.5px] text-slate-400 leading-relaxed flex gap-2 items-start justify-start">
+              <div className="p-3 rounded-lg bg-orange-550/5 border border-orange-500/10 text-[10.5px] nonga-text-secondary leading-relaxed flex gap-2 items-start justify-start">
                 <ShieldCheck className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
                   <span className="text-orange-500 font-bold block">NongBot Certified System</span>

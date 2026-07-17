@@ -65,6 +65,7 @@
     "test:car-detail-seller-card-no-mock": "tsx scripts/test-car-detail-seller-card-no-mock.mts",
     "test:theme-toggle-action-semantics-guard": "tsx scripts/test-theme-toggle-action-semantics-guard.mts",
     "test:theme-persistence-stale-load-guard": "tsx scripts/test-theme-persistence-stale-load-guard.mts",
+    "test:sell-page-surface-chat-parity": "tsx scripts/test-sell-page-surface-chat-parity.mts",
     "test:profile-navigation-responsive-guard": "tsx scripts/test-profile-navigation-responsive-guard.mts",
     "test:header-single-row-layout-guard": "tsx scripts/test-header-single-row-layout-guard.mts",
     "test:header-account-pill-guard": "tsx scripts/test-header-account-pill-guard.mts",

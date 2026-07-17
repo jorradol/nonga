@@ -548,7 +548,7 @@ export default function SellingFormContainer({
   };
 
   return (
-    <div className={`space-y-6 ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+    <div className="space-y-6 nonga-text-primary">
       
       {/* Toast Notification block */}
       {toastMessage && (
@@ -721,9 +721,9 @@ export default function SellingFormContainer({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         
         {/* Step Controller wrapper */}
-        <div className="lg:col-span-3 p-6 sm:p-7.5 rounded-3xl border border-white/10 bg-gradient-to-br from-[#121216] to-[#0b0b0d] backdrop-blur-md shadow-2xl relative">
+        <div className="lg:col-span-3 p-6 sm:p-7.5 rounded-3xl border nonga-border nonga-bg-surface backdrop-blur-md shadow-2xl relative">
           
-          <div className="absolute top-4 right-4 text-[9.5px] font-mono font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+          <div className="absolute top-4 right-4 text-[9.5px] font-mono font-bold nonga-text-muted uppercase tracking-widest flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>{autosaveStatus}</span>
           </div>
@@ -841,12 +841,12 @@ export default function SellingFormContainer({
             </div>
 
             {/* Stepper bottom control buttons */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-white/5 pt-5.5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t nonga-border pt-5.5">
               <button
                 type="button"
                 disabled={currentStep === 0}
                 onClick={handleStepPrev}
-                className="px-4.5 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 disabled:opacity-30 active:scale-95 text-left"
+                className="px-4.5 py-3 nonga-bg-elevated border nonga-border nonga-text-primary hover:border-[var(--nonga-border-strong)] font-bold rounded-xl text-xs transition flex items-center gap-1.5 disabled:opacity-30 active:scale-95 text-left nonga-focus-ring"
               >
                 <ArrowLeft className="w-4 h-4 text-orange-500" />
                 <span>ขั้นตอนก่อนหน้า</span>
@@ -889,27 +889,27 @@ export default function SellingFormContainer({
         </div>
 
         {/* Dynamic Chatbot sidebar guide */}
-        <div className="lg:col-span-1 p-5 rounded-3xl border border-orange-500/10 bg-gradient-to-b from-[#111115] to-[#09090b] text-left space-y-4 shadow-xl">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-2.5">
+        <div className="lg:col-span-1 p-5 rounded-3xl border border-orange-500/20 nonga-bg-surface text-left space-y-4 shadow-xl">
+          <div className="flex items-center gap-2 border-b nonga-border pb-2.5">
             <div className="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center">
               <BrainCircuit className="w-4 h-4 text-orange-500 animate-spin" />
             </div>
             <div>
               <span className="text-xs font-black block text-orange-500 font-display">Nong A AI Assistant</span>
-              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-mono font-bold">PRO Dealer Guide</span>
+              <span className="text-[9px] uppercase tracking-wider nonga-text-muted font-mono font-bold">PRO Dealer Guide</span>
             </div>
           </div>
 
           <div className="space-y-3">
-            <h5 className="text-[11.5px] font-extrabold text-white flex items-center gap-1">
+            <h5 className="text-[11.5px] font-extrabold nonga-text-primary flex items-center gap-1">
               <span>{getStepAITip().header}</span>
             </h5>
-            <p className="text-[10.5px] text-slate-400 leading-relaxed font-sans">
+            <p className="text-[10.5px] nonga-text-secondary leading-relaxed font-sans">
               {getStepAITip().text}
             </p>
           </div>
 
-          <div className="p-3 rounded-xl bg-orange-550/[0.02] border border-orange-500/5 space-y-2">
+          <div className="p-3 rounded-xl bg-[color-mix(in_srgb,var(--nonga-brand)_4%,transparent)] border border-orange-500/15 space-y-2">
             <span className="text-[9.5px] font-bold text-orange-500 flex items-center gap-1">🧡 ประโยคเด็ดพารวยสไตล์ NongBot:</span>
             <p className="text-[10px] text-orange-400 italic">"คันนี้มีคนทักแน่ครับ 🔥 ปังปุริเย่!"</p>
           </div>
