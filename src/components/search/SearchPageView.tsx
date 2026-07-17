@@ -497,7 +497,7 @@ export default function SearchPageView() {
                         </div>
                         <div className="w-full nonga-bg-subtle h-1 rounded-full overflow-hidden">
                           <div 
-                            className="bg-gradient-to-r from-orange-500 to-[#10b981] h-full rounded-full transition-all duration-500"
+                            className="bg-gradient-to-r from-orange-500 to-orange-400 h-full rounded-full transition-all duration-500"
                             style={{ width: `${aiRatingScore}%` }}
                           />
                         </div>

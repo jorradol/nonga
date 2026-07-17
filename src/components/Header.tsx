@@ -133,7 +133,7 @@ export default function Header() {
               </div>
               
               <div className="flex flex-col min-w-0 leading-tight">
-                <span className="font-display font-black text-lg sm:text-xl lg:text-2xl tracking-tight flex items-center gap-1">
+                <span className="font-display font-black text-lg sm:text-xl lg:text-2xl tracking-tight flex items-center gap-1 nonga-text-primary">
                   Nong <span className="text-orange-500">A</span>
                   <span className="hidden sm:inline-flex items-center text-[8px] font-mono font-extrabold px-1 py-0.5 ml-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20 uppercase tracking-widest">
                     NongBot

@@ -129,8 +129,8 @@ export default function App() {
         description="เปรียบเทียบสภาพแบตเตอรี่ ตารางผ่อน ตรวจประวัติเบื้องต้น หรือคลิกส่งด่วนไปหาน้องเอ AI เพื่อปรึกษาได้ทุกคันครับ!"
       >
         {savedCars.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl border nonga-border nonga-bg-subtle space-y-5 max-w-lg mx-auto">
-            <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center text-red-500 text-lg">
+          <div className="p-12 text-center rounded-2xl border nonga-border nonga-empty-state nonga-bg-subtle space-y-5 max-w-lg mx-auto">
+            <div className="w-16 h-16 mx-auto rounded-full bg-[color-mix(in_srgb,var(--nonga-error)_12%,transparent)] flex items-center justify-center text-[var(--nonga-error)] text-lg">
               <Heart className="w-7 h-7" />
             </div>
             <div className="space-y-1.5">
@@ -191,7 +191,7 @@ export default function App() {
 
                     <div className="flex justify-between items-baseline py-2.5 border-t border-orange-500/5">
                       <span className="text-[10px] nonga-text-muted">ราคาแนะนำ</span>
-                      <span className="font-mono font-black text-orange-500 text-base">฿{car.price.toLocaleString()}</span>
+                      <span className="font-mono font-black text-[var(--nonga-action-primary)] text-base">฿{car.price.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -389,7 +389,7 @@ export default function App() {
         <footer className="relative z-10 border-t nonga-border nonga-bg-surface nonga-text-secondary transition-colors">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-orange-500/5">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)]">
             
             {/* Branding Column */}
             <div className="col-span-1 md:col-span-1.5 space-y-4 text-left">
@@ -413,16 +413,16 @@ export default function App() {
 
               {/* Social Channels Icons Row */}
               <div className="flex items-center gap-3 pt-1">
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Facebook - NongBot" className="p-2 rounded-lg bg-orange-500/5 nonga-text-muted hover:text-orange-500 hover:bg-orange-500/10 transition">
+                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Facebook - NongBot" className="p-2 rounded-lg bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] nonga-text-muted hover:text-[var(--nonga-brand)] hover:bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] transition">
                   <Facebook className="w-4 h-4" />
                 </a>
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Linkedin - NongBot Corporate" className="p-2 rounded-lg bg-orange-500/5 nonga-text-muted hover:text-orange-500 hover:bg-orange-500/10 transition">
+                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Linkedin - NongBot Corporate" className="p-2 rounded-lg bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] nonga-text-muted hover:text-[var(--nonga-brand)] hover:bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] transition">
                   <Linkedin className="w-4 h-4" />
                 </a>
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Line Official Account" className="p-2 rounded-lg bg-orange-500/5 nonga-text-muted hover:text-orange-500 hover:bg-orange-500/10 transition">
+                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Line Official Account" className="p-2 rounded-lg bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] nonga-text-muted hover:text-[var(--nonga-brand)] hover:bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] transition">
                   <MessageSquare className="w-4 h-4" />
                 </a>
-                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Auto Advisory Chatbot" className="p-2 rounded-lg bg-orange-500/5 nonga-text-muted hover:text-orange-500 hover:bg-orange-500/10 transition">
+                <a href="https://www.nongbot.org/nonga" target="_blank" rel="noreferrer" title="Auto Advisory Chatbot" className="p-2 rounded-lg bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] nonga-text-muted hover:text-[var(--nonga-brand)] hover:bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] transition">
                   <Sparkles className="w-4 h-4" />
                 </a>
               </div>
@@ -434,10 +434,10 @@ export default function App() {
                 <Car className="w-3.5 h-3.5 text-orange-500" /> ตลาดอัจฉริยะ
               </h5>
               <div className="flex flex-col gap-2.5 text-xs">
-                <button onClick={() => setView("marketplace")} className="hover:text-orange-500 text-left transition-colors">ค้นหาและพรีวิวสเป็ครถ</button>
-                <button onClick={() => setView("chat")} className="hover:text-orange-500 text-left transition-colors">สรุปตารางตกลงราคากับ AI</button>
-                <button onClick={() => setView("sell")} className="hover:text-orange-500 text-left transition-colors font-medium">ลงทะเบียนขายหน้ารถด่วน 🪄</button>
-                <button onClick={() => setView("dealers")} className="hover:text-orange-500 text-left transition-colors">โชว์รูมดีลเลอร์ผู้มีลิขสิทธิ์</button>
+                <button onClick={() => setView("marketplace")} className="hover:text-orange-500 text-left transition-colors nonga-focus-ring">ค้นหาและพรีวิวสเป็ครถ</button>
+                <button onClick={() => setView("chat")} className="hover:text-orange-500 text-left transition-colors nonga-focus-ring">สรุปตารางตกลงราคากับ AI</button>
+                <button onClick={() => setView("sell")} className="hover:text-orange-500 text-left transition-colors font-medium nonga-focus-ring">ลงทะเบียนขายหน้ารถด่วน 🪄</button>
+                <button onClick={() => setView("dealers")} className="hover:text-orange-500 text-left transition-colors nonga-focus-ring">โชว์รูมดีลเลอร์ผู้มีลิขสิทธิ์</button>
               </div>
             </div>
 
@@ -450,7 +450,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => navigateDealerSignupEntry(setView)}
-                  className="hover:text-orange-500 transition-colors text-left"
+                  className="hover:text-orange-500 transition-colors text-left nonga-focus-ring"
                   title="เปิดสิทธิ์ดีลเลอร์จำลองในโปรไฟล์ (โหมดพัฒนา)"
                 >
                   สมัครดีลเลอร์พันธมิตร Nong A
@@ -460,7 +460,7 @@ export default function App() {
                   onClick={() =>
                     navigateDealerSystemEntry(setView, user, role)
                   }
-                  className="hover:text-orange-500 transition-colors text-left font-medium"
+                  className="hover:text-orange-500 transition-colors text-left font-medium nonga-focus-ring"
                   title={
                     isDealer || isAdmin
                       ? "เข้าระบบหลังบ้านเต็นท์รถ"
@@ -480,21 +480,21 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => navigatePilotPolicy("terms", setView)}
-                  className="hover:text-orange-500 transition-colors text-left"
+                  className="hover:text-orange-500 transition-colors text-left nonga-focus-ring"
                 >
                   เงื่อนไขการใช้งานรอบทดลอง
                 </button>
                 <button
                   type="button"
                   onClick={() => navigatePilotPolicy("privacy", setView)}
-                  className="hover:text-orange-500 transition-colors text-left"
+                  className="hover:text-orange-500 transition-colors text-left nonga-focus-ring"
                 >
                   นโยบายความเป็นส่วนตัว
                 </button>
                 <button
                   type="button"
                   onClick={() => navigatePilotPolicy("listing", setView)}
-                  className="hover:text-orange-500 transition-colors text-left"
+                  className="hover:text-orange-500 transition-colors text-left nonga-focus-ring"
                 >
                   นโยบายประกาศขายรถ
                 </button>
@@ -515,7 +515,7 @@ export default function App() {
                 <CheckCircle className="w-3.5 h-3.5 text-orange-500" /> ความน่าเชื่อถือ
               </h5>
               <div className="space-y-2">
-                <div className="p-2.5 rounded-xl border border-orange-500/10 bg-orange-500/5 text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-350">
+                <div className="p-2.5 rounded-xl border border-[color-mix(in_srgb,var(--nonga-brand)_18%,transparent)] bg-[color-mix(in_srgb,var(--nonga-brand)_6%,transparent)] text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-350">
                   ⚡ <strong>NongBot Certified System</strong> ตรวจวัดสภาพคำนวณราคาด้วย AI ตรวจเช็คประวัติละเอียดผ่านฐานข้อมูลโชว์รูมหลัก มั่นใจทุกการจับจอง
                 </div>
               </div>
@@ -524,7 +524,7 @@ export default function App() {
           </div>
 
           {/* AI Disclaimers segment (Crucial for compliance and premium vibe) */}
-          <div className="mt-8 p-4 rounded-xl border text-left flex gap-3.5 items-start nonga-bg-subtle border-orange-500/10">
+          <div className="mt-8 p-4 rounded-xl border text-left flex gap-3.5 items-start nonga-bg-subtle border-[color-mix(in_srgb,var(--nonga-brand)_18%,transparent)]">
             <ShieldAlert className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-orange-500 block">AI DISCLAIMER & SAFETY NOTICE</span>
@@ -534,9 +534,9 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8 mt-4 text-[11px] nonga-text-muted border-t border-orange-500/5">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8 mt-4 text-[11px] nonga-text-muted border-t border-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)]">
             <span>© 2026 NongBot Innovation Co., Ltd. สงวนลิขสิทธิ์ทั้งหมด ตลาดซื้อขายรถอัจฉริยะน้องเอ (Nong A)</span>
-            <span className="font-mono flex items-center gap-1.5 bg-orange-500/[0.03] border border-orange-500/10 px-3 py-1 rounded text-orange-500/95">
+            <span className="font-mono flex items-center gap-1.5 bg-[color-mix(in_srgb,var(--nonga-brand)_5%,transparent)] border border-[color-mix(in_srgb,var(--nonga-brand)_18%,transparent)] px-3 py-1 rounded text-orange-500/95">
               <RefreshCw className="w-3 h-3 animate-spin text-orange-500" /> 100% Real-time Synced Database
             </span>
           </div>

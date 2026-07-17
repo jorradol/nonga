@@ -57,7 +57,7 @@ export function CarVisionDashboard() {
     clearCurrentAnalysis
   } = useCarVision();
 
-  const { isDarkMode, setView } = useAppStore();
+  const { setView } = useAppStore();
   
   const [fileProgress, setFileProgress] = useState(0);
   const [uploadProgressMsg, setUploadProgressMsg] = useState("");
@@ -174,56 +174,38 @@ export function CarVisionDashboard() {
   };
 
   const v = {
-    borderDivider: isDarkMode ? "border-white/[0.08]" : "border-slate-200",
-    borderSubtle: isDarkMode ? "border-white/[0.05]" : "border-slate-200",
-    borderFaint: isDarkMode ? "border-white/5" : "border-slate-200",
-    borderInner: isDarkMode ? "border-white/[0.02]" : "border-slate-100",
-    card: isDarkMode
-      ? "border-white/[0.08] bg-black/40 backdrop-blur-md"
-      : "border-slate-200 bg-white shadow-sm",
-    headingLg: isDarkMode ? "text-white" : "text-slate-900",
-    headingMd: isDarkMode ? "text-slate-100" : "text-slate-900",
-    headingSm: isDarkMode ? "text-slate-200" : "text-slate-800",
-    bodyMuted: isDarkMode ? "text-slate-400" : "text-slate-600",
-    bodySecondary: isDarkMode ? "text-slate-300" : "text-slate-700",
-    bodyDefault: isDarkMode ? "text-slate-200" : "text-slate-700",
-    specCard: isDarkMode
-      ? "bg-slate-950/60 border border-slate-900"
-      : "bg-slate-50 border border-slate-200",
-    specValue: isDarkMode ? "text-slate-100" : "text-slate-900",
-    ghostBtn: isDarkMode
-      ? "bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white"
-      : "bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 hover:text-slate-900",
-    presetBtn: isDarkMode
-      ? "border border-slate-800 hover:border-orange-500/30 bg-slate-950/40 hover:bg-slate-900/40"
-      : "border border-slate-200 hover:border-orange-400/40 bg-slate-50 hover:bg-white",
-    dropZoneIdle: isDarkMode ? "border-slate-800 hover:border-slate-700" : "border-slate-300 hover:border-orange-400/50",
-    dropZoneIcon: isDarkMode
-      ? "bg-slate-950 border border-slate-800"
-      : "bg-slate-100 border border-slate-200",
-    historyItem: isDarkMode
-      ? "border border-slate-900 bg-slate-950/50 hover:bg-slate-900/30"
-      : "border border-slate-200 bg-slate-50 hover:bg-white",
-    thumbBorder: isDarkMode ? "border-white/5 bg-slate-900" : "border-slate-200 bg-slate-100",
-    overlayHud: isDarkMode ? "bg-slate-950/98" : "bg-white/95",
-    meterCard: isDarkMode
-      ? "bg-slate-950/40 border border-slate-900"
-      : "bg-slate-50 border border-slate-200",
-    meterBar: isDarkMode ? "bg-slate-900" : "bg-slate-200",
-    meterValue: isDarkMode ? "text-slate-200" : "text-slate-800",
-    sectionDivider: isDarkMode ? "border-slate-800" : "border-slate-200",
-    detailPanel: isDarkMode
-      ? "bg-slate-950/70 border border-slate-900"
-      : "bg-slate-50 border border-slate-200",
-    privacyPanel: isDarkMode
-      ? "bg-slate-950/40 border border-slate-900"
-      : "bg-slate-50 border border-slate-200",
-    labelInteractive: isDarkMode
-      ? "text-slate-300 hover:text-white"
-      : "text-slate-600 hover:text-slate-900",
-    miniCard: isDarkMode
-      ? "bg-slate-950/80 border border-slate-900"
-      : "bg-slate-50 border border-slate-200",
+    borderDivider: "nonga-border",
+    borderSubtle: "nonga-border",
+    borderFaint: "nonga-border",
+    borderInner: "nonga-border",
+    card: "nonga-border nonga-bg-surface backdrop-blur-md shadow-sm",
+    headingLg: "nonga-text-primary",
+    headingMd: "nonga-text-primary",
+    headingSm: "nonga-text-secondary",
+    bodyMuted: "nonga-text-muted",
+    bodySecondary: "nonga-text-secondary",
+    bodyDefault: "nonga-text-secondary",
+    specCard: "nonga-bg-subtle border nonga-border",
+    specValue: "nonga-text-primary",
+    ghostBtn:
+      "nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)] border nonga-border nonga-text-secondary hover:text-[var(--nonga-text-primary)]",
+    presetBtn:
+      "border nonga-border hover:border-[color-mix(in_srgb,var(--nonga-brand)_35%,transparent)] nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)]",
+    dropZoneIdle: "nonga-border hover:border-[var(--nonga-border-strong)]",
+    dropZoneIcon: "nonga-bg-subtle border nonga-border",
+    historyItem:
+      "border nonga-border nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)]",
+    thumbBorder: "nonga-border nonga-bg-elevated",
+    overlayHud: "nonga-bg-surface backdrop-blur",
+    meterCard: "nonga-bg-subtle border nonga-border",
+    meterBar: "nonga-bg-elevated",
+    meterValue: "nonga-text-secondary",
+    sectionDivider: "nonga-border",
+    detailPanel: "nonga-bg-subtle border nonga-border",
+    privacyPanel: "nonga-bg-subtle border nonga-border",
+    labelInteractive:
+      "nonga-text-secondary hover:text-[var(--nonga-text-primary)]",
+    miniCard: "nonga-bg-subtle border nonga-border",
   };
 
   return (
@@ -291,11 +273,9 @@ export function CarVisionDashboard() {
               onClick={triggerSelectFile}
               className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center space-y-4 cursor-pointer transition-all duration-300 relative overflow-hidden group ${
                 isInspecting
-                  ? isDarkMode
-                    ? "border-orange-500/40 bg-orange-550/[0.01]"
-                    : "border-orange-400/50 bg-orange-50/50"
+                  ? "border-[color-mix(in_srgb,var(--nonga-brand)_45%,transparent)] bg-[color-mix(in_srgb,var(--nonga-brand)_6%,transparent)]"
                   : v.dropZoneIdle
-              } ${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-slate-50/80"}`}
+              } hover:bg-[var(--nonga-bg-subtle)]`}
             >
               {/* Pulsing Atmosphere overlay when analyzing */}
               {isInspecting && (
@@ -520,7 +500,7 @@ export function CarVisionDashboard() {
               
               {/* Box 1: Visual Image with bounding blur overlays */}
               <div className={`xl:col-span-4 p-5 rounded-2xl space-y-4 ${v.card}`}>
-                <div className={`relative aspect-video rounded-xl overflow-hidden shadow-2xl group ${isDarkMode ? "border border-white/5 bg-slate-950" : "border border-slate-200 bg-slate-100"}`}>
+                <div className={`relative aspect-video rounded-xl overflow-hidden shadow-2xl group border nonga-border nonga-bg-subtle`}>
                   <img
                     src={currentAnalysis.imageUrl}
                     alt="Analyzed car body"
@@ -775,7 +755,7 @@ export function CarVisionDashboard() {
                   {currentAnalysis.sellingPoints.map((point, idx) => (
                     <div
                       key={idx}
-                      className={`group p-3 rounded-xl flex items-center justify-between gap-3 text-xs transition ${v.miniCard} ${isDarkMode ? "hover:bg-slate-900/60" : "hover:bg-slate-100"}`}
+                      className={`group p-3 rounded-xl flex items-center justify-between gap-3 text-xs transition ${v.miniCard} hover:bg-[var(--nonga-bg-elevated)]`}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
                         <span className="p-0.5 mt-0.5 rounded bg-emerald-500/10 text-emerald-400 shrink-0">

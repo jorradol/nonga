@@ -41,7 +41,7 @@ export function Section({ children, title, description, badge, className = "", i
       {(title || description || badge) && (
         <div className="text-left space-y-2">
           {badge && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-[color-mix(in_srgb,var(--nonga-brand)_12%,transparent)] text-[var(--nonga-action-primary)] dark:text-orange-400 border border-[color-mix(in_srgb,var(--nonga-brand)_25%,transparent)]">
               {badge}
             </span>
           )}
@@ -71,15 +71,15 @@ export function GradientBackground() {
 
   if (!isDarkMode) {
     return (
-      <div className="fixed pointer-events-none inset-0 overflow-hidden z-0">
-        <div className="absolute top-[5vh] left-[20vw] w-[300px] h-[300px] rounded-full bg-orange-500/5 blur-[90px] opacity-70"></div>
+      <div className="fixed pointer-events-none inset-0 overflow-hidden z-0" aria-hidden>
+        <div className="absolute top-[5vh] left-[20vw] w-[300px] h-[300px] rounded-full bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] blur-[90px] opacity-70"></div>
         <div className="absolute bottom-[10vh] right-[10vw] w-[350px] h-[350px] rounded-full nonga-bg-subtle blur-[100px] opacity-60"></div>
       </div>
     );
   }
 
   return (
-    <div className="fixed pointer-events-none inset-0 overflow-hidden z-0">
+    <div className="fixed pointer-events-none inset-0 overflow-hidden z-0" aria-hidden>
       <motion.div 
         animate={{
           scale: [1, 1.15, 1],
@@ -92,7 +92,7 @@ export function GradientBackground() {
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="absolute top-[2vh] left-[15vw] w-[450px] h-[450px] rounded-full bg-orange-600/5 blur-[120px]"
+        className="absolute top-[2vh] left-[15vw] w-[450px] h-[450px] rounded-full bg-[color-mix(in_srgb,var(--nonga-brand)_10%,transparent)] blur-[120px]"
       />
       
       <motion.div 
@@ -108,7 +108,7 @@ export function GradientBackground() {
           ease: "easeInOut",
           delay: 2
         }}
-        className="absolute top-[35vh] right-[5vw] w-[350px] h-[350px] rounded-full bg-orange-500/5 blur-[110px]"
+        className="absolute top-[35vh] right-[5vw] w-[350px] h-[350px] rounded-full bg-[color-mix(in_srgb,var(--nonga-brand)_8%,transparent)] blur-[110px]"
       />
       
       <div className="absolute -bottom-10 left-[25vw] w-[400px] h-[400px] rounded-full nonga-bg-elevated blur-[130px] opacity-40"></div>
@@ -132,10 +132,10 @@ export function AnimatedCard({ children, className = "", onClick, hoverGlow = tr
       whileHover={onClick ? { y: -4, scale: 1.006 } : undefined}
       whileTap={onClick ? { scale: 0.995 } : undefined}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl border nonga-border text-left flex flex-col justify-between transition-all duration-300 nonga-bg-surface nonga-text-primary ${
+      className={`relative overflow-hidden rounded-2xl border nonga-border nonga-card text-left flex flex-col justify-between transition-all duration-300 nonga-bg-surface nonga-text-primary ${
         onClick ? "cursor-pointer" : ""
       } ${
-        hoverGlow && onClick ? "hover:border-orange-500/25 hover:shadow-[0_0_24px_rgba(234,88,12,0.08)]" : ""
+        hoverGlow && onClick ? "hover:border-[color-mix(in_srgb,var(--nonga-brand)_30%,transparent)] hover:shadow-[0_0_24px_rgba(249,115,22,0.10)]" : ""
       } ${className}`}
     >
       {children}
@@ -151,7 +151,7 @@ export function GlassToolbar({ children, className = "", id }: LayoutProps) {
   return (
     <div
       id={id}
-      className={`rounded-2xl border nonga-border nonga-bg-elevated nonga-text-primary p-4 backdrop-filter backdrop-blur-xl transition-all duration-300 shadow-md ${className}`}
+      className={`rounded-2xl border nonga-border nonga-bg-elevated nonga-text-primary p-4 backdrop-filter backdrop-blur-xl transition-all duration-300 shadow-md hover:border-[color-mix(in_srgb,var(--nonga-brand)_20%,var(--nonga-border))] ${className}`}
     >
       {children}
     </div>

@@ -58,13 +58,13 @@ export default function DealerPortalView() {
     return (
       <div className="py-16 text-center max-w-md mx-auto">
         <AlertCircle className="w-10 h-10 text-orange-400 mx-auto mb-4" />
-        <p className="text-sm text-slate-400">
+        <p className="text-sm nonga-text-secondary">
           เฉพาะบัญชี Dealer หรือ Admin — ตั้ง role เป็น dealer ใน Profile
         </p>
         <button
           type="button"
           onClick={() => setView("profile")}
-          className="mt-4 px-4 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold"
+          className="mt-4 px-4 py-2 rounded-xl nonga-action nonga-focus-ring text-xs font-bold"
         >
           ไปตั้งค่าโปรไฟล์
         </button>
@@ -140,7 +140,7 @@ export default function DealerPortalView() {
     <DealerPortalLayout activeTab={tab} dealerName={dealerName}>
       {(isDealer || isAdmin) &&
         (import.meta as { env?: { DEV?: boolean } }).env?.DEV && (
-          <p className="text-[10px] text-slate-600 font-mono mb-4 -mt-2">
+          <p className="text-[10px] nonga-text-muted font-mono mb-4 -mt-2">
             [dev] tent: {apiHeaders.dealerId}
             {isAdmin ? " · admin" : ""}
           </p>
