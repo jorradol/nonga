@@ -215,7 +215,7 @@ export default function UserProfileView() {
 
   const borderSubtle = isDarkMode ? "border-white/5" : "border-slate-200";
   const surfaceMiniCard = isDarkMode
-    ? "border-white/[0.08] bg-black/40 backdrop-blur-md"
+    ? "border-white/[0.08] nonga-bg-surface backdrop-blur-md"
     : "border-slate-200 bg-white shadow-sm";
   const inputField = isDarkMode
     ? "bg-slate-900/60 border-white/10 text-white"
@@ -353,7 +353,7 @@ export default function UserProfileView() {
 
           {demoToolsEnabled && (
           <div className={`p-5 rounded-2xl text-left space-y-3.5 border ${
-            isDarkMode ? "border-white/[0.06] bg-black/25" : "border-slate-200 bg-slate-50"
+            isDarkMode ? "border-white/[0.06] nonga-bg-subtle" : "border-slate-200 bg-slate-50"
           }`}>
             <div className="flex items-center gap-1.5 text-amber-500 font-bold text-xs">
               <Key className="w-4 h-4 text-amber-500 shrink-0" />

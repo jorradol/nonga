@@ -70,7 +70,7 @@ export default function AvatarSelector({
     <div className="space-y-6">
       
       {/* Dynamic Avatar Container */}
-      <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+      <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl nonga-bg-subtle border nonga-border">
         <div className="relative group shrink-0">
           <AnimatePresence mode="wait">
             <motion.div
@@ -78,7 +78,7 @@ export default function AvatarSelector({
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="w-24 h-24 rounded-2xl border-2 border-orange-500/20 bg-black/40 overflow-hidden shadow-lg p-2 flex items-center justify-center relative"
+              className="w-24 h-24 rounded-2xl border-2 border-orange-500/20 nonga-bg-elevated overflow-hidden shadow-lg p-2 flex items-center justify-center relative"
             >
               {isUploading ? (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center space-y-1">
@@ -103,7 +103,7 @@ export default function AvatarSelector({
         </div>
 
         <div className="space-y-2 text-center sm:text-left">
-          <h4 className="text-sm font-bold text-white flex items-center gap-1.5 justify-center sm:justify-start">
+          <h4 className="text-sm font-bold nonga-text-primary flex items-center gap-1.5 justify-center sm:justify-start">
             <Sparkles className="w-4 h-4 text-orange-500 animate-spin-slow" />
             <span>ปรับแต่งรูปแทนตัวสมาชิก</span>
           </h4>
@@ -134,7 +134,7 @@ export default function AvatarSelector({
                     : "border-white/5 bg-slate-900/40 hover:border-white/20"
                 }`}
               >
-                <div className="w-10 h-10 p-0.5 bg-black/10 rounded-lg relative">
+                <div className="w-10 h-10 p-0.5 nonga-bg-subtle rounded-lg relative">
                   <img src={seedUrl} alt={seedObj.name} className="w-full h-full object-contain" />
                   {isSelected && (
                     <div className="absolute -top-1 -right-1 bg-orange-500 text-white p-0.5 rounded-full">
@@ -166,7 +166,7 @@ export default function AvatarSelector({
           className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 relative ${
             dragActive 
               ? "border-orange-500 bg-orange-500/5 scale-[1.01]" 
-              : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/30"
+              : "nonga-border nonga-bg-subtle hover:border-[var(--nonga-border-strong)] hover:bg-[color-mix(in_srgb,var(--nonga-brand)_4%,transparent)]"
           }`}
         >
           <input
@@ -187,7 +187,7 @@ export default function AvatarSelector({
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-bold text-white">
+              <p className="text-xs font-bold nonga-text-primary">
                 คลิกเพื่อเลือกไฟล์ หรือลากเอาไฟล์รูปมาวางปะที่นี่
               </p>
               <p className="text-[10px] text-slate-500">

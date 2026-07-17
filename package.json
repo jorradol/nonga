@@ -67,6 +67,7 @@
     "test:theme-persistence-stale-load-guard": "tsx scripts/test-theme-persistence-stale-load-guard.mts",
     "test:sell-page-surface-chat-parity": "tsx scripts/test-sell-page-surface-chat-parity.mts",
     "test:profile-navigation-responsive-guard": "tsx scripts/test-profile-navigation-responsive-guard.mts",
+    "test:profile-slate-surface-guard": "tsx scripts/test-profile-slate-surface-guard.mts",
     "test:header-single-row-layout-guard": "tsx scripts/test-header-single-row-layout-guard.mts",
     "test:header-account-pill-guard": "tsx scripts/test-header-account-pill-guard.mts",
     "test:v69e-profile-routing-guard": "tsx scripts/test-v69e-profile-routing-guard.mts",

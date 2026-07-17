@@ -98,7 +98,7 @@ export default function SettingsSidebar({
               className={`w-auto lg:w-full snap-start shrink-0 p-3 px-4 lg:p-4 rounded-xl text-left transition-all duration-300 flex items-center justify-between group cursor-pointer border relative overflow-hidden ${
                 isActive 
                   ? "border-orange-500/30 bg-orange-600/10 text-orange-400 font-bold shadow-[0_0_15px_rgba(234,88,12,0.15)]" 
-                  : "border-white/5 bg-black/20 hover:bg-white/[0.03] text-slate-400 hover:text-slate-205"
+                  : "nonga-border nonga-bg-subtle hover:bg-[var(--nonga-bg-elevated)] text-slate-400 hover:text-slate-205"
               }`}
             >
               {isActive && (
@@ -136,7 +136,7 @@ export default function SettingsSidebar({
       </div>
       
       {/* Side Quick diagnostics info for full system look */}
-      <div className="hidden lg:block p-4.5 rounded-xl border border-white/5 bg-black/15 text-left space-y-2">
+      <div className="hidden lg:block p-4.5 rounded-xl border nonga-border nonga-bg-subtle text-left space-y-2">
         <h4 className="text-[11px] font-black tracking-wider uppercase text-slate-500 flex items-center gap-1">
           <Sliders className="w-3.5 h-3.5 text-orange-500" /> โครงสร้างความสว่างคลาวด์
         </h4>

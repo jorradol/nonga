@@ -31,7 +31,7 @@ export default function SettingsCard({
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={`p-6 md:p-7 rounded-2xl border shadow-xl space-y-6 relative overflow-hidden ${
         isDarkMode
-          ? "border-white/[0.08] bg-black/45 backdrop-blur-xl"
+          ? "border-white/[0.08] nonga-bg-surface backdrop-blur-xl"
           : "border-slate-200 bg-white shadow-slate-200/50"
       }`}
     >
