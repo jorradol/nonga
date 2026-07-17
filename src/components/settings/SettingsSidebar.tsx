@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { 
   User, Bot, Star, Volume2, ShieldAlert, 
   Settings, History, Sparkles, Sliders, ChevronRight
@@ -24,6 +24,16 @@ export default function SettingsSidebar({
   onTabChange,
   isDealerOrAdmin,
 }: SettingsSidebarProps) {
+  const navigationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    if (!navigation || navigation.scrollWidth <= navigation.clientWidth) return;
+
+    navigation
+      .querySelector<HTMLElement>(`[data-settings-tab="${activeTab}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  }, [activeTab]);
   
   const tabs: SettingsTab[] = [
     {
@@ -68,7 +78,12 @@ export default function SettingsSidebar({
   return (
     <div className="space-y-4">
       {/* Sidebar Navigation */}
-      <div className="flex xl:flex-col gap-2 overflow-x-auto pb-3 xl:pb-0 scrollbar-none snap-x snap-mandatory">
+      <div
+        ref={navigationRef}
+        role="navigation"
+        aria-label="เมนูตั้งค่าโปรไฟล์"
+        className="flex lg:flex-col gap-2 min-w-0 max-w-full overflow-x-auto lg:overflow-x-visible overscroll-x-contain touch-pan-x scroll-smooth pb-3 lg:pb-0 snap-x snap-mandatory lg:snap-none"
+      >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const isDealerTab = tab.id === "dealer";
@@ -76,15 +91,18 @@ export default function SettingsSidebar({
           return (
             <button
               key={tab.id}
+              type="button"
+              aria-current={isActive ? "page" : undefined}
+              data-settings-tab={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`w-auto xl:w-full snap-start shrink-0 p-3 px-4 xl:p-4 rounded-xl text-left transition-all duration-300 flex items-center justify-between group cursor-pointer border relative overflow-hidden ${
+              className={`w-auto lg:w-full snap-start shrink-0 p-3 px-4 lg:p-4 rounded-xl text-left transition-all duration-300 flex items-center justify-between group cursor-pointer border relative overflow-hidden ${
                 isActive 
                   ? "border-orange-500/30 bg-orange-600/10 text-orange-400 font-bold shadow-[0_0_15px_rgba(234,88,12,0.15)]" 
                   : "border-white/5 bg-black/20 hover:bg-white/[0.03] text-slate-400 hover:text-slate-205"
               }`}
             >
               {isActive && (
-                <div className="absolute top-0 left-0 w-1 xl:w-1.5 h-full bg-orange-500" />
+                <div className="absolute top-0 left-0 w-1 lg:w-1.5 h-full bg-orange-500" />
               )}
               
               <div className="flex items-center gap-3">
@@ -95,11 +113,11 @@ export default function SettingsSidebar({
                 }`}>
                   {tab.icon}
                 </div>
-                <div className="xl:block text-left">
-                  <div className="text-xs font-black truncate max-w-[170px] xl:max-w-none">
+                <div className="lg:block text-left">
+                  <div className="text-xs font-black truncate max-w-[170px] lg:max-w-none">
                     {tab.label}
                   </div>
-                  <div className="hidden xl:block text-[9.5px] text-slate-500 mt-0.5 max-w-[180px] truncate leading-none">
+                  <div className="hidden lg:block text-[9.5px] text-slate-500 mt-0.5 max-w-[180px] truncate leading-none">
                     {tab.sublabel}
                   </div>
                 </div>
@@ -111,14 +129,14 @@ export default function SettingsSidebar({
                 </span>
               )}
 
-              <ChevronRight className="hidden xl:block w-3.5 h-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-orange-500" />
+              <ChevronRight className="hidden lg:block w-3.5 h-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-orange-500" />
             </button>
           );
         })}
       </div>
       
       {/* Side Quick diagnostics info for full system look */}
-      <div className="hidden xl:block p-4.5 rounded-xl border border-white/5 bg-black/15 text-left space-y-2">
+      <div className="hidden lg:block p-4.5 rounded-xl border border-white/5 bg-black/15 text-left space-y-2">
         <h4 className="text-[11px] font-black tracking-wider uppercase text-slate-500 flex items-center gap-1">
           <Sliders className="w-3.5 h-3.5 text-orange-500" /> โครงสร้างความสว่างคลาวด์
         </h4>
