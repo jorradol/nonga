@@ -135,7 +135,7 @@ export function ChatSidebarNewCarsSlider({
           type="button"
           onClick={() => void handleSlideClick()}
           disabled={isGenerating}
-          className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-700/80 bg-gradient-to-b from-slate-800/70 to-slate-950 shadow-md shadow-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 disabled:opacity-50"
+          className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-300/80 bg-gradient-to-b from-slate-200/70 to-slate-50 dark:border-slate-700/80 dark:from-slate-800/70 dark:to-slate-950 shadow-md shadow-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 disabled:opacity-50"
           title={`${current.brand} ${current.model}`}
           aria-label={`รถมาใหม่ ${current.brand} ${current.model}`}
         >
@@ -169,12 +169,12 @@ export function ChatSidebarNewCarsSlider({
       >
         รถมาใหม่
       </p>
-      <div className="relative rounded-xl overflow-hidden border border-slate-700/70 bg-slate-900/60 shadow-lg shadow-black/25">
+      <div className="relative rounded-xl overflow-hidden border border-slate-300/70 bg-slate-100/60 dark:border-slate-700/70 dark:bg-slate-900/60 shadow-lg shadow-black/25">
         <button
           type="button"
           onClick={() => void handleSlideClick()}
           disabled={isGenerating}
-          className="block w-full max-md:aspect-[3/2] max-md:max-h-[108px] max-md:bg-gradient-to-b max-md:from-slate-800/60 max-md:to-slate-950 md:aspect-[16/10] md:max-h-[132px] md:bg-slate-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/50 disabled:opacity-50"
+          className="block w-full max-md:aspect-[3/2] max-md:max-h-[108px] max-md:bg-gradient-to-b max-md:from-slate-200/60 max-md:to-slate-50 dark:max-md:from-slate-800/60 dark:max-md:to-slate-950 md:aspect-[16/10] md:max-h-[132px] md:bg-slate-100/40 dark:md:bg-slate-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/50 disabled:opacity-50"
           id="sidebar-new-cars-image-btn"
           aria-label={`ดู ${current.brand} ${current.model} ในแชท`}
         >

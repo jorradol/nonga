@@ -128,15 +128,15 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         const blockId = `code-block-${message.id}-${segIdx}`;
 
         return (
-          <div key={`${msgKey}-code-${segIdx}`} className="my-3 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 font-mono text-[11px]" id={blockId}>
-            <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-slate-400">
-              <span className="flex items-center gap-1.5 font-medium text-[10px] text-orange-400">
+          <div key={`${msgKey}-code-${segIdx}`} className="my-3 rounded-xl overflow-hidden border border-(--nonga-border) bg-(--nonga-bg-app) font-mono text-[11px]" id={blockId}>
+            <div className="flex items-center justify-between px-4 py-2 bg-(--nonga-bg-surface) border-b border-(--nonga-border) nonga-text-muted">
+              <span className="flex items-center gap-1.5 font-medium text-[10px] text-orange-600 dark:text-orange-400">
                 <Terminal className="w-3.5 h-3.5" />
                 {detectedLanguage || "code"}
               </span>
               <button
                 onClick={() => copyToClipboard(code, blockId)}
-                className="hover:text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
                 title="คัดลอกโค้ด"
               >
                 {copiedId === blockId ? (
@@ -152,7 +152,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 )}
               </button>
             </div>
-            <pre className="p-3 overflow-x-auto text-slate-300 leading-relaxed max-w-full">
+            <pre className="p-3 overflow-x-auto nonga-text-secondary leading-relaxed max-w-full">
               <code>{code.trim()}</code>
             </pre>
           </div>
@@ -172,7 +172,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             // Headers
             if (cleanLine.startsWith("### ")) {
               return (
-                <h4 key={`${msgKey}-h4-${lineIdx}`} className="text-xs font-bold text-orange-400 mt-4 mb-2 flex items-center gap-1">
+                <h4 key={`${msgKey}-h4-${lineIdx}`} className="text-xs font-bold text-orange-700 dark:text-orange-400 mt-4 mb-2 flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5 text-orange-500" />
                   {cleanLine.substring(4)}
                 </h4>
@@ -180,14 +180,14 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             }
             if (cleanLine.startsWith("## ")) {
               return (
-                <h3 key={`${msgKey}-h3-${lineIdx}`} className="text-sm font-extrabold text-slate-100 mt-5 mb-2.5 border-b border-slate-800/60 pb-1 w-full">
+                <h3 key={`${msgKey}-h3-${lineIdx}`} className="text-sm font-extrabold nonga-text-primary mt-5 mb-2.5 border-b border-(--nonga-border)/60 pb-1 w-full">
                   {cleanLine.substring(3)}
                 </h3>
               );
             }
             if (cleanLine.startsWith("# ")) {
               return (
-                <h2 key={`${msgKey}-h2-${lineIdx}`} className="text-base font-black text-slate-100 mt-6 mb-3">
+                <h2 key={`${msgKey}-h2-${lineIdx}`} className="text-base font-black nonga-text-primary mt-6 mb-3">
                   {cleanLine.substring(2)}
                 </h2>
               );
@@ -198,7 +198,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               const listText = cleanLine.substring(2);
               return (
                 <ul key={`${msgKey}-ul-${lineIdx}`} className="list-none pl-1 space-y-1 my-1">
-                  <li className="flex items-start gap-1.5 text-slate-300">
+                  <li className="flex items-start gap-1.5 nonga-text-secondary">
                     <span className="text-orange-500 select-none mt-1 shrink-0 text-xs">●</span>
                     <span className="leading-relaxed text-xs">
                       {parseInlineElements(listText, `${msgKey}-ul-${lineIdx}`)}
@@ -215,8 +215,8 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               const listText = numMatch[2];
               return (
                 <ol key={`${msgKey}-ol-${lineIdx}`} className="list-none pl-1 space-y-1 my-1">
-                  <li className="flex items-start gap-2 text-slate-300">
-                    <span className="text-orange-400 font-bold select-none text-[11px] mt-0.5 shrink-0">{num}.</span>
+                  <li className="flex items-start gap-2 nonga-text-secondary">
+                    <span className="text-orange-600 dark:text-orange-400 font-bold select-none text-[11px] mt-0.5 shrink-0">{num}.</span>
                     <span className="leading-relaxed text-xs">
                       {parseInlineElements(listText, `${msgKey}-ol-${lineIdx}-n${num}`)}
                     </span>
@@ -227,7 +227,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
 
             // Default Text Paragraph
             return (
-              <p key={`${msgKey}-p-${lineIdx}`} className="leading-relaxed text-slate-300 text-xs">
+              <p key={`${msgKey}-p-${lineIdx}`} className="leading-relaxed nonga-text-secondary text-xs">
                 {parseInlineElements(cleanLine, `${msgKey}-p-${lineIdx}`)}
               </p>
             );
@@ -244,7 +244,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       if (part.startsWith("**") && part.endsWith("**")) {
         const rawContent = part.substring(2, part.length - 2);
         return [
-          <strong key={`${keyPrefix}-bold-${idx}`} className="font-extrabold text-slate-100">
+          <strong key={`${keyPrefix}-bold-${idx}`} className="font-extrabold nonga-text-primary">
             {enrichHighlights(rawContent, `${keyPrefix}-bold-${idx}`)}
           </strong>
         ];
@@ -275,27 +275,27 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           if (part === sig) {
             if (sig === "ปังปุริเย่!") {
               return (
-                <span key={spanKey} className="inline-block bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-lg font-bold border border-orange-500/30 text-[11px]">
+                <span key={spanKey} className="inline-block bg-orange-500/20 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded-lg font-bold border border-orange-500/30 text-[11px]">
                   {sig}
                 </span>
               );
             }
             if (sig === "คันนี้มีคนทักแน่ครับ 🔥") {
               return (
-                <span key={spanKey} className="inline-block bg-orange-650/30 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/40 font-bold animate-pulse text-[11px]">
+                <span key={spanKey} className="inline-block bg-orange-650/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/40 font-bold animate-pulse text-[11px]">
                   {sig}
                 </span>
               );
             }
             if (sig === "รถสวยจน AI ใจสั่น 😆") {
               return (
-                <span key={spanKey} className="inline-block bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded-lg border border-pink-500/30 font-bold text-[11px]">
+                <span key={spanKey} className="inline-block bg-pink-500/10 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-lg border border-pink-500/30 font-bold text-[11px]">
                   {sig}
                 </span>
               );
             }
             return (
-              <span key={spanKey} className="text-orange-400 font-bold">
+              <span key={spanKey} className="text-orange-600 dark:text-orange-400 font-bold">
                 {sig}
               </span>
             );
@@ -313,7 +313,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         const inlineKey = `${keyPrefix}-ic-${nodeIdx}-${pIdx}`;
         if (part.startsWith("`") && part.endsWith("`")) {
           return (
-            <code key={inlineKey} className="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-orange-400 text-[10px] font-mono mx-0.5">
+            <code key={inlineKey} className="bg-(--nonga-bg-app) px-1.5 py-0.5 rounded border border-(--nonga-border) text-orange-700 dark:text-orange-400 text-[10px] font-mono mx-0.5">
               {part.substring(1, part.length - 1)}
             </code>
           );
@@ -331,7 +331,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`group/msg flex w-full gap-3 py-3 relative border-b border-slate-900/40 last:border-0 ${
+      className={`group/msg flex w-full gap-3 py-3 relative border-b border-slate-200/60 dark:border-slate-900/40 last:border-0 ${
         isUser ? "flex-row-reverse" : "flex-row"
       }`}
       id={`chat-msg-${message.id}`}
@@ -340,7 +340,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       <div
         className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-lg transition-transform duration-300 group-hover/msg:scale-105 ${
           isUser
-            ? "bg-slate-800 border border-slate-700 text-slate-300"
+            ? "bg-slate-200 border border-slate-300 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
             : "bg-gradient-to-tr from-orange-600 to-amber-500 text-white shadow-orange-500/10"
         }`}
         id={`avatar-${message.id}`}
@@ -359,17 +359,17 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         
         {/* Editing Workspace or Standard Bubble */}
         {isEditing ? (
-          <div className="w-full max-w-full min-w-0 bg-slate-900/90 border border-orange-500/30 p-3 rounded-2xl shadow-xl flex flex-col gap-2 md:min-w-[450px]">
+          <div className="w-full max-w-full min-w-0 bg-(--nonga-bg-surface)/90 border border-orange-500/30 p-3 rounded-2xl shadow-xl flex flex-col gap-2 md:min-w-[450px]">
             <textarea
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              className="w-full bg-slate-950 text-slate-100 text-xs p-3 rounded-xl border border-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500/60 font-sans resize-y min-h-[120px] leading-relaxed"
+              className="w-full bg-(--nonga-bg-app) text-(--nonga-text-primary) text-xs p-3 rounded-xl border border-(--nonga-border) focus:outline-none focus:ring-1 focus:ring-orange-500/60 font-sans resize-y min-h-[120px] leading-relaxed"
               placeholder="ปรับปรุงข้อความหรือแก้ไขคำตอบของคุณ..."
             />
             <div className="flex items-center justify-end gap-2 text-[10px]">
               <button
                 onClick={cancelEditing}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700/80 rounded-lg text-slate-300 transition flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300/80 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700/80 dark:text-slate-300 rounded-lg transition flex items-center gap-1 cursor-pointer"
               >
                 <X className="w-3.6 h-3.6" />
                 ยกเลิก
@@ -389,7 +389,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             className={`px-4 py-3.5 rounded-2xl text-[12px] shadow-sm leading-relaxed relative overflow-hidden transition-all duration-300 ${carCardsBubbleLayoutClass} ${
               isUser
                 ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white rounded-tr-xs"
-                : "bg-slate-900/60 backdrop-blur-md border border-slate-800 text-slate-200 rounded-tl-xs hover:bg-slate-900/80 hover:border-slate-700/60"
+                : "bg-(--nonga-bg-surface)/60 backdrop-blur-md border border-(--nonga-border) text-slate-800 dark:text-slate-200 rounded-tl-xs hover:bg-(--nonga-bg-surface)/80 hover:border-slate-400/60 dark:hover:border-slate-700/60"
             }`}
             id={`content-bubble-${message.id}`}
             data-has-car-cards={hasCarCards ? "true" : undefined}
@@ -448,7 +448,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                       void sendMessage("ดูเพิ่ม");
                     }
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-orange-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-orange-400 dark:border-slate-700 text-xs font-bold rounded-xl border transition-colors shadow-sm cursor-pointer"
                 >
                   ดูเพิ่มอีก 3 คัน
                 </button>
@@ -545,10 +545,10 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                         setPublishConsentAccepted(activeSessionId, checked);
                       }
                     }}
-                    className="mt-0.5 shrink-0 rounded border-slate-600 text-orange-500 focus:ring-orange-500/40"
+                    className="mt-0.5 shrink-0 rounded border-slate-400 dark:border-slate-600 text-orange-500 focus:ring-orange-500/40"
                     id="chat-publish-consent-checkbox"
                   />
-                  <span className="text-[10px] text-slate-400 leading-relaxed group-hover:text-slate-300">
+                  <span className="text-[10px] text-slate-600 group-hover:text-slate-800 dark:text-slate-400 leading-relaxed dark:group-hover:text-slate-300">
                     {CHAT_PUBLISH_CONSENT_LABEL}
                   </span>
                 </label>
@@ -565,7 +565,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                         ? undefined
                         : CHAT_PUBLISH_CONSENT_REQUIRED_MESSAGE
                     }
-                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
                     id="chat-confirm-publish-btn"
                   >
                     ยืนยันเผยแพร่ลงตลาด
@@ -577,7 +577,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                         void sendMessage(CHAT_MEMBER_CANCEL_PUBLISH_ACTION);
                       }
                     }}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 text-xs font-bold rounded-xl border transition-colors cursor-pointer"
                     id="chat-cancel-publish-btn"
                   >
                     ยกเลิกเผยแพร่
@@ -628,7 +628,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                     if (!activeSessionId) return;
                     void sendMessage(CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION);
                   }}
-                  className="px-4 py-2 border border-slate-600 text-slate-200 text-xs font-bold rounded-xl hover:bg-slate-800 cursor-pointer"
+                  className="px-4 py-2 border border-slate-400 text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 text-xs font-bold rounded-xl cursor-pointer"
                   data-testid="buyer-lead-edit-profile-btn"
                 >
                   {CHAT_BUYER_LEAD_EDIT_SAVED_PROFILE_ACTION}
@@ -672,7 +672,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                       void sendMessage("แก้ไขข้อมูล");
                     }
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-orange-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-orange-400 dark:border-slate-700 text-xs font-bold rounded-xl border transition-colors shadow-sm cursor-pointer"
                 >
                   แก้ไขข้อมูล
                 </button>
@@ -681,7 +681,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   onClick={() => {
                     openImageAttachmentPicker();
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-orange-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-orange-400 dark:border-slate-700 text-xs font-bold rounded-xl border transition-colors shadow-sm cursor-pointer"
                   id="chat-draft-add-images-btn"
                   data-testid="chat-add-listing-images-btn"
                 >
@@ -694,7 +694,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                       void sendMessage("เริ่มใหม่");
                     }
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 text-xs font-bold rounded-xl border transition-colors shadow-sm cursor-pointer"
                 >
                   เริ่มใหม่
                 </button>
@@ -717,13 +717,13 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               {formattedTime()}
             </span>
             {isLiked && (
-              <span className="text-[8px] bg-orange-500/10 text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5 scale-95">
+              <span className="text-[8px] bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5 scale-95">
                 <Heart className="w-2 h-2 fill-current" />
                 พินไว้แล้ว
               </span>
             )}
             {speaking && (
-              <span className="text-[8px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1.5 py-0.5 rounded font-bold animate-pulse flex items-center gap-0.5 scale-95">
+              <span className="text-[8px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-1.5 py-0.5 rounded font-bold animate-pulse flex items-center gap-0.5 scale-95">
                 <Volume2 className="w-2.5 h-2.5" />
                 กำลังพูด...
               </span>
@@ -733,7 +733,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           {/* Premium Glassmorphic Floating Toolbar */}
           {!isEditing && message.id !== "streaming-chunk-node" && (
             <motion.div 
-              className="flex items-center gap-1 bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-0.5 rounded-lg shadow-lg opacity-85 transition-all md:opacity-0 md:group-hover/msg:opacity-100 md:translate-y-1 md:group-hover/msg:translate-y-0"
+              className="flex items-center gap-1 bg-(--nonga-bg-surface)/50 backdrop-blur-md border border-(--nonga-border)/80 p-0.5 rounded-lg shadow-lg opacity-85 transition-all md:opacity-0 md:group-hover/msg:opacity-100 md:translate-y-1 md:group-hover/msg:translate-y-0"
               id={`toolbar-${message.id}`}
             >
               {/* Speech synthesis controller */}
@@ -741,8 +741,8 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 onClick={() => toggleSpeak(message.text, message.id)}
                 className={`p-1 rounded transition cursor-pointer ${
                   speaking 
-                    ? "text-sky-400 hover:bg-sky-500/10" 
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    ? "text-sky-600 dark:text-sky-400 hover:bg-sky-500/10" 
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
                 }`}
                 title={speaking ? "หยุดบรรยาย" : "ฟังเสียงสังเคราะห์บารมีน้องเอ 🔊"}
               >
@@ -756,7 +756,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               {/* Copy control */}
               <button
                 onClick={() => copyToClipboard(message.text, `msg-copy-${message.id}`)}
-                className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition cursor-pointer"
+                className="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
                 title="คัดลอกข้อความ 📋"
               >
                 {copiedId === `msg-copy-${message.id}` ? (
@@ -772,7 +772,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 className={`p-1 rounded transition cursor-pointer ${
                   isLiked 
                     ? "text-rose-500 hover:bg-rose-500/10" 
-                    : "text-slate-400 hover:text-rose-400 hover:bg-slate-800"
+                    : "text-slate-500 hover:text-rose-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:bg-slate-800"
                 }`}
                 title={isLiked ? "เลิกพินข้อความ" : "พินเก็บไว้เป็นเซสชันโปรด ❤️"}
               >
@@ -782,7 +782,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               {/* Inline edit controller */}
               <button
                 onClick={() => startEditing(message.text)}
-                className="p-1 rounded text-slate-400 hover:text-orange-400 hover:bg-slate-800 transition cursor-pointer"
+                className="p-1 rounded text-slate-500 hover:text-orange-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-orange-400 dark:hover:bg-slate-800 transition cursor-pointer"
                 title="แก้ไขข้อความแบบ inline ✏️"
               >
                 <Edit3 className="w-3.5 h-3.5" />

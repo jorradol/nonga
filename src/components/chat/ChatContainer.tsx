@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { Send, Menu, Sparkles, ChevronDown, Car } from "lucide-react";
+import { Send, Menu, Sparkles, ChevronDown, Car, Sun, Moon } from "lucide-react";
 import {
   ChatImageAttachmentInput,
   ChatImageAttachmentPreview,
@@ -54,7 +54,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
     sendMessage,
   } = useChatContext();
 
-  const { setView, cars } = useAppStore();
+  const { setView, cars, isDarkMode, toggleDarkMode } = useAppStore();
   const { isSignedIn } = useAuth();
 
   const [inputText, setInputText] = useState("");
@@ -296,44 +296,61 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
   return (
     <ChatComposerContext.Provider value={composerContextValue}>
-    <div className="flex-1 flex min-h-0 w-full min-w-0 bg-slate-950 text-slate-100 h-full relative" id="chat-container">
+    <div className="flex-1 flex min-h-0 w-full min-w-0 nonga-bg-app nonga-text-primary h-full relative" id="chat-container">
       <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden" id="chat-central-panel">
         <div
-          className="h-12 md:h-16 border-b border-slate-800/80 bg-slate-900/10 backdrop-blur-md px-3 md:px-4 flex items-center justify-between shrink-0"
+          className="h-12 md:h-16 border-b border-(--nonga-border)/80 bg-(--nonga-bg-surface)/10 backdrop-blur-md px-3 md:px-4 flex items-center justify-between shrink-0"
           id="chat-navbar"
         >
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            {/* Mobile-only drawer toggle — hidden from md up per Owner's desktop no-hamburger directive */}
             <button
               onClick={onToggleSidebar}
-              className="text-slate-300 hover:text-white min-w-10 min-h-10 p-2 rounded-lg hover:bg-slate-800 transition-colors shrink-0 md:min-w-0 md:min-h-0 md:p-1.5"
+              className="md:hidden nonga-text-secondary hover:text-slate-900 hover:bg-slate-200 dark:hover:text-white dark:hover:bg-slate-800 min-w-10 min-h-10 p-2 rounded-lg transition-colors shrink-0"
               title="สลับเมนูประวัติแชท"
               id="sidebar-toggle-trigger"
               aria-label="เปิดเมนูประวัติแชท"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="overflow-hidden ml-1">
-              <h3 className="text-sm font-bold text-slate-100 truncate flex items-center gap-2">
+            <div className="overflow-hidden md:ml-1">
+              <h3 className="text-sm font-bold nonga-text-primary truncate flex items-center gap-2">
                 คุยกับน้องเอ AI
-                <span className="hidden sm:inline-flex text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-medium">
+                <span className="hidden sm:inline-flex text-[10px] bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-medium">
                   คู่หูอัจฉริยะด้านซื้อขายรถยนต์
                 </span>
               </h3>
-              <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+              <p className="text-[10px] nonga-text-muted font-medium flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 animate-pulse inline-block" />
                 {activeSession ? activeSession.title : "พร้อมให้คำปรึกษา"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Theme toggle — shares the central Zustand theme state; icon/label = next action */}
+            <button
+              type="button"
+              onClick={toggleDarkMode}
+              className="text-xs bg-(--nonga-bg-surface) border border-(--nonga-border) nonga-text-secondary min-w-[30px] min-h-[30px] px-1.5 py-1.5 rounded-xl flex items-center justify-center hover:text-orange-600 dark:hover:text-orange-400 active:scale-95 transition-all cursor-pointer shrink-0 nonga-focus-ring"
+              title={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+              aria-label={isDarkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+              data-testid="chat-theme-toggle"
+              id="chat-theme-toggle"
+            >
+              {isDarkMode ? (
+                <Sun className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : (
+                <Moon className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setView("marketplace")}
-              className="text-xs bg-slate-900 border border-slate-800 text-slate-300 px-2 sm:px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:text-white hover:bg-slate-850 active:scale-95 transition-all cursor-pointer shrink-0"
+              className="text-xs bg-(--nonga-bg-surface) border border-(--nonga-border) nonga-text-secondary px-2 sm:px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:text-slate-900 hover:bg-slate-200 dark:hover:text-white dark:hover:bg-slate-850 active:scale-95 transition-all cursor-pointer shrink-0"
               title="ไปที่ตลาดรถ"
             >
-              <Car className="w-3.5 h-3.5 text-orange-400" />
+              <Car className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
               <span className="max-sm:hidden">ไปที่ตลาดรถ</span>
               <span className="sm:hidden">ตลาด</span>
             </button>
@@ -359,10 +376,10 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   <Sparkles className="w-8 h-8" />
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-slate-100 flex items-center justify-center gap-2 leading-tight">
-                    คุยรถยนต์สับๆ กับ <span className="text-orange-400">น้องเอ</span>
+                  <h1 className="text-2xl md:text-3xl font-extrabold nonga-text-primary flex items-center justify-center gap-2 leading-tight">
+                    คุยรถยนต์สับๆ กับ <span className="text-orange-600 dark:text-orange-400">น้องเอ</span>
                   </h1>
-                  <p className="text-sm text-slate-400 mt-3 max-w-md mx-auto leading-relaxed">
+                  <p className="text-sm nonga-text-muted mt-3 max-w-md mx-auto leading-relaxed">
                     สวัสดีครับ ผมคือน้องเอ อยากซื้อรถแบบไหน บอกงบ รุ่น หรือการใช้งานมาได้เลยครับ
                     — ค้นหารถในตลาดและปรึกษาได้ทันทีโดยไม่ต้องล็อกอิน
                   </p>
@@ -372,10 +389,10 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                       หลังเข้าสู่ระบบแล้ว น้องเอจะบันทึกประกาศต่อให้อัตโนมัติ
                     </p>
                   )}
-                  <p className="text-xs text-orange-400/90 mt-3 max-w-md mx-auto leading-relaxed">
+                  <p className="text-xs text-orange-700/90 dark:text-orange-400/90 mt-3 max-w-md mx-auto leading-relaxed">
                     {CHAT_FIRST_SELLER_GUIDANCE}
                   </p>
-                  <p className="text-[10px] text-slate-600 mt-1.5 max-w-md mx-auto leading-relaxed">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-600 mt-1.5 max-w-md mx-auto leading-relaxed">
                     {CHAT_PILOT_CLOSED_INVITE_NOTICE}
                   </p>
                 </div>
@@ -383,7 +400,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   <button
                     type="button"
                     onClick={handleAskAboutContextualCar}
-                    className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-xs font-semibold text-orange-300 hover:bg-orange-500/20 hover:text-orange-200 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-xs font-semibold text-orange-700 hover:text-orange-800 dark:text-orange-300 hover:bg-orange-500/20 dark:hover:text-orange-200 transition-colors"
                     id="chat-contextual-car-chip"
                   >
                     <Car className="w-3.5 h-3.5" />
@@ -418,10 +435,10 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
                 {isGenerating && !streamedReply && streamedCarCards.length === 0 && (
                   <div className="flex gap-3 py-2 animate-pulse" id="typing-loader-ticker">
-                    <div className="w-8 h-8 rounded-xl bg-orange-600/30 flex items-center justify-center text-orange-400 shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-orange-600/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
                       <Sparkles className="w-4 h-4 animate-spin text-orange-500" />
                     </div>
-                    <div className="px-4 py-3 rounded-2xl text-[12px] bg-slate-900/60 border border-slate-800 text-slate-400 rounded-tl-xs flex items-center gap-2">
+                    <div className="px-4 py-3 rounded-2xl text-[12px] bg-(--nonga-bg-surface)/60 border border-(--nonga-border) nonga-text-muted rounded-tl-xs flex items-center gap-2">
                       <span className="text-[10px] text-slate-500">น้องเอกำลังค้นจาก Marketplace...</span>
                     </div>
                   </div>
@@ -436,7 +453,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
             <button
               type="button"
               onClick={scrollToBottom}
-              className="absolute bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-slate-200 shadow-lg hover:bg-slate-700 transition cursor-pointer"
+              className="absolute bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-full bg-white/95 border-slate-300 text-slate-700 hover:bg-slate-100 dark:bg-slate-800/95 border dark:border-slate-700 dark:text-slate-200 shadow-lg dark:hover:bg-slate-700 transition cursor-pointer"
               id="chat-jump-to-bottom"
             >
               <ChevronDown className="w-3.5 h-3.5" />
@@ -446,18 +463,18 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
         </div>
 
         <div
-          className="p-2 max-md:px-2 max-md:pt-1.5 border-t border-slate-800/85 bg-slate-900/98 md:bg-slate-900/40 backdrop-blur-xl shrink-0 z-30 max-md:fixed max-md:left-0 max-md:right-0 chat-composer-safe-bottom md:relative md:bottom-auto"
+          className="p-2 max-md:px-2 max-md:pt-1.5 border-t border-(--nonga-border)/85 bg-(--nonga-bg-surface)/98 md:bg-(--nonga-bg-surface)/40 backdrop-blur-xl shrink-0 z-30 max-md:fixed max-md:left-0 max-md:right-0 chat-composer-safe-bottom md:relative md:bottom-auto"
           id="chat-input-toolbar"
         >
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
             <div
-              className="relative rounded-2xl border border-slate-700 bg-slate-900/80 backdrop-blur-xl hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
+              className="relative rounded-2xl border border-slate-300 dark:border-slate-700 bg-(--nonga-bg-surface)/80 backdrop-blur-xl hover:border-slate-400 dark:hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
               id="chat-composer-box"
               aria-busy={isGenerating || undefined}
             >
               {pendingAttachments.length > 0 && (
                 <div
-                  className="px-2 pt-2 pb-1 border-b border-slate-800/60 shrink-0 max-h-16 overflow-hidden"
+                  className="px-2 pt-2 pb-1 border-b border-(--nonga-border)/60 shrink-0 max-h-16 overflow-hidden"
                   id="chat-composer-attachment-preview"
                 >
                   <ChatImageAttachmentPreview
@@ -491,7 +508,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
                   }
                   rows={1}
                   aria-label="ข้อความถึงน้องเอ"
-                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-slate-100 placeholder-slate-500 scrollbar-thin leading-[22px] overflow-y-hidden box-border touch-manipulation relative z-[1]"
+                  className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none py-2 px-2 resize-none text-sm text-(--nonga-text-primary) placeholder-slate-500 scrollbar-thin leading-[22px] overflow-y-hidden box-border touch-manipulation relative z-[1]"
                   style={{
                     minHeight: CHAT_TEXTAREA_MIN_HEIGHT_PX,
                     maxHeight: CHAT_TEXTAREA_MAX_HEIGHT_PX,
@@ -526,7 +543,7 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
               </div>
             </div>
             {attachmentError && (
-              <p className="text-[11px] text-rose-400 text-center mt-2" role="alert">
+              <p className="text-[11px] text-rose-600 dark:text-rose-400 text-center mt-2" role="alert">
                 {attachmentError}
               </p>
             )}
@@ -541,16 +558,16 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
 
       {showMobileProps && (
         <div
-          className="xl:hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md z-30 flex flex-col p-4 overflow-y-auto space-y-4 animate-fade-in"
+          className="xl:hidden absolute inset-0 bg-(--nonga-bg-app)/95 backdrop-blur-md z-30 flex flex-col p-4 overflow-y-auto space-y-4 animate-fade-in"
           id="mobile-props-overlay"
         >
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <h3 className="text-xs font-bold text-slate-100 uppercase tracking-widest">
+          <div className="flex items-center justify-between border-b border-(--nonga-border) pb-2">
+            <h3 className="text-xs font-bold nonga-text-primary uppercase tracking-widest">
               ปรับแต่งบอท & สเป็คที่บันทึก
             </h3>
             <button
               onClick={() => setShowMobileProps(false)}
-              className="text-[10px] text-slate-300 font-bold px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer"
+              className="text-[10px] nonga-text-secondary font-bold px-3 py-1 bg-(--nonga-bg-surface) border border-(--nonga-border) rounded-lg cursor-pointer"
             >
               ปิดคำสั่งนี้
             </button>

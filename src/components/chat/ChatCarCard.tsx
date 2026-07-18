@@ -55,15 +55,19 @@ function SpecGrid({
       {items.map((item) => (
         <div
           key={item.key}
-          className={`min-w-0 rounded-lg border border-slate-800/80 bg-slate-900/50 px-2.5 py-2 ${
+          className={`min-w-0 rounded-lg border border-(--nonga-border)/80 bg-(--nonga-bg-surface)/50 px-2.5 py-2 ${
             item.key === "brandModel" && !compact ? "col-span-2 sm:col-span-3" : ""
           }`}
         >
           <dt className="text-[9px] uppercase tracking-wide text-slate-500">{item.label}</dt>
           <dd
-            className={`mt-0.5 text-slate-100 break-words ${
+            className={`mt-0.5 break-words ${
               compact ? "text-[11px] font-semibold" : "text-[11px] sm:text-xs font-medium"
-            } ${item.key === "price" ? "text-orange-400 font-bold" : ""}`}
+            } ${
+              item.key === "price"
+                ? "text-orange-600 dark:text-orange-400 font-bold"
+                : "text-(--nonga-text-primary)"
+            }`}
           >
             {item.value}
           </dd>
@@ -89,7 +93,7 @@ function ChatCarImageGallery({
   if (imageUrls.length === 0) {
     return (
       <div
-        className="rounded-lg border border-dashed border-slate-700 bg-slate-900/60 aspect-[16/10] max-h-40 sm:max-h-48 flex flex-col items-center justify-center gap-2"
+        className="rounded-lg border border-dashed border-(--nonga-border-strong) bg-(--nonga-bg-surface)/60 aspect-[16/10] max-h-40 sm:max-h-48 flex flex-col items-center justify-center gap-2"
         data-testid="chat-car-card-no-images"
       >
         <ImageOff className="w-8 h-8 opacity-60 text-slate-500" />
@@ -104,7 +108,7 @@ function ChatCarImageGallery({
 
   return (
     <div className="space-y-2 min-w-0 max-w-full" data-testid="chat-car-card-gallery">
-      <div className="relative rounded-lg overflow-hidden bg-slate-900 aspect-[16/10] max-h-40 sm:max-h-48">
+      <div className="relative rounded-lg overflow-hidden bg-(--nonga-bg-subtle) aspect-[16/10] max-h-40 sm:max-h-48">
         <img
           src={activeUrl}
           alt={alt}
@@ -128,7 +132,7 @@ function ChatCarImageGallery({
               className={`shrink-0 w-12 h-9 sm:w-14 sm:h-10 rounded-md overflow-hidden border-2 transition cursor-pointer ${
                 index === safeIndex
                   ? "border-orange-400"
-                  : "border-slate-700 opacity-80 hover:opacity-100"
+                  : "border-slate-300 dark:border-slate-700 opacity-80 hover:opacity-100"
               }`}
               aria-label={`รูปที่ ${index + 1}`}
             >
@@ -142,7 +146,7 @@ function ChatCarImageGallery({
             </button>
           ))}
           {overflowCount > 0 && (
-            <div className="shrink-0 w-12 h-9 sm:w-14 sm:h-10 rounded-md border border-slate-700 bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
+            <div className="shrink-0 w-12 h-9 sm:w-14 sm:h-10 rounded-md border border-slate-300 bg-slate-200 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 flex items-center justify-center text-[10px] font-bold">
               +{overflowCount}
             </div>
           )}
@@ -159,17 +163,17 @@ function ExpandableDescription({ text }: { text: string }) {
 
   return (
     <div data-testid="chat-car-card-description">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">
+      <p className="text-[10px] font-bold nonga-text-muted uppercase tracking-wide mb-1.5">
         รายละเอียดเพิ่มเติม
       </p>
-      <p className="text-[11px] sm:text-xs text-slate-300 whitespace-pre-wrap leading-relaxed rounded-lg bg-slate-900/60 border border-slate-800 px-2.5 py-2 break-words">
+      <p className="text-[11px] sm:text-xs nonga-text-secondary whitespace-pre-wrap leading-relaxed rounded-lg bg-(--nonga-bg-surface)/60 border border-(--nonga-border) px-2.5 py-2 break-words">
         {displayText}
       </p>
       {truncated && (
         <button
           type="button"
           onClick={() => setShowFull((prev) => !prev)}
-          className="mt-1.5 text-[10px] font-semibold text-orange-300 hover:text-orange-200 cursor-pointer"
+          className="mt-1.5 text-[10px] font-semibold text-orange-700 hover:text-orange-800 dark:text-orange-300 dark:hover:text-orange-200 cursor-pointer"
           data-testid="chat-car-card-description-toggle"
         >
           {showFull ? "ย่อข้อความ" : "อ่านเพิ่มเติม"}
@@ -197,9 +201,9 @@ function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+          <Sparkles className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
           <Quote className="w-3 h-3 text-orange-500/70 shrink-0" />
-          <span className="text-[11px] font-bold text-orange-400">{analysis.title}</span>
+          <span className="text-[11px] font-bold text-orange-700 dark:text-orange-400">{analysis.title}</span>
         </div>
         {canSpeak ? (
           <button
@@ -210,8 +214,8 @@ function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
             }}
             className={`shrink-0 p-1 rounded transition cursor-pointer ${
               speaking
-                ? "text-sky-400 hover:bg-sky-500/10"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                ? "text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60"
             }`}
             aria-label={IN_CHAT_CURATED_SPEAK_ARIA_LABEL}
             title={speaking ? "หยุดบรรยาย" : IN_CHAT_CURATED_SPEAK_ARIA_LABEL}
@@ -226,11 +230,11 @@ function ChatCarCuratedAnalysisPanel({ car }: { car: ChatCarCardData }) {
           </button>
         ) : null}
       </div>
-      <div className="space-y-2 text-[11px] sm:text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+      <div className="space-y-2 text-[11px] sm:text-xs nonga-text-secondary leading-relaxed whitespace-pre-wrap">
         <p>{analysis.opening}</p>
         {analysis.featureWeave ? <p>{analysis.featureWeave}</p> : null}
         <p>{analysis.highlights}</p>
-        <p className="text-slate-400">{analysis.closing}</p>
+        <p className="nonga-text-muted">{analysis.closing}</p>
       </div>
     </div>
   );
@@ -288,17 +292,17 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
 
   return (
     <article
-      className="w-full max-w-full min-w-0 rounded-xl border border-slate-800 bg-slate-950/80 overflow-hidden shadow-lg"
+      className="w-full max-w-full min-w-0 rounded-xl border border-(--nonga-border) bg-white dark:bg-slate-950/80 overflow-hidden shadow-lg"
       data-car-id={car.id}
       data-testid="chat-car-card"
       data-expanded={expanded ? "true" : "false"}
     >
-      <div className="px-3 py-2 border-b border-slate-800/80 flex items-start gap-2 min-w-0">
-        <Car className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+      <div className="px-3 py-2 border-b border-(--nonga-border)/80 flex items-start gap-2 min-w-0">
+        <Car className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
-          <h4 className="text-xs font-bold text-slate-100 leading-snug truncate">
+          <h4 className="text-xs font-bold nonga-text-primary leading-snug truncate">
             {brandModel}{" "}
-            <span className="text-slate-400 font-medium">ปี {car.year}</span>
+            <span className="nonga-text-muted font-medium">ปี {car.year}</span>
           </h4>
           <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">
             {expanded
@@ -307,7 +311,7 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
           </p>
         </div>
         {car.matchKind === "alternative" && (
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 shrink-0">
             ทางเลือกใกล้เคียง
           </span>
         )}
@@ -331,15 +335,15 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
             className="flex items-start gap-1.5 rounded-lg border border-orange-500/20 bg-orange-500/[0.05] px-2.5 py-2"
             data-testid="chat-car-card-fit-reason"
           >
-            <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
-            <p className="text-[11px] sm:text-xs text-slate-200 leading-relaxed break-words">
+            <Sparkles className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] sm:text-xs text-slate-800 dark:text-slate-200 leading-relaxed break-words">
               {car.fitReason.trim()}
             </p>
           </div>
         ) : null}
 
         {expanded ? (
-          <div className="border-t border-slate-800/80 pt-3 space-y-3">
+          <div className="border-t border-(--nonga-border)/80 pt-3 space-y-3">
             <ChatCarCuratedAnalysisPanel car={car} />
             {car.description?.trim() ? (
               <ExpandableDescription text={car.description.trim()} />
@@ -370,7 +374,7 @@ export function ChatCarCard({ car, onRequestSellerCallback }: ChatCarCardProps) 
         <button
           type="button"
           onClick={handleToggleInChatDetail}
-          className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-300 text-xs font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer min-h-[44px]"
+          className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-200 hover:bg-slate-300 text-orange-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-orange-300 dark:border-slate-700 text-xs font-bold rounded-xl border transition-colors cursor-pointer min-h-[44px]"
           data-testid="chat-car-card-expand-btn"
         >
           {expanded ? (

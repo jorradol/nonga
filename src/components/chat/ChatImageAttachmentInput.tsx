@@ -40,14 +40,14 @@ export function ChatImageAttachmentPreview({
       data-testid="chat-image-attachment-v1-preview"
       aria-label={`แนบรูปแล้ว ${pending.length} รูป`}
     >
-      <span className="shrink-0 text-[10px] font-semibold text-orange-300 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+      <span className="shrink-0 text-[10px] font-semibold text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
         {pending.length} รูป
       </span>
       <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto overflow-y-hidden scrollbar-thin py-0.5">
         {pending.map((item, index) => (
           <div
             key={item.id}
-            className="relative w-12 h-12 shrink-0 rounded-md border border-slate-600 bg-slate-800 overflow-hidden"
+            className="relative w-12 h-12 shrink-0 rounded-md border border-slate-400 bg-slate-200 dark:border-slate-600 dark:bg-slate-800 overflow-hidden"
             title={`${item.originalFileName} (${formatSize(item.size)})`}
           >
             <img
@@ -115,7 +115,7 @@ export function ChatImageAttachmentInput({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || isPreparing}
-        className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] max-md:min-w-11 max-md:min-h-11 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
+        className="min-w-[38px] min-h-[38px] w-[38px] h-[38px] max-md:min-w-11 max-md:min-h-11 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center text-slate-500 hover:text-orange-600 hover:bg-slate-200/80 dark:text-slate-400 dark:hover:text-orange-400 dark:hover:bg-slate-800/80 disabled:opacity-30 transition shrink-0 cursor-pointer"
         title="แนบรูป"
         id="chat-attach-image-v1-btn"
         aria-label="แนบรูป"

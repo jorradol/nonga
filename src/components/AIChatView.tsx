@@ -52,7 +52,7 @@ export default function AIChatView() {
   return (
     <ChatProvider>
       <div
-        className="flex w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-950 relative"
+        className="flex w-full flex-1 min-h-0 h-full overflow-hidden nonga-bg-app relative"
         id="ai-chat-root-viewport"
       >
         <ChatSidebar

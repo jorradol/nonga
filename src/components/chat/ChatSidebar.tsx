@@ -152,36 +152,18 @@ export function ChatSidebar({
         data-collapsed={collapsed ? "true" : "false"}
         data-expanded-width={mdUp && !collapsed ? String(desktopWidthPx) : undefined}
         style={sidebarWidthStyle}
-        className={`max-md:fixed max-md:top-0 max-md:bottom-0 max-md:left-0 max-md:z-50 max-md:max-h-[100dvh] max-md:pb-[env(safe-area-inset-bottom)] md:static md:shrink-0 border-r border-slate-800/80 bg-slate-950/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 ${widthClass} md:w-auto ${
+        className={`max-md:fixed max-md:top-0 max-md:bottom-0 max-md:left-0 max-md:z-50 max-md:max-h-[100dvh] max-md:pb-[env(safe-area-inset-bottom)] md:static md:shrink-0 border-r border-(--nonga-border)/80 bg-(--nonga-bg-app)/90 backdrop-blur-xl flex flex-col transform md:translate-x-0 ${widthClass} md:w-auto ${
           isResizing ? "" : "transition-[transform,width] duration-300 ease-in-out"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
+        {/* Sidebar header (position A) — real session account block, moved up from the old footer slot */}
         <div
-          className={`border-b border-slate-800/80 flex items-center shrink-0 ${
-            collapsed ? "md:flex-col md:gap-2 md:py-3 md:px-1.5 p-4 justify-between" : "p-3 justify-between gap-2"
+          className={`border-b border-(--nonga-border)/80 flex items-center shrink-0 ${
+            collapsed ? "md:flex-col md:gap-2 md:py-3 md:px-1.5 p-3 justify-between" : "p-3 justify-between gap-2"
           }`}
           id="sidebar-header"
         >
-          <div
-            className={`flex items-center min-w-0 ${
-              collapsed ? "md:flex-col md:gap-2 md:w-full" : "gap-2 flex-1"
-            }`}
-          >
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center font-bold text-white shadow-lg shadow-orange-500/20 text-sm shrink-0">
-              N
-            </div>
-            <div className={`min-w-0 ${collapsed ? "md:hidden" : ""}`}>
-              <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-1">
-                น้องเอ{" "}
-                <span className="text-[10px] bg-orange-500/20 text-orange-400 font-mono px-1.5 py-0.5 rounded-full border border-orange-500/30">
-                  AI Sales
-                </span>
-              </h2>
-              <p className="text-[10px] text-slate-400 truncate">
-                คุยสนุก สรุปเร็ว เสนอแนววิเคราะห์สับๆ
-              </p>
-            </div>
-          </div>
+          <ChatSidebarAccount collapsed={collapsed} onMobileSidebarClose={onClose} />
 
           <div
             className={`flex items-center shrink-0 ${
@@ -191,7 +173,7 @@ export function ChatSidebar({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              className="hidden md:flex text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              className="hidden md:flex nonga-text-muted hover:text-slate-900 hover:bg-slate-200 dark:hover:text-white dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
               title={collapsed ? "ขยายเมนูแชท" : "พับเมนูแชท"}
               id="sidebar-collapse-toggle"
               aria-expanded={!collapsed}
@@ -204,7 +186,7 @@ export function ChatSidebar({
             </button>
             <button
               onClick={onClose}
-              className="md:hidden text-slate-400 hover:text-white p-1 rounded-md"
+              className="md:hidden nonga-text-muted hover:text-slate-900 dark:hover:text-white p-1 rounded-md"
               title="ปิดเมนู"
               id="close-sidebar-btn"
             >
@@ -264,8 +246,8 @@ export function ChatSidebar({
                   transition={{ duration: 0.2 }}
                   className={`group relative flex w-full items-center justify-between rounded-xl transition-all duration-200 text-xs text-left before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-1 before:rounded-r-lg ${
                     isActive
-                      ? "bg-slate-800/60 border border-slate-700/60 text-slate-100 before:bg-orange-500"
-                      : "hover:bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent before:bg-transparent"
+                      ? "bg-slate-200/70 border border-slate-300/80 text-slate-900 dark:bg-slate-800/60 dark:border-slate-700/60 dark:text-slate-100 before:bg-orange-500"
+                      : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900 dark:hover:bg-slate-900/60 dark:text-slate-400 dark:hover:text-slate-200 border border-transparent before:bg-transparent"
                   } ${collapsed ? "md:justify-center md:before:hidden" : ""}`}
                   id={`chat-session-row-${session.id}`}
                 >
@@ -293,10 +275,10 @@ export function ChatSidebar({
                     <MessageSquare
                       className={`w-4 h-4 shrink-0 ${
                         collapsed ? "md:mt-0 mt-0.5" : "mt-0.5"
-                      } ${isActive ? "text-orange-400" : "text-slate-500"}`}
+                      } ${isActive ? "text-orange-600 dark:text-orange-400" : "text-slate-500"}`}
                     />
                     <div className={`overflow-hidden min-w-0 ${collapsed ? "md:hidden" : ""}`}>
-                      <p className="truncate font-medium text-slate-200 leading-snug">
+                      <p className="truncate font-medium text-slate-800 dark:text-slate-200 leading-snug">
                         {session.title}
                       </p>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
@@ -308,7 +290,7 @@ export function ChatSidebar({
 
                   <button
                     id={`delete-chat-session-${session.id}`}
-                    className={`text-slate-500 hover:text-red-400 p-1 rounded-lg hover:bg-slate-800/80 transition-colors backdrop-blur-md md:opacity-0 group-hover:opacity-100 ${
+                    className={`text-slate-500 hover:text-red-500 hover:bg-slate-200/80 dark:hover:text-red-400 dark:hover:bg-slate-800/80 p-1 rounded-lg transition-colors backdrop-blur-md md:opacity-0 group-hover:opacity-100 ${
                       isActive ? "opacity-100" : ""
                     } ${collapsed ? "md:hidden" : ""}`}
                     onPointerDown={(e) => e.stopPropagation()}
@@ -336,9 +318,9 @@ export function ChatSidebar({
               className={`text-center py-8 space-y-3 ${collapsed ? "md:py-4 md:px-1 px-4" : "px-4"}`}
               id="empty-sidebar"
             >
-              <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
+              <MessageSquare className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2 opacity-50" />
               <div className={collapsed ? "md:hidden" : ""}>
-                <p className="text-xs font-semibold text-slate-300">ยังไม่มีประวัติแชท</p>
+                <p className="text-xs font-semibold nonga-text-secondary">ยังไม่มีประวัติแชท</p>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                   กด «เริ่มคุยเรื่องใหม่» ด้านบน แล้วบอกน้องเอว่าต้องการขายรถอะไร หรือถามหารถในตลาดได้เลย
                 </p>
@@ -347,10 +329,8 @@ export function ChatSidebar({
           )}
         </div>
 
-        <ChatSidebarAccount collapsed={collapsed} onMobileSidebarClose={onClose} />
-
         <div
-          className={`border-t border-slate-800/80 bg-slate-950/40 text-[10px] text-slate-500 shrink-0 ${
+          className={`border-t border-(--nonga-border)/80 bg-(--nonga-bg-app)/40 text-[10px] text-slate-500 shrink-0 ${
             collapsed ? "md:hidden p-4 flex items-center justify-between" : "p-3 flex items-center justify-between"
           }`}
           id="sidebar-footer"
@@ -360,7 +340,7 @@ export function ChatSidebar({
             href="https://www.nongbot.org/nonga"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-orange-400 hover:underline"
+            className="text-orange-600 dark:text-orange-400 hover:underline"
           >
             nongbot.org
           </a>
