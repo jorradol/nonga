@@ -39,9 +39,9 @@ ok(
 );
 
 ok(
-  "wide desktop keeps Account pill trigger",
+  "desktop (md+) keeps full Account pill trigger",
   header.includes('data-account-variant="pill"') &&
-    header.includes("header-account-pill hidden xl:flex") &&
+    header.includes("header-account-pill hidden md:flex") &&
     header.includes('data-testid="header-account-control"')
 );
 
@@ -49,8 +49,15 @@ ok(
   "narrow/mobile uses Account icon trigger (not nav drawer)",
   header.includes('data-account-variant="icon"') &&
     header.includes('data-header-account-icon="true"') &&
-    header.includes("xl:hidden") &&
+    header.includes("md:hidden") &&
     header.includes('setIsProfileOpen((open) => !open)')
+);
+
+ok(
+  "pill/icon flip on one shared md token (no overlap, no gap, no stale xl)",
+  !/hidden xl:flex|xl:hidden|xl:inline-flex/.test(header) &&
+    header.includes("header-account-pill hidden md:flex") &&
+    header.includes("hidden md:inline-flex")
 );
 
 ok(
@@ -120,17 +127,19 @@ ok(
 console.log("\n--- responsive acceptance matrix (source contract) ---\n");
 
 const matrix = [
-  { name: "1366px wide → Account pill (xl+)", pass: header.includes("hidden xl:flex") },
-  { name: "1280px → Account pill at xl boundary", pass: header.includes("hidden xl:flex") },
   {
-    name: "1024px / tablet / mobile → Account icon",
+    name: "1366px / 1280px / 1024px / 864px / 768px → full Account pill (md+)",
+    pass: header.includes("header-account-pill hidden md:flex"),
+  },
+  {
+    name: "742px and below (incl. 390px / 360px) → Account icon",
     pass:
       header.includes('data-account-variant="icon"') &&
-      header.includes("xl:hidden") &&
+      header.includes("md:hidden") &&
       !header.includes("isMobileDrawerOpen"),
   },
   {
-    name: "390px / 360px → no hamburger; account icon opens menu",
+    name: "no hamburger; account icon opens canonical menu",
     pass:
       header.includes('data-header-account-icon="true"') &&
       header.includes('data-testid="header-account-menu"') &&

@@ -324,7 +324,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setView("login")}
-                    className="hidden xl:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer shrink-0"
+                    className="hidden md:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer shrink-0"
                   >
                     <Key className="w-3.5 h-3.5" />
                     <span>เข้าสู่ระบบ AI 🪄</span>
@@ -332,7 +332,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setView("login")}
-                    className="xl:hidden p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 nonga-focus-ring"
+                    className="md:hidden p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 nonga-focus-ring"
                     aria-label="เข้าสู่ระบบ"
                     data-testid="header-account-guest-login"
                     data-account-variant="icon"
@@ -351,7 +351,7 @@ export default function Header() {
                     aria-label={isProfileOpen ? "ปิดเมนูบัญชี" : "เปิดเมนูบัญชี"}
                     data-testid="header-account-control"
                     data-account-variant="pill"
-                    className="header-account-pill hidden xl:flex items-center gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 min-h-[36px] sm:min-h-[40px] max-w-[min(180px,28vw)] rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
+                    className="header-account-pill hidden md:flex items-center gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 min-h-[36px] sm:min-h-[40px] max-w-[min(180px,28vw)] rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
                   >
                     <ProfileAvatar
                       user={user}
@@ -385,7 +385,7 @@ export default function Header() {
                     data-testid="header-account-control"
                     data-account-variant="icon"
                     data-header-account-icon="true"
-                    className="xl:hidden p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
+                    className="md:hidden p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
                   >
                     {hasRealProfilePhoto ? (
                       <ProfileAvatar

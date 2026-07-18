@@ -34,11 +34,12 @@ ok(
 );
 
 ok(
-  "wide desktop shows pill; narrow shows account icon (xl breakpoint)",
+  "desktop (md+) shows pill; below md shows account icon (single md token)",
   header.includes('data-account-variant="pill"') &&
-    header.includes("header-account-pill hidden xl:flex") &&
+    header.includes("header-account-pill hidden md:flex") &&
     header.includes('data-account-variant="icon"') &&
-    header.includes("xl:hidden") &&
+    header.includes("md:hidden") &&
+    !/hidden xl:flex|xl:hidden/.test(header) &&
     header.includes('aria-label={isProfileOpen ? "ปิดเมนูบัญชี" : "เปิดเมนูบัญชี"}')
 );
 
