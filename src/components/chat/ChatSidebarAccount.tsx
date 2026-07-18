@@ -174,8 +174,8 @@ export function ChatSidebarAccount({
                   }
                 }}
                 onLogout={() => {
+                  // Canonical sign-out only — stay on current /chat route (no post-logout navigation).
                   void logout();
-                  setView("home");
                 }}
                 onClose={closeMenuAndMaybeDrawer}
                 data-testid="chat-sidebar-account-menu"

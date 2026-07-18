@@ -123,6 +123,34 @@ ok(
     account.includes("setIsProfileOpen((open) => !open)")
 );
 
+// --- Chat logout stays on /chat (do not inherit Header post-logout navigation) ---
+const chatLogoutMatch = account.match(
+  /onLogout=\{\(\)\s*=>\s*\{([\s\S]*?)\}\s*\}/
+);
+const chatLogoutBody = chatLogoutMatch?.[1] ?? "";
+ok(
+  "chat logout calls canonical logout action",
+  /void\s+logout\(\)|logout\(\)/.test(chatLogoutBody)
+);
+ok(
+  "chat logout does NOT navigate away (no setView home/marketplace/login)",
+  Boolean(chatLogoutMatch) &&
+    !chatLogoutBody.includes('setView("home")') &&
+    !chatLogoutBody.includes('setView("marketplace")') &&
+    !chatLogoutBody.includes('setView("login")') &&
+    !chatLogoutBody.includes("setView('home')")
+);
+const header = readFileSync("src/components/Header.tsx", "utf8");
+const headerLogoutMatch = header.match(
+  /onLogout=\{\(\)\s*=>\s*\{([\s\S]*?)\}\s*\}/
+);
+const headerLogoutBody = headerLogoutMatch?.[1] ?? "";
+ok(
+  "Header logout still navigates home (unchanged other-page behavior)",
+  headerLogoutBody.includes("logout()") &&
+    headerLogoutBody.includes('setView("home")')
+);
+
 // --- Footer ---
 const footerIdx = sidebar.indexOf('id="sidebar-footer"');
 const footerBlock = sidebar.slice(footerIdx, footerIdx + 400);
