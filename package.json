@@ -79,6 +79,7 @@
     "test:sell-page-surface-chat-parity": "tsx scripts/test-sell-page-surface-chat-parity.mts",
     "test:profile-navigation-responsive-guard": "tsx scripts/test-profile-navigation-responsive-guard.mts",
     "test:profile-slate-surface-guard": "tsx scripts/test-profile-slate-surface-guard.mts",
+    "test:login-card-slate-surface-guard": "tsx scripts/test-login-card-slate-surface-guard.mts",
     "test:header-single-row-layout-guard": "tsx scripts/test-header-single-row-layout-guard.mts",
     "test:header-account-pill-guard": "tsx scripts/test-header-account-pill-guard.mts",
     "test:header-responsive-account-trigger-guard": "tsx scripts/test-header-responsive-account-trigger-guard.mts",

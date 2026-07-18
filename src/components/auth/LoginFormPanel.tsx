@@ -18,6 +18,12 @@ export type LoginFormPanelProps = {
   onRegister?: () => void;
   /** Tighter layout for chat sidebar modal */
   compact?: boolean;
+  /**
+   * Host card tone.
+   * - "dark": legacy fixed dark styling (chat login modal on slate-950 stays as-is)
+   * - "surface": follows canonical nonga theme tokens (slate surface, light/dark aware)
+   */
+  tone?: "dark" | "surface";
 };
 
 export function LoginFormPanel({
@@ -25,6 +31,7 @@ export function LoginFormPanel({
   onForgotPassword,
   onRegister,
   compact = false,
+  tone = "dark",
 }: LoginFormPanelProps) {
   const {
     loginWithEmail,
@@ -104,8 +111,45 @@ export function LoginFormPanel({
     }
   };
 
-  const inputClass =
-    "w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border bg-slate-500/[0.03] border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors";
+  const isSurfaceTone = tone === "surface";
+
+  const inputClass = isSurfaceTone
+    ? "w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-[var(--nonga-border-strong)] bg-[var(--nonga-bg-subtle)] text-[var(--nonga-text-primary)] placeholder-[var(--nonga-text-placeholder)] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+    : "w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border bg-slate-500/[0.03] border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors";
+
+  const labelToneClass = isSurfaceTone
+    ? "text-[var(--nonga-text-muted)]"
+    : "text-slate-400";
+  const inputIconToneClass = isSurfaceTone
+    ? "text-[var(--nonga-text-muted)]"
+    : "text-slate-500";
+  const eyeToggleToneClass = isSurfaceTone
+    ? "text-[var(--nonga-text-muted)] hover:text-orange-600 dark:hover:text-orange-400"
+    : "text-slate-500 hover:text-orange-400";
+  const forgotLinkToneClass = isSurfaceTone
+    ? "text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+    : "text-orange-400 hover:text-orange-300";
+  const dividerLineToneClass = isSurfaceTone
+    ? "bg-[var(--nonga-border)]"
+    : "bg-slate-800";
+  const dividerLabelToneClass = isSurfaceTone
+    ? "text-[var(--nonga-text-muted)] bg-[var(--nonga-bg-surface)]"
+    : "text-slate-500 bg-slate-950";
+  const socialButtonToneClass = isSurfaceTone
+    ? "border-[var(--nonga-border-strong)] bg-[var(--nonga-bg-subtle)] hover:border-orange-500/40 text-[var(--nonga-text-secondary)]"
+    : "border-slate-700 bg-slate-900/50 hover:border-orange-500/30 text-slate-300";
+  const footerTextToneClass = isSurfaceTone
+    ? "text-[var(--nonga-text-muted)]"
+    : "text-slate-500";
+  const registerLinkToneClass = isSurfaceTone
+    ? "text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+    : "text-orange-400 hover:text-orange-300";
+  const errorTextToneClass = isSurfaceTone
+    ? "text-red-700 dark:text-red-400"
+    : "text-red-400";
+  const successTextToneClass = isSurfaceTone
+    ? "text-green-700 dark:text-green-400"
+    : "text-green-400";
 
   return (
     <div className={compact ? "space-y-4" : "space-y-6"}>
@@ -113,7 +157,7 @@ export function LoginFormPanel({
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-xl border border-red-500/20 bg-red-500/5 text-xs text-red-400 flex items-start gap-2 text-left"
+          className={`p-3 rounded-xl border border-red-500/20 bg-red-500/5 text-xs ${errorTextToneClass} flex items-start gap-2 text-left`}
         >
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{displayError}</span>
@@ -124,7 +168,7 @@ export function LoginFormPanel({
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-xl border border-green-500/20 bg-green-500/5 text-xs text-green-400 flex items-start gap-2 text-left"
+          className={`p-3 rounded-xl border border-green-500/20 bg-green-500/5 text-xs ${successTextToneClass} flex items-start gap-2 text-left`}
         >
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{successToast}</span>
@@ -133,11 +177,11 @@ export function LoginFormPanel({
 
       <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <label className={`text-[10px] font-bold ${labelToneClass} uppercase tracking-wider`}>
             อีเมล
           </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${inputIconToneClass} pointer-events-none`} />
             <input
               type="email"
               value={email}
@@ -152,21 +196,21 @@ export function LoginFormPanel({
 
         <div className="space-y-1">
           <div className="flex justify-between items-center gap-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <label className={`text-[10px] font-bold ${labelToneClass} uppercase tracking-wider`}>
               รหัสผ่าน
             </label>
             {onForgotPassword && (
               <button
                 type="button"
                 onClick={onForgotPassword}
-                className="text-[10px] font-semibold text-orange-400 hover:text-orange-300"
+                className={`text-[10px] font-semibold ${forgotLinkToneClass}`}
               >
                 ลืมรหัสผ่าน?
               </button>
             )}
           </div>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${inputIconToneClass} pointer-events-none`} />
             <input
               type={showPassword ? "text" : "password"}
               value={password}
@@ -179,7 +223,7 @@ export function LoginFormPanel({
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-orange-400"
+              className={`absolute right-3 top-1/2 -translate-y-1/2 ${eyeToggleToneClass}`}
             >
               {showPassword ? (
                 <EyeOff className="w-4 h-4" />
@@ -207,8 +251,8 @@ export function LoginFormPanel({
       </form>
 
       <div className="relative flex items-center justify-center">
-        <span className="absolute inset-x-0 h-px bg-slate-800" />
-        <span className="relative px-2 text-[10px] text-slate-500 bg-slate-950 uppercase">
+        <span className={`absolute inset-x-0 h-px ${dividerLineToneClass}`} />
+        <span className={`relative px-2 text-[10px] ${dividerLabelToneClass} uppercase`}>
           หรือ
         </span>
       </div>
@@ -220,7 +264,7 @@ export function LoginFormPanel({
             type="button"
             disabled={loading}
             onClick={() => void handleSocialLogin(provider)}
-            className="py-2 rounded-lg border border-slate-700 bg-slate-900/50 hover:border-orange-500/30 text-[10px] font-semibold text-slate-300 disabled:opacity-50"
+            className={`py-2 rounded-lg border ${socialButtonToneClass} text-[10px] font-semibold disabled:opacity-50`}
           >
             {provider === "google" ? "Google" : provider === "facebook" ? "FB" : "LINE"}
           </button>
@@ -228,14 +272,14 @@ export function LoginFormPanel({
       </div>
 
       {onRegister && (
-        <p className="text-center text-[11px] text-slate-500">
+        <p className={`text-center text-[11px] ${footerTextToneClass}`}>
           {signupEnabled ? (
             <>
               ยังไม่มีบัญชี?{" "}
               <button
                 type="button"
                 onClick={onRegister}
-                className="text-orange-400 font-semibold hover:text-orange-300"
+                className={`font-semibold ${registerLinkToneClass}`}
               >
                 สร้างบัญชี
               </button>

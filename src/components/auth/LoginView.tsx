@@ -65,12 +65,12 @@ export default function LoginView() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-orange-500/10 backdrop-blur-xl p-6 sm:p-8 shadow-2xl relative bg-[#0c0c0e]/80">
+        <div className="rounded-2xl border nonga-border nonga-bg-surface p-6 sm:p-8 shadow-2xl relative">
           {successToast && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3.5 rounded-xl border border-green-500/20 bg-green-500/5 text-xs text-green-500 flex items-start gap-2.5 text-left"
+              className="mb-4 p-3.5 rounded-xl border border-green-500/20 bg-green-500/5 text-xs text-green-700 dark:text-green-400 flex items-start gap-2.5 text-left"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 animate-bounce" />
               <span>{successToast}</span>
@@ -78,6 +78,7 @@ export default function LoginView() {
           )}
 
           <LoginFormPanel
+            tone="surface"
             onLoginSuccess={finishPageLogin}
             onForgotPassword={() => setView("forgot-password")}
           />
