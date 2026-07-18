@@ -24,6 +24,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:chat-light-mode-header-account-guard": "tsx scripts/test-chat-light-mode-header-account-guard.mts",
+    "test:chat-sidebar-account-profile-menu-guard": "tsx scripts/test-chat-sidebar-account-profile-menu-guard.mts",
     "test:import-sample": "tsx scripts/test-thor-sample-import.mts",
     "test:license-plate-sensitive-policy": "tsx scripts/test-license-plate-sensitive-policy.mts",
     "test:smart-import": "tsx scripts/test-smart-import.mts",

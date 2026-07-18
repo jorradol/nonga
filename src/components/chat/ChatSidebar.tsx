@@ -331,19 +331,11 @@ export function ChatSidebar({
 
         <div
           className={`border-t border-(--nonga-border)/80 bg-(--nonga-bg-app)/40 text-[10px] text-slate-500 shrink-0 ${
-            collapsed ? "md:hidden p-4 flex items-center justify-between" : "p-3 flex items-center justify-between"
+            collapsed ? "md:hidden p-4" : "p-3"
           }`}
           id="sidebar-footer"
         >
           <span>Branding by NongBot Group</span>
-          <a
-            href="https://www.nongbot.org/nonga"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-orange-600 dark:text-orange-400 hover:underline"
-          >
-            nongbot.org
-          </a>
         </div>
 
         {!collapsed && mdUp && (

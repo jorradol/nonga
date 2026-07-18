@@ -50,12 +50,14 @@ ok(
   account.includes("displayName") &&
     account.includes("shortRoleLabel(role)") &&
     account.includes('id="sidebar-login-btn"') &&
-    account.includes('id="sidebar-logout-btn"') &&
+    account.includes('data-testid="chat-sidebar-account-control"') &&
     account.includes("truncate")
 );
 ok(
-  "account block uses profile icon (no letter avatar)",
-  account.includes("<User") && !account.includes("ProfileAvatar")
+  "account block uses ProfileAvatar with User icon fallback (no letter avatar)",
+  account.includes("<ProfileAvatar") &&
+    account.includes("<User") &&
+    !/>\s*N\s*</.test(account)
 );
 
 // 2) Hamburger hidden on desktop, preserved for mobile drawer

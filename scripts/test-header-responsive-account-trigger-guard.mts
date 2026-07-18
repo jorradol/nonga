@@ -1,6 +1,6 @@
 /**
- * Guard: narrow/mobile Header uses Account/User icon (not hamburger)
- * and opens the canonical account menu (not Navigation drawer).
+ * Guard: Header responsive account trigger + canonical account menu.
+ * Menu body lives in AccountProfileMenu (shared with Chat sidebar).
  * Run: npm run test:header-responsive-account-trigger-guard
  */
 import { readFileSync } from "node:fs";
@@ -13,6 +13,10 @@ function ok(name: string, pass: boolean, detail = "") {
 console.log("=== Header responsive account trigger guard ===\n");
 
 const header = readFileSync("src/components/Header.tsx", "utf8");
+const accountMenu = readFileSync(
+  "src/components/profile/AccountProfileMenu.tsx",
+  "utf8"
+);
 const pkg = readFileSync("package.json", "utf8");
 const singleRowGuard = readFileSync(
   "scripts/test-header-single-row-layout-guard.mts",
@@ -70,13 +74,17 @@ ok(
 ok(
   "canonical account menu reused (auth + role gates preserved)",
   header.includes('data-testid="header-account-menu"') &&
+    header.includes("AccountProfileMenu") &&
     header.includes("user?.displayName") &&
-    header.includes("user?.email") &&
+    accountMenu.includes("user?.email") &&
     header.includes("membershipDisplay") &&
-    header.includes("isAdmin &&") &&
-    header.includes("(isDealer || isAdmin)") &&
-    header.includes("Dealer Portal (คลังรถ)") &&
-    !/Thor Auto/i.test(header)
+    header.includes("isAdmin={isAdmin}") &&
+    header.includes("isDealer={isDealer}") &&
+    accountMenu.includes("isAdmin &&") &&
+    accountMenu.includes("(isDealer || isAdmin)") &&
+    accountMenu.includes("Dealer Portal (คลังรถ)") &&
+    !/Thor Auto/i.test(header) &&
+    !/Thor Auto/i.test(accountMenu)
 );
 
 ok(
@@ -98,13 +106,16 @@ ok(
   header.includes('e.key === "Escape"') &&
     header.includes("setIsProfileOpen(false)") &&
     header.includes("}, [currentView]") &&
-    header.includes('onClick={() => setIsProfileOpen(false)}')
+    accountMenu.includes("onClick={onClose}") &&
+    accountMenu.includes("ออกจากระบบเสร็จสรรพ")
 );
 
 ok(
   "menu clamped to viewport on narrow screens",
-  header.includes("max-w-[min(14rem,calc(100vw-1.5rem))]") &&
-    header.includes("origin-top-right")
+  (header.includes("max-w-[min(14rem,calc(100vw-1.5rem))]") ||
+    accountMenu.includes("max-w-[min(14rem,calc(100vw-1.5rem))]")) &&
+    (header.includes("origin-top-right") ||
+      accountMenu.includes("origin-top-right"))
 );
 
 ok(
