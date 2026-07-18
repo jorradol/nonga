@@ -81,6 +81,7 @@
     "test:profile-slate-surface-guard": "tsx scripts/test-profile-slate-surface-guard.mts",
     "test:header-single-row-layout-guard": "tsx scripts/test-header-single-row-layout-guard.mts",
     "test:header-account-pill-guard": "tsx scripts/test-header-account-pill-guard.mts",
+    "test:header-responsive-account-trigger-guard": "tsx scripts/test-header-responsive-account-trigger-guard.mts",
     "test:v69e-profile-routing-guard": "tsx scripts/test-v69e-profile-routing-guard.mts",
     "test:v69e-profile-routing-staging-smoke-execution-record": "tsx scripts/test-v69e-profile-routing-staging-smoke-execution-record.mts",
     "test:v69f-a-light-mode-contrast-quick-wins-execution-record": "tsx scripts/test-v69f-a-light-mode-contrast-quick-wins-execution-record.mts",

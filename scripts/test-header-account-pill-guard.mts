@@ -34,6 +34,15 @@ ok(
 );
 
 ok(
+  "wide desktop shows pill; narrow shows account icon (xl breakpoint)",
+  header.includes('data-account-variant="pill"') &&
+    header.includes("header-account-pill hidden xl:flex") &&
+    header.includes('data-account-variant="icon"') &&
+    header.includes("xl:hidden") &&
+    header.includes('aria-label={isProfileOpen ? "ปิดเมนูบัญชี" : "เปิดเมนูบัญชี"}')
+);
+
+ok(
   "account pill matches theme/search control sizing rhythm",
   header.includes("min-h-[36px] sm:min-h-[40px]") &&
     header.includes("transition-all duration-200 shrink-0") &&

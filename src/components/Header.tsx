@@ -4,8 +4,8 @@ import { useAuth } from "../hooks/auth/useAuth";
 import { useRole } from "../hooks/auth/useRole";
 import { 
   MessageSquare, Car, Sparkles, Heart, Store, ClipboardList, FileText,
-  Sun, Moon, PlusCircle, Search, Menu, X, 
-  ChevronRight, ArrowRight, ShieldCheck, UserCheck, 
+  Sun, Moon, PlusCircle, Search, X, User,
+  ShieldCheck, UserCheck, 
   Home, LogOut, Key, Sparkle, Camera, Crown, Rocket
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -27,12 +27,12 @@ export default function Header() {
   } = useAppStore();
 
   const { logout, isSignedIn, isSimulatedState } = useAuth();
-  const { role, isDealer, isAdmin, membershipDisplay } = useRole();
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const { isDealer, isAdmin, membershipDisplay } = useRole();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navScrollRef = useRef<HTMLElement>(null);
   const mobileNavScrollRef = useRef<HTMLElement>(null);
+  const hasRealProfilePhoto = Boolean(user?.photoURL?.trim());
 
   // Global shortcut 'Slash' or 'Ctrl/Command + K' to focus search
   useEffect(() => {
@@ -57,6 +57,23 @@ export default function Header() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Account menu: Escape closes; route/view change closes
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsProfileOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isProfileOpen]);
+
+  useEffect(() => {
+    setIsProfileOpen(false);
+  }, [currentView]);
 
   useEffect(() => {
     const attachArrowScroll = (el: HTMLElement | null) => {
@@ -156,7 +173,6 @@ export default function Header() {
           aria-current={isActive ? "page" : undefined}
           onClick={() => {
             setView(item.id);
-            setIsMobileDrawerOpen(false);
           }}
           className={`relative shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1.5 min-h-[36px] sm:min-h-[40px] rounded-lg sm:rounded-xl font-sans text-[11px] sm:text-xs lg:text-[13px] font-semibold transition-all duration-200 select-none whitespace-nowrap ${
             isActive
@@ -230,7 +246,6 @@ export default function Header() {
             <div
               onClick={() => {
                 setView("home");
-                setIsMobileDrawerOpen(false);
               }}
               className="flex items-center gap-2 cursor-pointer group shrink-0 min-w-0"
               id="header-branding-logo"
@@ -305,22 +320,38 @@ export default function Header() {
 
               {/* Verified Badge or Login Trigger for Authenticated or Guest User */}
               {!isSignedIn ? (
-                <button
-                  onClick={() => setView("login")}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer shrink-0"
-                >
-                  <Key className="w-3.5 h-3.5" />
-                  <span>เข้าสู่ระบบ AI 🪄</span>
-                </button>
-              ) : (
-                <div className="relative shrink-0">
+                <>
                   <button
                     type="button"
-                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    onClick={() => setView("login")}
+                    className="hidden xl:inline-flex items-center gap-1.5 px-4 py-2 nonga-action nonga-focus-ring transition-all duration-300 font-semibold rounded-xl text-xs sm:text-[13px] shadow-sm select-none cursor-pointer shrink-0"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>เข้าสู่ระบบ AI 🪄</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("login")}
+                    className="xl:hidden p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 nonga-focus-ring"
+                    aria-label="เข้าสู่ระบบ"
+                    data-testid="header-account-guest-login"
+                    data-account-variant="icon"
+                  >
+                    <User className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                </>
+              ) : (
+                <div className="relative shrink-0">
+                  {/* Wide desktop: Account pill (Owner PASS baseline) */}
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileOpen((open) => !open)}
                     aria-expanded={isProfileOpen}
                     aria-haspopup="true"
+                    aria-label={isProfileOpen ? "ปิดเมนูบัญชี" : "เปิดเมนูบัญชี"}
                     data-testid="header-account-control"
-                    className="header-account-pill hidden sm:flex items-center gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 min-h-[36px] sm:min-h-[40px] max-w-[min(180px,28vw)] rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
+                    data-account-variant="pill"
+                    className="header-account-pill hidden xl:flex items-center gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 min-h-[36px] sm:min-h-[40px] max-w-[min(180px,28vw)] rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
                   >
                     <ProfileAvatar
                       user={user}
@@ -344,18 +375,45 @@ export default function Header() {
                     </div>
                   </button>
 
+                  {/* Narrow / tablet / mobile: Account icon (not hamburger / not nav drawer) */}
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileOpen((open) => !open)}
+                    aria-expanded={isProfileOpen}
+                    aria-haspopup="true"
+                    aria-label={isProfileOpen ? "ปิดเมนูบัญชี" : "เปิดเมนูบัญชี"}
+                    data-testid="header-account-control"
+                    data-account-variant="icon"
+                    data-header-account-icon="true"
+                    className="xl:hidden p-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg sm:rounded-xl border nonga-border nonga-bg-subtle nonga-text-secondary hover:text-orange-500 nonga-menu-item transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.98] outline-none nonga-focus-ring"
+                  >
+                    {hasRealProfilePhoto ? (
+                      <ProfileAvatar
+                        user={user}
+                        alt=""
+                        className="w-7 h-7 rounded-lg border border-orange-500/20 p-0.5 nonga-bg-elevated object-contain shrink-0"
+                      />
+                    ) : (
+                      <User className="w-4 h-4" aria-hidden="true" />
+                    )}
+                  </button>
+
                   <AnimatePresence>
                     {isProfileOpen && (
                       <>
                         <div
                           className="fixed inset-0 z-10"
                           onClick={() => setIsProfileOpen(false)}
+                          aria-hidden="true"
                         />
                         <motion.div
+                          role="menu"
+                          aria-label="เมนูบัญชี"
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute right-0 mt-3 w-56 rounded-xl border nonga-border nonga-bg-elevated nonga-text-primary p-4.5 z-20 space-y-4 shadow-2xl text-left"
+                          className="absolute right-0 mt-3 w-56 max-w-[min(14rem,calc(100vw-1.5rem))] rounded-xl border nonga-border nonga-bg-elevated nonga-text-primary p-4.5 z-20 space-y-4 shadow-2xl text-left origin-top-right"
+                          data-testid="header-account-menu"
                         >
                           <div className="space-y-1 pb-3 border-b border-orange-500/10">
                             <p className="text-[10px] font-bold nonga-text-muted uppercase tracking-widest">ข้อมูลบัญชีผู้ใช้</p>
@@ -372,6 +430,7 @@ export default function Header() {
 
                           <div className="space-y-1.5 text-xs py-1 border-t border-orange-500/10 pt-3">
                             <button
+                              type="button"
                               onClick={() => {
                                 setView("profile");
                                 setIsProfileOpen(false);
@@ -385,6 +444,7 @@ export default function Header() {
                             {showSandboxNavigation ? (
                               <>
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setView("billing");
                                     setIsProfileOpen(false);
@@ -396,6 +456,7 @@ export default function Header() {
                                 </button>
 
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setView("boost");
                                     setIsProfileOpen(false);
@@ -407,6 +468,7 @@ export default function Header() {
                                 </button>
 
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setView("onboarding");
                                     setIsProfileOpen(false);
@@ -426,6 +488,7 @@ export default function Header() {
                             {isAdmin && (
                               <>
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setView("admin-dashboard");
                                     setIsProfileOpen(false);
@@ -436,6 +499,7 @@ export default function Header() {
                                   <span>แผงควบคุมระบบ (Admin Control) 👑</span>
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setView("inventory-import");
                                     setIsProfileOpen(false);
@@ -451,6 +515,7 @@ export default function Header() {
                             {(isDealer || isAdmin) && (
                               <>
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     if (typeof window !== "undefined") {
                                       window.history.replaceState(null, "", "/dealer");
@@ -465,6 +530,7 @@ export default function Header() {
                                 </button>
                                 {showSandboxNavigation && (
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       setView("dealer-dashboard");
                                       setIsProfileOpen(false);
@@ -480,6 +546,7 @@ export default function Header() {
                           </div>
 
                           <button
+                            type="button"
                             onClick={() => {
                               logout();
                               setIsProfileOpen(false);
@@ -496,20 +563,10 @@ export default function Header() {
                   </AnimatePresence>
                 </div>
               )}
-
-              {/* Mobile Burger Menu Button */}
-              <button
-                type="button"
-                onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-                className="md:hidden p-2.5 rounded-xl border transition-all min-h-[40px] min-w-[40px] flex items-center justify-center nonga-border nonga-bg-subtle nonga-text-secondary nonga-focus-ring shrink-0"
-                aria-label={isMobileDrawerOpen ? "ปิดเมนูเพิ่มเติม" : "เปิดเมนูเพิ่มเติม"}
-              >
-                {isMobileDrawerOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-              </button>
             </div>
           </div>
 
-          {/* Mobile: keep search + horizontal nav + drawer pattern (do not cram into one row) */}
+          {/* Mobile: keep search + horizontal nav (account opens canonical menu, not nav drawer) */}
           <div className="md:hidden mt-1.5 space-y-1 min-w-0" data-testid="header-mobile-stack">
             {searchField({ showShortcutHint: false })}
             <div className="relative min-w-0">
@@ -535,150 +592,6 @@ export default function Header() {
           </div>
         </div>
       </header>
-
-      {/* Mobile Drawer Slide-in Overlay Menu System */}
-      <AnimatePresence>
-        {isMobileDrawerOpen && (
-          <>
-            {/* Backdrop blur effect */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileDrawerOpen(false)}
-              className="fixed inset-0 bg-black z-45 backdrop-blur-sm lg:hidden"
-            />
-
-            {/* Centered / Slide-out Panel */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="fixed top-0 right-0 h-full w-full max-w-xs z-50 shadow-2xl p-6 flex flex-col justify-between lg:hidden nonga-bg-surface nonga-text-primary border-l nonga-border" 
-            >
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-orange-600/20">
-                      A
-                    </div>
-                    <span className="font-display font-black text-slate-900 dark:text-white text-[15px]">
-                      Nong <span className="text-orange-500">A</span>
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setIsMobileDrawerOpen(false)}
-                    className="p-1.5 rounded-xl border nonga-border nonga-bg-subtle" 
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Mobile Search Inside Drawer */}
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 nonga-text-muted">
-                    <Search className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    placeholder="พิมพ์ชื่อแบรนด์หรือรุ่นรถ..."
-                    className="w-full text-xs font-sans pl-10 pr-4 py-2.5 rounded-xl transition-all outline-none border nonga-bg-subtle nonga-border nonga-text-primary nonga-placeholder focus:border-orange-500 nonga-focus-ring" 
-                  />
-                </div>
-
-                {/* Drawer links */}
-                <div className="space-y-2 text-left">
-                  <span className="text-[10px] font-mono nonga-text-muted font-bold uppercase tracking-wider block px-2">Navigation</span>
-                  
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setView(item.id);
-                          setIsMobileDrawerOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all ${
-                          isActive
-                            ? "nonga-action shadow-md shadow-orange-600/10"
-                            : "nonga-nav-idle"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon className="w-4 h-4" />
-                          <span className="text-[14px] font-semibold">{item.label}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {"count" in item && item.count > 0 && (
-                            <span className="bg-red-500 text-white text-[9.5px] px-1.5 py-0.2 rounded-full font-extrabold font-mono">
-                              {item.count}
-                            </span>
-                          )}
-                          <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Mobile Drawer Profile Area */}
-              <div className="space-y-4 pt-4 border-t nonga-border">
-                {!isSignedIn ? (
-                  <button
-                    onClick={() => {
-                      setView("login");
-                      setIsMobileDrawerOpen(false);
-                    }}
-                    className="w-full py-3 nonga-action nonga-focus-ring font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-600/10 active:scale-95 transition-transform"
-                  >
-                    <Key className="w-3.5 h-3.5" />
-                    <span>เข้าสู่ระบบ AI 🪄</span>
-                  </button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2.5 p-2 rounded-xl nonga-bg-subtle border nonga-border">
-                      <ProfileAvatar
-                        user={user}
-                        alt="User avatar"
-                        className="w-10 h-10 rounded-xl object-contain"
-                      />
-                      <div className="text-left flex-1 min-w-0">
-                        <p className="text-xs font-bold nonga-text-primary truncate">{user?.displayName}</p>
-                        <p className="text-[10px] nonga-text-muted truncate">{user?.email}</p>
-                        <p className="text-[9.5px] text-orange-500 font-semibold flex items-center gap-0.5">
-                          <UserCheck className="w-2.5 h-2.5 text-orange-500" /> สมาชิกตัวจริง
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setIsMobileDrawerOpen(false);
-                        setView("home");
-                      }}
-                      className="w-full py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition rounded-xl text-xs font-bold flex items-center justify-center gap-2"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>ออกจากระบบ</span>
-                    </button>
-                  </div>
-                )}
-
-                <div className="text-[9px] nonga-text-muted text-left leading-relaxed">
-                  <p>✨ มิติใหม่แห่งการประมวลสเป็กและต่อรองรถยนต์ระดับพรีเมียมด้วยระบบน้องเอ AI Sales Assistant โดยกลุ่ม NongBot</p>
-                </div>
-              </div>
-
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </>
   );
 }

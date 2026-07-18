@@ -86,12 +86,15 @@ ok(
 );
 
 ok(
-  "mobile keeps stacked search + horizontal nav + burger pattern",
+  "mobile keeps stacked search + horizontal nav; account icon replaces hamburger",
   header.includes('data-testid="header-mobile-stack"') &&
     header.includes('data-testid="header-nav-mobile"') &&
     header.includes("md:hidden mt-1.5 space-y-1 min-w-0") &&
-    header.includes("md:hidden p-2.5 rounded-xl border") &&
-    header.includes("isMobileDrawerOpen")
+    header.includes('data-account-variant="icon"') &&
+    header.includes('data-header-account-icon="true"') &&
+    !header.includes("isMobileDrawerOpen") &&
+    !header.includes("เปิดเมนูเพิ่มเติม") &&
+    !/\bMenu\b/.test(header.replace(/ArrowRight/g, ""))
 );
 
 ok(
@@ -199,12 +202,14 @@ for (const [physicalWidth, zoomPercent] of cases) {
   const desktopSingleRow = cssWidth >= 768;
   const mode = desktopSingleRow
     ? "desktop single-row (nav scrolls in-flex)"
-    : "mobile stacked + drawer";
+    : "mobile stacked + horizontal nav (account icon)";
   const valid = desktopSingleRow
     ? header.includes("hidden md:block flex-1 min-w-0") &&
       header.includes("overflow-x-auto")
     : header.includes('data-testid="header-mobile-stack"') &&
-      header.includes("md:hidden");
+      header.includes("md:hidden") &&
+      header.includes('data-account-variant="icon"') &&
+      !header.includes("isMobileDrawerOpen");
   ok(
     `${physicalWidth}px @ ${zoomPercent}% -> ${mode}`,
     valid,
