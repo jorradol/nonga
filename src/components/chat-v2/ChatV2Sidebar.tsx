@@ -247,11 +247,17 @@ export function ChatV2Sidebar({ isOpen, onClose }: ChatV2SidebarProps) {
           type="button"
           onClick={() => void handleNewChat()}
           disabled={isGenerating}
-          className="w-full min-h-11 flex items-center justify-center gap-2 text-xs font-bold rounded-xl nonga-action nonga-focus-ring transition-transform motion-reduce:transform-none hover:scale-[1.01] active:scale-[0.99] shadow-sm cursor-pointer disabled:cursor-not-allowed"
+          className="w-full min-h-11 flex items-center justify-center gap-2 text-xs font-extrabold rounded-xl nonga-action text-[var(--nonga-action-primary-text)] nonga-focus-ring transition-transform motion-reduce:transform-none hover:scale-[1.01] active:scale-[0.99] shadow-sm cursor-pointer disabled:cursor-not-allowed"
           data-testid="chat-v2-new-chat"
         >
-          <Plus className="w-4 h-4 shrink-0" aria-hidden="true" />
-          แชทใหม่
+          <Plus
+            className="w-4 h-4 shrink-0 text-[var(--nonga-action-primary-text)]"
+            strokeWidth={2.75}
+            aria-hidden="true"
+          />
+          <span className="text-[var(--nonga-action-primary-text)] [text-shadow:0_0.5px_0_rgba(0,0,0,0.45)]">
+            แชทใหม่
+          </span>
         </button>
       </div>
 

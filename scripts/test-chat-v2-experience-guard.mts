@@ -213,6 +213,79 @@ function main(): void {
   mustInclude(empty, "onPickSuggestion", "v2-suggestions-prefill-composer");
   mustNotInclude(empty, "fetch(", "v2-suggestions-no-own-routing");
 
+  // ---------- 4b. New Chat CTA — icon/label readable in both themes ----------
+  const sidebar = read("src/components/chat-v2/ChatV2Sidebar.tsx");
+  mustInclude(sidebar, 'data-testid="chat-v2-new-chat"', "v2-new-chat-testid");
+  mustInclude(sidebar, "แชทใหม่", "v2-new-chat-label-present");
+  mustInclude(sidebar, "<Plus", "v2-new-chat-plus-icon-present");
+  mustInclude(sidebar, "nonga-action", "v2-new-chat-uses-action-surface");
+  mustInclude(
+    sidebar,
+    "text-[var(--nonga-action-primary-text)]",
+    "v2-new-chat-pins-action-text-color"
+  );
+  {
+    const btnStart = sidebar.indexOf('data-testid="chat-v2-new-chat"');
+    if (btnStart < 0) fail("v2-new-chat-block-present", "testid missing");
+    const btnOpen = sidebar.lastIndexOf("<button", btnStart);
+    const btnClose = sidebar.indexOf("</button>", btnStart);
+    if (btnOpen < 0 || btnClose < 0) {
+      fail("v2-new-chat-block-present", "button bounds not found");
+    }
+    const block = sidebar.slice(btnOpen, btnClose + "</button>".length);
+    // Avoid substring false positives (e.g. aria-hidden contains "hidden").
+    const forbiddenClassRes = [
+      /(?:^|[\s"'`])hidden(?:[\s"'`]|$)/,
+      /(?:^|[\s"'`])invisible(?:[\s"'`]|$)/,
+      /(?:^|[\s"'`])opacity-0(?:[\s"'`]|$)/,
+      /(?:^|[\s"'`])sr-only(?:[\s"'`]|$)/,
+      /(?:^|[\s"'`])text-transparent(?:[\s"'`]|$)/,
+    ];
+    for (const re of forbiddenClassRes) {
+      if (re.test(block)) {
+        fail(
+          "v2-new-chat-not-hidden-or-low-contrast",
+          `new-chat button unexpectedly matches: ${re}`
+        );
+      }
+    }
+    const lowContrastNeedles = [
+      "text-orange-600",
+      "text-orange-500",
+      "text-orange-700",
+      "nonga-text-primary",
+      "nonga-text-secondary",
+      "nonga-text-muted",
+    ];
+    for (const needle of lowContrastNeedles) {
+      if (block.includes(needle)) {
+        fail(
+          "v2-new-chat-not-hidden-or-low-contrast",
+          `new-chat button unexpectedly uses: ${needle}`
+        );
+      }
+    }
+    if (!block.includes("แชทใหม่")) {
+      fail("v2-new-chat-label-in-button", "label not inside new-chat button");
+    }
+    if (!block.includes("<Plus")) {
+      fail("v2-new-chat-icon-in-button", "Plus not inside new-chat button");
+    }
+    const actionTextPins = (
+      block.match(/text-\[var\(--nonga-action-primary-text\)\]/g) || []
+    ).length;
+    if (actionTextPins < 2) {
+      fail(
+        "v2-new-chat-action-text-on-icon-and-label",
+        `expected action-text color on icon+label, found ${actionTextPins}`
+      );
+    }
+    pass("v2-new-chat-not-hidden-or-low-contrast");
+    pass("v2-new-chat-label-in-button");
+    pass("v2-new-chat-icon-in-button");
+    pass("v2-new-chat-action-text-on-icon-and-label");
+  }
+
   // ---------- 5. Design identity unchanged ----------
   const css = read("src/index.css");
   mustInclude(css, '--font-sans: "Inter", "Anuphan"', "font-tokens-unchanged");
@@ -222,6 +295,23 @@ function main(): void {
   mustInclude(css, "--nonga-bg-app: #f8fafc", "light-app-token-unchanged");
   mustInclude(css, "--nonga-bg-surface: #ffffff", "light-surface-token-unchanged");
   mustInclude(css, "--nonga-brand: #f97316", "brand-orange-token-unchanged");
+  {
+    const occurrences = (
+      css.match(/--nonga-action-primary-text:\s*#ffffff/g) || []
+    ).length;
+    if (occurrences < 2) {
+      fail(
+        "v2-action-text-white-both-themes",
+        `expected #ffffff in light+dark, found ${occurrences}`
+      );
+    }
+    pass("v2-action-text-white-both-themes");
+  }
+  mustInclude(
+    css,
+    "color: var(--nonga-action-primary-text)",
+    "v2-nonga-action-sets-readable-label-color"
+  );
 
   // ---------- 6. /chat baseline untouched ----------
   const aiView = read("src/components/AIChatView.tsx");
