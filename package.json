@@ -24,6 +24,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:environment-identity-guard": "tsx scripts/test-environment-identity-guard.mts",
+    "test:server-bundle-import-meta-env-startup-guard": "tsx scripts/test-server-bundle-import-meta-env-startup-guard.mts",
     "test:production-bundle-contamination-guard": "tsx scripts/test-production-bundle-contamination-guard.mts",
     "test:staging-artifact-contamination": "tsx scripts/test-production-bundle-contamination-guard.mts --dist",
     "artifact:staging:write-manifest": "tsx scripts/staging-artifact-manifest.mts --write",
