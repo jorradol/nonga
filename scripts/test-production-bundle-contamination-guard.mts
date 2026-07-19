@@ -2,8 +2,9 @@
  * Production bundle contamination guard (Production Foundation B2).
  * npm run test:production-bundle-contamination-guard
  *
- * Builds a NORMAL (non-fixture) production bundle and scans the COMPILED assets for
- * synthetic / fixture / test-mode contamination that must never ship to real users.
+ * By default, builds a NORMAL (non-fixture) production probe and scans every
+ * COMPILED JS/CSS asset. With `--dist`, scans the existing canonical staging
+ * artifact directly without rebuilding or bypassing its production guard.
  *
  * False-positive scope note: the marketplace demo layer (cars/dealers in
  * src/store.ts and src/services/cars) is currently frozen and intentionally present
@@ -19,7 +20,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const outDir = path.join(root, "dist-contamination-guard-probe");
+const scanExistingDist = process.argv.includes("--dist");
+const outDir = scanExistingDist
+  ? path.join(root, "dist")
+  : path.join(root, "dist-contamination-guard-probe");
 
 function rmDir(p: string) {
   if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
@@ -27,24 +31,26 @@ function rmDir(p: string) {
 
 console.log("=== production bundle contamination guard (no deploy) ===");
 
-rmDir(outDir);
-
-const env = {
-  ...process.env,
-  VITE_NONGA_UI_FIXTURE: "",
-  SKIP_FIREBASE_PRODUCTION_GUARD: "true",
-  NODE_ENV: "production",
-};
-
-const result = spawnSync(
-  "npx",
-  ["vite", "build", "--outDir", "dist-contamination-guard-probe"],
-  { cwd: root, env, stdio: "inherit", shell: process.platform === "win32" }
-);
-
-if (result.status !== 0) {
-  console.error("FAIL contamination-guard vite build");
-  process.exit(result.status ?? 1);
+if (!scanExistingDist) {
+  rmDir(outDir);
+  const env = {
+    ...process.env,
+    VITE_NONGA_UI_FIXTURE: "false",
+    SKIP_FIREBASE_PRODUCTION_GUARD: "true",
+    NODE_ENV: "production",
+  };
+  const result = spawnSync(
+    "npx",
+    ["vite", "build", "--outDir", "dist-contamination-guard-probe"],
+    { cwd: root, env, stdio: "inherit", shell: process.platform === "win32" }
+  );
+  if (result.status !== 0) {
+    console.error("FAIL contamination-guard vite build");
+    process.exit(result.status ?? 1);
+  }
+} else if (!fs.existsSync(outDir)) {
+  console.error("FAIL canonical dist does not exist; run npm run build:staging:hosting first");
+  process.exit(1);
 }
 
 const assetsDir = path.join(outDir, "assets");
@@ -73,11 +79,17 @@ const contaminationMarkers: Array<{ label: string; marker: string }> = [
   { label: "fixture banner attr", marker: "data-nonga-ui-fixture" },
   { label: "fixture guest id", marker: "fixture-guest-001" },
   { label: "fixture car id", marker: "fx-car-001" },
+  { label: "fixture owner id", marker: "fixture-dealer-001" },
+  { label: "fixture dealer id", marker: "fx-dealer-001" },
+  { label: "fixture dealer label", marker: "STAGING FICTIONAL DEALER 001" },
+  { label: "fixture placeholder asset", marker: "/fixture/placeholder-car.svg" },
   { label: "fixture network guard installer", marker: "installFixtureNetworkGuard" },
   // Fixture project identifier must not ship in production.
   { label: "fixture project id nonga-staging-2026", marker: "nonga-staging-2026" },
   // Enabled test-mode flag.
   { label: "ui fixture flag enabled", marker: 'VITE_NONGA_UI_FIXTURE:"true"' },
+  // Fixture isolation replaces the canonical font stack with this override.
+  { label: "fixture system-font override", marker: "--font-sans:ui-sans-serif,system-ui,sans-serif" },
 ];
 
 let fail = 0;
@@ -98,10 +110,12 @@ for (const file of files) {
   }
 }
 
-rmDir(outDir);
+if (!scanExistingDist) rmDir(outDir);
 
 if (fail > 0) {
   console.error(`\n=== contamination guard: ${fail} contamination hit(s) ===`);
   process.exit(1);
 }
-console.log("\nPASS production bundle contamination guard");
+console.log(
+  `\nPASS production bundle contamination guard (${scanExistingDist ? "canonical dist" : "probe"})`
+);

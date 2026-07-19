@@ -229,9 +229,14 @@ const childEnv: NodeJS.ProcessEnv = {
   ...process.env,
   ...env,
   NODE_ENV: "production",
+  // Explicit false is required so Vite eliminates the dynamic fixture chunk.
+  VITE_NONGA_UI_FIXTURE: "false",
   VITE_NONGA_DEALER_API_TOKEN: "",
   VITE_NONGA_ADMIN_API_TOKEN: "",
 };
+if (childEnv.VITE_NONGA_UI_FIXTURE !== "false") {
+  throw new Error("VITE_NONGA_UI_FIXTURE must resolve to false for staging builds");
+}
 const result = spawnSync("npx", ["vite", "build"], {
   stdio: "inherit",
   env: childEnv,
