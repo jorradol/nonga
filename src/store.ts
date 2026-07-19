@@ -48,7 +48,7 @@ interface AppState {
   toggleDarkMode: () => void;
 
   // Layout View Routing (replicates App Router within clean, single-screen transitions)
-  currentView: "home" | "marketplace" | "my-listings" | "chat" | "sell" | "dealers" | "saved" | "car-details" | "login" | "register" | "forgot-password" | "profile" | "onboarding" | "dealer-dashboard" | "admin-dashboard" | "inventory-import" | "dealer-draft-inventory" | "dealer-portal" | "search" | "car-vision" | "car-post-generator" | "viral-captions" | "seo-landing" | "dealer-showroom" | "billing" | "boost" | "pilot-policy" | "admin-reports" | "admin-pending-listings" | "admin-pilot-users" | "admin-shadow-smoke";
+  currentView: "home" | "marketplace" | "my-listings" | "chat" | "chat-v2" | "sell" | "dealers" | "saved" | "car-details" | "login" | "register" | "forgot-password" | "profile" | "onboarding" | "dealer-dashboard" | "admin-dashboard" | "inventory-import" | "dealer-draft-inventory" | "dealer-portal" | "search" | "car-vision" | "car-post-generator" | "viral-captions" | "seo-landing" | "dealer-showroom" | "billing" | "boost" | "pilot-policy" | "admin-reports" | "admin-pending-listings" | "admin-pilot-users" | "admin-shadow-smoke";
   selectedCarId: string | null;
   selectedDealerId: string | null;
   setView: (view: AppState["currentView"], carId?: string | null, dealerId?: string | null) => void;

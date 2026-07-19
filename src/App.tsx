@@ -13,6 +13,7 @@ import AppNotifyHost from "./components/notify/AppNotifyHost";
 import MarketplaceView from "./components/MarketplaceView";
 import MyListingsView from "./components/MyListingsView";
 import AIChatView from "./components/AIChatView";
+import ChatV2Page from "./components/chat-v2/ChatV2Page";
 import SellCarView from "./components/SellCarView";
 import DetailView from "./components/DetailView";
 import DealersView from "./components/DealersView";
@@ -82,6 +83,9 @@ export default function App() {
   const { isAdmin, isDealer, role } = useRole();
   const comingSoonLinkClass =
     "text-left nonga-text-muted cursor-not-allowed opacity-75";
+
+  // Full-viewport chat surfaces (own header/scroll): classic /chat and isolated /chat-v2.
+  const isFullScreenChatView = currentView === "chat" || currentView === "chat-v2";
 
   // Load cars directory from fullstack server immediately on startup
   useEffect(() => {
@@ -238,6 +242,9 @@ export default function App() {
         );
       case "chat":
         return <AIChatView />;
+      case "chat-v2":
+        // Chat Experience V2 — isolated presentation shell (QA via direct URL).
+        return <ChatV2Page />;
       case "sell":
         return (
           <RequireDealer>
@@ -342,17 +349,17 @@ export default function App() {
   };
 
   return (
-    <div className={`${currentView === "chat" ? "h-[100dvh] overflow-hidden" : "min-h-screen"} flex flex-col justify-between transition-colors duration-300 nonga-bg-app nonga-text-primary selection:bg-orange-500/30 font-sans`}>
+    <div className={`${isFullScreenChatView ? "h-[100dvh] overflow-hidden" : "min-h-screen"} flex flex-col justify-between transition-colors duration-300 nonga-bg-app nonga-text-primary selection:bg-orange-500/30 font-sans`}>
       
       {/* Atmosphere glow backdrop lines */}
       <GradientBackground />
 
-      <div className={`w-full flex-1 flex flex-col h-full ${currentView === "chat" ? "min-h-0 overflow-hidden" : ""}`}>
+      <div className={`w-full flex-1 flex flex-col h-full ${currentView === "chat" ? "min-h-0 overflow-hidden" : currentView === "chat-v2" ? "min-h-0 overflow-hidden" : ""}`}>
         {/* Navigation bar - hidden in chat mode */}
-        {currentView !== "chat" && <Header />}
+        {!isFullScreenChatView && <Header />}
 
         {/* Major Screen Content Port */}
-        {currentView === "chat" ? (
+        {isFullScreenChatView ? (
           <div className="flex-1 flex flex-col w-full h-full relative z-10">
             <AnimatePresence mode="wait">
               <motion.div
@@ -385,7 +392,7 @@ export default function App() {
       </div>
 
       {/* Premium Multi-column Layout Footer with AI Disclaimers & Brand links */}
-      {currentView !== "chat" && (
+      {!isFullScreenChatView && (
         <footer className="relative z-10 border-t nonga-border nonga-bg-surface nonga-text-secondary transition-colors">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           
