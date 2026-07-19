@@ -30,6 +30,7 @@
     "artifact:staging:write-manifest": "tsx scripts/staging-artifact-manifest.mts --write",
     "artifact:staging:verify-manifest": "tsx scripts/staging-artifact-manifest.mts --verify",
     "test:chat-light-mode-header-account-guard": "tsx scripts/test-chat-light-mode-header-account-guard.mts",
+    "test:chat-vehicle-panel-ui-guard": "tsx scripts/test-chat-vehicle-panel-ui-guard.mts",
     "test:chat-sidebar-account-profile-menu-guard": "tsx scripts/test-chat-sidebar-account-profile-menu-guard.mts",
     "test:canonical-thai-font-guard": "tsx scripts/test-canonical-thai-font-guard.mts",
     "test:import-sample": "tsx scripts/test-thor-sample-import.mts",

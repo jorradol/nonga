@@ -36,13 +36,21 @@ import {
 import { ChatComposerTextarea } from "./ChatComposerTextarea";
 import { BuyerLeadConsentModalHost } from "./BuyerLeadConsentModalHost";
 
+/** Vehicle Results Panel wiring — UI trigger only; state owned by useVehiclePanel. */
+export interface ChatVehiclePanelTrigger {
+  count: number;
+  isOpen: boolean;
+  onOpen: () => void;
+}
+
 interface ChatContainerProps {
   onToggleSidebar: () => void;
+  vehiclePanel?: ChatVehiclePanelTrigger;
 }
 
 const NEAR_BOTTOM_PX = 140;
 
-export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
+export function ChatContainer({ onToggleSidebar, vehiclePanel }: ChatContainerProps) {
   const {
     activeSession,
     activeSessionId,
@@ -328,6 +336,21 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Reopen trigger for the Vehicle Results Panel (md+; mobile uses the composer pill) */}
+            {vehiclePanel && vehiclePanel.count > 0 && !vehiclePanel.isOpen && (
+              <button
+                type="button"
+                onClick={vehiclePanel.onOpen}
+                className="max-md:hidden text-xs bg-(--nonga-bg-surface) border border-orange-500/30 text-orange-700 dark:text-orange-300 px-2 sm:px-3 py-1.5 rounded-xl flex items-center gap-1.5 hover:bg-orange-500/10 active:scale-95 transition-all cursor-pointer shrink-0 nonga-focus-ring"
+                title="เปิดแผงรถที่พบ"
+                aria-label={`เปิดแผงรถที่พบ ${vehiclePanel.count} คัน`}
+                id="vehicle-panel-trigger-navbar"
+                data-testid="vehicle-panel-trigger-navbar"
+              >
+                <Car className="w-3.5 h-3.5" aria-hidden="true" />
+                รถที่พบ {vehiclePanel.count.toLocaleString("th-TH")} คัน
+              </button>
+            )}
             {/* Theme toggle — shares the central Zustand theme state; icon/label = next action */}
             <button
               type="button"
@@ -466,6 +489,22 @@ export function ChatContainer({ onToggleSidebar }: ChatContainerProps) {
           className="p-2 max-md:px-2 max-md:pt-1.5 border-t border-(--nonga-border)/85 bg-(--nonga-bg-surface)/98 md:bg-(--nonga-bg-surface)/40 backdrop-blur-xl shrink-0 z-30 max-md:fixed max-md:left-0 max-md:right-0 chat-composer-safe-bottom md:relative md:bottom-auto"
           id="chat-input-toolbar"
         >
+          {/* Mobile-only Vehicle Panel pill — lives with the composer so it never hides the input */}
+          {vehiclePanel && vehiclePanel.count > 0 && !vehiclePanel.isOpen && (
+            <div className="md:hidden flex justify-center pb-1.5">
+              <button
+                type="button"
+                onClick={vehiclePanel.onOpen}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20 active:scale-95 transition-all cursor-pointer nonga-focus-ring"
+                aria-label={`ดูรถที่พบ ${vehiclePanel.count} คัน`}
+                id="vehicle-panel-trigger-mobile"
+                data-testid="vehicle-panel-trigger-mobile"
+              >
+                <Car className="w-3.5 h-3.5" aria-hidden="true" />
+                ดูรถที่พบ {vehiclePanel.count.toLocaleString("th-TH")} คัน
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex flex-col" id="chat-form">
             <div
               className="relative rounded-2xl border border-slate-300 dark:border-slate-700 bg-(--nonga-bg-surface)/80 backdrop-blur-xl hover:border-slate-400 dark:hover:border-slate-600 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-300 flex flex-col shadow-lg overflow-hidden"
