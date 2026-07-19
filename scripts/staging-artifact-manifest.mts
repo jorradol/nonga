@@ -23,7 +23,9 @@ if (writeMode === verifyMode) {
 }
 
 function command(program: string, args: string[]): string {
-  return execFileSync(program, args, { cwd: root, encoding: "utf8" }).trim();
+  const executable =
+    process.platform === "win32" && program === "npm" ? "npm.cmd" : program;
+  return execFileSync(executable, args, { cwd: root, encoding: "utf8" }).trim();
 }
 
 function sha256File(filePath: string): string {

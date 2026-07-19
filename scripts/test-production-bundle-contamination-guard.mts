@@ -54,11 +54,16 @@ if (!scanExistingDist) {
 }
 
 const assetsDir = path.join(outDir, "assets");
+const deployableFiles = fs
+  .readdirSync(outDir, { recursive: true, withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) => path.join(entry.parentPath, entry.name));
 const files = fs
   .readdirSync(assetsDir)
   .filter((f) => f.endsWith(".js") || f.endsWith(".css"));
-const bundle = files
-  .map((f) => fs.readFileSync(path.join(assetsDir, f), "utf8"))
+const deployableText = deployableFiles
+  .filter((file) => /\.(?:js|css|html|json|svg|md|csv|txt)$/i.test(file))
+  .map((file) => fs.readFileSync(file, "utf8"))
   .join("\n");
 
 // Markers that must be ABSENT from a production bundle.
@@ -94,7 +99,7 @@ const contaminationMarkers: Array<{ label: string; marker: string }> = [
 
 let fail = 0;
 for (const { label, marker } of contaminationMarkers) {
-  if (bundle.includes(marker)) {
+  if (deployableText.includes(marker)) {
     console.log("FAIL production bundle contains:", label, `(${marker})`);
     fail += 1;
   } else {
@@ -106,6 +111,13 @@ for (const { label, marker } of contaminationMarkers) {
 for (const file of files) {
   if (/fixture|syntheticCars/i.test(file)) {
     console.log("FAIL normal build emitted fixture-named asset:", file);
+    fail += 1;
+  }
+}
+for (const file of deployableFiles) {
+  const relative = path.relative(outDir, file).replaceAll("\\", "/");
+  if (/(?:^|\/)fixture(?:\/|$)|syntheticCars/i.test(relative)) {
+    console.log("FAIL deployable artifact contains fixture-named file:", relative);
     fail += 1;
   }
 }

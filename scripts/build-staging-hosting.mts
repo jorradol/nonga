@@ -198,6 +198,17 @@ function verifyDistBundle(): void {
   console.log(`PASS dist bundle verified (${jsFiles.length} js asset file(s))`);
 }
 
+function removeFixtureOnlyDistAssets(): void {
+  const fixtureDir = path.join(process.cwd(), "dist", "fixture");
+  if (fs.existsSync(fixtureDir)) {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+  if (fs.existsSync(fixtureDir)) {
+    throw new Error("Staging dist still contains fixture-only static assets");
+  }
+  console.log("PASS fixture-only static assets excluded from staging dist");
+}
+
 console.log("=== Nong A staging hosting build ===");
 
 const envFile = process.env.NONGA_STAGING_ENV_FILE || ".env.staging";
@@ -246,6 +257,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
+removeFixtureOnlyDistAssets();
 verifyDistBundle();
 const provenanceResult = spawnSync("node", ["scripts/write-build-provenance.mjs"], {
   stdio: "inherit",
