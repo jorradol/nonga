@@ -83,12 +83,26 @@ Local  ->  Fixture/Test  ->  Canonical Staging  ->  Production (future)
 
 ## 5. Configuration ownership & environment identity
 
+- Runtime environment identity, AI user authorization, provider readiness, and the
+  emergency kill switch are four independent controls:
+  1. **Runtime identity** says where code runs (`fixture`, `staging`, `production`,
+     or local); it grants no user access.
+  2. **AI access policy** authorizes a Firebase UID using server-side environment
+     allowlists. Authentication alone is never sufficient on public Staging.
+  3. **Provider state** says whether the configured provider and budget prerequisites
+     are available; provider readiness never authorizes a user.
+  4. **Emergency kill switch** overrides every allowlist/provider state and closes
+     the user-visible path.
 - Canonical explicit environment keys (existing in the codebase):
   `NONGA_RUNTIME_ENV` (primary) then `NONGA_DEPLOY_ENV` (fallback).
 - Environment identity must be **explicit** and **fail-closed**. It must not be
   derived from `APP_URL`, Firebase project name, or domain substring matching.
 - Missing / invalid / unknown environment value resolves to the strictest tier
   (Production-strict), which disables user-visible AI by default.
+- Canonical Staging allows only UIDs configured in the existing server-side
+  `NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS`, owner/admin, or internal tester environment
+  lists. Committed synthetic UIDs are local-test-only. Prefixes such as `dev-user-*`
+  and the former authenticated-only Staging path grant no access.
 - Frontend checks are UX-only. Real authorization is enforced server-side.
 
 ## 6. `nonga-api` disposition analysis
@@ -110,6 +124,8 @@ Local  ->  Fixture/Test  ->  Canonical Staging  ->  Production (future)
 
 - User-visible AI: OFF by default; Production requires an explicit server-side UID
   allowlist and is otherwise closed.
+- Canonical Staging: authentication is necessary but not sufficient; an explicit
+  server-side owner/tester allowlist match is also required.
 - Lead Capture, Public Signup, Dealer messaging: closed by default; opened only by
   explicit Owner-approved configuration.
 - Emergency kill switch remains available and fails closed.

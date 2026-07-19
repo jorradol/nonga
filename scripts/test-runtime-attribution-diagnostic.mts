@@ -463,7 +463,7 @@ function testCompareGroundingMerge() {
   ok("compare intent classified", classifyProviderGroundingIntent(USER_MESSAGE) === "compare");
 }
 
-function testStagingAuthenticatedAttribution() {
+function testStagingAuthenticatedOnlyDeniedAttribution() {
   const STAGING_UID = "firebase-real-user-not-in-env-list";
   const diagnostic = buildUserVisibleRuntimeAttributionDiagnostic({
     requestCorrelationId: "corr-staging-auth",
@@ -502,11 +502,11 @@ function testStagingAuthenticatedAttribution() {
     environment: "staging",
     env: { ...AI_FIRST_ENV, [NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV]: TEST_UID },
   });
-  ok("staging auth gateCheck PASSED", diagnostic.gateCheck === "PASSED");
-  ok("staging auth gateAuthPath", diagnostic.gateAuthPath === "staging_authenticated");
+  ok("staging auth-only gateCheck FAILED", diagnostic.gateCheck === "FAILED");
+  ok("staging auth-only gateAuthPath none", diagnostic.gateAuthPath === "none");
   ok(
-    "staging auth gateReasonDetail includes staging path",
-    diagnostic.realProviderGateReasonDetail.includes("gateAuthPath=staging_authenticated")
+    "staging auth-only reason includes denied path",
+    diagnostic.realProviderGateReasonDetail.includes("gateAuthPath=none")
   );
 }
 
@@ -517,7 +517,7 @@ async function main() {
   await testProviderUnsafe();
   testDeterministicOnly();
   testCompareGroundingMerge();
-  testStagingAuthenticatedAttribution();
+  testStagingAuthenticatedOnlyDeniedAttribution();
   testDiagnosticSerialization();
   console.log("\n=== Runtime Attribution Diagnostic Contract complete ===");
 }

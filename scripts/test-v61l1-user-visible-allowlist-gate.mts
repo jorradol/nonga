@@ -103,7 +103,7 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
   ok("parse trims commas", parseUserVisibleAllowlistUids(` ${TEST_UID} , ${OTHER_UID} `).length === 2);
   ok("isUid false when missing", isUidAllowlistedForUserVisible(undefined, (k) => STAGING_USER_VISIBLE_ENV[k], "staging") === false);
   ok("isUid false guest", isUidAllowlistedForUserVisible("", (k) => STAGING_USER_VISIBLE_ENV[k], "staging") === false);
-  ok("isUid true internal tester on staging empty env allowlist", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_SHADOW_ENV[k], "staging") === true);
+  ok("isUid false on staging empty env allowlist", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_SHADOW_ENV[k], "staging") === false);
   ok("isUid true when listed", isUidAllowlistedForUserVisible(TEST_UID, (k) => STAGING_USER_VISIBLE_ENV[k], "staging") === true);
   ok("isUid false when not listed on production", isUidAllowlistedForUserVisible("unknown-uid-not-in-list", (k) => STAGING_USER_VISIBLE_ENV[k], "production") === false);
 }
@@ -131,15 +131,15 @@ console.log("=== v6.1L.1 User-visible Allowlist Gate ===\n");
   ok("guest fallback legacy", gate.fallbackToLegacy === true);
 }
 
-// --- staging expanded allowlist (internal tester / any authenticated on staging) ---
+// --- public staging requires explicit server-side allowlist ---
 {
   const gate = evaluateUserVisibleGate({
     environment: "staging",
     env: { ...STAGING_USER_VISIBLE_ENV, [NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV]: "" },
     firebaseUid: TEST_UID,
   });
-  ok("staging internal tester allowed despite empty env allowlist", gate.effectiveUserVisibleAllowed === true);
-  ok("staging internal tester allowed reason", gate.blockedReason === "user_visible_allowed");
+  ok("staging authenticated-only denied with empty env allowlist", gate.effectiveUserVisibleAllowed === false);
+  ok("staging empty allowlist denied reason", gate.blockedReason === "allowlist_empty");
 }
 
 // --- production non-allowlisted deny ---

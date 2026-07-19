@@ -1,6 +1,9 @@
 /**
- * AI-first staging allowlist — expanded tester/owner access (production stays strict).
- * Source of truth for INTERNAL_TESTER_UIDS / OWNER_ADMIN_UIDS class UIDs + dev-user-* on staging.
+ * User-visible AI access allowlist.
+ *
+ * Runtime environment identity does not grant access. Public staging accepts only
+ * UIDs supplied through the existing server-side allowlist/tester environment keys.
+ * Committed synthetic UIDs remain local-test-only.
  */
 import {
   NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV,
@@ -46,8 +49,6 @@ export type AiFirstGateAuthPath =
   | "env_allowlist"
   | "internal_tester"
   | "owner_admin"
-  | "dev_user_staging"
-  | "staging_authenticated"
   | "none";
 
 export interface AiFirstAllowlistEvaluation {
@@ -82,14 +83,15 @@ function readEnvUids(
 }
 
 export function resolveInternalTesterUids(
-  readEnv?: (key: string) => string | undefined
+  readEnv?: (key: string) => string | undefined,
+  includeLocalSyntheticUids = false
 ): string[] {
   const read =
     readEnv ??
     ((key: string) =>
       typeof process !== "undefined" ? (process.env[key] as string | undefined) : undefined);
   return [
-    ...INTERNAL_TESTER_UIDS,
+    ...(includeLocalSyntheticUids ? INTERNAL_TESTER_UIDS : []),
     ...readEnvUids(read, INTERNAL_TESTER_ENV_KEYS),
   ];
 }
@@ -108,45 +110,21 @@ export function resolveOwnerAdminUids(
   ];
 }
 
-export function isDevUserStagingUid(uid: string): boolean {
-  return /^dev-user-/i.test(uid);
-}
-
-export function isStagingRuntimeEnvironment(
-  environment: SalesBrainRuntimeEnvironment,
-  readEnv?: (key: string) => string | undefined
-): boolean {
-  if (environment === "production") return false;
-  if (environment === "staging") return true;
-
-  const read =
-    readEnv ??
-    ((key: string) =>
-      typeof process !== "undefined" ? (process.env[key] as string | undefined) : undefined);
-
-  const nodeEnv = String(read("NODE_ENV") ?? "").trim().toLowerCase();
-  if (nodeEnv === "staging") return true;
-
-  const service = String(read("K_SERVICE") ?? "").trim().toLowerCase();
-  if (service.includes("staging")) return true;
-
-  const deployEnv = String(read("NONGA_RUNTIME_ENV") ?? read("NONGA_DEPLOY_ENV") ?? "")
-    .trim()
-    .toLowerCase();
-  if (deployEnv === "staging") return true;
-
-  return false;
-}
-
 /**
- * Evaluate AI-first allowlist — production: env allowlist only; staging/local: expanded testers.
+ * Evaluate AI access independently from environment identity.
+ *
+ * - production: explicit primary env allowlist only (the outer gate is default-off)
+ * - staging: primary env allowlist or server-configured owner/tester env allowlists
+ * - local: staging rules plus committed synthetic test UIDs
+ * - unknown/missing environment inputs are normalized by the caller to
+ *   production-strict before reaching this policy
  */
 export function evaluateAiFirstAllowlist(input: {
   firebaseUid?: string | null;
   environment?: SalesBrainRuntimeEnvironment;
   readEnv?: (key: string) => string | undefined;
 }): AiFirstAllowlistEvaluation {
-  const environment = input.environment ?? "local";
+  const environment = input.environment ?? "production";
   const readEnv =
     input.readEnv ??
     ((key: string) =>
@@ -193,10 +171,7 @@ export function evaluateAiFirstAllowlist(input: {
     };
   }
 
-  const stagingExpanded =
-    isStagingRuntimeEnvironment(environment, readEnv) || environment === "local";
-
-  if (stagingExpanded) {
+  if (environment === "staging" || environment === "local") {
     if (envAllowlisted) {
       return {
         allowed: true,
@@ -216,7 +191,10 @@ export function evaluateAiFirstAllowlist(input: {
       };
     }
 
-    const internalTesterUids = resolveInternalTesterUids(readEnv);
+    const internalTesterUids = resolveInternalTesterUids(
+      readEnv,
+      environment === "local"
+    );
     if (internalTesterUids.includes(uid)) {
       return {
         allowed: true,
@@ -226,34 +204,6 @@ export function evaluateAiFirstAllowlist(input: {
       };
     }
 
-    if (
-      isStagingRuntimeEnvironment(environment, readEnv) &&
-      isDevUserStagingUid(uid)
-    ) {
-      return {
-        allowed: true,
-        gateCheck: "PASSED",
-        authPath: "dev_user_staging",
-        blockedReason: "user_visible_allowed",
-      };
-    }
-
-    // Staging-only: any authenticated UID on staging Cloud Run (not production).
-    if (isStagingRuntimeEnvironment(environment, readEnv)) {
-      return {
-        allowed: true,
-        gateCheck: "PASSED",
-        authPath: "staging_authenticated",
-        blockedReason: "user_visible_allowed",
-      };
-    }
-  } else if (envAllowlisted) {
-    return {
-      allowed: true,
-      gateCheck: "PASSED",
-      authPath: "env_allowlist",
-      blockedReason: "user_visible_allowed",
-    };
   }
 
   if (envAllowlist.length === 0) {

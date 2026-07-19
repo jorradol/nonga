@@ -21,8 +21,6 @@ export const USER_VISIBLE_GATE_SLICE_ID = "v6.1L.1";
 export { NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV };
 export type { AiFirstGateAuthPath };
 
-export const STAGING_AUTHENTICATED_GATE_REASON = "staging_authenticated_allowed";
-
 function parseTruthy(raw: string | undefined): boolean {
   const v = String(raw ?? "").trim().toLowerCase();
   return v === "true" || v === "1" || v === "yes";
@@ -52,7 +50,7 @@ export function parseUserVisibleAllowlistUids(raw: string | undefined): string[]
     .filter((segment) => segment.length > 0);
 }
 
-/** True when uid passes AI-first allowlist (staging-expanded; production env-only). */
+/** True when uid passes the environment-independent server-side access policy. */
 export function isUidAllowlistedForUserVisible(
   uid: string | undefined | null,
   readEnv?: (key: string) => string | undefined,
@@ -141,7 +139,7 @@ export function evaluateUserVisibleGate(
   const flags =
     input.runtimeFlags ??
     resolveSalesBrainRuntimeFlags({
-      environment: input.environment,
+      environment: input.environment ?? "production",
       env: input.env,
       readEnv,
     });
@@ -164,12 +162,12 @@ export function evaluateUserVisibleGate(
   let wouldAllow = true;
   let blockedReason = "user_visible_allowed";
 
-  if (flags.environment === "production") {
-    wouldAllow = false;
-    blockedReason = "production_default_off";
-  } else if (flags.emergencyKillSwitch) {
+  if (flags.emergencyKillSwitch) {
     wouldAllow = false;
     blockedReason = "emergency_kill_switch";
+  } else if (flags.environment === "production") {
+    wouldAllow = false;
+    blockedReason = "production_default_off";
   } else if (!flags.userVisibleRequested) {
     wouldAllow = false;
     blockedReason = "user_visible_not_requested";
@@ -184,8 +182,6 @@ export function evaluateUserVisibleGate(
     if (prereqReason) {
       wouldAllow = false;
       blockedReason = prereqReason;
-    } else if (gateAuthPath === "staging_authenticated") {
-      blockedReason = STAGING_AUTHENTICATED_GATE_REASON;
     }
   }
 
