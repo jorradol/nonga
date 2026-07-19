@@ -4,6 +4,11 @@
  * Browser bundle: NONGA_AI_* env is on Cloud Run only — userVisibleText stays legacy here.
  */
 import {
+  resolveNongaEnvironmentIdentity,
+  type EnvReader,
+  type NongaEnvironmentIdentity,
+} from "../../config/environmentIdentity";
+import {
   resolveSalesBrainRuntimeFlags,
   type SalesBrainRuntimeEnvironment,
   type SalesBrainRuntimeFlags,
@@ -65,22 +70,39 @@ function summarizeShadowRuntimeFlags(flags: SalesBrainRuntimeFlags): string {
   );
 }
 
-export function resolveSalesBrainRuntimeEnvironmentFromProcess(): SalesBrainRuntimeEnvironment {
-  const read = (key: string): string | undefined => {
-    if (typeof process === "undefined") {
-      return undefined;
-    }
-    return process.env[key];
-  };
-  const appUrl = String(read("APP_URL") ?? "").toLowerCase();
-  const productionProjectMarker = ["nonga", "ce93c"].join("-");
-  if (appUrl.includes(productionProjectMarker) || appUrl.includes("staging")) {
-    return "staging";
+/**
+ * Map the explicit environment identity to the Sales Brain runtime environment.
+ * `fixture` is treated as production-strict here: fixture must never unlock the
+ * staging-expanded (any-authenticated) user-visible AI policy.
+ */
+export function mapEnvironmentIdentityToSalesBrainRuntime(
+  identity: NongaEnvironmentIdentity
+): SalesBrainRuntimeEnvironment {
+  switch (identity) {
+    case "staging":
+      return "staging";
+    case "local":
+      return "local";
+    case "production":
+    case "fixture":
+    default:
+      return "production";
   }
-  if (read("NODE_ENV") === "production") {
-    return "production";
-  }
-  return "local";
+}
+
+/**
+ * Resolve the Sales Brain runtime environment from EXPLICIT configuration only.
+ *
+ * B1 security fix: environment is derived from `NONGA_RUNTIME_ENV` / `NONGA_DEPLOY_ENV`
+ * (fail closed to production), never from `APP_URL`, project name, or domain match.
+ * The public canonical-staging domain can no longer unlock the staging-expanded policy.
+ */
+export function resolveSalesBrainRuntimeEnvironmentFromProcess(
+  readEnv?: EnvReader
+): SalesBrainRuntimeEnvironment {
+  return mapEnvironmentIdentityToSalesBrainRuntime(
+    resolveNongaEnvironmentIdentity(readEnv)
+  );
 }
 
 export function mapChatRoleToSalesBrainUserRole(input: {
