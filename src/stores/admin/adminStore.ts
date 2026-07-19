@@ -163,107 +163,26 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   }),
   clearSelectedListings: () => set({ selectedListingIds: [] }),
 
-  // Highly illustrative preloaded data
-  platformUsers: [
-    { id: "u-e102", displayName: "ณธิดา ทองพิทักษ์", email: "nathida.gold@gmail.com", role: "user", status: "active", joinedAt: new Date(Date.now() - 12 * 24 * 3600 * 1000).toISOString(), strikeCount: 0, avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=nathida" },
-    { id: "u-e103", displayName: "พิชัย ศักดิ์เจริญ (ดีลเลอร์สมใจ)", email: "somjai_luxury@nongbot.space", role: "dealer", status: "active", joinedAt: new Date(Date.now() - 40 * 24 * 3600 * 1000).toISOString(), strikeCount: 0, avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=somjai" },
-    { id: "u-e104", displayName: "สุรเดช ปากจัด (สแปมเมอร์)", email: "suradech_spam100@gmail.com", role: "user", status: "suspended", joinedAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), strikeCount: 3, avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=suradech" },
-    { id: "u-e105", displayName: "สิริขวัญ ชาดก", email: "siri_heart@outlook.com", role: "user", status: "active", joinedAt: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(), strikeCount: 0, avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=siri" },
-    { id: "u-e106", displayName: "วาริส บุญนำ", email: "varis.boon@gmail.com", role: "user", status: "pending_verification", joinedAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(), strikeCount: 0, avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=varis" }
-  ],
+  // Production-clean default: no synthetic/illustrative data is bundled.
+  // Real admin surfaces must hydrate from an authorized server API; until then the
+  // dashboard renders an honest empty state. See Production Foundation B2.
+  platformUsers: [],
 
-  tickets: [
-    {
-      id: "t-701",
-      userId: "u-e102",
-      userName: "ณธิดา ทองพิทักษ์",
-      userEmail: "nathida.gold@gmail.com",
-      title: "ชำระเงินโอนจองดีลเลอร์สุพรีมคาร์แล้ว ไม่ได้รับบิลคำยืนยันค่ะ",
-      message: "ทำเรื่องโอนเงินจองรถ BYD Seal 50,000 บาทกับดีลเลอร์ Super EV ไปเมื่อเช้า แต่ในหน้าระดับสมาชิก Saved ยังขึ้นว่ารอเจรจา รบกวนเจ้าหน้าที่ช่วยสะสางประสานงานสลิปด้วยนะคะ",
-      category: "billing",
-      status: "open",
-      priority: "high",
-      createdAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
-      replies: []
-    },
-    {
-      id: "t-702",
-      userId: "u-e105",
-      userName: "สิริขวัญ ชาดก",
-      userEmail: "siri_heart@outlook.com",
-      title: "ปุ่มวิเคราะห์ภาพถ่ายรถยนต์ด้วย CarVision ค้างในไอโฟนคุณแม่ค่ะ",
-      message: "กดปุ่มประมวลความโปร่งใสของพารามิเตอร์รูปถ่ายแล้วจอขาว น่าจะติด permission กล้องถ่ายรูปจากเว็บไอเฟรมไหมคะ ฝาก AI Manager อัปเดตแพตช์ด่วนด้วยค่ะ",
-      category: "technical",
-      status: "in_progress",
-      priority: "medium",
-      createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-      replies: [
-        { senderName: "AI Co-pilot Bot", senderRole: "AI manager", message: "สวัสดีค่ะ ได้ทำการตรวจห่อหุ้ม API กล้องใน iFrame Sandbox แล้ว พบว่าใน iOS ต้องเปิดโมดูลในระดับ metadata.json แล้วค่ะ ได้อัปเดตแกนหลัก แนะนำขยายดูเต็มตานะคะคุณหนู", createdAt: new Date(Date.now() - 16 * 3600 * 1000).toISOString() }
-      ]
-    },
-    {
-      id: "t-703",
-      userId: "u-e103",
-      userName: "พิชัย ศักดิ์เจริญ (ดีลเลอร์สมใจ)",
-      userEmail: "somjai_luxury@nongbot.space",
-      title: "ขอยื่นจดทะเบียนโชว์รูมสาขาสอง ย่านนนทบุรีครับ",
-      message: "เอกสารสิทธิ์จัดสิทธิผูกขาดครอบคลุมและใบจดการค้าแนบมาด้วยแล้วครับ อยากขอนุมัติเรตติ้งระดับความปลอดภัยพรีเมียมตรา Certified ตลาดกลางทองคำครับ",
-      category: "general",
-      status: "resolved",
-      priority: "low",
-      createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-      replies: [
-        { senderName: "Nong A Superadmin", senderRole: "superadmin", message: "ตรวจสอบเอกสารสิทธิ์ครบครัน มอบเหรียญตรา Certified พาร์ทเนอร์พิเศษสำเร็จ ยินดีด้วยครับปังปุริเย่!", createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() }
-      ]
-    }
-  ],
+  tickets: [],
 
-  reportedItems: [
-    {
-      id: "rep-201",
-      targetId: "car-001",
-      targetType: "car",
-      targetTitle: "Tesla Model 3 LR Dual Motor 2023",
-      reportedBy: "นรรธรา ตาสับปะรด",
-      reason: "รูปภาพบางรูปเบลอ เกรงว่าจะเป็นการเอารถกระดาษสไลด์ขายหลอกลวง",
-      details: "คันนี้แอบสังเกตรูปที่ 2 เหมือนมีตราลิขสิทธิ์จากเว็บอื่นติดมา ไม่ใช่ภาพถ่ายตัวจริง สภาพนางฟ้าจริงหรือเปล่าเอ่ย",
-      aiClassification: "ImageMismatch: 88%, FakeListingRate: 40%",
-      aiSafeVerdict: "needs_manual_review",
-      status: "pending",
-      reportedAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
-    },
-    {
-      id: "rep-202",
-      targetId: "comment-34",
-      targetType: "comment",
-      targetTitle: "คุณวิทยา ลิขิตปานพูน",
-      reportedBy: "เจ้าของพอร์ตทอล์ค",
-      reason: "คอมเมนต์ฝากโชว์รูมขายสบู่ ครีมผิวขาว และโปรเสริมเน็ต",
-      details: "มาพิมพ์โพสต์ลิ้งค์สแปมแอดไลน์ขายของใต้รูปโพสต์รถ BMW M4 แอดมินลบให้ทีครับ รบกวนอารมณ์ลูกค้าแท้",
-      aiClassification: "Spam: 99%, LinkPromotion: 97%",
-      aiSafeVerdict: "flagged",
-      status: "pending",
-      reportedAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString()
-    }
-  ],
+  reportedItems: [],
 
-  auditLogs: [
-    { id: "log-1", adminId: "admin-101", adminName: "คุณนันตวัฒน์", adminRole: "superadmin", action: "BOOTSTRAP_SYSTEM", details: "วิเคราะห์โครงสร้างข้อมูล SaaS Enterprise เชื่อมต่อ AI Sandbox สำเร็จ", timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString() },
-    { id: "log-2", adminId: "admin-101", adminName: "คุณนันตวัฒน์", adminRole: "superadmin", action: "DEALER_VERIFY_SUCCESS", details: "อนุมัติตราตั้งสมเกียรติให้โชว์รูม Luxury Wheels Elite ทองหล่อ สภาพเสร็จเรียบร้อย", timestamp: new Date(Date.now() - 15 * 3600 * 1000).toISOString() }
-  ],
+  auditLogs: [],
 
   analytics: {
-    totalUsers: 1470,
-    activeDealers: 3,
-    carsListedToday: 24,
-    aiUsageCount: 4325,
-    revenueTotal: 345000, // represent virtual broker listing fees / VIP subscription levels
-    reportedItemsCount: 2,
-    openTicketsCount: 2,
-    growthRate: 14.5
+    totalUsers: 0,
+    activeDealers: 0,
+    carsListedToday: 0,
+    aiUsageCount: 0,
+    revenueTotal: 0,
+    reportedItemsCount: 0,
+    openTicketsCount: 0,
+    growthRate: 0
   },
 
   // State Mutators

@@ -166,12 +166,15 @@ ok(
     /adminState\.cars\.length/.test(summaryTab)
 );
 
+// Production Foundation B2: the admin store must ship an honest empty state and
+// must not bundle synthetic platform-user / ticket / report seed data.
 ok(
-  "seed platformUsers still present in admin store (read-only)",
-  /platformUsers:\s*\[/.test(adminStoreCode) &&
-    /u-e102/.test(adminStoreCode) &&
-    /t-701/.test(adminStoreCode) &&
-    /rep-201/.test(adminStoreCode)
+  "admin store ships no synthetic platform seed (B2 production-clean)",
+  /platformUsers:\s*\[\s*\]/.test(adminStoreCode) &&
+    !/u-e102/.test(adminStoreCode) &&
+    !/t-701/.test(adminStoreCode) &&
+    !/rep-201/.test(adminStoreCode) &&
+    !/suradech_spam100/.test(adminStoreCode)
 );
 ok(
   "seed dealers still present in app store (read-only)",
