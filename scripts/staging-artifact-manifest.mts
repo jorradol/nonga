@@ -23,9 +23,15 @@ if (writeMode === verifyMode) {
 }
 
 function command(program: string, args: string[]): string {
-  const executable =
-    process.platform === "win32" && program === "npm" ? "npm.cmd" : program;
-  return execFileSync(executable, args, { cwd: root, encoding: "utf8" }).trim();
+  return execFileSync(program, args, { cwd: root, encoding: "utf8" }).trim();
+}
+
+function npmVersion(): string {
+  const npmExecPath = process.env.npm_execpath;
+  if (!npmExecPath) {
+    throw new Error("npm_execpath is unavailable; run this script through npm");
+  }
+  return command(process.execPath, [npmExecPath, "--version"]);
 }
 
 function sha256File(filePath: string): string {
@@ -57,7 +63,7 @@ function currentArtifact() {
     sourceCommit: command("git", ["rev-parse", "HEAD"]),
     buildCommand: "npm run build:staging:hosting",
     nodeVersion: process.version,
-    npmVersion: command("npm", ["--version"]),
+    npmVersion: npmVersion(),
     lockfileSha256: sha256File(path.join(root, "package-lock.json")),
     builtAt: JSON.parse(
       fs.readFileSync(path.join(distDir, "build-provenance.json"), "utf8")
