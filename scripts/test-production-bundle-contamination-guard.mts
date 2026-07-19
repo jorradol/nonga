@@ -91,6 +91,8 @@ const contaminationMarkers: Array<{ label: string; marker: string }> = [
   { label: "fixture network guard installer", marker: "installFixtureNetworkGuard" },
   // Fixture project identifier must not ship in production.
   { label: "fixture project id nonga-staging-2026", marker: "nonga-staging-2026" },
+  { label: "placeholder Firebase API key", marker: "AIzaSyFakePlaceholder" },
+  { label: "legacy placeholder Firebase project", marker: "nonga-marketplace" },
   // Enabled test-mode flag.
   { label: "ui fixture flag enabled", marker: 'VITE_NONGA_UI_FIXTURE:"true"' },
   // Fixture isolation replaces the canonical font stack with this override.

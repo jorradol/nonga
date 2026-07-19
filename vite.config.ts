@@ -9,6 +9,16 @@ function firebaseProductionConfigGuard() {
   return {
     name: 'firebase-production-config-guard',
     apply: 'build' as const,
+    enforce: 'pre' as const,
+    transform(code: string, id: string) {
+      if (process.env.VITE_NONGA_UI_FIXTURE === 'true') return null;
+      if (!/firebase-applet-config\.json(?:\?|$)/.test(id)) return null;
+      const config = JSON.parse(code) as Record<string, unknown>;
+      for (const key of Object.keys(config)) {
+        config[key] = '';
+      }
+      return { code: JSON.stringify(config), map: null };
+    },
     buildStart() {
       if (process.env.SKIP_FIREBASE_PRODUCTION_GUARD === 'true') return;
       if (process.env.VITE_NONGA_UI_FIXTURE === 'true') return;
