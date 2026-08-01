@@ -1,10 +1,12 @@
-/** v5.4.8c — buyer scored marketplace search reply (deterministic, no Gemini) */
+/** v5.4.8c — buyer scored marketplace search reply (deterministic, no Gemini)
+ * WP-VD01 — routes richer Thai discovery through runVehicleDiscovery first.
+ */
 
 import type { ChatCarCardData } from "../../../types";
+import type { ChatDiscoveryCriteriaSnapshot } from "../../../utils/chatCarContext";
 import { parseBuyerSearchIntent, type BuyerSearchIntent } from "./buyerSearchIntentParser";
 import {
   scoreBuyerMarketplaceCandidates,
-  type BuyerMarketplaceScoredCandidate,
   type BuyerMarketplaceScoringResult,
 } from "./buyerMarketplaceScoring";
 import {
@@ -23,6 +25,13 @@ import {
   buildScoredCarPitchCopy,
 } from "./buyerCarPitchCopy.ts";
 import { buildStableSeed, pickStableVariant } from "./thaiSalesCopyVariation";
+import {
+  isVehicleDiscoveryIntent,
+  parseVehicleDiscoveryCriteria,
+  runVehicleDiscovery,
+  type VehicleDiscoveryContext,
+  type VehicleDiscoveryCriteria,
+} from "./vehicleDiscoveryIndex";
 
 const FORBIDDEN_REPLY_CLAIM =
   /(?:ไม่เคยชน|ไม่เคยน้ำท่วม|ไม่จุกจิกแน่นอน|ไม่เสียแน่นอน|km\/l|กม\.\/ลิตร|กิโลเมตรต่อลิตร|รวยแน่นอน|เนื้อคู่ชัวร์)/i;
@@ -38,12 +47,53 @@ export interface BuyerScoredMarketplaceReply {
   /** v7.4 — compact grounded fit reason per ranked car (parallel to allCarCards) */
   fitReasons?: string[];
   hasMoreCars?: boolean;
+  /** WP-VD01 — structured criteria snapshot for refine continuity */
+  discoveryCriteria?: ChatDiscoveryCriteriaSnapshot;
+}
+
+export interface BuyerScoredMarketplaceOptions {
+  discoveryContext?: VehicleDiscoveryContext;
 }
 
 function assertSafeReplyText(text: string): void {
   if (FORBIDDEN_REPLY_CLAIM.test(text)) {
     throw new Error(`Forbidden claim in buyer scored search reply: ${text.slice(0, 80)}`);
   }
+}
+
+function toDiscoverySnapshot(
+  criteria: VehicleDiscoveryCriteria
+): ChatDiscoveryCriteriaSnapshot {
+  return {
+    ...(criteria.budgetMax != null ? { budgetMax: criteria.budgetMax } : {}),
+    ...(criteria.budgetMin != null ? { budgetMin: criteria.budgetMin } : {}),
+    ...(criteria.estimatedMonthlyMax != null
+      ? { estimatedMonthlyMax: criteria.estimatedMonthlyMax }
+      : {}),
+    ...(criteria.brand ? { brand: criteria.brand } : {}),
+    ...(criteria.model ? { model: criteria.model } : {}),
+    ...(criteria.yearExact != null ? { yearExact: criteria.yearExact } : {}),
+    ...(criteria.minYear != null ? { minYear: criteria.minYear } : {}),
+    ...(criteria.maxAgeYears != null ? { maxAgeYears: criteria.maxAgeYears } : {}),
+    ...(criteria.bodyHints?.length ? { bodyHints: [...criteria.bodyHints] } : {}),
+    ...(criteria.transmission ? { transmission: criteria.transmission } : {}),
+    ...(criteria.usageTags?.length ? { usageTags: [...criteria.usageTags] } : {}),
+    ...(criteria.fuelEfficient ? { fuelEfficient: true } : {}),
+    ...(criteria.appliedLabels?.length
+      ? { appliedLabels: [...criteria.appliedLabels] }
+      : {}),
+  };
+}
+
+export function snapshotToPriorCriteria(
+  snap: ChatDiscoveryCriteriaSnapshot | null | undefined
+): VehicleDiscoveryCriteria | null {
+  if (!snap) return null;
+  return {
+    isDiscovery: true,
+    ...snap,
+    bodyHints: snap.bodyHints as VehicleDiscoveryCriteria["bodyHints"],
+  };
 }
 
 function narrowInventoryByBrandModel(
@@ -130,6 +180,11 @@ function isBrandModelAvailabilityLookup(message: string): boolean {
   if (criteria.maxPrice != null || criteria.minPrice != null) return false;
   if (criteria.suvOnly || criteria.pickupOnly || criteria.familyUse) return false;
   if (criteria.sevenSeats || criteria.commercialUse) return false;
+  // WP-VD01 — transmission / age / monthly are discovery, not bare availability
+  const discovery = parseVehicleDiscoveryCriteria(message);
+  if (discovery.transmission) return false;
+  if (discovery.maxAgeYears != null) return false;
+  if (discovery.estimatedMonthlyMax != null) return false;
   return true;
 }
 
@@ -139,9 +194,29 @@ function toSummaries(
   return scoring.candidates.map((c) => toChatCarSummary(c.car));
 }
 
-/** True when buyer parser says this is a vehicle search (not advisor-only). */
-export function shouldUseBuyerScoredMarketplaceSearch(message: string): boolean {
-  return parseBuyerSearchIntent(message).isVehicleSearch;
+function shouldPreferVehicleDiscovery(
+  message: string,
+  discoveryContext?: VehicleDiscoveryContext
+): boolean {
+  const criteria = parseVehicleDiscoveryCriteria(message, discoveryContext);
+  if (!criteria.isDiscovery) return false;
+  // Keep classic scored pitch path for budget/usage searches that already
+  // have frozen UX (v5.4.8c). Prefer discovery only for new hard filters /
+  // refine / monthly affordability / age / transmission.
+  if (criteria.refineKind && criteria.refineKind !== "showMore") return true;
+  if (criteria.estimatedMonthlyMax != null) return true;
+  if (criteria.transmission != null) return true;
+  if (criteria.maxAgeYears != null || criteria.minYear != null) return true;
+  return false;
+}
+
+/** True when buyer parser / discovery says this is a vehicle search. */
+export function shouldUseBuyerScoredMarketplaceSearch(
+  message: string,
+  discoveryContext?: VehicleDiscoveryContext
+): boolean {
+  if (parseBuyerSearchIntent(message).isVehicleSearch) return true;
+  return isVehicleDiscoveryIntent(message, discoveryContext);
 }
 
 /**
@@ -150,13 +225,21 @@ export function shouldUseBuyerScoredMarketplaceSearch(message: string): boolean 
  */
 export function tryBuyerScoredMarketplaceReply(
   message: string,
-  inventory: ChatInventoryCar[]
+  inventory: ChatInventoryCar[],
+  options?: BuyerScoredMarketplaceOptions
 ): BuyerScoredMarketplaceReply | null {
+  const discoveryContext = options?.discoveryContext;
   const intent = parseBuyerSearchIntent(message);
-  if (!intent.isVehicleSearch) return null;
+  const discoveryIntent = isVehicleDiscoveryIntent(message, discoveryContext);
+
+  if (!intent.isVehicleSearch && !discoveryIntent) return null;
 
   // Exact brand/model availability ("มี Honda CRV 2019 ไหม") → natural inventory copy.
-  if (isBrandModelAvailabilityLookup(message)) {
+  // Keep frozen inventory Q&A path — skip when discovery-specific constraints present.
+  if (
+    isBrandModelAvailabilityLookup(message) &&
+    !shouldPreferVehicleDiscovery(message, discoveryContext)
+  ) {
     const legacy = runMarketplaceChatSearch(message, inventory);
     if (legacy) {
       const allCarCards = summariesToCarCards(legacy.primary, legacy.alternatives);
@@ -171,6 +254,32 @@ export function tryBuyerScoredMarketplaceReply(
     }
   }
 
+  // WP-VD01 — structured discovery foundation (criteria → match → rank → relax)
+  if (
+    shouldPreferVehicleDiscovery(message, discoveryContext) ||
+    (!intent.isVehicleSearch && discoveryIntent)
+  ) {
+    const discovery = runVehicleDiscovery(
+      message,
+      inventory,
+      discoveryContext ?? {}
+    );
+    if (discovery && discovery.criteria.refineKind !== "showMore") {
+      assertSafeReplyText(discovery.summaryText);
+      const snap = toDiscoverySnapshot(discovery.criteria);
+      return {
+        text: discovery.summaryText,
+        carCards: discovery.carCards,
+        allCarCards: discovery.allCarCards,
+        hasMoreCars: discovery.hasMoreCars,
+        fitReasons: discovery.allCarCards.map((c) => c.fitReason ?? ""),
+        discoveryCriteria: snap,
+      };
+    }
+  }
+
+  if (!intent.isVehicleSearch) return null;
+
   const { pool, criteriaBrandModel } = narrowInventoryByBrandModel(
     inventory,
     message
@@ -178,15 +287,29 @@ export function tryBuyerScoredMarketplaceReply(
 
   if (criteriaBrandModel && pool.length === 0) {
     const legacy = runMarketplaceChatSearch(message, inventory);
-    const text =
-      legacy?.introText ??
-      buildNoMatchReply(intent);
+    const text = legacy?.introText ?? buildNoMatchReply(intent);
     assertSafeReplyText(text);
     return { text, carCards: [], allCarCards: [] };
   }
 
   const scoring = scoreBuyerMarketplaceCandidates(intent, pool, { limit: 5 });
   if (scoring.candidates.length === 0) {
+    // WP-VD01 — prefer discovery no-result with near alternatives when possible
+    const discovery = runVehicleDiscovery(
+      message,
+      inventory,
+      discoveryContext ?? {}
+    );
+    if (discovery && (discovery.nearAlternatives.length > 0 || discovery.isRelaxed)) {
+      assertSafeReplyText(discovery.summaryText);
+      return {
+        text: discovery.summaryText,
+        carCards: discovery.carCards,
+        allCarCards: discovery.allCarCards,
+        hasMoreCars: false,
+        discoveryCriteria: toDiscoverySnapshot(discovery.criteria),
+      };
+    }
     return {
       text: buildNoMatchReply(intent),
       carCards: [],
@@ -214,6 +337,9 @@ export function tryBuyerScoredMarketplaceReply(
     displayCount
   );
   const pitchLines = buildAllScoredPitchLines(message, intent, scoring);
+  const discoverySnap = toDiscoverySnapshot(
+    parseVehicleDiscoveryCriteria(message, discoveryContext)
+  );
 
   return {
     text: introText,
@@ -222,5 +348,6 @@ export function tryBuyerScoredMarketplaceReply(
     pitchLines,
     fitReasons,
     hasMoreCars: hasMore,
+    discoveryCriteria: discoverySnap,
   };
 }

@@ -57,8 +57,12 @@ import {
   isVagueUnclearBuyerMessage,
   tryBuyerIntentGateReply,
 } from "./chatBuyerIntentGate";
-import { tryBuyerScoredMarketplaceReply } from "./buyerScoredMarketplaceSearch.ts";
+import {
+  snapshotToPriorCriteria,
+  tryBuyerScoredMarketplaceReply,
+} from "./buyerScoredMarketplaceSearch.ts";
 import { parseBuyerSearchIntent } from "./buyerSearchIntentParser";
+import { isMonthlyAffordabilityDiscovery } from "./vehicleDiscoveryIndex";
 import {
   buildSearchOpenerFromMemory,
   getConversationalLeadMemory,
@@ -505,7 +509,11 @@ function tryOrchestrateChatReplyCore(
     }
   }
 
-  const financeCalc = tryBuyerFinanceCalculatorReply(message);
+  // WP-VD01 — inventory search by monthly affordability must not be stolen
+  // by the generic finance calculator (selected-car ผ่อน path stays below).
+  const financeCalc = isMonthlyAffordabilityDiscovery(message)
+    ? null
+    : tryBuyerFinanceCalculatorReply(message);
   if (financeCalc) {
     return {
       text: financeCalc.text,
@@ -878,9 +886,27 @@ function tryOrchestrateChatReplyCore(
     return `${message} งบไม่เกิน ${budget} บาท ${usageText}`;
   })();
 
+  const priorSearchCtx = loadChatSearchContext(chatSessionId);
+  const priorBuyerCtx = loadInChatBuyerContext(chatSessionId);
+  const selectionForDiscovery = resolveSelectedCarIdState(chatSessionId);
+  const discoveryContext = {
+    priorCriteria: snapshotToPriorCriteria(
+      priorSearchCtx?.discoveryCriteria ?? priorBuyerCtx?.discoveryCriteria
+    ),
+    selectedListingId:
+      selectionForDiscovery.kind === "selected"
+        ? selectionForDiscovery.id
+        : null,
+    contextCars:
+      contextCars.length > 0
+        ? contextCars
+        : loadChatCarContext(chatSessionId),
+  };
+
   const buyerScored = tryBuyerScoredMarketplaceReply(
     scopedBuyerSearchMessage,
-    inventory
+    inventory,
+    { discoveryContext }
   );
   if (buyerScored) {
     const initialCards = buyerScored.carCards;
@@ -893,6 +919,9 @@ function tryOrchestrateChatReplyCore(
           allCars: buyerScored.allCarCards,
           offset: 3,
           pitchLines: buyerScored.pitchLines,
+          ...(buyerScored.discoveryCriteria
+            ? { discoveryCriteria: buyerScored.discoveryCriteria }
+            : {}),
         },
         chatSessionId
       );
@@ -905,9 +934,12 @@ function tryOrchestrateChatReplyCore(
       saveInChatBuyerContext(
         {
           message,
-          usageTags: intent.usageTags,
-          budgetMax: intent.budgetMax,
+          usageTags:
+            buyerScored.discoveryCriteria?.usageTags ?? intent.usageTags,
+          budgetMax:
+            buyerScored.discoveryCriteria?.budgetMax ?? intent.budgetMax,
           seatsMin: intent.seatsMin,
+          discoveryCriteria: buyerScored.discoveryCriteria ?? null,
         },
         chatSessionId
       );

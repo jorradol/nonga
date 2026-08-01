@@ -1,10 +1,29 @@
 import type { ChatCarCardData } from "../types";
 
+/** WP-VD01 — serializable discovery snapshot (no service imports) */
+export interface ChatDiscoveryCriteriaSnapshot {
+  budgetMax?: number;
+  budgetMin?: number;
+  estimatedMonthlyMax?: number;
+  brand?: string;
+  model?: string;
+  yearExact?: number;
+  minYear?: number;
+  maxAgeYears?: number;
+  bodyHints?: string[];
+  transmission?: "auto" | "manual";
+  usageTags?: string[];
+  fuelEfficient?: boolean;
+  appliedLabels?: string[];
+}
+
 export interface ChatSearchContextData {
   allCars: ChatCarCardData[];
   offset: number;
   /** Parallel warm pitch lines for show-more (buyer scored search) */
   pitchLines?: string[];
+  /** WP-VD01 — last structured discovery criteria for refine follow-ups */
+  discoveryCriteria?: ChatDiscoveryCriteriaSnapshot;
 }
 
 /** Last buyer search hint for in-chat curated analysis weaving */
@@ -13,6 +32,8 @@ export interface InChatBuyerContext {
   usageTags?: string[];
   budgetMax?: number | null;
   seatsMin?: number | null;
+  /** WP-VD01 — mirror of last discovery budget/usage for continuity */
+  discoveryCriteria?: ChatDiscoveryCriteriaSnapshot | null;
 }
 
 interface SessionScopedPayload<T> {

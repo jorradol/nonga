@@ -168,6 +168,39 @@ export function parseBuyerSearchBudgetMax(message: string): number | undefined {
     }
   }
 
+  // WP-VD01 — glued Thai amounts: "หกแสน" / "งบประมาณหกแสน" / "6แสน"
+  if (parsedPrice === 0) {
+    const gluedThai = text.match(
+      /(หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า)(แสน|ล้าน)/i
+    );
+    if (gluedThai) {
+      const wordToNum: Record<string, number> = {
+        หนึ่ง: 1,
+        สอง: 2,
+        สาม: 3,
+        สี่: 4,
+        ห้า: 5,
+        หก: 6,
+        เจ็ด: 7,
+        แปด: 8,
+        เก้า: 9,
+      };
+      parsedPrice = wordToNum[gluedThai[1]];
+      if (/แสน/i.test(gluedThai[2])) parsedPrice *= 100_000;
+      else if (/ล้าน/i.test(gluedThai[2])) parsedPrice *= 1_000_000;
+    }
+  }
+  if (parsedPrice === 0) {
+    const gluedDigit = processedText.match(
+      /([\d,]+(?:\.\d+)?)(แสน|ล้าน)/i
+    );
+    if (gluedDigit) {
+      parsedPrice = parseThaiNumber(gluedDigit[1]);
+      if (/แสน/i.test(gluedDigit[2])) parsedPrice *= 100_000;
+      else if (/ล้าน/i.test(gluedDigit[2])) parsedPrice *= 1_000_000;
+    }
+  }
+
   if (parsedPrice === 0) {
     // Bare unit after under-budget: "งบไม่เกินล้าน" / "ไม่เกินแสน" → 1 unit
     const bareUnit = processedText.match(
