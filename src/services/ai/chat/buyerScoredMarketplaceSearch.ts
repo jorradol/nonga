@@ -29,6 +29,7 @@ import {
   isVehicleDiscoveryIntent,
   parseVehicleDiscoveryCriteria,
   runVehicleDiscovery,
+  hasExplicitBodyTypeRequest,
   type VehicleDiscoveryContext,
   type VehicleDiscoveryCriteria,
 } from "./vehicleDiscoveryIndex";
@@ -75,6 +76,7 @@ function toDiscoverySnapshot(
     ...(criteria.yearExact != null ? { yearExact: criteria.yearExact } : {}),
     ...(criteria.minYear != null ? { minYear: criteria.minYear } : {}),
     ...(criteria.maxAgeYears != null ? { maxAgeYears: criteria.maxAgeYears } : {}),
+    ...(criteria.preferNewerYear ? { preferNewerYear: true } : {}),
     ...(criteria.bodyHints?.length ? { bodyHints: [...criteria.bodyHints] } : {}),
     ...(criteria.transmission ? { transmission: criteria.transmission } : {}),
     ...(criteria.usageTags?.length ? { usageTags: [...criteria.usageTags] } : {}),
@@ -200,13 +202,38 @@ function shouldPreferVehicleDiscovery(
 ): boolean {
   const criteria = parseVehicleDiscoveryCriteria(message, discoveryContext);
   if (!criteria.isDiscovery) return false;
-  // Keep classic scored pitch path for budget/usage searches that already
-  // have frozen UX (v5.4.8c). Prefer discovery only for new hard filters /
-  // refine / monthly affordability / age / transmission.
+  // Keep classic scored pitch for plain budget/usage searches (frozen UX).
+  // Prefer discovery for hard filters, refine, monthly, age, transmission,
+  // prefer-newer-year, explicit body type, brand+constraints, and multi-turn
+  // continuation when prior discovery criteria exist.
   if (criteria.refineKind && criteria.refineKind !== "showMore") return true;
   if (criteria.estimatedMonthlyMax != null) return true;
   if (criteria.transmission != null) return true;
   if (criteria.maxAgeYears != null || criteria.minYear != null) return true;
+  if (criteria.preferNewerYear) return true;
+  if (hasExplicitBodyTypeRequest(message)) return true;
+  if (
+    criteria.brand &&
+    (criteria.transmission != null ||
+      criteria.bodyHints?.length ||
+      criteria.budgetMax != null ||
+      criteria.preferNewerYear)
+  ) {
+    return true;
+  }
+  if (criteria.brand && /อยากได้|ต้องการ|ขอ|หา|มี/.test(message)) {
+    return true;
+  }
+  if (
+    discoveryContext?.priorCriteria?.isDiscovery &&
+    (criteria.brand ||
+      criteria.transmission != null ||
+      criteria.bodyHints?.length ||
+      criteria.budgetMax != null ||
+      criteria.refineKind)
+  ) {
+    return true;
+  }
   return false;
 }
 

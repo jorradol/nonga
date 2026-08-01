@@ -34,6 +34,7 @@
     "test:chat-v2-experience-guard": "tsx scripts/test-chat-v2-experience-guard.mts",
     "test:chat-v2-workspace-layout-guard": "tsx scripts/test-chat-v2-workspace-layout-guard.mts",
     "test:wp-vd01-vehicle-discovery": "tsx scripts/test-wp-vd01-vehicle-discovery.mts",
+    "test:wp-vd01a-vehicle-discovery": "tsx scripts/test-wp-vd01a-vehicle-discovery.mts",
     "test:chat-sidebar-account-profile-menu-guard": "tsx scripts/test-chat-sidebar-account-profile-menu-guard.mts",
     "test:canonical-thai-font-guard": "tsx scripts/test-canonical-thai-font-guard.mts",
     "test:import-sample": "tsx scripts/test-thor-sample-import.mts",

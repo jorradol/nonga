@@ -10,6 +10,10 @@ import {
 import { detectBuyerAdvisorTopic } from "./chatBuyerAdvisorTemplates";
 import { isMarketplaceSearchIntent } from "./marketplaceChatSearch";
 import {
+  isMonthlyAffordabilityDiscovery,
+  isVehicleDiscoveryIntent,
+} from "./vehicleDiscoveryCriteriaParser";
+import {
   summaryToChatCarCardData,
   toChatCarSummary,
   type ChatInventoryCar,
@@ -195,6 +199,17 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
   if (SELLER_ACTION_EXACT.has(t)) return "none";
   if (detectBuyerAdvisorTopic(t)) return "none";
 
+  // WP-VD01A — vehicle discovery / monthly search must not be stolen by specs facts
+  // (e.g. "อยากได้ Toyota เกียร์ออโต้" contains เกียร์ but is a search, not a facts Q).
+  if (
+    isMonthlyAffordabilityDiscovery(t) ||
+    isVehicleDiscoveryIntent(t) ||
+    (isMarketplaceSearchIntent(message) &&
+      !/คันนี้|คันนั้น|รถคันนี้/.test(t))
+  ) {
+    return "none";
+  }
+
   // History / condition cues only — finance/installment (ไฟแนนซ์|ผ่อน) must NOT
   // land here; those route via the selected-car finance calculator path.
   if (
@@ -232,13 +247,6 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
 
   if (/เหมาะกับใคร|เหมาะ(กับ)?(ใคร|แบบไหน)/.test(t)) {
     return "suitableFor";
-  }
-
-  if (
-    isMarketplaceSearchIntent(message) &&
-    !/คันนี้|คันนั้น|รถคันนี้/.test(t)
-  ) {
-    return "none";
   }
 
   return "none";

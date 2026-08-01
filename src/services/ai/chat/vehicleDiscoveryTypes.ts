@@ -54,6 +54,11 @@ export interface VehicleDiscoveryCriteria {
   /** Maximum vehicle age in years from referenceYear */
   maxAgeYears?: number;
   referenceYear?: number;
+  /**
+   * Prefer newer model/registration years in ranking.
+   * Set from soft cues like "ปีใหม่" / "รุ่นใหม่" — never invents a minYear.
+   */
+  preferNewerYear?: boolean;
   bodyHints?: VehicleDiscoveryBodyHint[];
   transmission?: VehicleDiscoveryTransmission;
   fuelType?: string;

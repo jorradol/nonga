@@ -22,6 +22,8 @@ export {
 export {
   parseVehicleDiscoveryCriteria,
   parseDiscoveryMonthlyMax,
+  parsePreferNewerYear,
+  hasExplicitBodyTypeRequest,
   isVehicleDiscoveryIntent,
   isMonthlyAffordabilityDiscovery,
 } from "./vehicleDiscoveryCriteriaParser";

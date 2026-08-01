@@ -10,6 +10,7 @@ export interface ChatDiscoveryCriteriaSnapshot {
   yearExact?: number;
   minYear?: number;
   maxAgeYears?: number;
+  preferNewerYear?: boolean;
   bodyHints?: string[];
   transmission?: "auto" | "manual";
   usageTags?: string[];

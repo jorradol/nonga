@@ -48,6 +48,11 @@ function hardBonusReasons(
       reasons.push(`รุ่นตรงตามที่ขอ (${car.model})`);
     }
   }
+  if (criteria.preferNewerYear && car.year > 0) {
+    // Strong year preference — must outweigh "cheapest wins" soft scoring
+    score += Math.max(0, (car.year - 2000) * 4);
+    reasons.push(`ปี ${car.year} — ให้น้ำหนักปีใหม่กว่าตามที่ขอ`);
+  }
   if (criteria.budgetMax != null && car.price <= criteria.budgetMax) {
     score += 15;
     if (!reasons.some((r) => /งบ|ราคา/.test(r))) {
@@ -66,7 +71,11 @@ function hardBonusReasons(
   }
   if (criteria.transmission === "auto") {
     score += 8;
-    reasons.push("เกียร์ออโต้ตามข้อมูลประกาศ");
+    reasons.push("เกียร์อัตโนมัติตามข้อมูลประกาศ");
+  }
+  if (criteria.transmission === "manual") {
+    score += 8;
+    reasons.push("เกียร์ธรรมดาตามข้อมูลประกาศ");
   }
   if (criteria.estimatedMonthlyMax != null && criteria.financeAssumptions) {
     reasons.push(
@@ -76,8 +85,16 @@ function hardBonusReasons(
 
   const body = inferVehicleBodyClass(car);
   if (criteria.bodyHints?.includes("suv") && body === "suv") {
-    score += 10;
+    score += 18;
     reasons.push("ตัวถัง SUV ตามที่ขอ");
+  }
+  if (criteria.bodyHints?.includes("mpv") && body === "mpv") {
+    score += 12;
+    reasons.push("ตัวถังรถครอบครัว/MPV ตามที่ขอ");
+  }
+  if (criteria.bodyHints?.includes("pickup") && body === "pickup") {
+    score += 12;
+    reasons.push("ตัวถังกระบะตามที่ขอ");
   }
   if (
     (criteria.bodyHints?.includes("hatchback") ||
@@ -85,7 +102,7 @@ function hardBonusReasons(
     (body === "hatchback" || body === "sedan")
   ) {
     score += 8;
-    reasons.push("ขนาดตัวถังกะทัดรัด — เหมาะมุมมือใหม่/ใช้งานเมือง (อนุมานจากประเภทตัวถัง)");
+    reasons.push("ขนาดตัวถังกะทัดรัดตามข้อมูลประเภทตัวถัง");
   }
 
   return { score, reasons };
@@ -93,15 +110,23 @@ function hardBonusReasons(
 
 function applySort(
   candidates: VehicleDiscoveryCandidate[],
-  sort: VehicleDiscoverySort | undefined
+  sort: VehicleDiscoverySort | undefined,
+  preferNewerYear?: boolean
 ): VehicleDiscoveryCandidate[] {
   const copy = [...candidates];
   const mode = sort ?? "relevance";
   copy.sort((a, b) => {
     if (mode === "priceAsc") return a.car.price - b.car.price;
     if (mode === "priceDesc") return b.car.price - a.car.price;
-    if (mode === "yearDesc") return b.car.year - a.car.year;
+    if (mode === "yearDesc") {
+      if (b.car.year !== a.car.year) return b.car.year - a.car.year;
+      if (b.score !== a.score) return b.score - a.score;
+      return a.car.price - b.car.price;
+    }
     if (mode === "yearAsc") return a.car.year - b.car.year;
+    if (preferNewerYear && b.car.year !== a.car.year) {
+      return b.car.year - a.car.year;
+    }
     if (b.score !== a.score) return b.score - a.score;
     if (a.car.price !== b.car.price) return a.car.price - b.car.price;
     return b.car.year - a.car.year;
@@ -117,7 +142,8 @@ export function rankDiscoveryCandidates(
   const intent = toBuyerIntent(criteria);
   const ranked = exact.map((c) => {
     let scored: BuyerMarketplaceScoredCandidate | null = null;
-    if (intent.isVehicleSearch) {
+    // When preferNewerYear, skip soft price-first scoring that can bury newer cars
+    if (intent.isVehicleSearch && !criteria.preferNewerYear) {
       scored = scoreBuyerMarketplaceCandidate(intent, c.car);
     }
     const hard = hardBonusReasons(criteria, c.car);
@@ -142,5 +168,5 @@ export function rankDiscoveryCandidates(
     } satisfies VehicleDiscoveryCandidate;
   });
 
-  return applySort(ranked, criteria.sort);
+  return applySort(ranked, criteria.sort, criteria.preferNewerYear);
 }

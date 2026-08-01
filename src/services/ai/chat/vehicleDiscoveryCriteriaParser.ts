@@ -132,6 +132,32 @@ function parseSort(message: string): VehicleDiscoverySort | undefined {
   return undefined;
 }
 
+/**
+ * Soft preference for newer years — does NOT invent a numeric minYear.
+ * "ปีใหม่กว่า" alone is a refine relative to a selected car (handled separately).
+ */
+export function parsePreferNewerYear(message: string): boolean {
+  const t = message.trim();
+  if (/ปีใหม่กว่า(?:นี้|เดิม)?|ใหม่กว่า(?:นี้|เดิม)?|อายุน้อยกว่า/i.test(t)) {
+    // Relative refine — still prefer newer overall when searching
+    return true;
+  }
+  return /ปีใหม่|รุ่นใหม่|ไม่เก่า|ใหม่หน่อย|รถใหม่หน่อย/i.test(t);
+}
+
+function isFreshSearchReset(message: string): boolean {
+  return /เริ่มค้นหาใหม่|ค้นหาใหม่|ล้างเงื่อนไข|ไม่เอาเงื่อนไขเดิม|เริ่มใหม่(?:\s*ค้นหา)?/i.test(
+    message.trim()
+  );
+}
+
+/** Explicit body-type words in the message (not usage-inferred). */
+export function hasExplicitBodyTypeRequest(message: string): boolean {
+  return /\bsuv\b|อเนกประสงค์|กระบะ|pickup|ซีดาน|sedan|แฮทช์|hatchback|7\s*ที่นั่ง|เจ็ดที่นั่ง|\bmpv\b/i.test(
+    message
+  );
+}
+
 function parseBudgetMin(message: string): number | undefined {
   const processed = message.trim();
   const m = processed.match(
@@ -201,9 +227,21 @@ function buildAppliedLabels(c: VehicleDiscoveryCriteria): string[] {
   if (c.yearExact != null) labels.push(`ปี ${c.yearExact}`);
   if (c.minYear != null) labels.push(`ปีตั้งแต่ ${c.minYear}`);
   if (c.maxAgeYears != null) labels.push(`อายุไม่เกิน ${c.maxAgeYears} ปี`);
-  if (c.bodyHints?.length) labels.push(`ประเภท ${c.bodyHints.join("/")}`);
-  if (c.transmission === "auto") labels.push("เกียร์ออโต้");
+  if (c.bodyHints?.length) {
+    const bodyMap: Record<string, string> = {
+      suv: "SUV",
+      mpv: "รถครอบครัว/MPV",
+      pickup: "กระบะ",
+      sedan: "ซีดาน",
+      hatchback: "แฮทช์แบ็ก",
+    };
+    labels.push(
+      `ประเภท ${c.bodyHints.map((h) => bodyMap[h] ?? h).join("/")}`
+    );
+  }
+  if (c.transmission === "auto") labels.push("เกียร์อัตโนมัติ");
   if (c.transmission === "manual") labels.push("เกียร์ธรรมดา");
+  if (c.preferNewerYear) labels.push("เน้นปีใหม่กว่า");
   if (c.fuelEfficient) labels.push("เน้นประหยัดน้ำมัน");
   if (c.usageTags?.length) {
     const map: Record<string, string> = {
@@ -243,6 +281,16 @@ function applyRefineToCriteria(
 
   if (refine === "cheaper" && refCar && refCar.price > 0) {
     next.budgetMax = Math.max(0, refCar.price - 1);
+    // Selected listing is the comparison anchor. Drop a prior brand/model that
+    // conflicts with the selected car so "ถูกกว่านี้" can search real cheaper peers.
+    if (
+      next.brand &&
+      refCar.brand &&
+      !refCar.brand.toLowerCase().includes(next.brand.toLowerCase())
+    ) {
+      delete next.brand;
+      delete next.model;
+    }
     pushUnique(
       (next.appliedLabels ??= []),
       `ถูกกว่า ${refCar.brand} ${refCar.model} (${refCar.price.toLocaleString("th-TH")} บาท)`
@@ -298,7 +346,9 @@ export function parseVehicleDiscoveryCriteria(
   const monthlyMax = parseDiscoveryMonthlyMax(text);
   const budgetMin = parseBudgetMin(text);
   const sort = parseSort(text);
+  const preferNewerYear = parsePreferNewerYear(text);
   const referenceYear = context.referenceYear ?? new Date().getFullYear();
+  const freshReset = isFreshSearchReset(text);
 
   let budgetMax =
     buyerIntent.budgetMax ??
@@ -352,12 +402,15 @@ export function parseVehicleDiscoveryCriteria(
     transmission != null ||
     usageTags.length > 0 ||
     fuelEfficient ||
+    preferNewerYear ||
     refineKind != null;
 
   const softWant =
     /(?:อยากได้|ต้องการ|ขอ|แนะนำ|มี|หา|ค้นหา).{0,80}(?:รถ|คัน|ไหม|มั้ย)/i.test(
       text
-    ) || /หารถ|ค้นหารถ/i.test(text);
+    ) ||
+    /หารถ|ค้นหารถ/i.test(text) ||
+    /อยากได้\s+\S+/i.test(text);
 
   const isDiscovery =
     hasStructure &&
@@ -369,7 +422,8 @@ export function parseVehicleDiscoveryCriteria(
       budgetMax != null ||
       monthlyMax != null ||
       maxAgeYears != null ||
-      transmission != null);
+      transmission != null ||
+      preferNewerYear);
 
   if (!isDiscovery && buyerIntent.needsClarification) {
     return {
@@ -382,6 +436,11 @@ export function parseVehicleDiscoveryCriteria(
 
   if (!isDiscovery) {
     return { isDiscovery: false };
+  }
+
+  let effectiveSort = sort;
+  if (preferNewerYear && !effectiveSort) {
+    effectiveSort = "yearDesc";
   }
 
   let criteria: VehicleDiscoveryCriteria = {
@@ -399,33 +458,62 @@ export function parseVehicleDiscoveryCriteria(
     ...(yearExact != null ? { yearExact } : {}),
     ...(minYear != null ? { minYear } : {}),
     ...(maxAgeYears != null ? { maxAgeYears, referenceYear } : {}),
+    ...(preferNewerYear ? { preferNewerYear: true } : {}),
     ...(bodyHints.length ? { bodyHints } : {}),
     ...(transmission ? { transmission } : {}),
     ...(usageTags.length ? { usageTags } : {}),
     ...(fuelEfficient ? { fuelEfficient: true } : {}),
-    ...(sort ? { sort } : {}),
+    ...(effectiveSort ? { sort: effectiveSort } : {}),
     ...(unverifiable.length ? { unverifiableConstraints: unverifiable } : {}),
     limit: 5,
   };
 
-  // Merge prior criteria for refine follow-ups
-  if (refineKind && prior?.isDiscovery) {
+  // Multi-turn: same-category replace, cross-category keep — unless fresh reset
+  if (prior?.isDiscovery && !freshReset) {
+    const brandChanged =
+      Boolean(criteria.brand) &&
+      Boolean(prior.brand) &&
+      criteria.brand!.toLowerCase() !== prior.brand!.toLowerCase();
     criteria = {
       ...prior,
       ...criteria,
       isDiscovery: true,
-      // Prefer newly stated overrides; keep prior budget/brand when not restated
       budgetMax: criteria.budgetMax ?? prior.budgetMax,
       budgetMin: criteria.budgetMin ?? prior.budgetMin,
+      estimatedMonthlyMax:
+        criteria.estimatedMonthlyMax ?? prior.estimatedMonthlyMax,
+      financeAssumptions:
+        criteria.financeAssumptions ?? prior.financeAssumptions,
       brand: criteria.brand ?? prior.brand,
-      model: criteria.model ?? prior.model,
-      usageTags: criteria.usageTags?.length
-        ? criteria.usageTags
-        : prior.usageTags,
+      model: brandChanged
+        ? criteria.model
+        : criteria.model ?? prior.model,
+      yearExact: criteria.yearExact ?? prior.yearExact,
+      minYear: criteria.minYear ?? prior.minYear,
+      maxAgeYears: criteria.maxAgeYears ?? prior.maxAgeYears,
+      referenceYear: criteria.referenceYear ?? prior.referenceYear,
+      preferNewerYear: criteria.preferNewerYear || prior.preferNewerYear,
       bodyHints: criteria.bodyHints?.length
         ? criteria.bodyHints
         : prior.bodyHints,
+      transmission: criteria.transmission ?? prior.transmission,
+      usageTags: criteria.usageTags?.length
+        ? criteria.usageTags
+        : prior.usageTags,
+      fuelEfficient: criteria.fuelEfficient || prior.fuelEfficient,
+      sort: criteria.sort ?? prior.sort,
+      unverifiableConstraints: [
+        ...(prior.unverifiableConstraints ?? []),
+        ...(criteria.unverifiableConstraints ?? []),
+      ].filter((v, i, a) => a.indexOf(v) === i),
     };
+    // Explicit body-type request replaces prior bodyHints entirely
+    if (hasExplicitBodyTypeRequest(text) && bodyHints.length > 0) {
+      criteria.bodyHints = bodyHints;
+    }
+  }
+
+  if (refineKind && prior?.isDiscovery) {
     criteria = applyRefineToCriteria(criteria, refineKind, context);
   } else if (refineKind) {
     criteria = applyRefineToCriteria(criteria, refineKind, context);
@@ -447,6 +535,7 @@ export function parseVehicleDiscoveryCriteria(
     !criteria.transmission &&
     !criteria.maxAgeYears &&
     !criteria.estimatedMonthlyMax &&
+    !criteria.preferNewerYear &&
     !refineKind
   ) {
     criteria.needsClarification = true;

@@ -24,6 +24,11 @@ function formatPrice(n: number): string {
   return `${n.toLocaleString("th-TH")} บาท`;
 }
 
+function formatMileage(n: number | undefined | null): string | null {
+  if (n == null || !(n > 0)) return null;
+  return `${n.toLocaleString("th-TH")} กม.`;
+}
+
 function candidatesToCards(
   candidates: VehicleDiscoveryCandidate[]
 ): ChatCarCardData[] {
@@ -44,21 +49,51 @@ function candidatesToCards(
   });
 }
 
+function excludeSelectedListing(
+  candidates: VehicleDiscoveryCandidate[],
+  selectedListingId: string | null | undefined
+): VehicleDiscoveryCandidate[] {
+  if (!selectedListingId) return candidates;
+  return candidates.filter((c) => c.listingId !== selectedListingId);
+}
+
+function formatCarFactLine(c: VehicleDiscoveryCandidate): string {
+  const parts = [
+    `${c.car.brand} ${c.car.model} ปี ${c.car.year}`,
+    `ราคาประกาศ ${formatPrice(c.car.price)}`,
+  ];
+  const km = formatMileage(c.car.mileage);
+  if (km) parts.push(`ไมล์ ${km}`);
+  const reason = c.reasons?.[0];
+  if (reason) parts.push(reason);
+  if (c.differences?.length) {
+    parts.push(`ต่างเงื่อนไข: ${c.differences.map((d) => d.detail).join("; ")}`);
+  }
+  return `• ${parts.join(" — ")}`;
+}
+
 function buildExactSummary(
   criteria: VehicleDiscoveryCriteria,
-  count: number,
+  matches: VehicleDiscoveryCandidate[],
   hasMore: boolean
 ): string {
   const labels = criteria.appliedLabels?.length
     ? criteria.appliedLabels.join(", ")
     : "เงื่อนไขที่ระบุ";
   const lines = [
-    `น้องเอพบรถที่ตรงเงื่อนไข ${count} คันจาก Inventory จริงครับ (ใช้เงื่อนไข: ${labels})`,
+    `เข้าใจเงื่อนไข: ${labels}`,
+    `พบรถที่ตรงเงื่อนไข ${matches.length} คันจาก Inventory จริง:`,
   ];
+  for (const m of matches.slice(0, 3)) {
+    lines.push(formatCarFactLine(m));
+  }
   if (criteria.estimatedMonthlyMax != null && criteria.financeAssumptions) {
     const a = criteria.financeAssumptions;
     lines.push(
-      `หมายเหตุ: งบประมาณค่างวดเป็นประมาณการจากสมมติฐานดาวน์ ${a.downPaymentPercent}% ดอกเบี้ย flat ${a.annualFlatRatePercent}% ผ่อน ${a.termMonths} เดือน — ไม่ใช่ผลอนุมัติสินเชื่อ`
+      `หมายเหตุ: ค่างวดเป็นประมาณการจากสมมติฐานดาวน์ ${a.downPaymentPercent}% · ดอกเบี้ย flat ${a.annualFlatRatePercent}% · ผ่อน ${a.termMonths} เดือน — ไม่ใช่ผลอนุมัติสินเชื่อ และไม่ใช่เงื่อนไขไฟแนนซ์ของผู้ขาย`
+    );
+    lines.push(
+      "ต้องการปรับเงินดาวน์หรือระยะผ่อน บอกน้องเอได้ครับ"
     );
   }
   if (criteria.unverifiableConstraints?.length) {
@@ -69,9 +104,7 @@ function buildExactSummary(
   if (hasMore) {
     lines.push("มีตัวเลือกเพิ่ม — บอก “ขออีก 3 คัน” หรือ “ดูเพิ่ม” ได้ครับ");
   }
-  lines.push(
-    "ถ้าสนใจคันไหน เลือกรถจากการ์ดได้เลยครับ น้องเอช่วยสรุปจุดเด่น หรือเทียบคันอื่นให้ต่อได้"
-  );
+  lines.push("สนใจคันไหน เลือกจากการ์ดได้เลยครับ");
   return lines.join("\n");
 }
 
@@ -85,11 +118,19 @@ function buildNoExactSummary(
     ? criteria.appliedLabels.join(", ")
     : "เงื่อนไขที่ระบุ";
   const lines = [
-    `น้องเอไม่พบรถที่ตรงเงื่อนไขทั้งหมดจาก Inventory จริงครับ (เงื่อนไข: ${labels})`,
+    `เข้าใจเงื่อนไข: ${labels}`,
+    "ไม่พบรถที่ตรงครบทุกเงื่อนไขจาก Inventory จริงครับ",
   ];
   if (blocking.length) {
+    lines.push(`เงื่อนไขที่มักทำให้ไม่ตรง: ${blocking.join(", ")}`);
+  }
+  if (criteria.estimatedMonthlyMax != null && criteria.financeAssumptions) {
+    const a = criteria.financeAssumptions;
     lines.push(
-      `เงื่อนไขที่ทำให้ไม่พบผลลัพธ์ตรงส่วนใหญ่คือ: ${blocking.join(", ")}`
+      `หมายเหตุ: ค่างวดเป็นประมาณการจากสมมติฐานดาวน์ ${a.downPaymentPercent}% · ดอกเบี้ย flat ${a.annualFlatRatePercent}% · ผ่อน ${a.termMonths} เดือน — ไม่ใช่ผลอนุมัติสินเชื่อ และไม่ใช่เงื่อนไขไฟแนนซ์ของผู้ขาย`
+    );
+    lines.push(
+      "ต้องการปรับเงินดาวน์หรือระยะผ่อน บอกน้องเอได้ครับ"
     );
   }
   if (criteria.unverifiableConstraints?.length) {
@@ -99,28 +140,20 @@ function buildNoExactSummary(
   }
   if (alternatives.length === 0) {
     lines.push(
-      "ตอนนี้ยังไม่มีตัวเลือกใกล้เคียงในระบบ — ลองขยายงบ เปลี่ยนปี เปลี่ยนยี่ห้อ หรือบอกประเภทอื่นที่รับได้ครับ"
+      "ยังไม่มีตัวเลือกใกล้เคียงในระบบ — ลองขยายงบ เปลี่ยนปี เปลี่ยนยี่ห้อ หรือบอกประเภทอื่นที่รับได้ครับ"
     );
     return lines.join("\n");
   }
   lines.push(
-    `น้องเอมีตัวเลือกใกล้เคียง ${alternatives.length} คันจาก Inventory จริง (ไม่ตรงทุกเงื่อนไข) — แต่ละคันต่างจากเงื่อนไขเดิมดังนี้:`
+    `ตัวเลือกใกล้เคียง ${alternatives.length} คัน (ไม่ตรงทุกเงื่อนไข):`
   );
   for (const alt of alternatives.slice(0, 3)) {
-    const diffs =
-      alt.differences?.map((d) => d.detail).join("; ") ||
-      alt.cautions?.join("; ") ||
-      "ใกล้เคียงแต่ไม่ตรงทุกเงื่อนไข";
-    lines.push(
-      `• ${alt.car.brand} ${alt.car.model} ปี ${alt.car.year} (${formatPrice(alt.car.price)}): ${diffs}`
-    );
+    lines.push(formatCarFactLine(alt));
   }
   if (relaxationNotes.length) {
-    lines.push(`ทางเลือกใกล้เคียงได้จากการผ่อนคลาย: ${relaxationNotes.join(" → ")}`);
+    lines.push(`ผ่อนคลายเงื่อนไข: ${relaxationNotes.join(" → ")}`);
   }
-  lines.push(
-    "ต้องการขยายงบ เปลี่ยนปี เปลี่ยนยี่ห้อ หรือดูตัวเลือกใกล้เคียงเหล่านี้ต่อ บอกน้องเอได้เลยครับ"
-  );
+  lines.push("ต้องการปรับเงื่อนไขต่อ บอกน้องเอได้เลยครับ");
   return lines.join("\n");
 }
 
@@ -150,7 +183,13 @@ export function runVehicleDiscovery(
     };
   }
 
-  if (criteria.needsClarification && !criteria.budgetMax && !criteria.brand) {
+  if (
+    criteria.needsClarification &&
+    !criteria.budgetMax &&
+    !criteria.brand &&
+    !criteria.transmission &&
+    !criteria.estimatedMonthlyMax
+  ) {
     return {
       criteria,
       exactMatches: [],
@@ -167,7 +206,10 @@ export function runVehicleDiscovery(
   }
 
   const { exact } = matchDiscoveryInventory(inventory, criteria);
-  const ranked = rankDiscoveryCandidates(criteria, exact);
+  const ranked = excludeSelectedListing(
+    rankDiscoveryCandidates(criteria, exact),
+    context.selectedListingId
+  );
   const limit = criteria.limit ?? 5;
 
   if (ranked.length > 0) {
@@ -180,7 +222,7 @@ export function runVehicleDiscovery(
       exactMatches: all,
       nearAlternatives: [],
       blockingConstraints: [],
-      summaryText: buildExactSummary(criteria, all.length, hasMoreCars),
+      summaryText: buildExactSummary(criteria, all, hasMoreCars),
       carCards,
       allCarCards,
       hasMoreCars,
@@ -190,16 +232,17 @@ export function runVehicleDiscovery(
 
   const { alternatives, blockingConstraints, relaxationNotes } =
     findDiscoveryNearAlternatives(inventory, criteria, 3);
-  const allCarCards = candidatesToCards(alternatives);
+  const near = excludeSelectedListing(alternatives, context.selectedListingId);
+  const allCarCards = candidatesToCards(near);
   return {
     criteria,
     exactMatches: [],
-    nearAlternatives: alternatives,
+    nearAlternatives: near,
     blockingConstraints,
     summaryText: buildNoExactSummary(
       criteria,
       blockingConstraints,
-      alternatives,
+      near,
       relaxationNotes
     ),
     carCards: allCarCards,

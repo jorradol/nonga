@@ -287,7 +287,7 @@ console.log("=== WP-VD01 Vehicle Discovery Foundation ===\n");
   ok("6-no-exact", (result?.exactMatches.length ?? -1) === 0, "");
   ok(
     "6-honest-text",
-    /ไม่พบรถที่ตรงเงื่อนไขทั้งหมด/.test(result?.summaryText ?? ""),
+    /ไม่พบรถที่ตรง(?:เงื่อนไขทั้งหมด|ครบทุกเงื่อนไข)/.test(result?.summaryText ?? ""),
     (result?.summaryText ?? "").slice(0, 80)
   );
 }

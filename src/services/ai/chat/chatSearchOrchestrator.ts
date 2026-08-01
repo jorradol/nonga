@@ -926,9 +926,13 @@ function tryOrchestrateChatReplyCore(
         chatSessionId
       );
       saveChatCarContext(initialCards, chatSessionId);
-      // v22.56 — exact single result establishes active vehicle without card click
+      // v22.56 — exact single result establishes active vehicle without card click.
+      // WP-VD01A — do not overwrite an existing selected listing (cheaper/finance follow-ups).
       if (initialCards.length === 1) {
-        saveLastSelectedCarId(initialCards[0]!.id);
+        const existingSelection = resolveSelectedCarIdState(chatSessionId);
+        if (existingSelection.kind !== "selected") {
+          saveLastSelectedCarId(initialCards[0]!.id);
+        }
       }
       const intent = parseBuyerSearchIntent(message);
       saveInChatBuyerContext(
@@ -988,9 +992,13 @@ function tryOrchestrateChatReplyCore(
   if (allCarCards.length > 0) {
     saveChatSearchContext({ allCars: allCarCards, offset: 3 }, chatSessionId);
     saveChatCarContext(initialCards, chatSessionId);
-    // v22.56 — exact single result establishes active vehicle without card click
+    // v22.56 — exact single result establishes active vehicle without card click.
+    // WP-VD01A — do not overwrite an existing selected listing.
     if (initialCards.length === 1) {
-      saveLastSelectedCarId(initialCards[0]!.id);
+      const existingSelection = resolveSelectedCarIdState(chatSessionId);
+      if (existingSelection.kind !== "selected") {
+        saveLastSelectedCarId(initialCards[0]!.id);
+      }
     }
   }
 

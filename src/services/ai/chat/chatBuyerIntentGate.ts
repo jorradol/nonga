@@ -17,6 +17,10 @@ import {
   hasSufficientSearchCriteria,
   parseMarketplaceSearchQuery,
 } from "./marketplaceChatSearch";
+import {
+  isMonthlyAffordabilityDiscovery,
+  isVehicleDiscoveryIntent,
+} from "./vehicleDiscoveryCriteriaParser";
 
 export interface BuyerIntentGateReply {
   text: string;
@@ -354,6 +358,11 @@ export function tryBuyerIntentGateReply(
 ): BuyerIntentGateReply | null {
   const t = normalizeBuyerAdvisorMessage(message);
   if (!t) return null;
+
+  // WP-VD01A — structured discovery / monthly affordability must reach search
+  if (isMonthlyAffordabilityDiscovery(t) || isVehicleDiscoveryIntent(t)) {
+    return null;
+  }
 
   const offTopicKind = detectOffTopicRecoveryKind(t);
   if (offTopicKind) {

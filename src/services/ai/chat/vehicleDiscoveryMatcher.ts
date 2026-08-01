@@ -58,12 +58,26 @@ function bodyMatchesHint(
   body: VehicleBodyClass,
   hints: VehicleDiscoveryBodyHint[]
 ): boolean {
-  for (const h of hints) {
+  // Compact cars: sedan ↔ hatchback interchangeable for city/first-car soft hints.
+  // Strict classes (SUV / pickup / MPV): exact body only — never treat sedan as SUV.
+  const strictHints = hints.filter(
+    (h) => h === "suv" || h === "pickup" || h === "mpv"
+  );
+  const softHints = hints.filter((h) => h === "sedan" || h === "hatchback");
+
+  if (strictHints.length > 0) {
+    for (const h of strictHints) {
+      if (h === body) return true;
+    }
+    // If buyer asked only for strict body types, do not fall through to soft
+    if (softHints.length === 0) return false;
+  }
+
+  for (const h of softHints) {
     if (h === "sedan" && (body === "sedan" || body === "hatchback")) return true;
     if (h === "hatchback" && (body === "hatchback" || body === "sedan")) {
       return true;
     }
-    if (h === body) return true;
   }
   return false;
 }
@@ -157,7 +171,7 @@ export function evaluateDiscoveryHardFilters(
       failed.push("เกียร์");
       differences.push({
         constraint: "เกียร์",
-        detail: `ต้องการเกียร์${criteria.transmission === "auto" ? "ออโต้" : "ธรรมดา"} แต่ข้อมูลคันนี้ไม่ตรง`,
+        detail: `ต้องการเกียร์${criteria.transmission === "auto" ? "อัตโนมัติ" : "ธรรมดา"} แต่ข้อมูลคันนี้ไม่ตรง`,
       });
     } else if (tx === "unverifiable") {
       unverifiableOnCar.push("เกียร์");
