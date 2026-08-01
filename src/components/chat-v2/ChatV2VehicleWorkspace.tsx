@@ -1,9 +1,10 @@
 /**
  * Chat Experience V2 — Vehicle Workspace (right area).
  *
- * Desktop (xl+): always-visible inline column with its own scroll region;
- * collapsible to a compact rail and reopenable. Shows a structural empty
- * state when the conversation has no discovered vehicles yet.
+ * Desktop / large tablet (lg+, ≥1024px): always-visible persistent inline
+ * column (never an overlay) with its own scroll region; collapsible to a
+ * compact rail and reopenable. Shows a structural empty state when the
+ * conversation has no discovered vehicles yet.
  *
  * Data source: ONLY structured carCards from the current conversation
  * (via the V2 presentation adapter). No mock vehicles, no fetches, no
@@ -137,7 +138,7 @@ interface ChatV2VehicleWorkspaceProps {
   onToggleCollapsed: () => void;
 }
 
-/** Desktop inline workspace column (xl and up only; sheet handles below-xl). */
+/** Desktop inline workspace column (lg and up only; sheet handles below-lg). */
 export function ChatV2VehicleWorkspace({
   vehicles,
   hasMoreCars,
@@ -152,7 +153,7 @@ export function ChatV2VehicleWorkspace({
       <aside
         role="complementary"
         aria-label={CHAT_V2_WORKSPACE_EMPTY_TITLE}
-        className="hidden xl:flex shrink-0 w-14 h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/60 flex-col items-center pt-3 gap-2"
+        className="hidden lg:flex shrink-0 w-14 h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/60 flex-col items-center pt-3 gap-2"
         data-testid="chat-v2-workspace-rail"
       >
         <button
@@ -186,7 +187,7 @@ export function ChatV2VehicleWorkspace({
           ? `${CHAT_V2_WORKSPACE_RESULTS_TITLE} ${count.toLocaleString("th-TH")} คัน`
           : CHAT_V2_WORKSPACE_EMPTY_TITLE
       }
-      className="hidden xl:flex shrink-0 w-[320px] 2xl:w-[360px] min-w-[280px] max-w-[400px] h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/40 flex-col min-h-0"
+      className="hidden lg:flex shrink-0 lg:w-[288px] xl:w-[320px] 2xl:w-[360px] min-w-[260px] max-w-[400px] h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/40 flex-col min-h-0"
       data-testid="chat-v2-workspace"
       data-has-results={count > 0 ? "true" : "false"}
     >

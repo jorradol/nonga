@@ -16,10 +16,14 @@ import {
 } from "../../../hooks/chat/useVehiclePanel";
 import type { ChatCarCardData } from "../../../types";
 
-/** Desktop breakpoint where the Vehicle Workspace is an inline column. */
-export const CHAT_V2_DESKTOP_MEDIA_QUERY = "(min-width: 1280px)";
+/**
+ * Desktop / large-tablet breakpoint (Tailwind `lg`): at and above this width
+ * the three regions (Sidebar · Conversation · Vehicle Workspace) are
+ * persistent inline columns — never overlays.
+ */
+export const CHAT_V2_DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
 /** Below this width the conversation sidebar becomes a drawer. */
-export const CHAT_V2_SIDEBAR_INLINE_MEDIA_QUERY = "(min-width: 1280px)";
+export const CHAT_V2_SIDEBAR_INLINE_MEDIA_QUERY = "(min-width: 1024px)";
 
 export const CHAT_V2_WORKSPACE_TRIGGER_HEADER_ID =
   "chat-v2-workspace-trigger-header";
@@ -113,6 +117,12 @@ export function useChatV2Presentation(): ChatV2Presentation {
   }, []);
 
   const openSheet = useCallback(() => {
+    // Desktop / large tablet: the workspace is a persistent inline column —
+    // never open the overlay sheet; expand the column if it was collapsed.
+    if (window.matchMedia(CHAT_V2_DESKTOP_MEDIA_QUERY).matches) {
+      setIsCollapsed(false);
+      return;
+    }
     sheetReturnFocusRef.current =
       (document.activeElement as HTMLElement | null) ?? null;
     setIsSheetOpen(true);

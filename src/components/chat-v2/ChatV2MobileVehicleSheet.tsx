@@ -1,5 +1,6 @@
 /**
- * Chat Experience V2 — Vehicle Workspace as an overlay sheet (below xl).
+ * Chat Experience V2 — Vehicle Workspace as an overlay sheet (below lg,
+ * <1024px only; lg+ uses the persistent inline column instead).
  * Tablet: right side sheet (capped width). Mobile: full-width/full-height
  * sheet with safe-area padding. Accessibility: dialog semantics, Escape,
  * backdrop close, focus trap, focus return handled by the adapter.
@@ -49,7 +50,7 @@ export function ChatV2MobileVehicleSheet({
       : CHAT_V2_WORKSPACE_EMPTY_TITLE;
 
   return (
-    <div className="xl:hidden" data-testid="chat-v2-vehicle-sheet-root">
+    <div className="lg:hidden" data-testid="chat-v2-vehicle-sheet-root">
       <div
         className="fixed inset-0 z-[45] bg-black/60"
         onClick={onClose}

@@ -1,7 +1,9 @@
 /**
  * Chat Experience V2 — conversation navigation (left area).
- * Desktop (xl+): inline column. Below xl: modal drawer with backdrop,
- * Escape, focus trap and focus return (handled by the shell trigger).
+ * Desktop / large tablet (lg+, ≥1024px): persistent inline column, expanded
+ * by default, user-collapsible to a compact rail that can reopen it.
+ * Below lg: modal drawer with backdrop, Escape, focus trap and focus return
+ * (handled by the shell trigger).
  *
  * Reuses canonical account primitives (ProfileAvatar + AccountProfileMenu)
  * and the real session-history contract from ChatProvider. No fake history,
@@ -13,6 +15,8 @@ import {
   LogIn,
   MessageSquare,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Sun,
   Trash2,
@@ -26,6 +30,7 @@ import { useAppStore } from "../../store";
 import ProfileAvatar from "../profile/ProfileAvatar";
 import AccountProfileMenu from "../profile/AccountProfileMenu";
 import { useChatV2FocusTrap } from "./adapters/useChatV2FocusTrap";
+import { CHAT_V2_SIDEBAR_INLINE_MEDIA_QUERY } from "./adapters/useChatV2Presentation";
 
 function shortRoleLabel(role: string): string {
   switch (role) {
@@ -171,11 +176,20 @@ function ChatV2AccountBlock({ onAfterAction }: { onAfterAction?: () => void }) {
 }
 
 interface ChatV2SidebarProps {
+  /** Drawer visibility (<1024px only). */
   isOpen: boolean;
   onClose: () => void;
+  /** Desktop (lg+) collapse state — compact rail when true. */
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-export function ChatV2Sidebar({ isOpen, onClose }: ChatV2SidebarProps) {
+export function ChatV2Sidebar({
+  isOpen,
+  onClose,
+  isCollapsed,
+  onToggleCollapsed,
+}: ChatV2SidebarProps) {
   const {
     sessions,
     activeSessionId,
@@ -190,7 +204,7 @@ export function ChatV2Sidebar({ isOpen, onClose }: ChatV2SidebarProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const isDrawerMode = () =>
     typeof window !== "undefined" &&
-    !window.matchMedia("(min-width: 1280px)").matches;
+    !window.matchMedia(CHAT_V2_SIDEBAR_INLINE_MEDIA_QUERY).matches;
 
   useChatV2FocusTrap(drawerRef, isOpen && isDrawerMode(), onClose);
 
@@ -232,8 +246,18 @@ export function ChatV2Sidebar({ isOpen, onClose }: ChatV2SidebarProps) {
         </button>
         <button
           type="button"
+          onClick={onToggleCollapsed}
+          className="max-lg:hidden min-w-9 min-h-9 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) hover:text-orange-600 dark:hover:text-orange-400 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
+          aria-label="ย่อเมนูบทสนทนา"
+          title="ย่อเมนูบทสนทนา"
+          data-testid="chat-v2-sidebar-collapse"
+        >
+          <PanelLeftClose className="w-4 h-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
           onClick={onClose}
-          className="xl:hidden min-w-9 min-h-9 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
+          className="lg:hidden min-w-9 min-h-9 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
           aria-label="ปิดเมนูบทสนทนา"
           title="ปิดเมนูบทสนทนา"
           data-testid="chat-v2-sidebar-close"
@@ -320,8 +344,8 @@ export function ChatV2Sidebar({ isOpen, onClose }: ChatV2SidebarProps) {
                     removeChat(session.id);
                   }
                 }}
-                className={`min-w-9 min-h-9 p-1.5 mr-1 rounded-lg nonga-text-muted hover:text-(--nonga-error) hover:bg-(--nonga-bg-subtle) transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100 ${
-                  isActive ? "xl:opacity-100" : ""
+                className={`min-w-9 min-h-9 p-1.5 mr-1 rounded-lg nonga-text-muted hover:text-(--nonga-error) hover:bg-(--nonga-bg-subtle) transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100 ${
+                  isActive ? "lg:opacity-100" : ""
                 }`}
                 aria-label={`ลบบทสนทนา ${session.title}`}
                 title="ลบบทสนทนานี้"
@@ -350,24 +374,67 @@ export function ChatV2Sidebar({ isOpen, onClose }: ChatV2SidebarProps) {
 
   return (
     <>
-      {/* Drawer backdrop below xl */}
+      {/* Drawer backdrop below lg */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-[45] bg-black/60 xl:hidden"
+          className="fixed inset-0 z-[45] bg-black/60 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
           data-testid="chat-v2-sidebar-backdrop"
         />
       )}
 
+      {/* Compact rail — desktop collapsed state (lg+ only), reopenable */}
+      {isCollapsed && (
+        <div
+          aria-label="เมนูบทสนทนา (ย่อ)"
+          className="hidden lg:flex shrink-0 w-14 h-full border-r border-(--nonga-border) bg-(--nonga-bg-app) flex-col items-center pt-3 gap-2"
+          data-testid="chat-v2-sidebar-rail"
+        >
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            className="min-w-9 min-h-9 p-1.5 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) hover:text-orange-600 dark:hover:text-orange-400 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring"
+            aria-label="เปิดเมนูบทสนทนา"
+            title="เปิดเมนูบทสนทนา"
+            data-testid="chat-v2-sidebar-expand"
+          >
+            <PanelLeftOpen className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleNewChat()}
+            disabled={isGenerating}
+            className="min-w-9 min-h-9 p-1.5 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) hover:text-orange-600 dark:hover:text-orange-400 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="แชทใหม่"
+            title="แชทใหม่"
+            data-testid="chat-v2-sidebar-rail-new-chat"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2.75} aria-hidden="true" />
+          </button>
+          <span
+            className="flex flex-col items-center gap-1 nonga-text-muted"
+            aria-hidden="true"
+          >
+            <MessageSquare className="w-4 h-4" />
+            {sessions.length > 0 && (
+              <span className="text-[10px] font-bold">
+                {sessions.length.toLocaleString("th-TH")}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
       <div
         ref={drawerRef}
         aria-label="เมนูบทสนทนา"
-        className={`max-xl:fixed max-xl:top-0 max-xl:bottom-0 max-xl:left-0 max-xl:z-50 max-xl:w-[290px] max-xl:max-w-[85vw] max-xl:max-h-[100dvh] max-xl:pb-[env(safe-area-inset-bottom)] max-xl:shadow-2xl xl:static xl:shrink-0 xl:w-[264px] xl:h-full border-r border-(--nonga-border) bg-(--nonga-bg-app) flex flex-col min-h-0 transform transition-transform duration-200 ease-out motion-reduce:transition-none ${
-          isOpen ? "translate-x-0" : "max-xl:-translate-x-full"
-        } xl:translate-x-0`}
+        className={`max-lg:fixed max-lg:top-0 max-lg:bottom-0 max-lg:left-0 max-lg:z-50 max-lg:w-[290px] max-lg:max-w-[85vw] max-lg:max-h-[100dvh] max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-2xl lg:static lg:shrink-0 lg:w-[248px] xl:w-[264px] lg:h-full border-r border-(--nonga-border) bg-(--nonga-bg-app) flex flex-col min-h-0 transform transition-transform duration-200 ease-out motion-reduce:transition-none ${
+          isOpen ? "translate-x-0" : "max-lg:-translate-x-full"
+        } lg:translate-x-0 ${isCollapsed ? "lg:hidden" : ""}`}
         data-testid="chat-v2-sidebar"
         data-open={isOpen ? "true" : "false"}
+        data-collapsed={isCollapsed ? "true" : "false"}
       >
         {content}
       </div>

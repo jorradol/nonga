@@ -1,8 +1,11 @@
 /**
  * Chat Experience V2 — layout shell under ChatProvider.
- * Desktop (xl+): Sidebar · Conversation · Vehicle Workspace, all visible.
- * Tablet/Mobile: Conversation is primary; Sidebar becomes a drawer and the
- * Vehicle Workspace opens as an overlay sheet. No horizontal page overflow.
+ * Desktop / large tablet (lg+, ≥1024px): persistent non-overlay three-region
+ * layout — Sidebar · Conversation · Vehicle Workspace. Both side regions
+ * start expanded and collapse independently to compact rails; collapsing one
+ * gives its width back to the Conversation.
+ * Tablet/Mobile (<1024px): Conversation is primary; Sidebar becomes a drawer
+ * and the Vehicle Workspace opens as an overlay sheet. No horizontal overflow.
  */
 import { useCallback, useState } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
@@ -15,10 +18,18 @@ import { useChatV2Presentation } from "./adapters/useChatV2Presentation";
 export function ChatV2Shell() {
   const { isGenerating } = useChatContext();
   const { workspace, status } = useChatV2Presentation();
+  // Drawer state (<1024px only). Closed by default; never used at lg+.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Desktop collapse state (lg+ only). Sidebar is EXPANDED by default and
+  // collapses to a compact rail, independent of the Vehicle Workspace state.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => !prev);
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
   }, []);
 
   return (
@@ -27,7 +38,12 @@ export function ChatV2Shell() {
       id="chat-v2-root"
       data-testid="chat-v2-root"
     >
-      <ChatV2Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <ChatV2Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
+      />
 
       <ChatV2Conversation
         status={status}
@@ -39,7 +55,7 @@ export function ChatV2Shell() {
         onToggleSidebar={toggleSidebar}
       />
 
-      {/* Desktop inline workspace (xl+) — structure visible even when empty */}
+      {/* Desktop inline workspace (lg+) — structure visible even when empty */}
       <ChatV2VehicleWorkspace
         vehicles={workspace.vehicles}
         hasMoreCars={workspace.hasMoreCars}
@@ -48,7 +64,7 @@ export function ChatV2Shell() {
         onToggleCollapsed={workspace.toggleCollapsed}
       />
 
-      {/* Tablet/Mobile overlay sheet (below xl) */}
+      {/* Tablet/Mobile overlay sheet (below lg only) */}
       <ChatV2MobileVehicleSheet
         isOpen={workspace.isSheetOpen}
         onClose={workspace.closeSheet}

@@ -114,7 +114,7 @@ export function ChatV2Conversation({
 
   return (
     <main
-      className="flex-1 flex flex-col min-w-0 min-h-0 h-full relative"
+      className="flex-1 flex flex-col min-w-0 lg:min-w-[380px] min-h-0 h-full relative"
       aria-label="บทสนทนากับน้องเอ"
       data-testid="chat-v2-conversation"
     >
@@ -124,7 +124,7 @@ export function ChatV2Conversation({
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="xl:hidden min-w-10 min-h-10 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
+            className="lg:hidden min-w-10 min-h-10 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
             aria-label="เปิดเมนูบทสนทนา"
             title="เปิดเมนูบทสนทนา"
             data-testid="chat-v2-sidebar-toggle"
@@ -148,13 +148,13 @@ export function ChatV2Conversation({
           </div>
         </div>
 
-        {/* Workspace trigger — visible below xl (inline column handles xl+). */}
+        {/* Workspace trigger — visible below lg (inline column handles lg+). */}
         {!workspaceTrigger.isSheetOpen && (
           <button
             type="button"
             id={CHAT_V2_WORKSPACE_TRIGGER_HEADER_ID}
             onClick={workspaceTrigger.onOpenSheet}
-            className="xl:hidden max-md:hidden inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 min-h-10 rounded-xl border border-orange-500/30 bg-(--nonga-bg-surface) text-orange-700 dark:text-orange-300 hover:bg-orange-500/10 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
+            className="lg:hidden max-md:hidden inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 min-h-10 rounded-xl border border-orange-500/30 bg-(--nonga-bg-surface) text-orange-700 dark:text-orange-300 hover:bg-orange-500/10 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
             aria-label={workspaceTriggerLabel(workspaceTrigger.count, false)}
             data-testid="chat-v2-workspace-trigger-header"
           >
