@@ -49,7 +49,7 @@ import {
   isBuyerMileageEvaluationQuestion,
   BUYER_ASK_SELECT_CAR_FIRST,
 } from "./chatBuyerFactsQa";
-import { tryBuyerFinanceCalculatorReply } from "./chatBuyerFinanceCalculator";
+import { tryBuyerFinanceCalculatorReply, isSelectedCarFinanceIntent } from "./chatBuyerFinanceCalculator";
 import { tryTroubleshootingAdvisorReply } from "./chatTroubleshootingAdvisorTemplates";
 import { tryInsuranceAdvisorReply } from "./chatInsuranceAdvisorTemplates";
 import { tryHelpOnboardingReply } from "./chatHelpOnboardingTemplates";
@@ -514,6 +514,115 @@ function tryOrchestrateChatReplyCore(
     };
   }
 
+  // Selected-car finance / installment BEFORE buyer-facts so ผ่อน/ไฟแนนซ์
+  // never fall into unknownHistory. Uses trusted inventory price only.
+  if (isSelectedCarFinanceIntent(message)) {
+    const embeddedId = extractSelectedCarId(message);
+    const selection = resolveSelectedCarIdState(chatSessionId);
+
+    if (!embeddedId && selection.kind === "cleared") {
+      return askWhichCarReply();
+    }
+
+    const selectedId =
+      embeddedId ?? (selection.kind === "selected" ? selection.id : null);
+
+    if (!selectedId) {
+      if (/คันนี้|รถคันนี้|คันนั้น/i.test(message)) {
+        return askWhichCarReply();
+      }
+    } else {
+      const invCar = inventory.find((c) => c.id === selectedId);
+      if (!invCar || !(invCar.price > 0)) {
+        return askWhichCarReply();
+      }
+      const financeSelected = tryBuyerFinanceCalculatorReply(message, {
+        trustedSelectedCarPrice: invCar.price,
+      });
+      if (financeSelected) {
+        const trustedCard = summaryToChatCarCardData(
+          toChatCarSummary(invCar),
+          "exact"
+        );
+        return {
+          text: financeSelected.text,
+          carCards: [trustedCard],
+          skipGemini: true,
+        };
+      }
+    }
+  }
+
+  // Buyer facts (history / inspection / specs) BEFORE intent gate — soft-search
+  // cues like "มี..." must not steal unknownHistory or prePurchaseCheck.
+  {
+    const factsKind = classifyBuyerFactsQuestion(message);
+    if (factsKind !== "none") {
+      const selection = resolveSelectedCarIdState(chatSessionId);
+      const contextualAsk = /คันนี้|รถคันนี้|คันนั้น/i.test(message);
+      if (
+        selection.kind === "cleared" &&
+        (contextualAsk ||
+          factsKind === "unknownHistory" ||
+          factsKind === "prePurchaseCheck")
+      ) {
+        return askWhichCarReply();
+      }
+      // No explicit selection + multi-car context + contextual pronoun:
+      // fail closed (do not silent-pick first card).
+      if (
+        selection.kind === "none" &&
+        !extractSelectedCarId(message) &&
+        contextualAsk &&
+        contextCars.length !== 1
+      ) {
+        return {
+          text: BUYER_ASK_SELECT_CAR_FIRST,
+          carCards: [],
+          skipGemini: true,
+        };
+      }
+      const targetResolved = resolveTargetBuyerCarDetailed(
+        message,
+        inventory,
+        contextCars,
+        {
+          allowSessionFallback:
+            selection.kind === "selected" ||
+            contextualAsk ||
+            isBuyerMileageEvaluationQuestion(message) ||
+            Boolean(extractSelectedCarId(message)) ||
+            contextCars.length === 1,
+        }
+      );
+      if (targetResolved.ambiguousMileageMatches?.length) {
+        return {
+          text: buildAmbiguousMileageClarification(
+            targetResolved.ambiguousMileageMatches
+          ),
+          carCards: targetResolved.ambiguousMileageMatches.slice(0, 3),
+          skipGemini: true,
+        };
+      }
+      const targetCar = targetResolved.car;
+      if (!targetCar) {
+        return {
+          text: BUYER_ASK_SELECT_CAR_FIRST,
+          carCards: [],
+          skipGemini: true,
+        };
+      }
+      return {
+        text: buildBuyerFactsReply(targetCar, factsKind, {
+          peerCars: contextCars,
+          userMessage: message,
+        }),
+        carCards: [targetCar],
+        skipGemini: true,
+      };
+    }
+  }
+
   const troubleshooting = tryTroubleshootingAdvisorReply(message);
   if (troubleshooting) {
     return {
@@ -577,47 +686,6 @@ function tryOrchestrateChatReplyCore(
     return {
       text: intentGate.text,
       carCards: [],
-      skipGemini: true,
-    };
-  }
-
-  const factsKind = classifyBuyerFactsQuestion(message);
-  if (factsKind !== "none") {
-    const targetResolved = resolveTargetBuyerCarDetailed(
-      message,
-      inventory,
-      contextCars,
-      {
-        allowSessionFallback:
-          /คันนี้|รถคันนี้|คันนั้น/i.test(message) ||
-          isBuyerMileageEvaluationQuestion(message) ||
-          Boolean(extractSelectedCarId(message)) ||
-          contextCars.length === 1,
-      }
-    );
-    if (targetResolved.ambiguousMileageMatches?.length) {
-      return {
-        text: buildAmbiguousMileageClarification(
-          targetResolved.ambiguousMileageMatches
-        ),
-        carCards: targetResolved.ambiguousMileageMatches.slice(0, 3),
-        skipGemini: true,
-      };
-    }
-    const targetCar = targetResolved.car;
-    if (!targetCar) {
-      return {
-        text: BUYER_ASK_SELECT_CAR_FIRST,
-        carCards: [],
-        skipGemini: true,
-      };
-    }
-    return {
-      text: buildBuyerFactsReply(targetCar, factsKind, {
-        peerCars: contextCars,
-        userMessage: message,
-      }),
-      carCards: [targetCar],
       skipGemini: true,
     };
   }

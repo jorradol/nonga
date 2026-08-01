@@ -18,6 +18,11 @@ export interface BuyerFinanceCalculatorReply {
   skipGemini: true;
 }
 
+/** Optional trusted inventory list price for the active selected car (baht). */
+export interface BuyerFinanceCalculatorOptions {
+  trustedSelectedCarPrice?: number;
+}
+
 export interface ParsedFinanceQuery {
   carPrice?: number;
   downPaymentBaht?: number;
@@ -107,7 +112,7 @@ function extractDownPayment(
 function extractAnnualRate(text: string): number | undefined {
   const m =
     text.match(/ดอก(?:เบี้ย)?\s*(?:flat\s*)?([\d.]+)\s*%?/i) ??
-    text.match(/([\d.]+)\s*%\s*(?:ต่อปี|flat|flat\s*rate)?/i);
+    text.match(/([\d.]+)\s*%\s*(?:ต่อปี|flat(?:\s*rate)?)/i);
   if (!m) return undefined;
   const rate = Number(m[1]);
   if (rate > 0 && rate <= 30) return rate;
@@ -151,7 +156,49 @@ const DOWN_PAYMENT_ADVICE_ONLY =
 const FINANCE_PREP =
   /ไฟแนนซ์(?:ต้อง|ควร)เตรียม|จัดไฟแนนซ์(?:ต้อง|ควร)เตรียม|เตรียม(?:เอกสาร|อะไร).*ไฟแนนซ์/i;
 
-export function isFinanceCalculatorIntent(message: string): boolean {
+/** Real vehicle-history cues — must not steal the finance path. */
+const HISTORY_NOT_FINANCE =
+  /ชน|อุบัติเหตุ|น้ำท่วม|เคลม|เข้าศูนย์|ประวัติ(?:ซ่อม|เคลม|ชน|น้ำท่วม)/i;
+
+function resolveTrustedSelectedCarPrice(
+  options?: BuyerFinanceCalculatorOptions
+): number | undefined {
+  const n = options?.trustedSelectedCarPrice;
+  if (n == null || !Number.isFinite(n)) return undefined;
+  const rounded = Math.round(n);
+  return rounded >= 10_000 ? rounded : undefined;
+}
+
+/**
+ * Selected-car / installment finance cues (may omit price when a trusted
+ * selected listing price is supplied by the orchestrator).
+ */
+export function isSelectedCarFinanceIntent(message: string): boolean {
+  const t = normalizeFinanceMessage(message);
+  if (!t) return false;
+  if (FINANCE_PREP.test(t)) return false;
+  if (HISTORY_NOT_FINANCE.test(t)) return false;
+  const advisor = detectBuyerAdvisorTopic(t);
+  if (
+    advisor === "cashVsFinance" ||
+    advisor === "financePrep" ||
+    advisor === "monthlyBudget" ||
+    advisor === "downPayment"
+  ) {
+    return false;
+  }
+  if (DOWN_PAYMENT_ADVICE_ONLY.test(t) && !/ผ่อน|ดอก|ค่างวด|คำนวณ|เปรียบเทียบ/i.test(t)) {
+    return false;
+  }
+  if (/ผ่อน|ค่างวด|ยอดจัด|จัดไฟแนนซ์|ไฟแนนซ์/i.test(t)) return true;
+  if (/ดาวน์/.test(t) && /ผ่อน|เดือน|งวด|ค่างวด/i.test(t)) return true;
+  return false;
+}
+
+export function isFinanceCalculatorIntent(
+  message: string,
+  options?: BuyerFinanceCalculatorOptions
+): boolean {
   const t = normalizeFinanceMessage(message);
   if (!t) return false;
   if (FINANCE_PREP.test(t)) return false;
@@ -160,12 +207,13 @@ export function isFinanceCalculatorIntent(message: string): boolean {
     return false;
   }
 
+  const trustedPrice = resolveTrustedSelectedCarPrice(options);
   const compareTerms = extractCompareTerms(t);
   const hasCompare =
     compareTerms.length >= 2 ||
     (/เปรียบเทียบ|ต่างกัน/.test(t) && /\b(48|60|72|84)\b/.test(t));
   const hasMaxMonthly = extractMaxMonthly(t) != null;
-  const hasPrice = extractCarPrice(t) != null;
+  const hasPrice = extractCarPrice(t) != null || trustedPrice != null;
   const downOnly =
     hasPrice &&
     /ดาวน์/.test(t) &&
@@ -181,13 +229,20 @@ export function isFinanceCalculatorIntent(message: string): boolean {
   if (calcSignals && /ดาวน์|ไฟแนนซ์|จัดไฟแนนซ์/i.test(t) && hasPrice) {
     return true;
   }
+  // Selected listing price + finance cue (e.g. คันนี้ผ่อน / คันนี้จัดไฟแนนซ์ได้ไหม)
+  if (trustedPrice != null && isSelectedCarFinanceIntent(t)) return true;
   return false;
 }
 
-export function parseFinanceQuery(message: string): ParsedFinanceQuery | null {
-  if (!isFinanceCalculatorIntent(message)) return null;
+export function parseFinanceQuery(
+  message: string,
+  options?: BuyerFinanceCalculatorOptions
+): ParsedFinanceQuery | null {
+  if (!isFinanceCalculatorIntent(message, options)) return null;
   const t = normalizeFinanceMessage(message);
-  const carPrice = extractCarPrice(t);
+  // Explicit price in the message wins; otherwise use trusted selected inventory.
+  const carPrice =
+    extractCarPrice(t) ?? resolveTrustedSelectedCarPrice(options);
   const down = extractDownPayment(t, carPrice);
   const annualFlatRatePercent = extractAnnualRate(t);
   const termMonths = extractTermMonths(t);
@@ -246,7 +301,10 @@ export function parseFinanceQuery(message: string): ParsedFinanceQuery | null {
   };
 }
 
-function buildMissingFieldsFollowUp(missing: string[]): string {
+function buildMissingFieldsFollowUp(
+  missing: string[],
+  knownPrice?: number
+): string {
   const hints: string[] = [];
   if (missing.includes("price")) {
     hints.push("ราคารถที่อยากลองคำนวณ (เช่น 500,000 บาท)");
@@ -260,12 +318,24 @@ function buildMissingFieldsFollowUp(missing: string[]): string {
   if (missing.includes("rate")) {
     hints.push("อัตราดอกเบี้ย flat ต่อปี (เช่น ดอก 5%)");
   }
-  return [
+  const lines = [
     "ได้ครับคุณพี่ น้องเอช่วยคำนวณค่างวดเบื้องต้นให้ได้ครับ",
-    `ขอ${hints.join(" ")} และ "ดอกเบี้ย %" ด้วยนะครับ`,
-    "ตัวอย่าง: รถราคา 500,000 ดาวน์ 20% ผ่อน 60 เดือน ดอก 5%",
-    CHAT_FINANCE_DISCLAIMER,
-  ].join("\n");
+  ];
+  if (
+    knownPrice != null &&
+    knownPrice >= 10_000 &&
+    !missing.includes("price")
+  ) {
+    lines.push(`จากราคารถในระบบ ${formatBaht(knownPrice)}`);
+  }
+  lines.push(`ขอ${hints.join(" ")} และ "ดอกเบี้ย %" ด้วยนะครับ`);
+  lines.push(
+    missing.includes("price")
+      ? "ตัวอย่าง: รถราคา 500,000 ดาวน์ 20% ผ่อน 60 เดือน ดอก 5%"
+      : "ตัวอย่าง: ดาวน์ 20% ผ่อน 60 เดือน ดอก 5%"
+  );
+  lines.push(CHAT_FINANCE_DISCLAIMER);
+  return lines.join("\n");
 }
 
 function formatPercentDown(carPrice: number, downBaht: number): string {
@@ -297,7 +367,9 @@ function buildInstallmentReply(parsed: ParsedFinanceQuery): string | null {
   }
   if (!parsed.termMonths) missing.push("term");
   if (parsed.annualFlatRatePercent == null) missing.push("rate");
-  if (missing.length > 0) return buildMissingFieldsFollowUp(missing);
+  if (missing.length > 0) {
+    return buildMissingFieldsFollowUp(missing, parsed.carPrice);
+  }
 
   const result = calculateFlatRateFinance({
     carPrice: parsed.carPrice!,
@@ -321,7 +393,9 @@ function buildCompareReply(parsed: ParsedFinanceQuery): string | null {
     missing.push("down");
   }
   if (parsed.annualFlatRatePercent == null) missing.push("rate");
-  if (missing.length > 0) return buildMissingFieldsFollowUp(missing);
+  if (missing.length > 0) {
+    return buildMissingFieldsFollowUp(missing, parsed.carPrice);
+  }
 
   const terms = parsed.compareTermMonths ?? [];
   const results = compareFlatRateTerms(
@@ -414,9 +488,10 @@ function buildMaxPriceReply(parsed: ParsedFinanceQuery): string | null {
 }
 
 export function buildBuyerFinanceCalculatorReply(
-  message: string
+  message: string,
+  options?: BuyerFinanceCalculatorOptions
 ): string | null {
-  const parsed = parseFinanceQuery(message);
+  const parsed = parseFinanceQuery(message, options);
   if (!parsed) return null;
 
   switch (parsed.mode) {
@@ -440,9 +515,10 @@ export function buildBuyerFinanceCalculatorReply(
 }
 
 export function tryBuyerFinanceCalculatorReply(
-  message: string
+  message: string,
+  options?: BuyerFinanceCalculatorOptions
 ): BuyerFinanceCalculatorReply | null {
-  const text = buildBuyerFinanceCalculatorReply(message);
+  const text = buildBuyerFinanceCalculatorReply(message, options);
   if (!text) return null;
   return { text, skipGemini: true };
 }

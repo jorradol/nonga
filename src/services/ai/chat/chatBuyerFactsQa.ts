@@ -4,8 +4,8 @@ import type { ChatCarCardData } from "../../../types";
 import {
   extractSelectedCarId,
   loadChatCarContext,
-  loadLastSelectedCarId,
   loadRecentlyViewedCarIds,
+  resolveSelectedCarIdState,
 } from "../../../utils/chatCarContext";
 import { detectBuyerAdvisorTopic } from "./chatBuyerAdvisorTemplates";
 import { isMarketplaceSearchIntent } from "./marketplaceChatSearch";
@@ -195,8 +195,10 @@ export function classifyBuyerFactsQuestion(message: string): BuyerFactsQuestionK
   if (SELLER_ACTION_EXACT.has(t)) return "none";
   if (detectBuyerAdvisorTopic(t)) return "none";
 
+  // History / condition cues only — finance/installment (ไฟแนนซ์|ผ่อน) must NOT
+  // land here; those route via the selected-car finance calculator path.
   if (
-    /ชน|ถูกชน|เคยชน|น้ำท่วม|flood|เข้าศูนย์|ศูนย์บริการ|service history|มือ(เดียว|หนึ่ง|แรก)|เจ้าของ(คน|เดียว|แรก)|ประกัน|รับประกัน|ไฟแนนซ์|ผ่อ(น|ได้)|สภาพเครื่อง|เครื่องยนต์(ดี|เงียบ)|ช่วงล่าง(ดี|พัง)/i.test(
+    /ชน|ถูกชน|เคยชน|อุบัติเหตุ|น้ำท่วม|flood|เข้าศูนย์|ศูนย์บริการ|service history|ประวัติ(?:เคลม|เข้าศูนย์|ชน)|เคลม|มือ(เดียว|หนึ่ง|แรก)|เจ้าของ(คน|เดียว|แรก)|จำนวนเจ้าของ|ประกัน|รับประกัน|สภาพเครื่อง|เครื่องยนต์(ดี|เงียบ)|ช่วงล่าง(ดี|พัง)/i.test(
       t
     )
   ) {
@@ -275,7 +277,11 @@ export function resolveTargetBuyerCarDetailed(
   }
 
   let selectedId = extractSelectedCarId(message);
-  if (!selectedId && allowSession) selectedId = loadLastSelectedCarId();
+  if (!selectedId && allowSession) {
+    const selection = resolveSelectedCarIdState();
+    if (selection.kind === "cleared") return { car: null };
+    if (selection.kind === "selected") selectedId = selection.id;
+  }
   if (!selectedId && allowSession) {
     const viewed = loadRecentlyViewedCarIds();
     if (viewed.length > 0) selectedId = viewed[0];

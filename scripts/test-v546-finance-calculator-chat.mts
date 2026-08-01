@@ -100,6 +100,18 @@ ok(
   ""
 );
 ok(
+  "intent-selected-car-needs-trusted-price",
+  !isFinanceCalculatorIntent("คันนี้ผ่อนประมาณเท่าไร"),
+  ""
+);
+ok(
+  "intent-selected-car-with-trusted-price",
+  isFinanceCalculatorIntent("คันนี้ผ่อนประมาณเท่าไร", {
+    trustedSelectedCarPrice: 639_000,
+  }),
+  ""
+);
+ok(
   "advisor-finance-prep-still",
   detectBuyerAdvisorTopic("ไฟแนนซ์ต้องเตรียมอะไร") === "financePrep",
   ""
@@ -107,6 +119,20 @@ ok(
 
 const missingDown = buildBuyerFinanceCalculatorReply("รถ 500,000 ผ่อนเท่าไหร่");
 ok("missing-down-asks", missingDown != null && /ดาวน์|20%|60 เดือน/.test(missingDown), missingDown?.slice(0, 80));
+
+const selectedMissing = buildBuyerFinanceCalculatorReply("คันนี้ผ่อนประมาณเท่าไร", {
+  trustedSelectedCarPrice: 639_000,
+});
+ok(
+  "selected-trusted-price-in-follow-up",
+  selectedMissing != null && /639,?000|639000/.test(selectedMissing),
+  selectedMissing?.slice(0, 100)
+);
+ok(
+  "selected-asks-down-or-term",
+  selectedMissing != null && /ดาวน์|ระยะผ่อน|เดือน/.test(selectedMissing),
+  ""
+);
 
 const missingTerm = buildBuyerFinanceCalculatorReply("รถ 650,000 ดาวน์ 100,000 ดอก 4.5");
 ok("missing-term-asks", missingTerm != null && /ระยะผ่อน|เดือน/.test(missingTerm), "");
