@@ -13,8 +13,8 @@ import {
   saveInChatBuyerContext,
   loadInChatBuyerContext,
   loadChatSearchContext,
-  loadLastSelectedCarId,
   loadRecentlyViewedCarIds,
+  resolveSelectedCarIdState,
   saveLastSelectedCarId,
 } from "../../../utils/chatCarContext";
 import {
@@ -101,9 +101,12 @@ function resolveActiveContextualCar(
   contextCars: ChatCarCardData[]
 ): ChatCarCardData | null {
   if (contextCars.length === 0) return null;
-  const selectedId = loadLastSelectedCarId();
-  if (selectedId) {
-    const hit = contextCars.find((c) => c.id === selectedId);
+  const selection = resolveSelectedCarIdState();
+  // Explicit deselect must fail closed — never revive via recently-viewed /
+  // first context card (v22 family path previously leaked here).
+  if (selection.kind === "cleared") return null;
+  if (selection.kind === "selected") {
+    const hit = contextCars.find((c) => c.id === selection.id);
     if (hit) return hit;
   }
   const viewed = loadRecentlyViewedCarIds();
@@ -112,6 +115,17 @@ function resolveActiveContextualCar(
     if (hit) return hit;
   }
   return contextCars[0] ?? null;
+}
+
+const ASK_WHICH_CAR_REPLY =
+  "หมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ";
+
+function askWhichCarReply(): OrchestratedChatReply {
+  return {
+    text: ASK_WHICH_CAR_REPLY,
+    carCards: [],
+    skipGemini: true,
+  };
 }
 
 function cardGroundingKey(card: ChatCarCardData): string {
@@ -287,6 +301,10 @@ function tryContextualBuyerFollowUp(
   // v22.61 — active-vehicle fit/suitability must beat multi-car family refine.
   // "คันนี้เหมาะกับใช้ครอบครัวไหม" → one Corolla 2020 card, never compare mode.
   if (!isCompare && isPilotBuyerCardInsightFollowUp(message)) {
+    const selection = resolveSelectedCarIdState();
+    if (selection.kind === "cleared") {
+      return askWhichCarReply();
+    }
     const active = resolveActiveContextualCar(contextCars);
     if (active) {
       return {
@@ -608,10 +626,15 @@ function tryOrchestrateChatReplyCore(
     const isCompare = isCompareIntent(message);
     const isSelected = isSelectedCarIntent(message);
     let selectedId = extractSelectedCarId(message);
-    
+    let selectionCleared = false;
+
     if (isSelected && !selectedId) {
-      selectedId = loadLastSelectedCarId();
-      if (!selectedId) {
+      const selection = resolveSelectedCarIdState(chatSessionId);
+      if (selection.kind === "cleared") {
+        selectionCleared = true;
+      } else if (selection.kind === "selected") {
+        selectedId = selection.id;
+      } else {
         const viewed = loadRecentlyViewedCarIds();
         if (viewed.length > 0) {
           selectedId = viewed[0];
@@ -620,17 +643,20 @@ function tryOrchestrateChatReplyCore(
     }
 
     if (isSelected) {
+      if (selectionCleared) {
+        return askWhichCarReply();
+      }
       if (!selectedId && contextCars.length > 0) {
         selectedId = contextCars[0].id;
       }
-      
+
       if (selectedId) {
         // Find the specific car from context or inventory
-        let picked = contextCars.find(c => c.id === selectedId);
-        
+        let picked = contextCars.find((c) => c.id === selectedId);
+
         // If not in context, try to find it in inventory and convert to ChatCarCardData
         if (!picked) {
-          const invCar = inventory.find(c => c.id === selectedId);
+          const invCar = inventory.find((c) => c.id === selectedId);
           if (invCar) {
             picked = summaryToChatCarCardData(toChatCarSummary(invCar), "exact");
           }
@@ -644,13 +670,9 @@ function tryOrchestrateChatReplyCore(
           };
         }
       }
-      
+
       // If we couldn't find the car by ID, ask the user
-      return {
-        text: "หมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
-        carCards: [],
-        skipGemini: true,
-      };
+      return askWhichCarReply();
     }
 
     const picked = resolveCarsFromContextHint(message, contextCars);
@@ -687,24 +709,29 @@ function tryOrchestrateChatReplyCore(
   if (isSelectedCarIntent(message)) {
     let selectedId = extractSelectedCarId(message);
     if (!selectedId) {
-      selectedId = loadLastSelectedCarId();
-      if (!selectedId) {
+      const selection = resolveSelectedCarIdState(chatSessionId);
+      if (selection.kind === "cleared") {
+        return askWhichCarReply();
+      }
+      if (selection.kind === "selected") {
+        selectedId = selection.id;
+      } else {
         const viewed = loadRecentlyViewedCarIds();
         if (viewed.length > 0) {
           selectedId = viewed[0];
         }
       }
     }
-    
+
     if (!selectedId) {
       const contextCars = loadChatCarContext(chatSessionId);
       if (contextCars.length > 0) {
         selectedId = contextCars[0].id;
       }
     }
-    
+
     if (selectedId) {
-      const invCar = inventory.find(c => c.id === selectedId);
+      const invCar = inventory.find((c) => c.id === selectedId);
       if (invCar) {
         const picked = summaryToChatCarCardData(toChatCarSummary(invCar), "exact");
         return {
@@ -714,12 +741,8 @@ function tryOrchestrateChatReplyCore(
         };
       }
     }
-    
-    return {
-      text: "หมายถึงรถคันไหนครับ กดเลือกรถจากการ์ด หรือส่งลิงก์รถมาให้น้องเอได้เลยครับ",
-      carCards: [],
-      skipGemini: true,
-    };
+
+    return askWhichCarReply();
   }
 
   const isShowMore = /ดูเพิ่ม|ขอดูเพิ่ม|ดูต่อ|ขออีก|มีอีกไหม/.test(message);

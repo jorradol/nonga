@@ -247,43 +247,122 @@ function main(): void {
     matchKind: "exact" as const,
   }));
 
+  const phrases = [
+    "คันนี้",
+    "คันนี้ผ่อนประมาณเท่าไร",
+    "รถคันนี้มีจุดไหนควรตรวจสอบก่อนซื้อ",
+    "คันนี้เหมาะกับครอบครัวไหม",
+  ] as const;
+
+  function orchestrate(phrase: string) {
+    return tryOrchestrateChatReplyCore(phrase, inventory, {
+      chatSessionId: "orch-room",
+      contextCarsOverride: contextCards,
+    });
+  }
+
+  function assertResolvesListing(
+    label: string,
+    phrase: string,
+    listingId: string
+  ): void {
+    const reply = orchestrate(phrase);
+    const ids = (reply?.carCards ?? []).map((c) => c.id);
+    const text = reply?.text ?? "";
+    const otherId = listingId === "listing-a" ? "listing-b" : "listing-a";
+    const otherModel = listingId === "listing-a" ? "Honda City" : "Corolla";
+    // Pre-purchase inspection advisor may answer without attaching cards — still
+    // must not ask "which car?" or cite a different listing while A/B is selected.
+    const isInspectionAsk = /ควรตรวจสอบก่อนซื้อ/i.test(phrase);
+    if (isInspectionAsk) {
+      assert(
+        label,
+        !/หมายถึงรถคันไหน|กดเลือกรถจากการ์ด/i.test(text) &&
+          !ids.includes(otherId) &&
+          !new RegExp(otherModel, "i").test(text) &&
+          !text.includes("SELECTED_CAR_ID") &&
+          !text.includes(SELECTION_CLEARED_SENTINEL),
+        `cards=${JSON.stringify(ids)} text=${text.slice(0, 100)}`
+      );
+      return;
+    }
+    assert(
+      label,
+      ids.includes(listingId) &&
+        !text.includes("SELECTED_CAR_ID") &&
+        !text.includes(SELECTION_CLEARED_SENTINEL),
+      `cards=${JSON.stringify(ids)} text=${text.slice(0, 100)}`
+    );
+  }
+
+  function assertFailClosed(label: string, phrase: string): void {
+    const reply = orchestrate(phrase);
+    const ids = (reply?.carCards ?? []).map((c) => c.id);
+    const text = reply?.text ?? "";
+    assert(
+      label,
+      ids.length === 0 &&
+        !ids.includes("listing-a") &&
+        !ids.includes("listing-b") &&
+        !/listing-a|listing-b|Corolla|Honda City/i.test(text) &&
+        !text.includes(SELECTION_CLEARED_SENTINEL) &&
+        !text.includes("__nonga_selection_cleared__") &&
+        !/TypeError|ReferenceError|undefined is not|exception|stack/i.test(
+          text
+        ) &&
+        (/หมายถึงรถคันไหน|กดเลือกรถ|กดดูรายละเอียดรถคันที่สนใจ/i.test(text) ||
+          text.length > 0),
+      `cards=${JSON.stringify(ids)} text=${text.slice(0, 120)}`
+    );
+  }
+
+  // A. Valid selection → all contextual phrases resolve A
   setActivePilotChatSessionId("orch-room");
   saveChatCarContext(contextCards, "orch-room");
-  saveLastSelectedCarId("listing-b", "orch-room");
-  const selectedReply = tryOrchestrateChatReplyCore(
-    "คันนี้เหมาะกับครอบครัวไหม",
-    inventory,
-    { chatSessionId: "orch-room", contextCarsOverride: contextCards }
-  );
-  assert(
-    "runtime-next-message-uses-selected-listing",
-    Boolean(selectedReply?.carCards?.some((c) => c.id === "listing-b")),
-    selectedReply?.text?.slice(0, 80) ?? "no reply"
-  );
-  assert(
-    "runtime-next-message-no-user-marker-needed",
-    !selectedReply?.text?.includes("SELECTED_CAR_ID")
-  );
+  saveLastSelectedCarId("listing-a", "orch-room");
+  for (const phrase of phrases) {
+    assertResolvesListing(
+      `runtime-valid-A::${phrase}`,
+      phrase,
+      "listing-a"
+    );
+  }
 
+  // C. Change A → B
+  saveLastSelectedCarId("listing-b", "orch-room");
+  for (const phrase of phrases) {
+    assertResolvesListing(
+      `runtime-change-to-B::${phrase}`,
+      phrase,
+      "listing-b"
+    );
+  }
+
+  // B. Explicit deselect — no silent revive of A/B via recently-viewed/contextCars[0]
   clearLastSelectedCarId("orch-room");
-  // Seed recently-viewed + context to prove cleared sentinel blocks silent revive.
   memoryStore.set(
     "nonga_chat_recently_viewed_cars",
     JSON.stringify(["listing-a"])
   );
-  const clearedReply = tryOrchestrateChatReplyCore(
-    "คันนี้ผ่อนประมาณเท่าไร",
-    inventory,
-    { chatSessionId: "orch-room", contextCarsOverride: contextCards }
-  );
-  const clearedText = clearedReply?.text ?? "";
   assert(
-    "runtime-deselect-fail-closed-no-silent-old-car",
-    (clearedReply?.carCards?.length ?? 0) === 0 &&
-      !/listing-a|listing-b|Corolla|Honda City/i.test(clearedText) &&
-      (/หมายถึงรถคันไหน|กดเลือกรถ|กดดูรายละเอียดรถคันที่สนใจ/i.test(clearedText) ||
-        clearedText.length > 0),
-    clearedText.slice(0, 120) || "no reply"
+    "runtime-deselect-state-is-cleared",
+    isSelectionClearedMarker(loadLastSelectedCarId("orch-room"))
+  );
+  for (const phrase of phrases) {
+    assertFailClosed(`runtime-deselect-fail-closed::${phrase}`, phrase);
+  }
+
+  // Source contract: orchestrator must honor resolveSelectedCarIdState / cleared
+  const orchSrc = read("src/services/ai/chat/chatSearchOrchestrator.ts");
+  mustInclude(
+    orchSrc,
+    "resolveSelectedCarIdState",
+    "source-orchestrator-uses-shared-selection-state"
+  );
+  mustInclude(
+    orchSrc,
+    'selection.kind === "cleared"',
+    "source-orchestrator-honors-cleared-kind"
   );
 
   // ---------- Classic /chat isolation markers ----------

@@ -190,6 +190,26 @@ export function loadActiveSelectedCarIdForUi(
   return id;
 }
 
+/**
+ * Shared selected-id contract for orchestrator / contextual resolvers:
+ * - selected → use listing id with inventory re-resolution
+ * - cleared → explicit deselect; callers must not fall back
+ * - none → no entry; existing approved fallbacks may apply
+ */
+export type SelectedCarIdResolution =
+  | { kind: "selected"; id: string }
+  | { kind: "cleared" }
+  | { kind: "none" };
+
+export function resolveSelectedCarIdState(
+  chatSessionId?: string | null
+): SelectedCarIdResolution {
+  const id = loadLastSelectedCarId(chatSessionId);
+  if (!id) return { kind: "none" };
+  if (isSelectionClearedMarker(id)) return { kind: "cleared" };
+  return { kind: "selected", id };
+}
+
 export function saveInChatBuyerContext(
   ctx: InChatBuyerContext,
   chatSessionId?: string | null
