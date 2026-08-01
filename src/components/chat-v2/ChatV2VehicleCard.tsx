@@ -3,13 +3,28 @@
  * Renders ONLY fields present on the structured ChatCarCardData contract.
  * No availability badges are invented; the detail page is the source of
  * truth for the latest listing status. No lead/dealer actions.
+ *
+ * Select vs detail are separate actions. Selection uses canonical listing
+ * ChatCarCardData.id only (no browser snapshot as source of truth).
  */
 import { useMemo } from "react";
-import { ExternalLink, ImageOff } from "lucide-react";
+import { Check, ExternalLink, ImageOff } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { useAppStore } from "../../store";
 
-export function ChatV2VehicleCard({ car }: { car: ChatCarCardData }) {
+export interface ChatV2VehicleCardProps {
+  car: ChatCarCardData;
+  isSelected?: boolean;
+  onSelect?: (listingId: string) => void;
+  onClearSelection?: () => void;
+}
+
+export function ChatV2VehicleCard({
+  car,
+  isSelected = false,
+  onSelect,
+  onClearSelection,
+}: ChatV2VehicleCardProps) {
   const setView = useAppStore((s) => s.setView);
 
   const imageUrl = useMemo(() => {
@@ -27,11 +42,22 @@ export function ChatV2VehicleCard({ car }: { car: ChatCarCardData }) {
   const mileageLabel =
     car.mileage > 0 ? `${car.mileage.toLocaleString("th-TH")} กม.` : "—";
 
+  const canSelect = typeof onSelect === "function";
+  const selectLabel = isSelected
+    ? `ยกเลิกการเลือกรถ ${brandModel} ปี ${car.year}`
+    : `เลือกรถ ${brandModel} ปี ${car.year} เพื่อถามต่อ`;
+
   return (
     <article
-      className="rounded-xl border border-(--nonga-border) bg-(--nonga-bg-surface) overflow-hidden shadow-xs hover:border-orange-500/35 transition-colors motion-reduce:transition-none"
+      className={`rounded-xl border bg-(--nonga-bg-surface) overflow-hidden shadow-xs transition-colors motion-reduce:transition-none ${
+        isSelected
+          ? "border-orange-500 ring-2 ring-orange-500/35 dark:ring-orange-400/40"
+          : "border-(--nonga-border) hover:border-orange-500/35"
+      }`}
       data-testid="chat-v2-vehicle-card"
       data-car-id={car.id}
+      data-selected={isSelected ? "true" : "false"}
+      aria-current={isSelected ? "true" : undefined}
     >
       <div className="aspect-[16/9] bg-(--nonga-bg-subtle) relative">
         {imageUrl ? (
@@ -51,6 +77,15 @@ export function ChatV2VehicleCard({ car }: { car: ChatCarCardData }) {
         {car.matchKind === "alternative" && (
           <span className="absolute top-2 left-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/90 text-amber-950">
             ทางเลือกใกล้เคียง
+          </span>
+        )}
+        {isSelected && (
+          <span
+            className="absolute top-2 right-2 inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-600 text-white shadow-sm"
+            data-testid="chat-v2-vehicle-card-selected-badge"
+          >
+            <Check className="w-3 h-3" aria-hidden="true" />
+            เลือกแล้ว
           </span>
         )}
       </div>
@@ -77,6 +112,36 @@ export function ChatV2VehicleCard({ car }: { car: ChatCarCardData }) {
             {car.fitReason.trim()}
           </p>
         ) : null}
+
+        {canSelect && (
+          <button
+            type="button"
+            onClick={() => {
+              if (isSelected) {
+                onClearSelection?.();
+              } else {
+                onSelect?.(car.id);
+              }
+            }}
+            className={`w-full min-h-10 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring ${
+              isSelected
+                ? "border border-orange-500/50 bg-orange-500/15 text-orange-800 dark:text-orange-200"
+                : "border border-orange-500/35 bg-orange-500/10 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20"
+            }`}
+            data-testid="chat-v2-vehicle-card-select-btn"
+            aria-pressed={isSelected}
+            aria-label={selectLabel}
+          >
+            {isSelected ? (
+              <>
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                เลือกแล้ว — แตะเพื่อยกเลิก
+              </>
+            ) : (
+              "เลือกรถคันนี้เพื่อถามต่อ"
+            )}
+          </button>
+        )}
 
         <button
           type="button"

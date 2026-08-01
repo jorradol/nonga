@@ -12,6 +12,7 @@
  */
 import { Car, PanelRightClose, PanelRightOpen, Search } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
+import { useChatV2VehicleSelection } from "./adapters/useChatV2Presentation";
 import { ChatV2VehicleCard } from "./ChatV2VehicleCard";
 
 export const CHAT_V2_WORKSPACE_EMPTY_TITLE = "พื้นที่เลือกรถ";
@@ -53,6 +54,11 @@ export function ChatV2WorkspaceBody({
   hasMoreCars,
   isLoading,
 }: ChatV2WorkspaceBodyProps) {
+  // Shared session-scoped selection — same hook instance pattern for desktop
+  // column and mobile sheet so both surfaces stay in sync.
+  const { selectedVehicleId, selectVehicle, clearVehicleSelection } =
+    useChatV2VehicleSelection(vehicles);
+
   if (vehicles.length === 0) {
     return <ChatV2WorkspaceEmptyState />;
   }
@@ -60,11 +66,17 @@ export function ChatV2WorkspaceBody({
     <div
       className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 scrollbar-thin"
       data-testid="chat-v2-workspace-list"
+      data-selected-vehicle-id={selectedVehicleId ?? ""}
     >
       {/* Previous results stay visible while a new answer is generating. */}
       {vehicles.map((car) => (
         <div key={car.id} className="w-full min-w-0 max-w-full">
-          <ChatV2VehicleCard car={car} />
+          <ChatV2VehicleCard
+            car={car}
+            isSelected={selectedVehicleId === car.id}
+            onSelect={selectVehicle}
+            onClearSelection={clearVehicleSelection}
+          />
         </div>
       ))}
 

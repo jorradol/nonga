@@ -7,14 +7,21 @@
  * - no extra provider calls, no inventory fetches
  * - vehicles come ONLY from structured ChatMessage.carCards (same trusted
  *   derivation contract as Phase D1: deriveDiscoveredVehicles)
- * - nothing here persists new state across sessions
+ * - vehicle selection uses canonical ChatCarCardData.id via chatCarContext
+ *   (session-scoped); no new identifier scheme
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChatContext } from "../../../contexts/chat/ChatContext";
 import {
   deriveDiscoveredVehicles,
+  isTrustedVehicleCard,
 } from "../../../hooks/chat/useVehiclePanel";
 import type { ChatCarCardData } from "../../../types";
+import {
+  clearLastSelectedCarId,
+  loadActiveSelectedCarIdForUi,
+  saveLastSelectedCarId,
+} from "../../../utils/chatCarContext";
 
 /**
  * Desktop / large-tablet breakpoint (Tailwind `lg`): at and above this width
@@ -84,6 +91,101 @@ function useMediaQuery(query: string): boolean {
 
 export function useChatV2IsDesktop(): boolean {
   return useMediaQuery(CHAT_V2_DESKTOP_MEDIA_QUERY);
+}
+
+/**
+ * Shared selection revision so Desktop workspace + Mobile sheet (sibling
+ * mounts of ChatV2WorkspaceBody) stay in sync without editing ChatV2Shell.
+ */
+let selectionRevision = 0;
+const selectionListeners = new Set<() => void>();
+
+function bumpSelectionRevision(): void {
+  selectionRevision += 1;
+  selectionListeners.forEach((listener) => listener());
+}
+
+function resolveTrustedSelectedId(
+  sessionId: string | null,
+  vehicles: ChatCarCardData[]
+): string | null {
+  if (!sessionId || vehicles.length === 0) return null;
+  const raw = loadActiveSelectedCarIdForUi(sessionId);
+  if (!raw) return null;
+  const match = vehicles.find((v) => v.id === raw);
+  if (!match || !isTrustedVehicleCard(match)) return null;
+  return match.id;
+}
+
+export interface ChatV2VehicleSelection {
+  selectedVehicleId: string | null;
+  selectVehicle: (listingId: string) => void;
+  clearVehicleSelection: () => void;
+}
+
+/**
+ * Single-vehicle selection for the V2 workspace. Canonical id = listing
+ * ChatCarCardData.id. Rejects synthetic / stale ids. Persists via
+ * session-scoped chatCarContext so next-message “คันนี้” uses the existing
+ * orchestrator + inventory re-resolution path (no user-visible marker).
+ */
+export function useChatV2VehicleSelection(
+  vehicles: ChatCarCardData[]
+): ChatV2VehicleSelection {
+  const { activeSessionId } = useChatContext();
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    const onBump = () => setRevision(selectionRevision);
+    selectionListeners.add(onBump);
+    return () => {
+      selectionListeners.delete(onBump);
+    };
+  }, []);
+
+  const selectedVehicleId = useMemo(
+    () => resolveTrustedSelectedId(activeSessionId, vehicles),
+    [activeSessionId, vehicles, revision]
+  );
+
+  // Stale / untrusted id still in storage but not in discovered set → clear.
+  useEffect(() => {
+    if (!activeSessionId) return;
+    const raw = loadActiveSelectedCarIdForUi(activeSessionId);
+    if (!raw) return;
+    const stillTrusted = vehicles.some(
+      (v) => v.id === raw && isTrustedVehicleCard(v)
+    );
+    if (!stillTrusted) {
+      clearLastSelectedCarId(activeSessionId);
+      bumpSelectionRevision();
+    }
+  }, [activeSessionId, vehicles]);
+
+  const selectVehicle = useCallback(
+    (listingId: string) => {
+      if (!activeSessionId) return;
+      const id = String(listingId ?? "").trim();
+      if (!id) return;
+      const match = vehicles.find((v) => v.id === id);
+      if (!match || !isTrustedVehicleCard(match)) return;
+      saveLastSelectedCarId(match.id, activeSessionId);
+      bumpSelectionRevision();
+    },
+    [activeSessionId, vehicles]
+  );
+
+  const clearVehicleSelection = useCallback(() => {
+    if (!activeSessionId) return;
+    clearLastSelectedCarId(activeSessionId);
+    bumpSelectionRevision();
+  }, [activeSessionId]);
+
+  return {
+    selectedVehicleId,
+    selectVehicle,
+    clearVehicleSelection,
+  };
 }
 
 export function useChatV2Presentation(): ChatV2Presentation {

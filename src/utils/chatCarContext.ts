@@ -24,8 +24,28 @@ interface SessionScopedPayload<T> {
 const IN_CHAT_BUYER_HINT_KEY = "nonga_chat_in_chat_buyer_hint";
 const SEARCH_CTX_KEY = "nonga_chat_search_context";
 const STORAGE_KEY = "nonga_chat_last_car_results";
+/** Legacy unscoped key — migrated away; kept only as a clear target. */
 const LAST_SELECTED_CAR_KEY = "nonga_chat_last_selected_car";
+/** Per-conversation selected listing id (and explicit cleared marker). */
+const SESSION_SELECTION_MAP_KEY = "nonga_chat_session_vehicle_selection_v1";
 const RECENTLY_VIEWED_CARS_KEY = "nonga_chat_recently_viewed_cars";
+
+/**
+ * Truthy sentinel returned by loadLastSelectedCarId after an explicit clear.
+ * Orchestrator treats a truthy id as "do not fall back to recently-viewed /
+ * first context car", then fail-closed when inventory lookup misses.
+ * Never a real listing id.
+ */
+export const SELECTION_CLEARED_SENTINEL = "__nonga_selection_cleared__";
+
+interface SessionVehicleSelection {
+  carId: string | null;
+  cleared: boolean;
+}
+
+interface SessionSelectionMap {
+  bySession: Record<string, SessionVehicleSelection>;
+}
 
 /** Active chat session for scoped pilot car context (v6.1L.2i) */
 let activePilotChatSessionId: string | null = null;
@@ -97,9 +117,77 @@ export function clearPilotChatSessionContext(): void {
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(IN_CHAT_BUYER_HINT_KEY);
     sessionStorage.removeItem(SEARCH_CTX_KEY);
+    // Drop legacy global selection so it cannot leak into a new chat.
+    sessionStorage.removeItem(LAST_SELECTED_CAR_KEY);
+    // Remove this conversation's selection entry entirely (load → null).
+    // Do NOT write the cleared sentinel here: Classic multi-result pronoun
+    // fallbacks still rely on null → recently-viewed / first context car.
+    // Explicit V2 deselect uses clearLastSelectedCarId (sentinel) instead.
+    const sid = activePilotChatSessionId;
+    if (sid && sid.trim()) {
+      const map = readSessionSelectionMap();
+      delete map.bySession[sid];
+      writeSessionSelectionMap(map);
+    }
   } catch {
     /* ignore */
   }
+}
+
+function readSessionSelectionMap(): SessionSelectionMap {
+  if (typeof sessionStorage === "undefined") return { bySession: {} };
+  try {
+    const raw = sessionStorage.getItem(SESSION_SELECTION_MAP_KEY);
+    if (!raw) return { bySession: {} };
+    const parsed = JSON.parse(raw) as SessionSelectionMap;
+    if (!parsed || typeof parsed !== "object" || !parsed.bySession) {
+      return { bySession: {} };
+    }
+    return { bySession: { ...parsed.bySession } };
+  } catch {
+    return { bySession: {} };
+  }
+}
+
+function writeSessionSelectionMap(map: SessionSelectionMap): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(SESSION_SELECTION_MAP_KEY, JSON.stringify(map));
+  } catch {
+    /* quota */
+  }
+}
+
+function writeSessionSelectionEntry(
+  chatSessionId: string,
+  entry: SessionVehicleSelection
+): void {
+  const map = readSessionSelectionMap();
+  map.bySession[chatSessionId] = entry;
+  writeSessionSelectionMap(map);
+}
+
+function readSessionSelectionEntry(
+  chatSessionId: string
+): SessionVehicleSelection | null {
+  const entry = readSessionSelectionMap().bySession[chatSessionId];
+  if (!entry || typeof entry !== "object") return null;
+  return entry;
+}
+
+export function isSelectionClearedMarker(
+  id: string | null | undefined
+): boolean {
+  return id === SELECTION_CLEARED_SENTINEL;
+}
+
+/** UI helper — never returns the cleared sentinel. */
+export function loadActiveSelectedCarIdForUi(
+  chatSessionId?: string | null
+): string | null {
+  const id = loadLastSelectedCarId(chatSessionId);
+  if (!id || isSelectionClearedMarker(id)) return null;
+  return id;
 }
 
 export function saveInChatBuyerContext(
@@ -144,21 +232,68 @@ export function loadChatSearchContext(
   return null;
 }
 
-export function saveLastSelectedCarId(carId: string): void {
+/**
+ * Persist the active listing id for the current (or explicit) chat session.
+ * Clears the legacy global key so selection cannot leak across rooms.
+ */
+export function saveLastSelectedCarId(
+  carId: string,
+  chatSessionId?: string | null
+): void {
   if (typeof sessionStorage === "undefined") return;
+  const id = String(carId ?? "").trim();
+  if (!id || isSelectionClearedMarker(id)) return;
   try {
-    sessionStorage.setItem(LAST_SELECTED_CAR_KEY, carId);
+    const sid = resolveChatSessionId(chatSessionId);
+    if (sid) {
+      writeSessionSelectionEntry(sid, { carId: id, cleared: false });
+      sessionStorage.removeItem(LAST_SELECTED_CAR_KEY);
+      return;
+    }
+    // No active session (legacy / test callers) — keep prior unscoped behavior.
+    sessionStorage.setItem(LAST_SELECTED_CAR_KEY, id);
   } catch {
     /* quota */
   }
 }
 
-export function loadLastSelectedCarId(): string | null {
+/**
+ * Load selected listing id for pronoun follow-ups.
+ * After clearLastSelectedCarId, returns SELECTION_CLEARED_SENTINEL (truthy) so
+ * orchestrator skip recently-viewed / first-card fallbacks and fail closed.
+ */
+export function loadLastSelectedCarId(
+  chatSessionId?: string | null
+): string | null {
   if (typeof sessionStorage === "undefined") return null;
   try {
+    const sid = resolveChatSessionId(chatSessionId);
+    if (sid) {
+      const entry = readSessionSelectionEntry(sid);
+      if (entry?.cleared) return SELECTION_CLEARED_SENTINEL;
+      if (entry?.carId && String(entry.carId).trim()) {
+        return String(entry.carId).trim();
+      }
+      // Session-bound callers must not inherit another room's legacy global id.
+      return null;
+    }
     return sessionStorage.getItem(LAST_SELECTED_CAR_KEY);
   } catch {
     return null;
+  }
+}
+
+/** Explicit deselect — blocks silent fallback to recently-viewed / contextCars[0]. */
+export function clearLastSelectedCarId(chatSessionId?: string | null): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    const sid = resolveChatSessionId(chatSessionId);
+    if (sid) {
+      writeSessionSelectionEntry(sid, { carId: null, cleared: true });
+    }
+    sessionStorage.removeItem(LAST_SELECTED_CAR_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
