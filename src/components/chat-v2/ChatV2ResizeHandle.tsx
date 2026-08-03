@@ -37,7 +37,9 @@ export function ChatV2ResizeHandle({
   const draggingRef = useRef(false);
   const startXRef = useRef(0);
   const startValueRef = useRef(0);
+  const valueRef = useRef(value);
   const pointerIdRef = useRef<number | null>(null);
+  valueRef.current = value;
 
   const clamp = useCallback(
     (n: number) => Math.min(max, Math.max(min, n)),
@@ -128,19 +130,21 @@ export function ChatV2ResizeHandle({
       let next: number | null = null;
 
       if (edge === "sidebar") {
-        if (e.key === "ArrowRight") next = value + amount;
-        else if (e.key === "ArrowLeft") next = value - amount;
+        if (e.key === "ArrowRight") next = valueRef.current + amount;
+        else if (e.key === "ArrowLeft") next = valueRef.current - amount;
       } else {
         // Workspace handle on the left edge: ArrowLeft widens toward chat.
-        if (e.key === "ArrowLeft") next = value + amount;
-        else if (e.key === "ArrowRight") next = value - amount;
+        if (e.key === "ArrowLeft") next = valueRef.current + amount;
+        else if (e.key === "ArrowRight") next = valueRef.current - amount;
       }
 
       if (next == null) return;
       e.preventDefault();
-      onValueChange(clamp(next));
+      const capped = clamp(next);
+      valueRef.current = capped;
+      onValueChange(capped);
     },
-    [clamp, disabled, edge, largeStep, onValueChange, step, value]
+    [clamp, disabled, edge, largeStep, onValueChange, step]
   );
 
   if (disabled) return null;

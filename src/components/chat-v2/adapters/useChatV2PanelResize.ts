@@ -53,8 +53,11 @@ export interface ChatV2PanelResizeApi {
 export function useChatV2PanelResize(input: {
   sidebarCollapsed: boolean;
   workspaceCollapsed: boolean;
+  /** False when the discovery set is empty — right column not mounted. */
+  workspaceVisible?: boolean;
 }): ChatV2PanelResizeApi {
   const isDesktop = useChatV2IsDesktop();
+  const workspaceVisible = input.workspaceVisible !== false;
   const [preferred, setPreferred] = useState<ChatV2PanelWidthPreferences>(() =>
     loadChatV2PanelWidths()
   );
@@ -72,11 +75,14 @@ export function useChatV2PanelResize(input: {
     viewportWidth,
     sidebarCollapsed: input.sidebarCollapsed,
     workspaceCollapsed: input.workspaceCollapsed,
+    workspaceVisible,
   });
 
-  const workspaceOccupied = input.workspaceCollapsed
-    ? CHAT_V2_RAIL_WIDTH
-    : resolved.applied.workspaceWidth;
+  const workspaceOccupied = !workspaceVisible
+    ? 0
+    : input.workspaceCollapsed
+      ? CHAT_V2_RAIL_WIDTH
+      : resolved.applied.workspaceWidth;
   const sidebarOccupied = input.sidebarCollapsed
     ? CHAT_V2_RAIL_WIDTH
     : resolved.applied.sidebarWidth;
@@ -90,39 +96,60 @@ export function useChatV2PanelResize(input: {
     sidebarOccupied
   );
 
-  const persist = useCallback((next: ChatV2PanelWidthPreferences) => {
-    setPreferred(next);
-    saveChatV2PanelWidths(next);
-  }, []);
-
   const setSidebarWidth = useCallback(
     (next: number) => {
-      const capped = clampNumber(
-        next,
-        CHAT_V2_SIDEBAR_WIDTH_MIN,
-        sidebarResizeMax
-      );
-      persist({
-        ...preferred,
-        sidebarWidth: capped,
+      setPreferred((prev) => {
+        const workspaceOccupied = !workspaceVisible
+          ? 0
+          : input.workspaceCollapsed
+            ? CHAT_V2_RAIL_WIDTH
+            : clampNumber(
+                prev.workspaceWidth,
+                CHAT_V2_WORKSPACE_WIDTH_MIN,
+                CHAT_V2_WORKSPACE_WIDTH_MAX
+              );
+        const max = maxSidebarWhileDragging(
+          readViewportWidth(),
+          workspaceOccupied
+        );
+        const capped = clampNumber(
+          next,
+          CHAT_V2_SIDEBAR_WIDTH_MIN,
+          max
+        );
+        const updated = { ...prev, sidebarWidth: capped };
+        saveChatV2PanelWidths(updated);
+        return updated;
       });
     },
-    [persist, preferred, sidebarResizeMax]
+    [input.workspaceCollapsed, workspaceVisible]
   );
 
   const setWorkspaceWidth = useCallback(
     (next: number) => {
-      const capped = clampNumber(
-        next,
-        CHAT_V2_WORKSPACE_WIDTH_MIN,
-        workspaceResizeMax
-      );
-      persist({
-        ...preferred,
-        workspaceWidth: capped,
+      setPreferred((prev) => {
+        const sidebarOccupied = input.sidebarCollapsed
+          ? CHAT_V2_RAIL_WIDTH
+          : clampNumber(
+              prev.sidebarWidth,
+              CHAT_V2_SIDEBAR_WIDTH_MIN,
+              CHAT_V2_SIDEBAR_WIDTH_MAX
+            );
+        const max = maxWorkspaceWhileDragging(
+          readViewportWidth(),
+          sidebarOccupied
+        );
+        const capped = clampNumber(
+          next,
+          CHAT_V2_WORKSPACE_WIDTH_MIN,
+          max
+        );
+        const updated = { ...prev, workspaceWidth: capped };
+        saveChatV2PanelWidths(updated);
+        return updated;
       });
     },
-    [persist, preferred, workspaceResizeMax]
+    [input.sidebarCollapsed]
   );
 
   const resetPanelWidths = useCallback(() => {
@@ -137,9 +164,11 @@ export function useChatV2PanelResize(input: {
     appliedSidebarWidth: input.sidebarCollapsed
       ? CHAT_V2_RAIL_WIDTH
       : resolved.applied.sidebarWidth,
-    appliedWorkspaceWidth: input.workspaceCollapsed
-      ? CHAT_V2_RAIL_WIDTH
-      : resolved.applied.workspaceWidth,
+    appliedWorkspaceWidth: !workspaceVisible
+      ? 0
+      : input.workspaceCollapsed
+        ? CHAT_V2_RAIL_WIDTH
+        : resolved.applied.workspaceWidth,
     sidebarResizeMax,
     workspaceResizeMax,
     setSidebarWidth,

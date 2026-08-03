@@ -109,6 +109,8 @@ export function resolveAppliedPanelWidths(input: {
   viewportWidth: number;
   sidebarCollapsed: boolean;
   workspaceCollapsed: boolean;
+  /** When false, the right column is not mounted (empty discovery) — occupies 0. */
+  workspaceVisible?: boolean;
 }): ChatV2AppliedPanelWidths {
   const preferred = {
     sidebarWidth:
@@ -119,13 +121,16 @@ export function resolveAppliedPanelWidths(input: {
       CHAT_V2_WORKSPACE_WIDTH_DEFAULT,
   };
 
+  const workspaceVisible = input.workspaceVisible !== false;
   const viewport = Math.max(0, input.viewportWidth);
   const sidebarOccupied = input.sidebarCollapsed
     ? CHAT_V2_RAIL_WIDTH
     : preferred.sidebarWidth;
-  const workspaceOccupied = input.workspaceCollapsed
-    ? CHAT_V2_RAIL_WIDTH
-    : preferred.workspaceWidth;
+  const workspaceOccupied = !workspaceVisible
+    ? 0
+    : input.workspaceCollapsed
+      ? CHAT_V2_RAIL_WIDTH
+      : preferred.workspaceWidth;
 
   let appliedSidebar = sidebarOccupied;
   let appliedWorkspace = workspaceOccupied;
@@ -134,9 +139,10 @@ export function resolveAppliedPanelWidths(input: {
   const total = appliedSidebar + appliedWorkspace;
 
   if (total > budget && budget > 0) {
-    // Shrink expanded panels only; rails stay fixed.
+    // Shrink expanded panels only; rails stay fixed; hidden workspace stays 0.
     const sidebarFlexible = !input.sidebarCollapsed;
-    const workspaceFlexible = !input.workspaceCollapsed;
+    const workspaceFlexible =
+      workspaceVisible && !input.workspaceCollapsed;
 
     if (sidebarFlexible && workspaceFlexible) {
       const overflow = total - budget;
@@ -199,7 +205,7 @@ export function resolveAppliedPanelWidths(input: {
       CHAT_V2_SIDEBAR_WIDTH_MAX
     );
   }
-  if (!input.workspaceCollapsed) {
+  if (workspaceVisible && !input.workspaceCollapsed) {
     appliedWorkspace = clampNumber(
       appliedWorkspace,
       CHAT_V2_WORKSPACE_WIDTH_MIN,

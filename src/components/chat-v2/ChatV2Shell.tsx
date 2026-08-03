@@ -1,10 +1,12 @@
 /**
  * Chat Experience V2 — layout shell under ChatProvider.
  * Desktop / large tablet (lg+, ≥1024px): persistent non-overlay three-region
- * layout — Sidebar · Conversation · Vehicle Workspace. Both side regions
- * start expanded and collapse independently to compact rails; collapsing one
- * gives its width back to the Conversation. Expanded columns are user-resizable
- * within safe min/max bounds while keeping the center chat ≥ 420px.
+ * layout — Sidebar · Conversation · Vehicle Workspace (when vehicles exist).
+ * Both side regions start expanded and collapse independently to compact rails;
+ * collapsing one gives its width back to the Conversation. With no discovered
+ * vehicles the right column is not mounted so chat reclaim space. Expanded
+ * columns are user-resizable within safe min/max bounds while keeping the
+ * center chat ≥ 420px.
  * Tablet/Mobile (<1024px): Conversation is primary; Sidebar becomes a drawer
  * and the Vehicle Workspace opens as an overlay sheet. No horizontal overflow.
  * Free-drag resizing is desktop-only.
@@ -30,6 +32,7 @@ export function ChatV2Shell() {
   const panelResize = useChatV2PanelResize({
     sidebarCollapsed,
     workspaceCollapsed: workspace.isCollapsed,
+    workspaceVisible: workspace.vehicles.length > 0,
   });
 
   const toggleSidebar = useCallback(() => {
@@ -49,9 +52,11 @@ export function ChatV2Shell() {
         panelResize.isDesktop ? String(panelResize.appliedSidebarWidth) : undefined
       }
       data-workspace-width={
-        panelResize.isDesktop
+        panelResize.isDesktop && workspace.vehicles.length > 0
           ? String(panelResize.appliedWorkspaceWidth)
-          : undefined
+          : panelResize.isDesktop
+            ? "0"
+            : undefined
       }
     >
       <ChatV2Sidebar
@@ -81,7 +86,7 @@ export function ChatV2Shell() {
         onToggleSidebar={toggleSidebar}
       />
 
-      {/* Desktop inline workspace (lg+) — structure visible even when empty */}
+      {/* Desktop inline workspace (lg+) — only when the conversation has vehicles */}
       <ChatV2VehicleWorkspace
         vehicles={workspace.vehicles}
         hasMoreCars={workspace.hasMoreCars}
@@ -89,7 +94,11 @@ export function ChatV2Shell() {
         isCollapsed={workspace.isCollapsed}
         onToggleCollapsed={workspace.toggleCollapsed}
         desktopWidthPx={panelResize.appliedWorkspaceWidth}
-        resizeEnabled={panelResize.isDesktop && !workspace.isCollapsed}
+        resizeEnabled={
+          panelResize.isDesktop &&
+          !workspace.isCollapsed &&
+          workspace.vehicles.length > 0
+        }
         resizeValue={panelResize.preferred.workspaceWidth}
         resizeMin={panelResize.workspaceMin}
         resizeMax={panelResize.workspaceResizeMax}

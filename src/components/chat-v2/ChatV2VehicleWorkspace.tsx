@@ -183,11 +183,17 @@ export function ChatV2VehicleWorkspace({
 }: ChatV2VehicleWorkspaceProps) {
   const count = vehicles.length;
 
+  // Empty discovery set: do not reserve a desktop column (no forced 320px gap).
+  // Mobile/tablet still use the overlay sheet; empty-state copy lives there via Body.
+  if (count === 0) {
+    return null;
+  }
+
   if (isCollapsed) {
     return (
       <aside
         role="complementary"
-        aria-label={CHAT_V2_WORKSPACE_EMPTY_TITLE}
+        aria-label={CHAT_V2_WORKSPACE_RESULTS_TITLE}
         className="hidden lg:flex shrink-0 w-14 h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/60 flex-col items-center pt-3 gap-2"
         data-testid="chat-v2-workspace-rail"
       >
@@ -206,9 +212,7 @@ export function ChatV2VehicleWorkspace({
           aria-hidden="true"
         >
           <Car className="w-4 h-4" />
-          {count > 0 && (
-            <span className="text-[10px] font-bold">{count.toLocaleString("th-TH")}</span>
-          )}
+          <span className="text-[10px] font-bold">{count.toLocaleString("th-TH")}</span>
         </span>
       </aside>
     );
@@ -217,15 +221,11 @@ export function ChatV2VehicleWorkspace({
   return (
     <aside
       role="complementary"
-      aria-label={
-        count > 0
-          ? `${CHAT_V2_WORKSPACE_RESULTS_TITLE} ${count.toLocaleString("th-TH")} คัน`
-          : CHAT_V2_WORKSPACE_EMPTY_TITLE
-      }
+      aria-label={`${CHAT_V2_WORKSPACE_RESULTS_TITLE} ${count.toLocaleString("th-TH")} คัน`}
       className="relative hidden lg:flex shrink-0 h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/40 flex-col min-h-0"
       style={{ width: desktopWidthPx }}
       data-testid="chat-v2-workspace"
-      data-has-results={count > 0 ? "true" : "false"}
+      data-has-results="true"
       data-width={String(desktopWidthPx)}
     >
       <ChatV2WorkspaceHeader count={count} onCollapse={onToggleCollapsed} />

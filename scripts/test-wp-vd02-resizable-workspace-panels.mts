@@ -259,8 +259,11 @@ function main(): void {
     'label="ปรับความกว้างพื้นที่เลือกรถ"',
     "keyboard-thai-label-workspace"
   );
-  assertEq(CHAT_V2_RESIZE_STEP_PX, 8, "keyboard-step-8");
-  assertEq(CHAT_V2_RESIZE_STEP_LARGE_PX, 32, "keyboard-large-step-32");
+  assert(
+    handle.includes("valueRef.current") &&
+      handle.includes("valueRef.current = capped"),
+    "keyboard-uses-value-ref-for-rapid-steps"
+  );
   // Direction: sidebar ArrowRight widens; workspace ArrowLeft widens.
   {
     const sidebarBranch = handle.slice(
@@ -269,13 +272,13 @@ function main(): void {
     );
     assert(
       sidebarBranch.includes('e.key === "ArrowRight"') &&
-        sidebarBranch.includes("value + amount"),
+        sidebarBranch.includes("valueRef.current + amount"),
       "keyboard-sidebar-arrow-right-widens"
     );
     const workspaceBranch = handle.slice(handle.indexOf("} else {"));
     assert(
       workspaceBranch.includes('e.key === "ArrowLeft"') &&
-        workspaceBranch.includes("value + amount"),
+        workspaceBranch.includes("valueRef.current + amount"),
       "keyboard-workspace-arrow-left-widens"
     );
   }
@@ -288,7 +291,7 @@ function main(): void {
   );
   mustInclude(
     shell,
-    "resizeEnabled={panelResize.isDesktop && !workspace.isCollapsed}",
+    "resizeEnabled={\n          panelResize.isDesktop &&\n          !workspace.isCollapsed &&\n          workspace.vehicles.length > 0\n        }",
     "mobile-workspace-resize-gated-desktop"
   );
   mustInclude(handle, "if (disabled) return null", "handle-null-when-disabled");
@@ -314,13 +317,50 @@ function main(): void {
     "sidebar-expanded-default-preserved"
   );
 
-  // ---------- 10. Empty vehicle state still structural (not abnormal forced blank) ----------
-  mustInclude(workspace, "chat-v2-workspace-empty", "empty-workspace-state-preserved");
+  // ---------- 10. Empty vehicle state does not force a right column ----------
+  mustInclude(workspace, "chat-v2-workspace-empty", "empty-workspace-copy-preserved");
+  assert(
+    /if\s*\(\s*count\s*===\s*0\s*\)\s*\{\s*return null;/.test(workspace),
+    "empty-desktop-workspace-unmounts"
+  );
   mustInclude(
     shell,
-    "structure visible even when empty",
-    "empty-workspace-still-three-region"
+    "workspaceVisible: workspace.vehicles.length > 0",
+    "empty-workspace-visible-flag-wired"
   );
+  mustInclude(
+    shell,
+    "workspace.vehicles.length > 0",
+    "empty-workspace-resize-gated-on-vehicles"
+  );
+  mustInclude(panelWidths, "workspaceVisible", "empty-clamp-supports-hidden-workspace");
+  {
+    const hidden = resolveAppliedPanelWidths({
+      preferred: { sidebarWidth: 248, workspaceWidth: 400 },
+      viewportWidth: 1440,
+      sidebarCollapsed: false,
+      workspaceCollapsed: false,
+      workspaceVisible: false,
+    });
+    assertEq(hidden.applied.workspaceWidth, 0, "empty-applied-workspace-width-zero");
+    assertEq(hidden.preferred.workspaceWidth, 400, "empty-preferred-workspace-kept");
+    const center = centerWidthFor(1440, hidden.applied.sidebarWidth, 0);
+    assert(center >= 420, "empty-center-reclaims-space", `center=${center}`);
+  }
+  {
+    const restored = resolveAppliedPanelWidths({
+      preferred: { sidebarWidth: 248, workspaceWidth: 400 },
+      viewportWidth: 1440,
+      sidebarCollapsed: false,
+      workspaceCollapsed: false,
+      workspaceVisible: true,
+    });
+    assertEq(
+      restored.applied.workspaceWidth,
+      400,
+      "vehicles-restore-preferred-workspace-width"
+    );
+  }
   // No resize handle on the collapsed rail.
   {
     const railIdx = workspace.indexOf('data-testid="chat-v2-workspace-rail"');
