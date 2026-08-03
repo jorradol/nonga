@@ -18,7 +18,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  RotateCcw,
   Sun,
   Trash2,
   User,
@@ -200,7 +199,6 @@ interface ChatV2SidebarProps {
   resizeStep?: number;
   resizeLargeStep?: number;
   onResizeWidth?: (next: number) => void;
-  onResetPanelWidths?: () => void;
 }
 
 export function ChatV2Sidebar({
@@ -217,7 +215,6 @@ export function ChatV2Sidebar({
   resizeStep,
   resizeLargeStep,
   onResizeWidth,
-  onResetPanelWidths,
 }: ChatV2SidebarProps) {
   const {
     sessions,
@@ -273,18 +270,6 @@ export function ChatV2Sidebar({
             <Moon className="w-4 h-4" aria-hidden="true" />
           )}
         </button>
-        {onResetPanelWidths && (
-          <button
-            type="button"
-            onClick={onResetPanelWidths}
-            className="max-lg:hidden min-w-9 min-h-9 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) hover:text-orange-600 dark:hover:text-orange-400 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
-            aria-label="คืนค่าขนาดแผง"
-            title="คืนค่าขนาดแผง"
-            data-testid="chat-v2-reset-panel-widths"
-          >
-            <RotateCcw className="w-4 h-4" aria-hidden="true" />
-          </button>
-        )}
         <button
           type="button"
           onClick={onToggleCollapsed}

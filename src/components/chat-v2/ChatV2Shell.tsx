@@ -58,6 +58,9 @@ export function ChatV2Shell() {
             ? "0"
             : undefined
       }
+      data-vehicle-count={String(workspace.vehicles.length)}
+      data-workspace-collapsed={workspace.isCollapsed ? "true" : "false"}
+      data-source-message-id={workspace.sourceMessageId ?? ""}
     >
       <ChatV2Sidebar
         isOpen={sidebarOpen}
@@ -73,7 +76,6 @@ export function ChatV2Shell() {
         resizeStep={panelResize.resizeStep}
         resizeLargeStep={panelResize.resizeLargeStep}
         onResizeWidth={panelResize.setSidebarWidth}
-        onResetPanelWidths={panelResize.resetPanelWidths}
       />
 
       <ChatV2Conversation

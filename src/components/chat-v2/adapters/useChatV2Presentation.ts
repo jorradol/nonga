@@ -61,6 +61,8 @@ export function deriveChatV2ActivityStatus(input: {
 export interface ChatV2WorkspaceState {
   vehicles: ChatCarCardData[];
   hasMoreCars: boolean;
+  /** Identity of the message that produced the current result set. */
+  sourceMessageId: string | null;
   /** Desktop inline column collapsed to a compact rail. */
   isCollapsed: boolean;
   /** Overlay sheet open (tablet/mobile widths only). */
@@ -195,19 +197,36 @@ export function useChatV2Presentation(): ChatV2Presentation {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const sheetReturnFocusRef = useRef<HTMLElement | null>(null);
+  // Tracks which result set we already auto-expanded for (mirrors D1 panel).
+  // User collapse is respected until a NEW sourceMessageId arrives.
+  const lastAutoExpandMessageIdRef = useRef<string | null>(null);
 
   // discoveredVehicles = structured carCards of the CURRENT conversation only.
   // Reuses the D1 trusted derivation (stable listing IDs, dedupe, latest AI
   // message wins). Switching to a session without results clears the list.
-  const { vehicles, hasMoreCars } = useMemo(
+  const { vehicles, hasMoreCars, sourceMessageId } = useMemo(
     () => deriveDiscoveredVehicles(currentMessages),
     [currentMessages]
   );
 
-  // Session switch / New Chat: close the overlay sheet (no cross-room leak).
+  // Session switch / New Chat: close the overlay sheet (no cross-room leak)
+  // and forget auto-expand history so the next room can open fresh.
   useEffect(() => {
     setIsSheetOpen(false);
+    setIsCollapsed(false);
+    lastAutoExpandMessageIdRef.current = null;
   }, [activeSessionId]);
+
+  // Auto-expand the desktop column when a NEW trusted result set arrives.
+  // Empty → results: panel must appear without a refresh.
+  // User-collapsed + same result set: stay collapsed (rail remains reachable).
+  // User-collapsed + NEW result set: expand so new cars are visible.
+  useEffect(() => {
+    if (!sourceMessageId || vehicles.length === 0) return;
+    if (lastAutoExpandMessageIdRef.current === sourceMessageId) return;
+    lastAutoExpandMessageIdRef.current = sourceMessageId;
+    setIsCollapsed(false);
+  }, [sourceMessageId, vehicles.length]);
 
   const status = useMemo(
     () => deriveChatV2ActivityStatus({ isGenerating, streamedReply }),
@@ -250,6 +269,7 @@ export function useChatV2Presentation(): ChatV2Presentation {
     workspace: {
       vehicles,
       hasMoreCars,
+      sourceMessageId,
       isCollapsed,
       isSheetOpen,
       toggleCollapsed,

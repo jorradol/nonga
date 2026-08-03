@@ -96,8 +96,10 @@ function main(): void {
   mustInclude(sidebar, "max-lg:-translate-x-full", "sidebar-offscreen-only-below-lg");
   mustInclude(sidebar, 'className="fixed inset-0 z-[45] bg-black/60 lg:hidden"', "sidebar-backdrop-below-lg-only");
   mustInclude(sidebar, "ChatV2ResizeHandle", "sidebar-resize-handle-wired");
-  mustInclude(sidebar, "chat-v2-reset-panel-widths", "sidebar-reset-panel-widths-control");
-  mustInclude(sidebar, "คืนค่าขนาดแผง", "sidebar-reset-panel-widths-label");
+  mustNotInclude(sidebar, "chat-v2-reset-panel-widths", "sidebar-reset-panel-widths-removed");
+  mustNotInclude(sidebar, "คืนค่าขนาดแผง", "sidebar-reset-panel-widths-label-removed");
+  mustNotInclude(sidebar, "RotateCcw", "sidebar-reset-icon-removed");
+  mustNotInclude(shell, "onResetPanelWidths", "shell-reset-prop-removed");
   {
     const resizeHandle = read("src/components/chat-v2/ChatV2ResizeHandle.tsx");
     mustInclude(
@@ -125,7 +127,7 @@ function main(): void {
   // Overlay sheet exists only below lg.
   mustInclude(sheet, '<div className="lg:hidden"', "vehicle-sheet-below-lg-only");
 
-  // ---------- 2. Sidebar expanded by default ----------
+  // ---------- 2. Sidebar expanded by default + auto-expand on new results ----------
   mustInclude(
     shell,
     "const [sidebarCollapsed, setSidebarCollapsed] = useState(false)",
@@ -135,6 +137,9 @@ function main(): void {
   mustInclude(sidebar, 'isCollapsed ? "lg:hidden" : ""', "sidebar-panel-hidden-only-when-collapsed");
   // Workspace also starts expanded (adapter owns its collapse state).
   mustInclude(adapter, "const [isCollapsed, setIsCollapsed] = useState(false)", "workspace-expanded-by-default");
+  mustInclude(adapter, "lastAutoExpandMessageIdRef", "workspace-auto-expand-tracks-source");
+  mustInclude(adapter, "setIsCollapsed(false)", "workspace-auto-expand-opens-on-new-results");
+  mustInclude(adapter, "sourceMessageId", "workspace-exposes-source-message-id");
 
   // ---------- 3. Sidebar collapse/expand controls ----------
   mustInclude(sidebar, 'data-testid="chat-v2-sidebar-collapse"', "sidebar-collapse-control-present");

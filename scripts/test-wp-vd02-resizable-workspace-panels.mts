@@ -436,7 +436,27 @@ function main(): void {
   mustInclude(handle, "cursor-col-resize", "handle-col-resize-cursor");
   mustInclude(handle, "setPointerCapture", "handle-pointer-events");
   mustInclude(handle, "onPointerCancel", "handle-pointer-cancel-safe");
-  mustInclude(sidebar, "คืนค่าขนาดแผง", "reset-control-present");
+  mustNotInclude(sidebar, "คืนค่าขนาดแผง", "reset-control-removed-from-ui");
+  mustNotInclude(sidebar, "chat-v2-reset-panel-widths", "reset-control-testid-removed");
+  mustNotInclude(shell, "onResetPanelWidths", "reset-prop-not-wired-from-shell");
+
+  // Auto-expand when results arrive (0 → ≥1 / new sourceMessageId)
+  mustInclude(
+    presentation,
+    "lastAutoExpandMessageIdRef",
+    "auto-expand-tracks-result-set"
+  );
+  assert(
+    /if\s*\(\s*!sourceMessageId\s*\|\|\s*vehicles\.length\s*===\s*0\s*\)\s*return/.test(
+      presentation
+    ) && presentation.includes("setIsCollapsed(false)"),
+    "auto-expand-opens-when-new-trusted-results-arrive"
+  );
+  mustInclude(
+    presentation,
+    "sourceMessageId",
+    "presentation-exposes-source-message-id"
+  );
 
   console.log("\n=== WP-VD02 resizable workspace panels — OK ===");
 }
