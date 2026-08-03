@@ -6,6 +6,10 @@ import { getFirebaseAuthHeaders } from "../../auth/firebaseAuthHeaders";
 import type { PilotBuyerSessionContext } from "./chatPilotSessionContext";
 import type { ChatCarCardData } from "../../../types";
 import type { ExtractedCarFields } from "./sellIntentParser";
+import {
+  isMonthlyAffordabilityDiscovery,
+  isVehicleDiscoveryIntent,
+} from "./vehicleDiscoveryCriteriaParser";
 
 export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 
@@ -76,9 +80,27 @@ function hasRefusalOrUsageContinuity(text: string): boolean {
   return BUDGET_REFUSAL_RE.test(text) || USAGE_CONTINUITY_RE.test(text);
 }
 
+/** Hosting discovery / scored-search copy that must not be replaced by stale bridge. */
+function isDeterministicDiscoverySearchReply(text: string): boolean {
+  return (
+    /เข้าใจเงื่อนไข/.test(text) ||
+    /พบรถที่ตรงเงื่อนไข/.test(text) ||
+    /ไม่พบรถที่ตรง/.test(text)
+  );
+}
+
+/** Stale Cloud Run facts path asking buyer to tap a car card first. */
+function isAskSelectOrWhichCarBridge(text: string): boolean {
+  return (
+    /กดดูรายละเอียดรถคันที่สนใจ/.test(text) ||
+    /หมายถึงรถคันไหน/.test(text)
+  );
+}
+
 /**
  * v22.73 — signed-in bridge precedence guard:
  * keep deterministic client text when bridge contradicts refusal/continuity intent.
+ * WP-VD01A — also keep Hosting discovery/search when stale bridge asks to select a car.
  */
 export function shouldApplyBridgeUserVisibleText(
   input: BridgeTextPrecedenceInput
@@ -86,6 +108,19 @@ export function shouldApplyBridgeUserVisibleText(
   const orchestrated = input.orchestratedText.trim();
   const bridged = input.bridgedText.trim();
   if (!orchestrated || !bridged) return false;
+
+  // WP-VD01A — Hosting has discovery; Cloud Run without WP-VD01A may ask-select on "เกียร์".
+  if (isAskSelectOrWhichCarBridge(bridged)) {
+    if (isDeterministicDiscoverySearchReply(orchestrated)) return false;
+    const userMessage = input.userMessage.trim();
+    if (
+      userMessage &&
+      (isMonthlyAffordabilityDiscovery(userMessage) ||
+        isVehicleDiscoveryIntent(userMessage))
+    ) {
+      return false;
+    }
+  }
 
   const deterministicRefusalOrContinuity = hasRefusalOrUsageContinuity(orchestrated);
   if (!deterministicRefusalOrContinuity) return true;
