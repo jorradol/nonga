@@ -4,7 +4,8 @@
  * Desktop / large tablet (lg+, ≥1024px): always-visible persistent inline
  * column (never an overlay) with its own scroll region; collapsible to a
  * compact rail and reopenable. Shows a structural empty state when the
- * conversation has no discovered vehicles yet.
+ * conversation has no discovered vehicles yet. Expanded width is user-resizable
+ * on desktop within safe bounds.
  *
  * Data source: ONLY structured carCards from the current conversation
  * (via the V2 presentation adapter). No mock vehicles, no fetches, no
@@ -13,7 +14,13 @@
 import { Car, PanelRightClose, PanelRightOpen, Search } from "lucide-react";
 import type { ChatCarCardData } from "../../types";
 import { useChatV2VehicleSelection } from "./adapters/useChatV2Presentation";
+import { ChatV2ResizeHandle } from "./ChatV2ResizeHandle";
 import { ChatV2VehicleCard } from "./ChatV2VehicleCard";
+import {
+  CHAT_V2_WORKSPACE_WIDTH_DEFAULT,
+  CHAT_V2_WORKSPACE_WIDTH_MAX,
+  CHAT_V2_WORKSPACE_WIDTH_MIN,
+} from "./panelWidths";
 
 export const CHAT_V2_WORKSPACE_EMPTY_TITLE = "พื้นที่เลือกรถ";
 export const CHAT_V2_WORKSPACE_RESULTS_TITLE = "รถที่พบ";
@@ -148,6 +155,14 @@ interface ChatV2VehicleWorkspaceProps {
   isLoading: boolean;
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
+  desktopWidthPx?: number;
+  resizeEnabled?: boolean;
+  resizeValue?: number;
+  resizeMin?: number;
+  resizeMax?: number;
+  resizeStep?: number;
+  resizeLargeStep?: number;
+  onResizeWidth?: (next: number) => void;
 }
 
 /** Desktop inline workspace column (lg and up only; sheet handles below-lg). */
@@ -157,6 +172,14 @@ export function ChatV2VehicleWorkspace({
   isLoading,
   isCollapsed,
   onToggleCollapsed,
+  desktopWidthPx = CHAT_V2_WORKSPACE_WIDTH_DEFAULT,
+  resizeEnabled = false,
+  resizeValue = CHAT_V2_WORKSPACE_WIDTH_DEFAULT,
+  resizeMin = CHAT_V2_WORKSPACE_WIDTH_MIN,
+  resizeMax = CHAT_V2_WORKSPACE_WIDTH_MAX,
+  resizeStep,
+  resizeLargeStep,
+  onResizeWidth,
 }: ChatV2VehicleWorkspaceProps) {
   const count = vehicles.length;
 
@@ -199,9 +222,11 @@ export function ChatV2VehicleWorkspace({
           ? `${CHAT_V2_WORKSPACE_RESULTS_TITLE} ${count.toLocaleString("th-TH")} คัน`
           : CHAT_V2_WORKSPACE_EMPTY_TITLE
       }
-      className="hidden lg:flex shrink-0 lg:w-[288px] xl:w-[320px] 2xl:w-[360px] min-w-[260px] max-w-[400px] h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/40 flex-col min-h-0"
+      className="relative hidden lg:flex shrink-0 h-full border-l border-(--nonga-border) bg-(--nonga-bg-surface)/40 flex-col min-h-0"
+      style={{ width: desktopWidthPx }}
       data-testid="chat-v2-workspace"
       data-has-results={count > 0 ? "true" : "false"}
+      data-width={String(desktopWidthPx)}
     >
       <ChatV2WorkspaceHeader count={count} onCollapse={onToggleCollapsed} />
       <ChatV2WorkspaceBody
@@ -209,6 +234,18 @@ export function ChatV2VehicleWorkspace({
         hasMoreCars={hasMoreCars}
         isLoading={isLoading}
       />
+      {resizeEnabled && onResizeWidth && (
+        <ChatV2ResizeHandle
+          edge="workspace"
+          value={resizeValue}
+          min={resizeMin}
+          max={resizeMax}
+          label="ปรับความกว้างพื้นที่เลือกรถ"
+          onValueChange={onResizeWidth}
+          step={resizeStep}
+          largeStep={resizeLargeStep}
+        />
+      )}
     </aside>
   );
 }

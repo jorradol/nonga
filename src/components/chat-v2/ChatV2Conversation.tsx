@@ -114,7 +114,7 @@ export function ChatV2Conversation({
 
   return (
     <main
-      className="flex-1 flex flex-col min-w-0 lg:min-w-[380px] min-h-0 h-full relative"
+      className="flex-1 flex flex-col min-w-0 lg:min-w-[420px] min-h-0 h-full relative"
       aria-label="บทสนทนากับน้องเอ"
       data-testid="chat-v2-conversation"
     >

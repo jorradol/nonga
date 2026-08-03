@@ -3,9 +3,11 @@
  * Desktop / large tablet (lg+, ≥1024px): persistent non-overlay three-region
  * layout — Sidebar · Conversation · Vehicle Workspace. Both side regions
  * start expanded and collapse independently to compact rails; collapsing one
- * gives its width back to the Conversation.
+ * gives its width back to the Conversation. Expanded columns are user-resizable
+ * within safe min/max bounds while keeping the center chat ≥ 420px.
  * Tablet/Mobile (<1024px): Conversation is primary; Sidebar becomes a drawer
  * and the Vehicle Workspace opens as an overlay sheet. No horizontal overflow.
+ * Free-drag resizing is desktop-only.
  */
 import { useCallback, useState } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
@@ -14,6 +16,7 @@ import { ChatV2MobileVehicleSheet } from "./ChatV2MobileVehicleSheet";
 import { ChatV2Sidebar } from "./ChatV2Sidebar";
 import { ChatV2VehicleWorkspace } from "./ChatV2VehicleWorkspace";
 import { useChatV2Presentation } from "./adapters/useChatV2Presentation";
+import { useChatV2PanelResize } from "./adapters/useChatV2PanelResize";
 
 export function ChatV2Shell() {
   const { isGenerating } = useChatContext();
@@ -23,6 +26,11 @@ export function ChatV2Shell() {
   // Desktop collapse state (lg+ only). Sidebar is EXPANDED by default and
   // collapses to a compact rail, independent of the Vehicle Workspace state.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const panelResize = useChatV2PanelResize({
+    sidebarCollapsed,
+    workspaceCollapsed: workspace.isCollapsed,
+  });
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => !prev);
@@ -37,12 +45,30 @@ export function ChatV2Shell() {
       className="flex w-full flex-1 min-h-0 h-full overflow-hidden nonga-bg-app relative"
       id="chat-v2-root"
       data-testid="chat-v2-root"
+      data-sidebar-width={
+        panelResize.isDesktop ? String(panelResize.appliedSidebarWidth) : undefined
+      }
+      data-workspace-width={
+        panelResize.isDesktop
+          ? String(panelResize.appliedWorkspaceWidth)
+          : undefined
+      }
     >
       <ChatV2Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebarCollapsed}
+        desktopWidthPx={panelResize.appliedSidebarWidth}
+        isDesktop={panelResize.isDesktop}
+        resizeEnabled={panelResize.isDesktop && !sidebarCollapsed}
+        resizeValue={panelResize.preferred.sidebarWidth}
+        resizeMin={panelResize.sidebarMin}
+        resizeMax={panelResize.sidebarResizeMax}
+        resizeStep={panelResize.resizeStep}
+        resizeLargeStep={panelResize.resizeLargeStep}
+        onResizeWidth={panelResize.setSidebarWidth}
+        onResetPanelWidths={panelResize.resetPanelWidths}
       />
 
       <ChatV2Conversation
@@ -62,6 +88,14 @@ export function ChatV2Shell() {
         isLoading={isGenerating}
         isCollapsed={workspace.isCollapsed}
         onToggleCollapsed={workspace.toggleCollapsed}
+        desktopWidthPx={panelResize.appliedWorkspaceWidth}
+        resizeEnabled={panelResize.isDesktop && !workspace.isCollapsed}
+        resizeValue={panelResize.preferred.workspaceWidth}
+        resizeMin={panelResize.workspaceMin}
+        resizeMax={panelResize.workspaceResizeMax}
+        resizeStep={panelResize.resizeStep}
+        resizeLargeStep={panelResize.resizeLargeStep}
+        onResizeWidth={panelResize.setWorkspaceWidth}
       />
 
       {/* Tablet/Mobile overlay sheet (below lg only) */}

@@ -95,10 +95,32 @@ function main(): void {
   mustInclude(sidebar, "max-lg:fixed", "sidebar-drawer-scoped-below-lg");
   mustInclude(sidebar, "max-lg:-translate-x-full", "sidebar-offscreen-only-below-lg");
   mustInclude(sidebar, 'className="fixed inset-0 z-[45] bg-black/60 lg:hidden"', "sidebar-backdrop-below-lg-only");
+  mustInclude(sidebar, "ChatV2ResizeHandle", "sidebar-resize-handle-wired");
+  mustInclude(sidebar, "chat-v2-reset-panel-widths", "sidebar-reset-panel-widths-control");
+  mustInclude(sidebar, "คืนค่าขนาดแผง", "sidebar-reset-panel-widths-label");
+  {
+    const resizeHandle = read("src/components/chat-v2/ChatV2ResizeHandle.tsx");
+    mustInclude(
+      resizeHandle,
+      "chat-v2-sidebar-resize-handle",
+      "sidebar-resize-handle-testid"
+    );
+    mustInclude(
+      resizeHandle,
+      "chat-v2-workspace-resize-handle",
+      "workspace-resize-handle-testid"
+    );
+  }
 
   // Vehicle Workspace: inline column at lg+ (both expanded and rail states).
-  mustInclude(workspace, 'hidden lg:flex shrink-0 lg:w-[288px]', "workspace-inline-column-at-lg");
+  mustInclude(workspace, "hidden lg:flex shrink-0", "workspace-inline-column-at-lg");
   mustInclude(workspace, 'hidden lg:flex shrink-0 w-14', "workspace-rail-at-lg");
+  mustInclude(workspace, "ChatV2ResizeHandle", "workspace-resize-handle-wired");
+  mustInclude(
+    read("src/components/chat-v2/panelWidths.ts"),
+    "CHAT_V2_CENTER_MIN_WIDTH = 420",
+    "center-min-width-420"
+  );
 
   // Overlay sheet exists only below lg.
   mustInclude(sheet, '<div className="lg:hidden"', "vehicle-sheet-below-lg-only");
@@ -165,7 +187,7 @@ function main(): void {
   mustInclude(sheet, 'role="dialog"', "sheet-dialog-role");
   mustInclude(sheet, 'aria-modal="true"', "sheet-aria-modal");
   mustInclude(sheet, "useChatV2FocusTrap", "sheet-focus-trap");
-  mustInclude(conversation, "lg:min-w-[380px]", "conversation-min-readable-width");
+  mustInclude(conversation, "lg:min-w-[420px]", "conversation-min-readable-width");
   mustInclude(conversation, "sendMessage", "composer-submission-path-unchanged");
   mustInclude(conversation, "--chat-vv-bottom-inset", "composer-keyboard-inset-preserved");
 

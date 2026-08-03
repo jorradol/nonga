@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  RotateCcw,
   Sun,
   Trash2,
   User,
@@ -29,8 +30,14 @@ import { useRole } from "../../hooks/auth/useRole";
 import { useAppStore } from "../../store";
 import ProfileAvatar from "../profile/ProfileAvatar";
 import AccountProfileMenu from "../profile/AccountProfileMenu";
+import { ChatV2ResizeHandle } from "./ChatV2ResizeHandle";
 import { useChatV2FocusTrap } from "./adapters/useChatV2FocusTrap";
 import { CHAT_V2_SIDEBAR_INLINE_MEDIA_QUERY } from "./adapters/useChatV2Presentation";
+import {
+  CHAT_V2_SIDEBAR_WIDTH_DEFAULT,
+  CHAT_V2_SIDEBAR_WIDTH_MAX,
+  CHAT_V2_SIDEBAR_WIDTH_MIN,
+} from "./panelWidths";
 
 function shortRoleLabel(role: string): string {
   switch (role) {
@@ -182,6 +189,18 @@ interface ChatV2SidebarProps {
   /** Desktop (lg+) collapse state — compact rail when true. */
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
+  /** Applied desktop column width (ignored below lg / when collapsed). */
+  desktopWidthPx?: number;
+  /** True at lg+ — drives inline width without enabling drag. */
+  isDesktop?: boolean;
+  resizeEnabled?: boolean;
+  resizeValue?: number;
+  resizeMin?: number;
+  resizeMax?: number;
+  resizeStep?: number;
+  resizeLargeStep?: number;
+  onResizeWidth?: (next: number) => void;
+  onResetPanelWidths?: () => void;
 }
 
 export function ChatV2Sidebar({
@@ -189,6 +208,16 @@ export function ChatV2Sidebar({
   onClose,
   isCollapsed,
   onToggleCollapsed,
+  desktopWidthPx = CHAT_V2_SIDEBAR_WIDTH_DEFAULT,
+  isDesktop = false,
+  resizeEnabled = false,
+  resizeValue = CHAT_V2_SIDEBAR_WIDTH_DEFAULT,
+  resizeMin = CHAT_V2_SIDEBAR_WIDTH_MIN,
+  resizeMax = CHAT_V2_SIDEBAR_WIDTH_MAX,
+  resizeStep,
+  resizeLargeStep,
+  onResizeWidth,
+  onResetPanelWidths,
 }: ChatV2SidebarProps) {
   const {
     sessions,
@@ -244,6 +273,18 @@ export function ChatV2Sidebar({
             <Moon className="w-4 h-4" aria-hidden="true" />
           )}
         </button>
+        {onResetPanelWidths && (
+          <button
+            type="button"
+            onClick={onResetPanelWidths}
+            className="max-lg:hidden min-w-9 min-h-9 p-2 rounded-lg nonga-text-secondary hover:bg-(--nonga-bg-subtle) hover:text-orange-600 dark:hover:text-orange-400 transition-colors motion-reduce:transition-none cursor-pointer nonga-focus-ring shrink-0"
+            aria-label="คืนค่าขนาดแผง"
+            title="คืนค่าขนาดแผง"
+            data-testid="chat-v2-reset-panel-widths"
+          >
+            <RotateCcw className="w-4 h-4" aria-hidden="true" />
+          </button>
+        )}
         <button
           type="button"
           onClick={onToggleCollapsed}
@@ -429,14 +470,34 @@ export function ChatV2Sidebar({
       <div
         ref={drawerRef}
         aria-label="เมนูบทสนทนา"
-        className={`max-lg:fixed max-lg:top-0 max-lg:bottom-0 max-lg:left-0 max-lg:z-50 max-lg:w-[290px] max-lg:max-w-[85vw] max-lg:max-h-[100dvh] max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-2xl lg:static lg:shrink-0 lg:w-[248px] xl:w-[264px] lg:h-full border-r border-(--nonga-border) bg-(--nonga-bg-app) flex flex-col min-h-0 transform transition-transform duration-200 ease-out motion-reduce:transition-none ${
+        className={`relative max-lg:fixed max-lg:top-0 max-lg:bottom-0 max-lg:left-0 max-lg:z-50 max-lg:w-[290px] max-lg:max-w-[85vw] max-lg:max-h-[100dvh] max-lg:pb-[env(safe-area-inset-bottom)] max-lg:shadow-2xl lg:static lg:shrink-0 lg:h-full border-r border-(--nonga-border) bg-(--nonga-bg-app) flex flex-col min-h-0 transform transition-transform duration-200 ease-out motion-reduce:transition-none ${
           isOpen ? "translate-x-0" : "max-lg:-translate-x-full"
         } lg:translate-x-0 ${isCollapsed ? "lg:hidden" : ""}`}
+        style={
+          isDesktop && !isCollapsed
+            ? { width: desktopWidthPx }
+            : undefined
+        }
         data-testid="chat-v2-sidebar"
         data-open={isOpen ? "true" : "false"}
         data-collapsed={isCollapsed ? "true" : "false"}
+        data-width={
+          isDesktop && !isCollapsed ? String(desktopWidthPx) : undefined
+        }
       >
         {content}
+        {resizeEnabled && onResizeWidth && (
+          <ChatV2ResizeHandle
+            edge="sidebar"
+            value={resizeValue}
+            min={resizeMin}
+            max={resizeMax}
+            label="ปรับความกว้างเมนูบทสนทนา"
+            onValueChange={onResizeWidth}
+            step={resizeStep}
+            largeStep={resizeLargeStep}
+          />
+        )}
       </div>
     </>
   );
