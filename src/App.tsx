@@ -14,6 +14,7 @@ import MarketplaceView from "./components/MarketplaceView";
 import MyListingsView from "./components/MyListingsView";
 import AIChatView from "./components/AIChatView";
 import ChatV2Page from "./components/chat-v2/ChatV2Page";
+import ChatV3Page from "./components/chat-v3/ChatV3Page";
 import SellCarView from "./components/SellCarView";
 import DetailView from "./components/DetailView";
 import DealersView from "./components/DealersView";
@@ -85,7 +86,10 @@ export default function App() {
     "text-left nonga-text-muted cursor-not-allowed opacity-75";
 
   // Full-viewport chat surfaces (own header/scroll): classic /chat and isolated /chat-v2.
-  const isFullScreenChatView = currentView === "chat" || currentView === "chat-v2";
+  const isFullScreenChatView =
+    currentView === "chat" ||
+    currentView === "chat-v2" ||
+    currentView === "chat-v3";
 
   // Load cars directory from fullstack server immediately on startup
   useEffect(() => {
@@ -245,6 +249,9 @@ export default function App() {
       case "chat-v2":
         // Chat Experience V2 — isolated presentation shell (QA via direct URL).
         return <ChatV2Page />;
+      case "chat-v3":
+        // Chat Experience V3 — isolated shell (direct URL only in this phase).
+        return <ChatV3Page />;
       case "sell":
         return (
           <RequireDealer>
@@ -354,7 +361,7 @@ export default function App() {
       {/* Atmosphere glow backdrop lines */}
       <GradientBackground />
 
-      <div className={`w-full flex-1 flex flex-col h-full ${currentView === "chat" ? "min-h-0 overflow-hidden" : currentView === "chat-v2" ? "min-h-0 overflow-hidden" : ""}`}>
+      <div className={`w-full flex-1 flex flex-col h-full ${currentView === "chat" ? "min-h-0 overflow-hidden" : currentView === "chat-v2" ? "min-h-0 overflow-hidden" : currentView === "chat-v3" ? "min-h-0 overflow-hidden" : ""}`}>
         {/* Navigation bar - hidden in chat mode */}
         {!isFullScreenChatView && <Header />}
 

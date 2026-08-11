@@ -8,6 +8,7 @@ export type RoutableAppView =
   | "my-listings"
   | "chat"
   | "chat-v2"
+  | "chat-v3"
   | "sell"
   | "dealers"
   | "saved"
@@ -105,6 +106,8 @@ export function resolveViewFromPathname(pathname: string): RoutableAppView {
   if (path === "/" || path === "/chat") return "chat";
   // Chat Experience V2 (isolated QA shell) — direct URL only, no nav cutover.
   if (path === "/chat-v2") return "chat-v2";
+  // Chat Experience V3 (isolated shell) — direct URL only, no nav cutover.
+  if (path === "/chat-v3") return "chat-v3";
   if (path === "/home") return "home";
   if (path === "/marketplace") return "marketplace";
   if (path === "/my-listings") return "my-listings";
@@ -150,6 +153,8 @@ export function resolvePathnameForView(
       return "/";
     case "chat-v2":
       return "/chat-v2";
+    case "chat-v3":
+      return "/chat-v3";
     case "marketplace":
       return "/marketplace";
     case "my-listings":
