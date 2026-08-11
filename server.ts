@@ -43,6 +43,7 @@ import { registerSalesBrainAdminShadowSmokeRoutes } from "./src/services/ai/sale
 import { registerSalesBrainChatShadowSinkRoutes } from "./src/services/ai/salesBrainServerChatShadowSink";
 import { registerSalesBrainAdminRuntimeProofSkeletonRoutes } from "./src/services/ai/salesBrainServerRuntimeProofSkeleton";
 import { registerSalesBrainUserVisibleOrchestrationBridgeRoutes } from "./src/services/ai/salesBrainServerUserVisibleOrchestrationBridge";
+import { registerChatV3ConversationRoutes } from "./src/services/ai/chat-v3/chatV3ConversationRoutes";
 import type { ChatInventoryCar } from "./src/services/ai/chat/marketplaceChatSearch";
 import { getListingImagesRoot } from "./src/server/listingImageStorage";
 import { inferMarketplaceCategoryType } from "./src/utils/marketplaceCarMapper";
@@ -720,6 +721,7 @@ registerSalesBrainUserVisibleOrchestrationBridgeRoutes(app, {
     return toPublicMarketplaceCarDtoList(data) as ChatInventoryCar[];
   },
 });
+registerChatV3ConversationRoutes(app);
 
 // 4. API: AI Smart Chat Assistant (Nong A)
 app.post("/api/gemini/chat", async (req, res) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type ChatV3Conversation,
   type ChatV3ExpertMode,
@@ -11,6 +11,74 @@ import {
   chatV3MockModeDescription,
   chatV3MockWorkspaceItems,
 } from "../mock/chatV3MockData";
+import type {
+  ChatV3AutomotiveVehicleContextDto,
+  ChatV3HistoryTurn,
+} from "../../../services/ai/chat-v3/chatV3ConversationContracts";
+import { CHAT_V3_USER_FACING_UNAVAILABLE } from "../../../services/ai/chat-v3/chatV3ConversationContracts";
+import { sendChatV3ConversationRequest } from "./chatV3ConversationClient";
+
+/** Build prior-turn history for the thin conversation client (excludes current draft). */
+export function buildChatV3HistoryFromMessages(
+  messages: ChatV3Message[],
+  conversationId: string
+): ChatV3HistoryTurn[] {
+  return messages
+    .filter(
+      (message) =>
+        message.conversationId === conversationId &&
+        message.status === "complete" &&
+        (message.role === "user" || message.role === "assistant") &&
+        message.content.trim().length > 0
+    )
+    .map((message) => ({
+      role: message.role as "user" | "assistant",
+      content: message.content,
+    }));
+}
+
+/**
+ * WP-V3-09 — Map workspace VEHICLE cards (and selected item) into conversation vehicle context.
+ * Uses only existing title/summary/payload fields — never invents specs.
+ */
+export function buildChatV3VehicleContextFromWorkspace(
+  items: ChatV3WorkspaceItem[],
+  conversationId: string,
+  selectedItemId: string | null
+): ChatV3AutomotiveVehicleContextDto | undefined {
+  const vehicles = items
+    .filter(
+      (item) =>
+        item.conversationId === conversationId &&
+        String(item.type).toUpperCase() === "VEHICLE"
+    )
+    .sort((a, b) => a.order - b.order)
+    .map((item) => {
+      const facts: Record<string, string> = {};
+      for (const [key, value] of Object.entries(item.payload ?? {})) {
+        if (value == null) continue;
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+          const text = String(value).trim();
+          if (text) facts[key] = text;
+        }
+      }
+      return {
+        id: item.id,
+        label: item.title,
+        summary: item.summary,
+        ...(Object.keys(facts).length > 0 ? { facts } : {}),
+      };
+    });
+
+  if (vehicles.length === 0) return undefined;
+
+  const selectedVehicleId =
+    selectedItemId && vehicles.some((vehicle) => vehicle.id === selectedItemId)
+      ? selectedItemId
+      : null;
+
+  return { selectedVehicleId, vehicles };
+}
 
 interface ChatV3LayoutState {
   conversations: ChatV3Conversation[];
@@ -21,6 +89,8 @@ interface ChatV3LayoutState {
   activeExpertMode: ChatV3ExpertMode;
   expertModeDescription: string;
   draftMessage: string;
+  isSending: boolean;
+  sendError: string | null;
   isWorkspaceCollapsed: boolean;
   selectedWorkspaceItemId: string | null;
   editingWorkspaceItemId: string | null;
@@ -118,6 +188,8 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     resolveInitialConversationId(conversations)
   );
   const [draftMessage, setDraftMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [forcedExpertMode, setForcedExpertMode] = useState<ChatV3ExpertMode>("AUTO");
   const [selectedWorkspaceItemId, setSelectedWorkspaceItemId] = useState<string | null>(null);
   const [editingWorkspaceItemId, setEditingWorkspaceItemId] = useState<string | null>(null);
@@ -130,6 +202,13 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     "conversation"
   );
   const [draggedWorkspaceItemId, setDraggedWorkspaceItemId] = useState<string | null>(null);
+  const sendGenerationRef = useRef(0);
+  const activeConversationIdRef = useRef(activeConversationId);
+  const isSendingRef = useRef(false);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -172,6 +251,7 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
   const expertModeDescription = chatV3MockModeDescription[activeExpertMode];
 
   const createConversation = () => {
+    sendGenerationRef.current += 1;
     const createdAt = new Date().toISOString();
     const createdConversation: ChatV3Conversation = {
       id: `conv-v3-${Date.now()}`,
@@ -187,6 +267,7 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     setForcedExpertMode("AUTO");
     setMobilePanel("conversation");
     setDraftMessage("");
+    setSendError(null);
   };
 
   const deleteConversation = (conversationId: string) => {
@@ -207,12 +288,17 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     }
   };
 
-  const applyUserMessage = (content: string) => {
+  const applyUserMessage = async (content: string) => {
+    if (!activeConversationId || isSendingRef.current) return;
+
+    const conversationIdForRequest = activeConversationId;
+    const expertModeForRequest = forcedExpertMode;
+    const historyForRequest = buildChatV3HistoryFromMessages(messages, conversationIdForRequest);
     const messageTime = new Date().toISOString();
     const thinkingId = `msg-v3-assistant-thinking-${Date.now() + 1}`;
     const userMessage: ChatV3Message = {
       id: `msg-v3-user-${Date.now()}`,
-      conversationId: activeConversationId,
+      conversationId: conversationIdForRequest,
       role: "user",
       content,
       createdAt: messageTime,
@@ -226,17 +312,21 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     };
     const thinkingMessage: ChatV3Message = {
       id: thinkingId,
-      conversationId: activeConversationId,
+      conversationId: conversationIdForRequest,
       role: "assistant",
       content: "กำลังเตรียมคำตอบให้คุณ...",
       createdAt: messageTime,
       status: "thinking",
     };
 
+    const generation = ++sendGenerationRef.current;
+    isSendingRef.current = true;
+    setIsSending(true);
+    setSendError(null);
     setMessages((currentMessages) => [...currentMessages, userMessage, thinkingMessage]);
     setConversations((currentConversations) =>
       currentConversations.map((conversation) =>
-        conversation.id !== activeConversationId
+        conversation.id !== conversationIdForRequest
           ? conversation
           : {
               ...conversation,
@@ -250,41 +340,72 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
       )
     );
 
-    window.setTimeout(() => {
+    const result = await sendChatV3ConversationRequest({
+      conversationId: conversationIdForRequest,
+      message: content,
+      history: historyForRequest,
+      expertMode: expertModeForRequest,
+      vehicleContext: buildChatV3VehicleContextFromWorkspace(
+        workspaceItems,
+        conversationIdForRequest,
+        selectedWorkspaceItemId
+      ),
+    });
+
+    const isStale =
+      generation !== sendGenerationRef.current ||
+      activeConversationIdRef.current !== conversationIdForRequest;
+
+    if (isStale) {
       setMessages((currentMessages) =>
-        currentMessages.map((message) =>
-          message.id !== thinkingId
-            ? message
-            : {
-                ...message,
-                status: "complete",
-                content:
-                  "รับทราบครับ น้องเอกำลังเตรียมคำแนะนำให้ในโหมดที่เลือกไว้ คุณสามารถเปิด Workspace เพื่อดูรายการที่เกี่ยวข้องได้",
-                actions: [
-                  {
-                    id: `open-workspace-${Date.now()}`,
-                    label: "เปิด Workspace",
-                    type: "open_workspace",
-                  },
-                ],
-              }
-        )
+        currentMessages.filter((message) => message.id !== thinkingId)
       );
-    }, 700);
+      if (generation === sendGenerationRef.current) {
+        isSendingRef.current = false;
+        setIsSending(false);
+      }
+      return;
+    }
+
+    if (!result.success) {
+      setMessages((currentMessages) =>
+        currentMessages.filter((message) => message.id !== thinkingId)
+      );
+      setSendError(result.message || CHAT_V3_USER_FACING_UNAVAILABLE);
+      isSendingRef.current = false;
+      setIsSending(false);
+      return;
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id !== thinkingId
+          ? message
+          : {
+              ...message,
+              id: result.data.messageId || message.id,
+              status: "complete",
+              content: result.data.content,
+              actions: undefined,
+            }
+      )
+    );
+    isSendingRef.current = false;
+    setIsSending(false);
   };
 
   const sendDraftMessage = () => {
     const content = draftMessage.trim();
-    if (!content) return;
-    applyUserMessage(content);
+    if (!content || isSendingRef.current) return;
     setDraftMessage("");
+    void applyUserMessage(content);
   };
 
   const sendSuggestedPrompt = (prompt: string) => {
     const content = prompt.trim();
-    if (!content) return;
-    applyUserMessage(content);
+    if (!content || isSendingRef.current) return;
     setMobilePanel("conversation");
+    void applyUserMessage(content);
   };
 
   const selectWorkspaceItem = (itemId: string) => {
@@ -392,6 +513,8 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     activeExpertMode,
     expertModeDescription,
     draftMessage,
+    isSending,
+    sendError,
     isWorkspaceCollapsed,
     selectedWorkspaceItemId,
     editingWorkspaceItemId,
@@ -405,8 +528,10 @@ export function useChatV3LayoutState(): ChatV3LayoutState {
     createConversation,
     deleteConversation,
     setActiveConversation: (conversationId) => {
+      sendGenerationRef.current += 1;
       setActiveConversationId(conversationId);
       setMobilePanel("conversation");
+      setSendError(null);
     },
     setActiveExpertMode: setForcedExpertMode,
     setMobilePanel,

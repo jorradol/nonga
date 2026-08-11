@@ -12,6 +12,8 @@ interface ChatV3ConversationProps {
   draftMessage: string;
   activeModeLabel: string;
   mobilePanel: "sidebar" | "conversation" | "workspace";
+  isSending: boolean;
+  sendError: string | null;
   onDraftChange: (value: string) => void;
   onSendMessage: () => void;
   onSuggestedPrompt: (prompt: string) => void;
@@ -55,13 +57,15 @@ export default function ChatV3Conversation({
   draftMessage,
   activeModeLabel,
   mobilePanel,
+  isSending,
+  sendError,
   onDraftChange,
   onSendMessage,
   onSuggestedPrompt,
   onOpenWorkspace,
 }: ChatV3ConversationProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const canSend = draftMessage.trim().length > 0;
+  const canSend = draftMessage.trim().length > 0 && !isSending;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -159,6 +163,11 @@ export default function ChatV3Conversation({
       </div>
 
       <div className="chat-v3-composer" aria-label="กล่องพิมพ์ข้อความ">
+        {sendError ? (
+          <p className="chat-v3-composer-error" role="alert">
+            {sendError}
+          </p>
+        ) : null}
         <div className="chat-v3-composer-shell">
           <div className="chat-v3-composer-toolbar">
             <button
@@ -202,6 +211,8 @@ export default function ChatV3Conversation({
               onKeyDown={onDraftKeyDown}
               placeholder="พิมพ์คุยกับน้องเอ เช่น หา SUV งบไม่เกิน 700,000"
               rows={1}
+              disabled={isSending}
+              aria-busy={isSending}
             />
             <button
               type="button"
@@ -209,9 +220,10 @@ export default function ChatV3Conversation({
               onClick={onSendMessage}
               disabled={!canSend}
               aria-disabled={!canSend}
+              aria-busy={isSending}
               aria-label="ส่งข้อความ"
             >
-              ส่ง
+              {isSending ? "..." : "ส่ง"}
             </button>
           </div>
         </div>

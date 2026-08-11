@@ -636,6 +636,17 @@
   text-align: center;
 }
 
+.chat-v3-composer-error {
+  width: min(100%, var(--chat-v3-read-max));
+  margin: 0 auto 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #fecaca 70%, var(--chat-v3-surface) 30%);
+  color: #7f1d1d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .chat-v3-workspace {
   min-height: 0;
   height: 100%;

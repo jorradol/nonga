@@ -14,6 +14,8 @@ export default function ChatV3Shell() {
     activeWorkspaceItems,
     activeExpertMode,
     draftMessage,
+    isSending,
+    sendError,
     isWorkspaceCollapsed,
     selectedWorkspaceItemId,
     editingWorkspaceItemId,
@@ -121,6 +123,8 @@ export default function ChatV3Shell() {
             draftMessage={draftMessage}
             activeModeLabel={chatV3ExpertModeThaiLabel[activeExpertMode]}
             mobilePanel={mobilePanel}
+            isSending={isSending}
+            sendError={sendError}
             onDraftChange={setDraftMessage}
             onSendMessage={sendDraftMessage}
             onSuggestedPrompt={sendSuggestedPrompt}
