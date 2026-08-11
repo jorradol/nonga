@@ -29,11 +29,26 @@ export interface ChatV3HistoryTurn {
   content: string;
 }
 
+/** Optional vehicle context for WP-V3-09 reasoning (server-composed; client may send facts only). */
+export interface ChatV3VehicleContextItemDto {
+  id: string;
+  label: string;
+  summary?: string;
+  facts?: Record<string, string>;
+}
+
+export interface ChatV3AutomotiveVehicleContextDto {
+  selectedVehicleId?: string | null;
+  vehicles: ChatV3VehicleContextItemDto[];
+}
+
 export interface ChatV3ConversationRequest {
   conversationId: string;
   message: string;
   history: ChatV3HistoryTurn[];
   expertMode?: ChatV3RuntimeExpertMode | string;
+  /** Optional. Known vehicles in this conversation only — never invent facts client-side. */
+  vehicleContext?: ChatV3AutomotiveVehicleContextDto;
 }
 
 export type ChatV3ConversationErrorCode =
@@ -80,6 +95,7 @@ export interface ChatV3ValidatedConversationRequest {
   message: string;
   history: ChatV3HistoryTurn[];
   expertMode: ChatV3RuntimeExpertMode;
+  vehicleContext?: ChatV3AutomotiveVehicleContextDto;
 }
 
 const FORBIDDEN_CLIENT_KEYS = [
@@ -243,6 +259,8 @@ export function validateChatV3ConversationRequest(
     };
   }
 
+  const vehicleContext = normalizeVehicleContext(raw.vehicleContext);
+
   return {
     ok: true,
     value: {
@@ -250,6 +268,77 @@ export function validateChatV3ConversationRequest(
       message,
       history: truncateHistoryToLimits(history),
       expertMode: normalizeExpertMode(raw.expertMode),
+      ...(vehicleContext ? { vehicleContext } : {}),
     },
+  };
+}
+
+const CHAT_V3_MAX_VEHICLE_CONTEXT_ITEMS = 8;
+const CHAT_V3_MAX_VEHICLE_LABEL_LENGTH = 160;
+const CHAT_V3_MAX_VEHICLE_SUMMARY_LENGTH = 400;
+const CHAT_V3_MAX_VEHICLE_FACT_ENTRIES = 12;
+const CHAT_V3_MAX_VEHICLE_FACT_VALUE_LENGTH = 200;
+
+function normalizeVehicleContext(
+  raw: unknown
+): ChatV3AutomotiveVehicleContextDto | undefined {
+  if (raw == null) return undefined;
+  if (!isPlainObject(raw)) return undefined;
+  if (!Array.isArray(raw.vehicles)) return undefined;
+
+  const vehicles: ChatV3VehicleContextItemDto[] = [];
+  for (const item of raw.vehicles.slice(0, CHAT_V3_MAX_VEHICLE_CONTEXT_ITEMS)) {
+    if (!isPlainObject(item)) continue;
+    const id = String(item.id ?? "").trim();
+    const label = String(item.label ?? "").trim();
+    if (!id || !label) continue;
+    if (id.length > CHAT_V3_MAX_CONVERSATION_ID_LENGTH) continue;
+    if (label.length > CHAT_V3_MAX_VEHICLE_LABEL_LENGTH) continue;
+
+    const summaryRaw = String(item.summary ?? "").trim();
+    const summary =
+      summaryRaw && summaryRaw.length <= CHAT_V3_MAX_VEHICLE_SUMMARY_LENGTH
+        ? summaryRaw
+        : undefined;
+
+    let facts: Record<string, string> | undefined;
+    if (isPlainObject(item.facts)) {
+      const entries = Object.entries(item.facts)
+        .slice(0, CHAT_V3_MAX_VEHICLE_FACT_ENTRIES)
+        .map(([key, value]) => [String(key).trim(), String(value ?? "").trim()] as const)
+        .filter(
+          ([key, value]) =>
+            Boolean(key) &&
+            Boolean(value) &&
+            value.length <= CHAT_V3_MAX_VEHICLE_FACT_VALUE_LENGTH
+        );
+      if (entries.length > 0) {
+        facts = Object.fromEntries(entries);
+      }
+    }
+
+    vehicles.push({
+      id,
+      label,
+      ...(summary ? { summary } : {}),
+      ...(facts ? { facts } : {}),
+    });
+  }
+
+  if (vehicles.length === 0) return undefined;
+
+  const selectedRaw = raw.selectedVehicleId;
+  const selectedVehicleId =
+    selectedRaw == null || selectedRaw === ""
+      ? null
+      : String(selectedRaw).trim();
+
+  return {
+    selectedVehicleId:
+      selectedVehicleId &&
+      vehicles.some((vehicle) => vehicle.id === selectedVehicleId)
+        ? selectedVehicleId
+        : null,
+    vehicles,
   };
 }

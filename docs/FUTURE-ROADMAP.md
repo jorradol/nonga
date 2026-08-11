@@ -1,5 +1,25 @@
 # Nong A — Future roadmap notes
 
+## Chat V.3 — WP‑V3‑09 Automotive Conversation Reasoning Core
+
+**Status:** Implemented in codebase (prompt/reasoning core + offline deterministic tests). **Owner-browser conversational acceptance still required** on `/chat-v3`.
+
+**What landed:**
+
+- Deterministic automotive turn analysis (intent, vehicle-reference resolution, freshness, finance assumptions, light safety risk)
+- Compact reasoning principles + per-turn addendum composed into Chat V.3 system instruction
+- Optional `vehicleContext` on the thin conversation contract (selected + known vehicles in this conversation only)
+- Offline tests: `npx tsx scripts/test-chat-v3-automotive-reasoning.mts`
+
+**Explicitly not in this WP:**
+
+- Full Safety Layer → reserved for **WP‑V3‑11**
+- Web Search / Marketplace / external APIs
+- Automotive Belief & Auspicious Guidance (สายมู) → still **Backlog only / not implemented** (see below)
+- No change to WP‑V3‑10 scope; do not redefine WP‑V3‑11 here
+
+---
+
 ## Chat V.3 — Accepted observations / future conversation-quality backlog
 
 **Status:** Accepted with WP‑V3‑08 Owner-browser PASS — **not** a release blocker. Do **not** reopen WP‑V3‑08 without a new Owner order.
@@ -19,7 +39,7 @@ Earlier WP‑V3‑07E backlog (still open, non-blocking): burn-smell safety tone
 
 **Temporary title:** `Automotive Belief & Auspicious Guidance — สายมู ดวง และความเชื่อเกี่ยวกับรถ`
 
-**Status:** Backlog only / **not implemented**. Do **not** fold into WP‑V3‑08. **No new WP number assigned here** — keep numbered Chat V.3 sequence (e.g. WP‑V3‑09+) under Owner/NongD planning; place this capability in Future Capability Backlog until scheduled.
+**Status:** Backlog only / **not implemented**. Do **not** fold into WP‑V3‑08 or WP‑V3‑09. **No Chat V.3 WP number assigned to belief guidance here** — keep numbered sequence under Owner/NongD planning; remains in Future Capability Backlog until scheduled.
 
 **In-scope concepts (future):**
 
@@ -44,7 +64,7 @@ Earlier WP‑V3‑07E backlog (still open, non-blocking): burn-smell safety tone
 - User must be able to choose serious, belief-oriented, or mixed conversation modes
 - Before implementation: define reference sources, answer framing, and Safety/PDPA rules
 
-**Suggested sequencing (planning only):** schedule **after** core Chat V.3 conversation quality / safety foundations (known future numbered item from WP‑V3‑08 scope notes: full Safety Layer as **WP‑V3‑11**), and **not** ahead of Owner-assigned WP‑V3‑09/10 without explicit approval. Exact slot TBD by Owner/NongD.
+**Suggested sequencing (planning only):** schedule **after** core Chat V.3 conversation quality / safety foundations (full Safety Layer as **WP‑V3‑11**). WP‑V3‑09 delivered automotive reasoning core only — belief guidance stays backlog. Exact slot TBD by Owner/NongD.
 
 ---
 
