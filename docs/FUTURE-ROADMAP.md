@@ -1,5 +1,53 @@
 # Nong A — Future roadmap notes
 
+## Chat V.3 — Accepted observations / future conversation-quality backlog
+
+**Status:** Accepted with WP‑V3‑08 Owner-browser PASS — **not** a release blocker. Do **not** reopen WP‑V3‑08 without a new Owner order.
+
+Recorded from Owner live acceptance (quality notes only):
+
+- Pronoun consistency can still drift mid-conversation
+- Occasional over-certainty wording
+- Occasional unsupported market/stock-style claims
+- “ปังปุริเย่!” may appear earlier / more often than ideal
+
+Earlier WP‑V3‑07E backlog (still open, non-blocking): burn-smell safety tone; avoid “แน่นอน” when causes are plural; don’t casually recommend tapping a starter; keep pronouns continuous; no mid-chat “สวัสดี”; match answer length to question complexity.
+
+---
+
+## Future Capability Backlog — Automotive Belief & Auspicious Guidance (สายมู)
+
+**Temporary title:** `Automotive Belief & Auspicious Guidance — สายมู ดวง และความเชื่อเกี่ยวกับรถ`
+
+**Status:** Backlog only / **not implemented**. Do **not** fold into WP‑V3‑08. **No new WP number assigned here** — keep numbered Chat V.3 sequence (e.g. WP‑V3‑09+) under Owner/NongD planning; place this capability in Future Capability Backlog until scheduled.
+
+**In-scope concepts (future):**
+
+- Vehicle color by birth day, zodiac, Thai year animal, or user-chosen belief system
+- License-plate numbers, digit sums, and meanings across belief traditions
+- Auspicious days/times for buying, receiving, registering, or first use
+- Beliefs about travel, new cars, and using a car with peace of mind
+- Thai customs: vehicle blessing (เจิมรถ), paying respect to the vehicle, auspicious objects/rites
+- Light/fun conversation (e.g. whether a car “suits” the owner)
+- Multiple belief traditions without claiming any as universal scientific fact
+
+**Control principles (mandatory when scheduled):**
+
+- State politely that guidance is personal belief, not scientific proof
+- Never guarantee wealth, luck, safety, or zero accidents
+- Never replace inspection, insurance, safe driving, or mechanic advice with belief guidance
+- Never frighten users about a car, color, or plate number
+- Never pressure purchase of products, rites, or “แก้เคล็ด” services
+- If birth date/time or other PII is needed: ask only what is necessary, explain why, and do not store without consent (PDPA)
+- Keep belief guidance clearly separated from technical/factual automotive advice
+- Tone: friendly and optionally playful; respect all religions and beliefs
+- User must be able to choose serious, belief-oriented, or mixed conversation modes
+- Before implementation: define reference sources, answer framing, and Safety/PDPA rules
+
+**Suggested sequencing (planning only):** schedule **after** core Chat V.3 conversation quality / safety foundations (known future numbered item from WP‑V3‑08 scope notes: full Safety Layer as **WP‑V3‑11**), and **not** ahead of Owner-assigned WP‑V3‑09/10 without explicit approval. Exact slot TBD by Owner/NongD.
+
+---
+
 ## Guided Vehicle Photo Capture (seller mobile)
 
 **Status:** Future phase — after Buyer Search Intent Polish, API cost control, and mobile chat UX are stable.
