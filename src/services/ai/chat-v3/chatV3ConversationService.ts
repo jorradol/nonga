@@ -125,6 +125,7 @@ export async function runChatV3Conversation(
 
   const systemInstruction = buildChatV3SystemInstruction(request.expertMode, {
     message: request.message,
+    history: request.history,
     vehicleContext: request.vehicleContext ?? null,
   });
 

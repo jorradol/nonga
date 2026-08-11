@@ -1,9 +1,12 @@
 /**
- * WP-V3-08/09 — Chat V.3 system instruction: Nong A conversation identity
- * + automotive reasoning core. Keep concise. Expert mode is a hint.
+ * WP-V3-08/09/10B — Chat V.3 system instruction: Nong A conversation identity
+ * + automotive reasoning core + domain guidance. Keep concise. Expert mode is a hint.
  * No sales scripts / fixed length / forced CTA.
  */
-import type { ChatV3RuntimeExpertMode } from "./chatV3ConversationContracts";
+import type {
+  ChatV3HistoryTurn,
+  ChatV3RuntimeExpertMode,
+} from "./chatV3ConversationContracts";
 import {
   buildChatV3AutomotiveReasoningPrinciples,
   composeChatV3AutomotiveReasoningBlocks,
@@ -22,6 +25,8 @@ const EXPERT_MODE_HINT: Record<ChatV3RuntimeExpertMode, string> = {
 export interface BuildChatV3SystemInstructionOptions {
   /** Latest user message — enables per-turn reasoning addendum. */
   message?: string;
+  /** Recent conversation turns — used only for deterministic user-constraint extraction. */
+  history?: ChatV3HistoryTurn[];
   vehicleContext?: ChatV3AutomotiveVehicleContext | null;
   /** When false, skip per-turn addendum (identity + principles only). Default true if message set. */
   includeTurnAddendum?: boolean;
@@ -87,6 +92,7 @@ export function buildChatV3SystemInstruction(
 
   const composed = composeChatV3AutomotiveReasoningBlocks({
     message: message || "(ไม่มีข้อความล่าสุด)",
+    history: options.history,
     vehicleContext: options.vehicleContext,
   });
 

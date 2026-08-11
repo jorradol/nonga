@@ -1,8 +1,26 @@
 /**
- * WP-V3-09 — Automotive conversation reasoning core for Chat V.3.
- * Deterministic intent/context helpers + prompt blocks. Not a full Safety Layer.
+ * WP-V3-09/10B — Automotive conversation reasoning core for Chat V.3.
+ * Deterministic intent/context helpers + domain guidance + history constraints.
+ * Not a full Safety Layer.
  */
 import type { ChatV3HistoryTurn } from "./chatV3ConversationContracts";
+import {
+  buildChatV3AutomotiveDomainGuidanceBlock,
+  resolveChatV3AutomotiveDomainCategories,
+  type ChatV3AutomotiveDomainCategory,
+} from "./chatV3AutomotiveDomainGuidance";
+import {
+  buildChatV3FinanceAssumptionBlock,
+  resolveTrustedPriceFromVehicleContext,
+  type ChatV3FinanceAssumptionBlock,
+} from "./chatV3AutomotiveFinanceBlock";
+import {
+  extractChatV3UserConstraints,
+  formatChatV3UserConstraintsForInstruction,
+  hasBudgetConstraint,
+  hasUsageOrTypeConstraint,
+  type ChatV3UserConstraints,
+} from "./chatV3AutomotiveUserConstraints";
 
 export type ChatV3AutomotiveIntent =
   | "information"
@@ -49,6 +67,9 @@ export interface ChatV3AutomotiveTurnAnalysis {
   financeAssumptionsRequired: boolean;
   safetyRiskLevel: ChatV3AutomotiveSafetyRiskLevel;
   guidanceNotes: string[];
+  domainCategories: ChatV3AutomotiveDomainCategory[];
+  userConstraints: ChatV3UserConstraints;
+  financeBlock: ChatV3FinanceAssumptionBlock;
 }
 
 export interface BuildChatV3AutomotiveReasoningOptions {
@@ -67,19 +88,19 @@ const FINANCE_RE =
   /ค่างวด|ผ่อน|ดาวน์|ไฟแนนซ์|สินเชื่อ|ดอกเบี้ย|ภาระ(?:ผ่อน)?|คำนวณ(?:ค่างวด|ผ่อน)/i;
 
 const COMPARE_CHOOSE_RE =
-  /เลือกรถ|แนะนำรถ|คันไหนดี|รุ่นไหนดี|เทียบ|เปรียบเทียบ|คุ้มกว่า|ซื้อคัน|หา(?:รถ|คัน)|อยากได้รถ|ช่วยเลือก/i;
+  /เลือกรถ|แนะนำรถ|คันไหนดี|รุ่นไหนดี|เทียบ|เปรียบเทียบ|คุ้มกว่า|ซื้อคัน|หา(?:รถ|คัน)|อยากได้รถ|ช่วยเลือก|รถใหม่|รถมือสอง|มือสอง/i;
 
 const MAINTENANCE_RE =
   /บำรุงรักษา|ดูแลรักษ|เช็คระยะ|เปลี่ยนถ่าย|อาการ|เสีย|สั่น|เสียงดัง|ไฟโชว์|สตาร์ทไม่ติด|กินน้ำมัน|ควัน|กลิ่น|เบรก|พวงมาลัย|ยาง|แบต|แอร์ไม่เย็น|รั่ว/i;
 
 const INSURANCE_TAX_RE =
-  /ประกัน|เคลม|พ.ร.บ|พรบ|ภาษีรถ|ต่อภาษี|โอนทะเบียน|จดทะเบียน|กรมธรรม์|ค่าเบี้ย/i;
+  /ประกัน|เคลม|พ.ร.บ|พรบ|ภาษีรถ|ต่อภาษี|โอนทะเบียน|จดทะเบียน|กรมธรรม์|ค่าเบี้ย|เอกสารรถ|เล่มทะเบียน/i;
 
 const SELL_TRADE_RE =
-  /ขายรถ|เทิร์น|เปลี่ยนรถ|ประเมินราคาขาย|ขายต่อ|แลกเปลี่ยนรถ|เอาไปเทิร์น/i;
+  /ขายรถ|เทิร์น|เปลี่ยนรถ|ประเมินราคาขาย|ขายต่อ|แลกเปลี่ยนรถ|เอาไปเทิร์น|เตรียมรถก่อนขาย/i;
 
 const USAGE_RE =
-  /ขับ(?:ยังไง|อย่างไร)|ใช้งาน|เหมาะกับ|เที่ยวไกล|ขึ้นเขา|ลากพ่วง|ประหยัดน้ำมันไหม|เหมาะใช้/i;
+  /ขับ(?:ยังไง|อย่างไร)|ใช้งาน|เหมาะกับ|เที่ยวไกล|ขึ้นเขา|ลากพ่วง|ประหยัดน้ำมันไหม|เหมาะใช้|ตารางบำรุง|รอบเปลี่ยนถ่าย/i;
 
 const HIGH_RISK_RE =
   /เบรก(?:ไม่|กดแล้ว|เหยียบแล้ว)?(?:กิน|ไม่มี|อ่อน|แข็ง|สั่น|ดัง|ลื่น)|พวงมาลัย(?:หนัก|เล่น|สั่น|หลวม)|กลิ่น(?:น้ำมัน|เชื้อเพลิง|เบนซิน|ดีเซล).*(?:แรง|ฉุน|ในห้อง)|(?:น้ำมัน|เชื้อเพลิง).*(?:รั่ว|หก)|ควัน(?:ขาว|ดำ|ไฟ|ไหม้)|ไฟไหม้|เปลวไฟ|กลิ่นไหม้|ไฟฟ้าแรงสูง|แบตไฮบริด|ระบบไฮโวลต์|ยางแตกขณะขับ|ห้ามล้อ/i;
@@ -197,6 +218,8 @@ function buildGuidanceNotes(input: {
   safetyRiskLevel: ChatV3AutomotiveSafetyRiskLevel;
   needsClarification: boolean;
   clarificationFocus?: string;
+  userConstraints: ChatV3UserConstraints;
+  financeBlock: ChatV3FinanceAssumptionBlock;
 }): string[] {
   const notes: string[] = [];
 
@@ -216,14 +239,33 @@ function buildGuidanceNotes(input: {
     notes.push("ข้อมูลยังไม่พอสำหรับแนะนำเลือกรถอย่างมีนัย — ให้คำแนะนำกรอบกว้างได้ก่อน แล้วถามคำถามสำคัญครั้งละหนึ่งข้อ");
   }
 
+  if (hasBudgetConstraint(input.userConstraints)) {
+    notes.push("ผู้ใช้ระบุงบไว้แล้ว — ห้ามถามงบซ้ำโดยไม่มีเหตุ และใช้งบล่าสุด");
+  }
+  if (hasUsageOrTypeConstraint(input.userConstraints)) {
+    notes.push("ผู้ใช้ระบุการใช้งาน/ประเภท/ยี่ห้อ/เกียร์ไว้แล้ว — ห้ามถามซ้ำโดยไม่มีเหตุ");
+  }
+  if (input.userConstraints.budgetUpdatedThisTurn) {
+    notes.push("งบถูกเปลี่ยนในข้อความล่าสุด — ปรับคำแนะนำตามงบล่าสุด");
+  }
+  if (input.userConstraints.conditionsUpdatedThisTurn) {
+    notes.push("เงื่อนไขถูกเปลี่ยนในข้อความล่าสุด — ปรับคำแนะนำตามเงื่อนไขใหม่");
+  }
+
   if (input.freshnessRequired) {
     notes.push(
-      "ประเด็นนี้พึ่งข้อมูลที่เปลี่ยนตามเวลา — ห้ามแต่งราคา/โปร/ดอกเบี้ย/กฎหมายปัจจุบัน และบอกให้ตรวจแหล่งข้อมูลล่าสุด"
+      "ประเด็นนี้พึ่งข้อมูลที่เปลี่ยนตามเวลา — ห้ามแต่งราคา/โปร/ดอกเบี้ย/กฎหมายปัจจุบัน และบอกให้ตรวจแหล่งข้อมูลล่าสุด (ยังไม่มี Live source ในรอบนี้)"
     );
   }
 
   if (input.financeAssumptionsRequired) {
-    notes.push("การคำนวณค่างวดต้องติดป้ายว่าเป็นประมาณการ และระบุสมมติฐานหลักเมื่อไม่มีข้อมูลผู้ให้บริการจริง");
+    if (input.financeBlock.status === "complete") {
+      notes.push("มีผลคำนวณ deterministic แล้ว — ใช้ตัวเลขในบล็อกคำนวณเท่านั้น ห้ามคำนวณชุดเดียวกันใหม่");
+    } else if (input.financeBlock.status === "ambiguous_input") {
+      notes.push("อินพุตการเงินคลุมเครือ — ถามให้ชัดก่อน ห้ามตีความเงียบ");
+    } else {
+      notes.push("การคำนวณค่างวดต้องติดป้ายว่าเป็นประมาณการ และระบุสมมติฐานหลักเมื่อไม่มีข้อมูลผู้ให้บริการจริง — ห้ามเดาค่าที่ขาด");
+    }
   }
 
   if (input.safetyRiskLevel === "high") {
@@ -251,18 +293,33 @@ export function analyzeChatV3AutomotiveTurn(
   const message = String(options.message ?? "").trim();
   const intents = detectIntents(message);
   const primaryIntent = pickPrimaryIntent(intents);
-  const isMultiIntent =
-    intents.filter((intent) => intent !== "follow_up_reference" && intent !== "other")
-      .length >= 2 ||
-    (intents.includes("follow_up_reference") &&
-      intents.some((intent) => intent !== "follow_up_reference" && intent !== "other") &&
-      intents.length >= 3);
+
+  const userConstraints = extractChatV3UserConstraints({
+    message,
+    history: options.history,
+  });
 
   const reference = resolveVehicleReference(message, options.vehicleContext);
   const freshnessRequired = FRESHNESS_RE.test(message);
   const financeAssumptionsRequired =
     FINANCE_RE.test(message) || primaryIntent === "budget_or_finance";
   const safetyRiskLevel = detectSafetyRisk(message);
+
+  const trustedPrice = resolveTrustedPriceFromVehicleContext({
+    selectedVehicleId: options.vehicleContext?.selectedVehicleId,
+    vehicles: options.vehicleContext?.vehicles,
+  });
+  const financeBlock = buildChatV3FinanceAssumptionBlock({
+    message,
+    financeRelevant: financeAssumptionsRequired,
+    trustedSelectedCarPrice: trustedPrice,
+  });
+
+  const domainCategories = resolveChatV3AutomotiveDomainCategories({
+    intents,
+    primaryIntent,
+    freshnessRequired,
+  });
 
   let needsClarification = false;
   let clarificationFocus: string | undefined;
@@ -273,38 +330,62 @@ export function analyzeChatV3AutomotiveTurn(
   } else if (reference.resolution === "missing_context") {
     needsClarification = true;
     clarificationFocus = "รุ่นหรือคันที่หมายถึง";
+  } else if (financeBlock.status === "ambiguous_input") {
+    needsClarification = true;
+    clarificationFocus = "หน่วยของเงินดาวน์ (บาท หรือ เปอร์เซ็นต์)";
   } else if (
-    primaryIntent === "compare_or_choose" &&
-    !/(งบ|ไม่เกิน|ประมาณ|แสน|ล้าน|บาท)/.test(message) &&
-    !/(SUV|เก๋ง|กระบะ|รถตู้|รถครอบครัว|เมือง|ต่างจังหวัด)/i.test(message)
+    financeAssumptionsRequired &&
+    financeBlock.status === "incomplete" &&
+    financeBlock.missingFields.length > 0 &&
+    /ค่างวด|คำนวณ|ผ่อนเท่าไหร่|ผ่อนเท่าไร/i.test(message)
   ) {
     needsClarification = true;
-    clarificationFocus = "งบประมาณหรือประเภทการใช้งานหลักที่สำคัญต่อการแนะนำ";
+    clarificationFocus = financeBlock.missingFields[0];
+  } else if (primaryIntent === "compare_or_choose") {
+    const hasBudgetNow =
+      hasBudgetConstraint(userConstraints) ||
+      /(งบ|ไม่เกิน|ประมาณ|แสน|ล้าน|บาท)/.test(message);
+    const hasUsageNow =
+      hasUsageOrTypeConstraint(userConstraints) ||
+      /(SUV|เก๋ง|กระบะ|รถตู้|รถครอบครัว|เมือง|ต่างจังหวัด|มอเตอร์ไซค์)/i.test(
+        message
+      );
+    if (!hasBudgetNow && !hasUsageNow) {
+      needsClarification = true;
+      clarificationFocus = "งบประมาณหรือประเภทการใช้งานหลักที่สำคัญต่อการแนะนำ";
+    } else if (!hasBudgetNow) {
+      needsClarification = true;
+      clarificationFocus = "งบประมาณที่มีผลต่อการแนะนำ";
+    } else if (!hasUsageNow) {
+      needsClarification = true;
+      clarificationFocus = "ประเภทการใช้งานหลักที่สำคัญต่อการแนะนำ";
+    }
   }
 
-  // Multi-intent with choose + finance often needs one clarifying question, but
-  // still allow a partial answer first (encoded in principles / notes).
+  // Multi-intent choose + finance: only ask when still missing after constraints.
   if (
     intents.includes("compare_or_choose") &&
     intents.includes("budget_or_finance") &&
-    !/(ดาวน์|ดอก|งวด|ปี)/.test(message)
+    !/(ดาวน์|ดอก|งวด|ปี)/.test(message) &&
+    financeBlock.status !== "complete" &&
+    !clarificationFocus
   ) {
     needsClarification = true;
-    clarificationFocus =
-      clarificationFocus ?? "งบดาวน์หรือระยะผ่อนที่มีผลต่อคำแนะนำ";
+    clarificationFocus = "งบดาวน์หรือระยะผ่อนที่มีผลต่อคำแนะนำ";
   }
 
   const guidanceNotes = buildGuidanceNotes({
     intents,
     primaryIntent,
-    isMultiIntent:
-      intents.filter((intent) => intent !== "other").length >= 2,
+    isMultiIntent: intents.filter((intent) => intent !== "other").length >= 2,
     vehicleReferenceResolution: reference.resolution,
     freshnessRequired,
     financeAssumptionsRequired,
     safetyRiskLevel,
     needsClarification,
     clarificationFocus,
+    userConstraints,
+    financeBlock,
   });
 
   return {
@@ -320,6 +401,9 @@ export function analyzeChatV3AutomotiveTurn(
     financeAssumptionsRequired,
     safetyRiskLevel,
     guidanceNotes,
+    domainCategories,
+    userConstraints,
+    financeBlock,
   };
 }
 
@@ -329,7 +413,7 @@ export function analyzeChatV3AutomotiveTurn(
  */
 export function buildChatV3AutomotiveReasoningPrinciples(): string {
   return [
-    "[แกนคิดเรื่องรถ — WP-V3-09]",
+    "[แกนคิดเรื่องรถ — WP-V3-09/10B]",
     "แยกให้ได้ว่าผู้ใช้กำลัง: หาข้อมูล / เลือกหรือเทียบรถ / งบหรือค่างวด / ใช้งาน / ดูแลหรืออาการเสีย / ประกันภาษีทะเบียน / ขายเทิร์น / ถามหลายเรื่อง / อ้างอิงรถหรือคำตอบก่อนหน้า",
     "แยกข้อเท็จจริง ความเห็น การประมาณการ และข้อมูลปัจจุบันออกจากกันอย่างชัดเจน",
     "ถามกลับเฉพาะเมื่อข้อมูลที่ขาดจะเปลี่ยนคำแนะนำอย่างมีนัย — โดยทั่วไปครั้งละไม่เกินหนึ่งคำถามสำคัญ ตอบสิ่งที่ช่วยได้ก่อนเมื่อทำได้",
@@ -341,6 +425,7 @@ export function buildChatV3AutomotiveReasoningPrinciples(): string {
     "น้ำเสียง: เพื่อนคู่คิดเรื่องรถ พูดไทยธรรมชาติ สุภาพไม่แข็ง ศัพท์ช่างเท่าที่จำเป็นพร้อมอธิบายง่าย ไม่ขายเกินจริง",
     "ความปลอดภัยเบื้องต้นเท่านั้น (ยังไม่ใช่ Safety Layer เต็ม): เบรก พวงมาลัย ยาง เชื้อเพลิง ไฟฟ้าแรงสูง หรืออาการเสี่ยงอุบัติเหตุ — แนะนำหยุดใช้หรือพบช่างเมื่อเหมาะสม และห้ามรับรองความปลอดภัยจากข้อมูลไม่ครบ",
     "การเงินที่ไม่มีข้อมูลผู้ให้บริการจริงต้องติดป้ายประมาณการ — กฎหมาย/ภาษี/ประกันที่เปลี่ยนได้ต้องแนะนำให้ตรวจข้อมูลล่าสุด",
+    "เมื่อมีบล็อกคำนวณ deterministic ให้ใช้ตัวเลขนั้นเท่านั้น ห้ามคำนวณค่างวดชุดเดียวกันใหม่เอง",
   ].join("\n");
 }
 
@@ -359,7 +444,7 @@ function formatVehicleFacts(vehicle: ChatV3VehicleContextItem): string {
 }
 
 /**
- * Per-turn vehicle + guidance addendum. Empty when there is nothing useful to add.
+ * Per-turn vehicle + guidance addendum.
  */
 export function buildChatV3AutomotiveTurnAddendum(
   analysis: ChatV3AutomotiveTurnAnalysis,
@@ -371,12 +456,17 @@ export function buildChatV3AutomotiveTurnAddendum(
   if (analysis.isMultiIntent) {
     lines.push(`เจตนาที่เกี่ยวข้อง: ${analysis.intents.join(", ")}`);
   }
+  if (analysis.domainCategories.length > 0) {
+    lines.push(`หมวดความรู้ที่เกี่ยวข้อง: ${analysis.domainCategories.join(", ")}`);
+  }
   lines.push(`ความเสี่ยงความปลอดภัย: ${analysis.safetyRiskLevel}`);
   if (analysis.freshnessRequired) {
     lines.push("ต้องการข้อมูลปัจจุบัน: ใช่ — ห้ามแต่ง และให้ติดป้ายเมื่อเป็นประมาณการ");
   }
   if (analysis.financeAssumptionsRequired) {
-    lines.push("ค่างวด/การเงิน: ต้องระบุสมมติฐานและติดป้ายประมาณการหากไม่มีข้อมูลจริง");
+    lines.push(
+      `ค่างวด/การเงิน: สถานะบล็อก=${analysis.financeBlock.status} — ต้องระบุสมมติฐานและติดป้ายประมาณการหากไม่มีข้อมูลจริง`
+    );
   }
   if (analysis.needsClarification && analysis.clarificationFocus) {
     lines.push(`ควรชี้แจง/ถามกลับเมื่อจำเป็น: ${analysis.clarificationFocus}`);
@@ -403,6 +493,19 @@ export function buildChatV3AutomotiveTurnAddendum(
     }
   } else {
     lines.push("ยังไม่มีรายการรถในบริบท — ห้ามสมมติคันเฉพาะ");
+  }
+
+  lines.push(formatChatV3UserConstraintsForInstruction(analysis.userConstraints));
+
+  const domainBlock = buildChatV3AutomotiveDomainGuidanceBlock(
+    analysis.domainCategories
+  );
+  if (domainBlock) {
+    lines.push(domainBlock);
+  }
+
+  if (analysis.financeBlock.instructionText) {
+    lines.push(analysis.financeBlock.instructionText);
   }
 
   if (analysis.guidanceNotes.length > 0) {
