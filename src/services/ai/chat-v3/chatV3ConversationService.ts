@@ -1,6 +1,7 @@
 /**
- * WP-V3-07B — Thin Chat V.3 Conversation Service.
+ * WP-V3-07B/11 — Thin Chat V.3 Conversation Service.
  * Provider owns answer content; no marketplace template override.
+ * WP-V3-11 adds deterministic automotive safety + self-protection layer.
  */
 import {
   CHAT_V3_CONVERSATION_SLICE_ID,
@@ -18,6 +19,11 @@ import {
   type ChatV3ProviderEnvironment,
   type ChatV3ProviderFailureReason,
 } from "./chatV3ProviderAdapter";
+import {
+  appendChatV3SafetyInstructionGuidance,
+  applyChatV3OutputSafetyBoundary,
+  assessChatV3Safety,
+} from "./chatV3SafetyLayer";
 import { buildChatV3SystemInstruction } from "./chatV3SystemInstruction";
 import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize";
 
@@ -30,13 +36,6 @@ export interface RunChatV3ConversationOptions {
   now?: () => number;
   createMessageId?: () => string;
 }
-
-const PROMPT_LEAK_MARKERS = [
-  "system instruction",
-  "systemInstruction",
-  "GEMINI_API_KEY",
-  "NONGA_AI_",
-];
 
 function mapProviderFailureToErrorCode(
   reason: ChatV3ProviderFailureReason
@@ -56,7 +55,7 @@ function mapProviderFailureToErrorCode(
 }
 
 /**
- * Minimal safety boundary: reject empty/leaky output.
+ * Output safety boundary: reject empty/leaky output.
  * Does not replace safe provider text with automotive templates.
  */
 export function applyChatV3SafetyBoundary(content: string): {
@@ -67,25 +66,15 @@ export function applyChatV3SafetyBoundary(content: string): {
   errorCode: ChatV3ConversationErrorCode;
   message: string;
 } {
-  const trimmed = content.trim();
-  if (!trimmed) {
+  const result = applyChatV3OutputSafetyBoundary(content);
+  if (!result.ok) {
     return {
       ok: false,
       errorCode: "unsafe_output",
       message: CHAT_V3_USER_FACING_UNAVAILABLE,
     };
   }
-  const lower = trimmed.toLowerCase();
-  for (const marker of PROMPT_LEAK_MARKERS) {
-    if (lower.includes(marker.toLowerCase())) {
-      return {
-        ok: false,
-        errorCode: "unsafe_output",
-        message: CHAT_V3_USER_FACING_UNAVAILABLE,
-      };
-    }
-  }
-  return { ok: true, content: trimmed };
+  return { ok: true, content: result.content };
 }
 
 function defaultMessageId(now: number): string {
@@ -116,6 +105,26 @@ export async function runChatV3Conversation(
   }
 
   const request: ChatV3ValidatedConversationRequest = validated.value;
+
+  // WP-V3-11 — input safety assessment (does not mutate user message).
+  const safetyAssessment = assessChatV3Safety(request.message);
+  if (safetyAssessment.shouldShortCircuit && safetyAssessment.safeReply) {
+    const content = normalizeChatV3AssistantTypography(
+      safetyAssessment.safeReply
+    );
+    return {
+      success: true,
+      data: {
+        sliceId: CHAT_V3_CONVERSATION_SLICE_ID,
+        conversationId: request.conversationId,
+        messageId: options.createMessageId?.() ?? defaultMessageId(now),
+        content,
+        expertModeHint: request.expertMode,
+        providerId: "chat-v3-safety-layer",
+      },
+    };
+  }
+
   const provider =
     options.provider ??
     resolveChatV3ProviderAdapter({
@@ -124,11 +133,15 @@ export async function runChatV3Conversation(
       allowFakeProvider: options.allowFakeProvider === true,
     });
 
-  const systemInstruction = buildChatV3SystemInstruction(request.expertMode, {
+  const baseInstruction = buildChatV3SystemInstruction(request.expertMode, {
     message: request.message,
     history: request.history,
     vehicleContext: request.vehicleContext ?? null,
   });
+  const systemInstruction = appendChatV3SafetyInstructionGuidance(
+    baseInstruction,
+    safetyAssessment
+  );
 
   let providerResult;
   try {
@@ -155,17 +168,17 @@ export async function runChatV3Conversation(
     };
   }
 
-  const safety = applyChatV3SafetyBoundary(providerResult.content);
-  if (!safety.ok) {
+  const outputSafety = applyChatV3SafetyBoundary(providerResult.content);
+  if (!outputSafety.ok) {
     return {
       success: false,
-      errorCode: safety.errorCode,
-      message: safety.message,
+      errorCode: outputSafety.errorCode,
+      message: outputSafety.message,
     };
   }
 
   // WP-V3-10D — assistant-only typography cleanup (does not touch user message).
-  const content = normalizeChatV3AssistantTypography(safety.content);
+  const content = normalizeChatV3AssistantTypography(outputSafety.content);
 
   return {
     success: true,
