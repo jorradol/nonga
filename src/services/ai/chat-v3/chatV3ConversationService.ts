@@ -19,6 +19,7 @@ import {
   type ChatV3ProviderFailureReason,
 } from "./chatV3ProviderAdapter";
 import { buildChatV3SystemInstruction } from "./chatV3SystemInstruction";
+import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize";
 
 export interface RunChatV3ConversationOptions {
   rawRequest: unknown;
@@ -163,6 +164,9 @@ export async function runChatV3Conversation(
     };
   }
 
+  // WP-V3-10D — assistant-only typography cleanup (does not touch user message).
+  const content = normalizeChatV3AssistantTypography(safety.content);
+
   return {
     success: true,
     data: {
@@ -170,7 +174,7 @@ export async function runChatV3Conversation(
       conversationId: request.conversationId,
       messageId:
         options.createMessageId?.() ?? defaultMessageId(now),
-      content: safety.content,
+      content,
       expertModeHint: request.expertMode,
       providerId: providerResult.providerId,
     },

@@ -6,6 +6,7 @@ import {
   chatV3WelcomeSubtitle,
   chatV3WelcomeTitle,
 } from "./chatV3Presentation";
+import { normalizeChatV3AssistantTypography } from "../../services/ai/chat-v3/chatV3TypographyNormalize";
 
 interface ChatV3ConversationProps {
   messages: ChatV3Message[];
@@ -21,7 +22,9 @@ interface ChatV3ConversationProps {
 }
 
 function renderAssistantContent(content: string) {
-  const blocks = content.split("\n").filter((line) => line.length > 0);
+  // Display-time pass keeps reloaded / mock assistant text consistent (WP-V3-10D).
+  const normalized = normalizeChatV3AssistantTypography(content);
+  const blocks = normalized.split("\n").filter((line) => line.length > 0);
   return blocks.map((line, index) => {
     if (line.startsWith("- ")) {
       return (
