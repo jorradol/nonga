@@ -201,15 +201,19 @@ console.log("\n=== 4.7 Tone — no ปังปุริเย่; stable pronou
   assert(!/ปังปุริเย่/.test(cleaned), "normalizer strips ปังปุริเย่ from assistant text");
 }
 
-console.log("\n=== 4.8 Typography / foreign script cleanup ===");
+console.log("\n=== 4.8 Typography / formatting repair (no blanket CJK strip) ===");
 {
   const messy =
     "ตรวจช่วงล่าง $\\rightarrow$ แล้วดูโช้ค 你好 カタカナ และราคา $20,000";
   const out = normalizeChatV3AssistantTypography(messy);
   assert(out.includes("→"), "latex arrow normalized");
   assert(!/\\rightarrow|\$\\rightarrow\$/.test(out), "no raw latex left");
-  assert(!/你好|カタカナ/.test(out), "CJK/Kana leakage removed");
+  assert(out.includes("你好") && out.includes("カタカナ"), "CJK/Kana preserved when leakage is unproven");
   assert(out.includes("$20,000"), "dollar amounts preserved");
+  assert(
+    /ล่าง\s+→\s+แล้ว/.test(out) || out.includes("ล่าง → แล้ว"),
+    "Thai around converted mark does not concatenate"
+  );
 }
 
 console.log("\n=== 5. System protection ===");

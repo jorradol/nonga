@@ -24,6 +24,13 @@ import {
   applyChatV3OutputSafetyBoundary,
   assessChatV3Safety,
 } from "./chatV3SafetyLayer";
+import { analyzeChatV3AutomotiveTurn } from "./chatV3AutomotiveReasoning";
+import {
+  buildChatV3FinanceCorrectionInstruction,
+  CHAT_V3_FINANCE_CONSISTENCY_PROVIDER_ID,
+  CHAT_V3_FINANCE_RECALC_NOTICE,
+  validateChatV3FinanceConsistency,
+} from "./chatV3FinanceConsistency";
 import { buildChatV3SystemInstruction } from "./chatV3SystemInstruction";
 import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize";
 
@@ -96,7 +103,7 @@ export async function runChatV3Conversation(
   }
 
   const validated = validateChatV3ConversationRequest(options.rawRequest);
-  if (!validated.ok) {
+  if (validated.ok === false) {
     return {
       success: false,
       errorCode: validated.errorCode,
@@ -110,7 +117,8 @@ export async function runChatV3Conversation(
   const safetyAssessment = assessChatV3Safety(request.message);
   if (safetyAssessment.shouldShortCircuit && safetyAssessment.safeReply) {
     const content = normalizeChatV3AssistantTypography(
-      safetyAssessment.safeReply
+      safetyAssessment.safeReply,
+      { userMessage: request.message }
     );
     return {
       success: true,
@@ -169,7 +177,7 @@ export async function runChatV3Conversation(
   }
 
   const outputSafety = applyChatV3SafetyBoundary(providerResult.content);
-  if (!outputSafety.ok) {
+  if (outputSafety.ok === false) {
     return {
       success: false,
       errorCode: outputSafety.errorCode,
@@ -177,8 +185,69 @@ export async function runChatV3Conversation(
     };
   }
 
-  // WP-V3-10D — assistant-only typography cleanup (does not touch user message).
-  const content = normalizeChatV3AssistantTypography(outputSafety.content);
+  // WP-V3-10D/14A — assistant-only formatting repair (does not touch user message).
+  let content = normalizeChatV3AssistantTypography(outputSafety.content, {
+    userMessage: request.message,
+  });
+  let providerId = providerResult.providerId;
+
+  const financeAnalysis = analyzeChatV3AutomotiveTurn({
+    message: request.message,
+    history: request.history,
+    vehicleContext: request.vehicleContext ?? null,
+  });
+  const trustedFinance =
+    financeAnalysis.financeBlock.status === "complete"
+      ? financeAnalysis.financeBlock.result
+      : undefined;
+
+  if (trustedFinance) {
+    const firstCheck = validateChatV3FinanceConsistency(content, trustedFinance);
+    if (!firstCheck.ok) {
+      const correctionInstruction = buildChatV3FinanceCorrectionInstruction({
+        result: trustedFinance,
+        mismatches: firstCheck.mismatches,
+      });
+      let correctionResult;
+      try {
+        correctionResult = await provider.generate({
+          conversationId: request.conversationId,
+          message: request.message,
+          history: [
+            ...request.history,
+            { role: "assistant", content },
+          ],
+          expertMode: request.expertMode,
+          systemInstruction: correctionInstruction,
+        });
+      } catch {
+        correctionResult = null;
+      }
+
+      const correctionSafety =
+        correctionResult?.ok === true
+          ? applyChatV3SafetyBoundary(correctionResult.content)
+          : null;
+      const corrected =
+        correctionSafety?.ok === true
+          ? normalizeChatV3AssistantTypography(correctionSafety.content, {
+              userMessage: request.message,
+            })
+          : "";
+      const secondCheck =
+        corrected.length > 0
+          ? validateChatV3FinanceConsistency(corrected, trustedFinance)
+          : { ok: false, mismatches: firstCheck.mismatches };
+
+      if (secondCheck.ok && correctionResult?.ok === true) {
+        content = corrected;
+        providerId = correctionResult.providerId;
+      } else {
+        content = CHAT_V3_FINANCE_RECALC_NOTICE;
+        providerId = CHAT_V3_FINANCE_CONSISTENCY_PROVIDER_ID;
+      }
+    }
+  }
 
   return {
     success: true,
@@ -189,7 +258,7 @@ export async function runChatV3Conversation(
         options.createMessageId?.() ?? defaultMessageId(now),
       content,
       expertModeHint: request.expertMode,
-      providerId: providerResult.providerId,
+      providerId,
     },
   };
 }

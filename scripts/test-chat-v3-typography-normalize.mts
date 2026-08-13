@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  isProvenForeignScriptLeakage,
   normalizeChatV3AssistantTypography,
 } from "../src/services/ai/chat-v3/chatV3TypographyNormalize.ts";
 import { runChatV3Conversation } from "../src/services/ai/chat-v3/chatV3ConversationService.ts";
@@ -242,7 +243,7 @@ async function main(): Promise<void> {
     );
   }
 
-  section("WP-V3-14 — banned cheer + accidental CJK/Kana");
+  section("WP-V3-14 — banned cheer; WP-V3-14A — no blanket CJK/Kana strip");
 
   {
     const cheer = normalizeChatV3AssistantTypography(
@@ -251,12 +252,17 @@ async function main(): Promise<void> {
     assert(!/ปังปุริเย่/.test(cheer), "strips banned cheer ปังปุริเย่");
     assert(cheer.includes("น่าสนใจ"), "keeps surrounding Thai copy");
 
-    const leaked = normalizeChatV3AssistantTypography(
+    const mixed = normalizeChatV3AssistantTypography(
       "ตรวจโช้ค $\\rightarrow$ 你好 カタカナ และใช้ CDI ได้"
     );
-    assert(leaked.includes("→"), "latex arrow still normalized with CJK present");
-    assert(!/你好|カタカナ|\\rightarrow/.test(leaked), "removes CJK/Kana and raw latex");
-    assert(leaked.includes("CDI"), "keeps Latin technical terms");
+    assert(mixed.includes("→"), "latex arrow still normalized with CJK present");
+    assert(!/\\rightarrow/.test(mixed), "raw latex removed");
+    assert(mixed.includes("你好") && mixed.includes("カタカナ"), "does not blanket-delete CJK/Kana");
+    assert(mixed.includes("CDI"), "keeps Latin technical terms");
+    assert(
+      /โช้ค\s+→\s+你好/.test(mixed) || mixed.includes("โช้ค → 你好"),
+      "Thai around converted mark does not concatenate"
+    );
 
     const inCode = normalizeChatV3AssistantTypography(
       "นอกโค้ด ปังปุริเย่ แต่ในโค้ด `ปังปุริเย่` และ ```\n你好\n```"
@@ -266,6 +272,107 @@ async function main(): Promise<void> {
     assert(
       inCode.startsWith("นอกโค้ด") && !inCode.slice(0, inCode.indexOf("`")).includes("ปังปุริเย่"),
       "cheer stripped from plain text before code"
+    );
+  }
+
+  section("WP-V3-14A — formatting repair, not censorship");
+
+  {
+    assertEqual(
+      normalizeChatV3AssistantTypography(
+        "ราคารถ 420,000 $\\rightarrow$ ยอดจัด 336,000 บาท"
+      ),
+      "ราคารถ 420,000 → ยอดจัด 336,000 บาท",
+      "$\\rightarrow$ repaired without leftover raw LaTeX"
+    );
+
+    const glued = normalizeChatV3AssistantTypography("ยอดจัด$\\rightarrow$ค่างวด");
+    assert(
+      glued.includes("→") &&
+        !glued.includes("ยอดจัด→ค่างวด") &&
+        /ยอดจัด\s+→\s+ค่างวด/.test(glued),
+      "Thai around converted mark stays separated"
+    );
+
+    const japaneseAsk = normalizeChatV3AssistantTypography(
+      "รุ่น カローラ クロス น่าสนใจครับ",
+      { userMessage: "อยากได้ カローラ クロス มือสอง" }
+    );
+    assert(
+      japaneseAsk.includes("カローラ") && japaneseAsk.includes("クロス"),
+      "intentional Japanese vehicle name is preserved"
+    );
+    assert(
+      isProvenForeignScriptLeakage({
+        assistantContent: japaneseAsk,
+        userMessage: "อยากได้ カローラ クロス มือสอง",
+      }) === false,
+      "intentional Japanese is not proven leakage"
+    );
+
+    const chineseAsk = normalizeChatV3AssistantTypography(
+      "ผู้ใช้ถามว่า 你好 意思是อะไร — แปลว่าสวัสดีครับ",
+      { userMessage: "你好 แปลว่าอะไร" }
+    );
+    assert(chineseAsk.includes("你好"), "intentional Chinese from the user is preserved");
+    assert(
+      isProvenForeignScriptLeakage({
+        assistantContent: chineseAsk,
+        userMessage: "你好 แปลว่าอะไร",
+      }) === false,
+      "intentional Chinese is not proven leakage"
+    );
+
+    const tech = "ระบบ CDI, เกียร์ CVT, ลมยาง PSI และเบรก ABS ยังใช้ได้";
+    assertEqual(
+      normalizeChatV3AssistantTypography(tech),
+      tech,
+      "CDI, CVT, PSI, ABS preserved"
+    );
+
+    const markdown = [
+      "**สรุปสั้น**",
+      "- ข้อดี",
+      "- ข้อควรระวัง",
+      "ดู [รายการ](https://example.com/car?id=1) ได้",
+    ].join("\n");
+    assertEqual(
+      normalizeChatV3AssistantTypography(markdown),
+      markdown,
+      "normal markdown unchanged"
+    );
+
+    const fencedKeep = [
+      "ตัวอย่าง:",
+      "```",
+      "A \\rightarrow B",
+      "你好",
+      "```",
+      "จบ",
+    ].join("\n");
+    assertEqual(
+      normalizeChatV3AssistantTypography(fencedKeep),
+      fencedKeep,
+      "code block not rewritten"
+    );
+
+    const broken = normalizeChatV3AssistantTypography(
+      `สวัสดี${"\uFFFD"}ครับ แล้วดูโช้ค $\\rightarrow$ ต่อ`
+    );
+    assert(!broken.includes("\uFFFD"), "replacement character repaired");
+    assert(broken.includes("สวัสดี") && broken.includes("ครับ"), "surrounding Thai kept");
+    assert(!/สวัสดีครับ/.test(broken) || broken.includes("สวัสดี ครับ"), "letters do not concatenate after repair");
+    assert(broken.includes("→") && !/\\rightarrow/.test(broken), "broken latex still repaired");
+
+    const thaiOnly = "รถคันนี้ช่วงล่างยังดี ใช้ CDI ได้ตามปกติครับ";
+    assertEqual(
+      normalizeChatV3AssistantTypography(thaiOnly),
+      thaiOnly,
+      "normal Thai answer unchanged — no fixture leakage characters introduced"
+    );
+    assert(
+      !/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uFFFD]/.test(thaiOnly),
+      "Thai fixture itself has no leaked CJK/replacement chars"
     );
   }
 
@@ -295,7 +402,7 @@ async function main(): Promise<void> {
         history: [],
         expertMode: "FINANCE",
       },
-      environment: "development",
+      environment: "test",
       provider,
       allowFakeProvider: true,
       now: () => 1_700_000_000_000,
