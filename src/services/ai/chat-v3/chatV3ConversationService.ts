@@ -2,6 +2,7 @@
  * WP-V3-07B/11 — Thin Chat V.3 Conversation Service.
  * Provider owns answer content; no marketplace template override.
  * WP-V3-11 adds deterministic automotive safety + self-protection layer.
+ * WP-V3-14A/14E — at most one post-answer Gemini correction for finance + high-risk claims.
  */
 import {
   CHAT_V3_CONVERSATION_SLICE_ID,
@@ -30,9 +31,22 @@ import {
   CHAT_V3_FINANCE_CONSISTENCY_PROVIDER_ID,
   CHAT_V3_FINANCE_RECALC_NOTICE,
   validateChatV3FinanceConsistency,
+  type ChatV3FinanceConsistencyResult,
 } from "./chatV3FinanceConsistency";
+import {
+  buildChatV3HighRiskCorrectionInstruction,
+  CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID,
+  recordChatV3HighRiskGuardMetadata,
+  resetChatV3HighRiskGuardMetadata,
+  resolveChatV3HighRiskFallback,
+  validateChatV3HighRiskResponse,
+  type ChatV3HighRiskClass,
+  type ChatV3HighRiskProviderErrorCategory,
+  type ChatV3HighRiskValidationResult,
+} from "./chatV3HighRiskResponseValidator";
 import { buildChatV3SystemInstruction } from "./chatV3SystemInstruction";
 import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize";
+import type { FinanceCalcResult } from "../../../utils/financeCalculator";
 
 export interface RunChatV3ConversationOptions {
   rawRequest: unknown;
@@ -88,9 +102,47 @@ function defaultMessageId(now: number): string {
   return `msg-v3-assistant-${now}`;
 }
 
+function riskClassesOf(
+  result: ChatV3HighRiskValidationResult
+): ChatV3HighRiskClass[] {
+  return result.findings.map((item) => item.riskClass);
+}
+
+function buildUnifiedCorrectionInstruction(input: {
+  highRisk: ChatV3HighRiskValidationResult;
+  financeCheck: ChatV3FinanceConsistencyResult;
+  trustedFinance?: FinanceCalcResult;
+}): string {
+  const riskClasses = riskClassesOf(input.highRisk);
+  const parts: string[] = [];
+  if (riskClasses.length > 0) {
+    parts.push(buildChatV3HighRiskCorrectionInstruction({ riskClasses }));
+  }
+  if (!input.financeCheck.ok && input.trustedFinance) {
+    parts.push(
+      buildChatV3FinanceCorrectionInstruction({
+        result: input.trustedFinance,
+        mismatches: input.financeCheck.mismatches,
+      })
+    );
+  }
+  return parts.join("\n\n");
+}
+
+function financeCheckFor(
+  content: string,
+  trustedFinance: FinanceCalcResult | undefined
+): ChatV3FinanceConsistencyResult {
+  if (!trustedFinance) {
+    return { ok: true, mismatches: [] };
+  }
+  return validateChatV3FinanceConsistency(content, trustedFinance);
+}
+
 export async function runChatV3Conversation(
   options: RunChatV3ConversationOptions
 ): Promise<ChatV3ConversationResponse> {
+  resetChatV3HighRiskGuardMetadata();
   const readEnv = options.readEnv ?? ((key: string) => process.env[key]);
   const now = options.now?.() ?? Date.now();
 
@@ -201,51 +253,110 @@ export async function runChatV3Conversation(
       ? financeAnalysis.financeBlock.result
       : undefined;
 
-  if (trustedFinance) {
-    const firstCheck = validateChatV3FinanceConsistency(content, trustedFinance);
-    if (!firstCheck.ok) {
-      const correctionInstruction = buildChatV3FinanceCorrectionInstruction({
-        result: trustedFinance,
-        mismatches: firstCheck.mismatches,
+  // WP-V3-14A/14E — one bounded correction slot for finance + high-risk claims.
+  const firstHighRisk = validateChatV3HighRiskResponse(content);
+  const firstFinance = financeCheckFor(content, trustedFinance);
+  const firstRiskClasses = riskClassesOf(firstHighRisk);
+
+  if (firstHighRisk.ok && firstFinance.ok) {
+    recordChatV3HighRiskGuardMetadata({
+      riskClasses: [],
+      remainingRiskClasses: [],
+      correctionAttempted: false,
+      correctionAccepted: false,
+      fallbackUsed: false,
+      providerErrorCategory: "none",
+    });
+  } else {
+    const originalUnsafe = content;
+    const correctionInstruction = buildUnifiedCorrectionInstruction({
+      highRisk: firstHighRisk,
+      financeCheck: firstFinance,
+      trustedFinance,
+    });
+    let providerErrorCategory: ChatV3HighRiskProviderErrorCategory = "none";
+    let correctionResult;
+    try {
+      correctionResult = await provider.generate({
+        conversationId: request.conversationId,
+        message: request.message,
+        history: [
+          ...request.history,
+          { role: "assistant", content: originalUnsafe },
+        ],
+        expertMode: request.expertMode,
+        systemInstruction: correctionInstruction,
       });
-      let correctionResult;
-      try {
-        correctionResult = await provider.generate({
-          conversationId: request.conversationId,
-          message: request.message,
-          history: [
-            ...request.history,
-            { role: "assistant", content },
-          ],
-          expertMode: request.expertMode,
-          systemInstruction: correctionInstruction,
-        });
-      } catch {
-        correctionResult = null;
-      }
+    } catch {
+      correctionResult = null;
+      providerErrorCategory = "throw";
+    }
 
-      const correctionSafety =
-        correctionResult?.ok === true
-          ? applyChatV3SafetyBoundary(correctionResult.content)
-          : null;
-      const corrected =
-        correctionSafety?.ok === true
-          ? normalizeChatV3AssistantTypography(correctionSafety.content, {
-              userMessage: request.message,
-            })
-          : "";
-      const secondCheck =
-        corrected.length > 0
-          ? validateChatV3FinanceConsistency(corrected, trustedFinance)
-          : { ok: false, mismatches: firstCheck.mismatches };
+    if (correctionResult && correctionResult.ok === false) {
+      providerErrorCategory = "provider_failure";
+    }
 
-      if (secondCheck.ok && correctionResult?.ok === true) {
-        content = corrected;
-        providerId = correctionResult.providerId;
-      } else {
-        content = CHAT_V3_FINANCE_RECALC_NOTICE;
-        providerId = CHAT_V3_FINANCE_CONSISTENCY_PROVIDER_ID;
-      }
+    const correctionSafety =
+      correctionResult?.ok === true
+        ? applyChatV3SafetyBoundary(correctionResult.content)
+        : null;
+    if (correctionResult?.ok === true && correctionSafety?.ok === false) {
+      providerErrorCategory = "unsafe_output";
+    }
+    const corrected =
+      correctionSafety?.ok === true
+        ? normalizeChatV3AssistantTypography(correctionSafety.content, {
+            userMessage: request.message,
+          })
+        : "";
+    const secondHighRisk =
+      corrected.length > 0
+        ? validateChatV3HighRiskResponse(corrected)
+        : firstHighRisk;
+    const secondFinance =
+      corrected.length > 0
+        ? financeCheckFor(corrected, trustedFinance)
+        : firstFinance;
+    const remainingRiskClasses = riskClassesOf(secondHighRisk);
+
+    if (
+      secondHighRisk.ok &&
+      secondFinance.ok &&
+      correctionResult?.ok === true &&
+      corrected.length > 0
+    ) {
+      content = corrected;
+      providerId = correctionResult.providerId;
+      recordChatV3HighRiskGuardMetadata({
+        riskClasses: firstRiskClasses,
+        remainingRiskClasses: [],
+        correctionAttempted: true,
+        correctionAccepted: true,
+        fallbackUsed: false,
+        providerErrorCategory: "none",
+      });
+    } else if (remainingRiskClasses.length > 0) {
+      content = resolveChatV3HighRiskFallback(remainingRiskClasses);
+      providerId = CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID;
+      recordChatV3HighRiskGuardMetadata({
+        riskClasses: firstRiskClasses,
+        remainingRiskClasses,
+        correctionAttempted: true,
+        correctionAccepted: false,
+        fallbackUsed: true,
+        providerErrorCategory,
+      });
+    } else {
+      content = CHAT_V3_FINANCE_RECALC_NOTICE;
+      providerId = CHAT_V3_FINANCE_CONSISTENCY_PROVIDER_ID;
+      recordChatV3HighRiskGuardMetadata({
+        riskClasses: firstRiskClasses,
+        remainingRiskClasses: [],
+        correctionAttempted: true,
+        correctionAccepted: false,
+        fallbackUsed: true,
+        providerErrorCategory,
+      });
     }
   }
 
