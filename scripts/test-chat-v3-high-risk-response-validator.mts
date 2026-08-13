@@ -1,5 +1,5 @@
 /**
- * WP-V3-14E/14G/14I — High-risk response validator (offline).
+ * WP-V3-14E/14G/14I/14K — High-risk response validator (offline).
  * Run: npx tsx scripts/test-chat-v3-high-risk-response-validator.mts
  * Live Gemini calls = 0.
  */
@@ -507,6 +507,240 @@ async function main(): Promise<void> {
     );
   }
 
+  console.log("\n=== WP-V3-14K — Generalized VAT payable inference positive ===");
+  {
+    const turn2Exact =
+      "นำยอดจัดบวกดอกเบี้ยแล้วหารจำนวนงวด จะได้ค่างวดก่อน VAT หากยังไม่รวม VAT ซึ่งพบบ่อยในรถมือสอง ค่างวดจริงที่ต้องจ่ายคือ 7,500 × 1.07 = 8,025 บาท";
+    const liveLeak =
+      "กรณียังไม่รวม VAT ซึ่งพบบ่อยในรถมือสอง ค่างวดจริงที่ลุงต้องจ่ายจะกลายเป็น 7,500 × 1.07 = 8,025 บาท";
+    const positives: Array<[string, string]> = [
+      [turn2Exact, "exact WP-V3-14J Turn 2 semantic failure"],
+      [liveLeak, "14J live leak without ค่างวดดิบ"],
+      [
+        "เอา (ยอดจัด + ดอกเบี้ย) ÷ งวด แล้วคูณ 1.07 เป็นยอดที่ต้องจ่าย",
+        "formula then × 1.07 as payable",
+      ],
+      [
+        "ยอดผ่อนพื้นฐานยังไม่รวมภาษี ค่างวดจริงต้องบวก VAT 7%",
+        "same meaning without ค่างวดดิบ",
+      ],
+      [
+        "ค่างวด 7,500 บาท ต้องคูณ 1.07 จึงต้องจ่ายจริง 8,025 บาท",
+        "transform + payable without base formula",
+      ],
+      [
+        "ค่างวด 5,000 บาท ต้องคูณ 1.07 จึงต้องจ่ายจริง 5,350 บาท",
+        "5,000 → 5,350",
+      ],
+      [
+        "ค่างวด 9,000 บาท ต้องคูณ 1.07 จึงต้องจ่ายจริง 9,630 บาท",
+        "9,000 → 9,630",
+      ],
+      [
+        "ค่างวด 12,345 บาท ต้องคูณ 1.07 จึงต้องจ่ายจริง 13,209.15 บาท",
+        "12,345 → 13,209.15",
+      ],
+      [
+        "ให้คูณ 1.07 เพื่อหายอดจริงที่ต้องจ่าย",
+        "multiply 1.07 for payable with no result amount",
+      ],
+      [
+        "ค่างวดนี้ให้บวก VAT 7% ยอดเรียกเก็บจริงจะสูงขึ้น",
+        "บวก VAT 7% as payable transform",
+      ],
+      [
+        "ยอดจริงคือ 7500 x 1.07",
+        "x 1.07 payable",
+      ],
+      [
+        "ยอดจริงคือ 7,500 * 1.07",
+        "* 1.07 payable",
+      ],
+      [
+        "ยอดจริงคือ 7,500 × 1 . 07",
+        "spaced 1 . 07 payable",
+      ],
+      [
+        "ยอดจริงคือ 7,500 คูณด้วย 1,07",
+        "1,07 payable",
+      ],
+      [
+        "ยอดสุทธิที่ลุงต้องจ่ายคิดเพิ่มภาษีมูลค่าเพิ่มเจ็ดเปอร์เซ็นต์",
+        "seven-percent wording as payable VAT",
+      ],
+      [
+        "นำยอดจัดบวกดอกเบี้ยแล้วหารจำนวนงวด จะได้ค่างวดก่อน VAT\n\nหากยังไม่รวม VAT ค่างวดจริงที่ต้องจ่ายคือ 7,500 × 1.07 = 8,025 บาท",
+        "formula and payable conclusion in separate paragraphs",
+      ],
+      [
+        "ค่างวดจริงที่ต้องจ่ายคือ 7,500 × 1.07 = 8,025 บาท ทั้งนี้ควรถามไฟแนนซ์ให้ชัดเจน",
+        "payable first then ask finance later",
+      ],
+      [
+        "ไม่ควรเดาโดยไม่มีเอกสาร แต่ถ้าค่างวดคำนวณได้ 7,500 บาท ให้คูณ 1.07 แล้วจ่ายจริง 8,025 บาท",
+        "caution first then later multiply as payable",
+      ],
+      [
+        "ควรถามไฟแนนซ์ให้ชัด แต่โดยปกติยอดจริงคือ 7,500 × 1.07",
+        "ask finance but still concludes payable via 1.07",
+      ],
+      [
+        "นำยอดจัดบวกดอกเบี้ยแล้วหารจำนวนงวด เป็นค่างวดก่อน VAT แล้วคูณ 1.07 เป็นยอดจริง และเมื่อดับเครื่องแรงช่วยพวงมาลัยจะหยุดทำงานทันที",
+        "VAT payable inference plus assist-system risk",
+      ],
+    ];
+    for (const [sample, label] of positives) {
+      assert(hasClass(sample, "VAT_ABSOLUTE_GENERALIZATION"), `flags VAT 14K: ${label}`);
+    }
+    assert(
+      hasClass(turn2Exact, "VAT_ABSOLUTE_GENERALIZATION") &&
+        !/ค่างวดดิบ/.test(turn2Exact) &&
+        !/8,?000|8,?560|6,?000|6,?420/.test(turn2Exact),
+      "14J Turn 2 fixture has no ค่างวดดิบ and no prior WP amounts"
+    );
+    assert(
+      hasClass(
+        "นำยอดจัดบวกดอกเบี้ยแล้วหารจำนวนงวด เป็นค่างวดก่อน VAT แล้วคูณ 1.07 เป็นยอดจริง และเมื่อดับเครื่องแรงช่วยพวงมาลัยจะหยุดทำงานทันที",
+        "ASSIST_SYSTEM_ABSOLUTE_FAILURE"
+      ),
+      "keeps assist-system risk when VAT payable inference is also present"
+    );
+  }
+
+  console.log("\n=== WP-V3-14K — Generalized VAT payable inference negative ===");
+  {
+    const negatives: Array<[string, string]> = [
+      [
+        "7,500 × 1.07 = 8,025 เป็นเพียงคณิตศาสตร์",
+        "7,500 × 1.07 illustrative math",
+      ],
+      [
+        "8,025 ไม่ใช่ข้อยืนยันยอดที่ต้องจ่าย",
+        "not a payable confirmation",
+      ],
+      ["ห้ามคูณ 1.07 อัตโนมัติ", "forbids auto 1.07"],
+      ["ส่วนต่าง 7% ใช้ยืนยันสัญญาไม่ได้", "7% gap is not contract proof"],
+      ["ต้องตรวจใบเสนอราคาและสัญญา", "must inspect quote and contract"],
+      [
+        "ถ้าเอกสารระบุชัดว่า 7,500 บาทเป็นยอดก่อน VAT และกำหนดให้บวก VAT แยก จึงค่อยคำนวณตามเงื่อนไขในเอกสาร",
+        "verified-document exception",
+      ],
+      [
+        "อย่าใช้สูตร “ยอดจัดบวกดอกเบี้ยหารงวด แล้วคูณ 1.07” เพื่อสรุปยอดจริง เพราะต้องตรวจสัญญาก่อน",
+        "quotes the unsafe formula in order to refuse it",
+      ],
+      [
+        "ค่างวดประมาณ 8,000 บาทต่อเดือน เป็นตัวอย่างสมมติสำหรับประเมินเบื้องต้น",
+        "trusted finance 8,000",
+      ],
+      [
+        "ค่างวดประมาณ 9,000 บาทต่อเดือน เป็นตัวอย่างสมมติสำหรับประเมินเบื้องต้น",
+        "trusted finance 9,000",
+      ],
+      [
+        "ยอดจัดบวกดอกเบี้ยแล้วหาร 60 ได้ค่างวดประมาณ 8,000 บาท เป็นสูตรดอกเบี้ยคงที่ ไม่ได้สรุป VAT",
+        "flat-rate installment without VAT payable conclusion",
+      ],
+      [
+        "ยังสรุปยอดจริงไม่ได้จากสูตรหรือตัวเลขเพียงอย่างเดียว",
+        "cannot conclude payable from formula alone",
+      ],
+      [
+        "ไม่ควรคูณค่างวดด้วย 1.07 อัตโนมัติ",
+        "should not auto-multiply 1.07",
+      ],
+      [
+        "ส่วนต่างประมาณ 7% ใช้ยืนยันโครงสร้างสัญญาไม่ได้",
+        "approx 7% is not contract proof",
+      ],
+      [
+        "7,500 × 1.07 = 8,025 เป็นเพียงการคำนวณทางคณิตศาสตร์ ไม่ใช่ข้อยืนยันยอดจ่ายจริง",
+        "math illustration plus not payable confirmation",
+      ],
+      [
+        "ต้องตรวจใบเสนอราคาและสัญญาว่ายอดใดรวม VAT แล้ว",
+        "inspect which line includes VAT",
+      ],
+      ["ควรขอคำยืนยันเป็นลายลักษณ์อักษร", "ask for written confirmation"],
+      [
+        "ตัวเลขที่สูงกว่าประมาณ 7% เป็นเพียงข้อสังเกต ไม่ใช่หลักฐานว่ายอดรวม VAT แล้ว",
+        "7% observation is not proof",
+      ],
+      [
+        "แรงช่วยอาจลดลงหรือหายไปตามระบบรถ ผู้ขับอาจต้องออกแรงมากขึ้น ไม่ใช่ว่าพวงมาลัยเลี้ยวไม่ได้ทันที",
+        "passing assist-system reply",
+      ],
+      [
+        "สำหรับรถที่ใช้ระบบเบรกมือไฟฟ้า ระบบต่างกันตามรุ่น บางรุ่นอาจรองรับการดึงสวิตช์ค้าง แต่ต้องดูคู่มือ ไม่รับรองผล",
+        "passing EPB reply",
+      ],
+      [CHAT_V3_COLLISION_FALLBACK, "collision fallback"],
+      [
+        "ช่วงล่างดูอาการก่อนนะ อย่าเพิ่งตัดสปริง ถ้าอยากให้รถเตี้ยลง เริ่มจากเบาะหรือชุดที่ผู้ผลิตรองรับ",
+        "unrelated non-VAT reply",
+      ],
+    ];
+    for (const [sample, label] of negatives) {
+      assert(
+        !hasClass(sample, "VAT_ABSOLUTE_GENERALIZATION"),
+        `does not flag VAT 14K: ${label}`
+      );
+    }
+    assert(
+      hasClass(
+        "ถ้ายังไม่รวม VAT ก็ให้คูณ 1.07 เป็นยอดจริง",
+        "VAT_ABSOLUTE_GENERALIZATION"
+      ),
+      "hypothetical if-not-included still flags because no verified document"
+    );
+  }
+
+  console.log("\n=== WP-V3-14K — Table-driven number-agnostic VAT pairs ===");
+  {
+    const pairs: Array<[number, number, string]> = [
+      [5000, 5350, "5000"],
+      [7500, 8025, "7500"],
+      [8000, 8560, "8000"],
+      [9000, 9630, "9000"],
+      [12345, 13209.15, "12345"],
+      [4321, 4623.47, "4321"],
+      [21000, 22470, "21000"],
+    ];
+    const formatAmount = (value: number): string => {
+      const [whole, fraction] = value.toFixed(Number.isInteger(value) ? 0 : 2).split(".");
+      const grouped = (whole ?? "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return fraction ? `${grouped}.${fraction}` : grouped;
+    };
+    for (const [base, payable, label] of pairs) {
+      const groupedUnsafe = `ค่างวด ${formatAmount(base)} บาท ต้องคูณ 1.07 จึงต้องจ่ายจริง ${formatAmount(payable)} บาท`;
+      const plainUnsafe = `ค่างวด ${base} บาท ต้องคูณ 1.07 จึงต้องจ่ายจริง ${payable} บาท`;
+      const mathSafe = `${formatAmount(base)} × 1.07 = ${formatAmount(payable)} เป็นเพียงคณิตศาสตร์ ไม่ใช่ข้อยืนยันยอดที่ต้องจ่าย`;
+      const arrowUnsafe = `ค่างวดจริงคือ ${formatAmount(base)} → ${formatAmount(payable)} เพราะบวก VAT 7%`;
+      assert(
+        hasClass(groupedUnsafe, "VAT_ABSOLUTE_GENERALIZATION"),
+        `flags grouped payable pair ${label}`
+      );
+      assert(
+        hasClass(plainUnsafe, "VAT_ABSOLUTE_GENERALIZATION"),
+        `flags ungrouped payable pair ${label}`
+      );
+      assert(
+        !hasClass(mathSafe, "VAT_ABSOLUTE_GENERALIZATION"),
+        `does not flag math illustration pair ${label}`
+      );
+      assert(
+        hasClass(arrowUnsafe, "VAT_ABSOLUTE_GENERALIZATION"),
+        `flags arrow 7% payable pair ${label}`
+      );
+    }
+    assert(
+      hasClass("ยอดจริงคือ 7500×1.07", "VAT_ABSOLUTE_GENERALIZATION") &&
+        hasClass("ยอดจริงคือ 7,500 × 1.07", "VAT_ABSOLUTE_GENERALIZATION") &&
+        hasClass("ยอดจริงคือ 7,500 × 1 . 07", "VAT_ABSOLUTE_GENERALIZATION"),
+      "spacing and comma variants of × 1.07 payable still flag"
+    );
+  }
+
   console.log("\n=== Correction instruction + fallback copy ===");
   {
     const instruction = buildChatV3HighRiskCorrectionInstruction({
@@ -564,7 +798,7 @@ async function main(): Promise<void> {
   assert(networkAfter === networkBefore, "no Gemini SDK network calls");
 
   console.log("");
-  console.log(`WP-V3-14I high-risk validator: ${passed} passed, ${failed} failed`);
+  console.log(`WP-V3-14K high-risk validator: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }
 

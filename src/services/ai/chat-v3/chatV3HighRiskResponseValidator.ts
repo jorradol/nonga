@@ -1,8 +1,10 @@
 /**
- * WP-V3-14E/14G/14I — Narrow high-risk output guard for Chat V.3.
+ * WP-V3-14E/14G/14I/14K — Narrow high-risk output guard for Chat V.3.
  * Does not rewrite ordinary Gemini prose.
  * WP-V3-14I expands VAT_ABSOLUTE_GENERALIZATION (raw-installment / 1.07 inference)
  * and adds ASSIST_SYSTEM_ABSOLUTE_FAILURE. EPB and Collision stay unchanged.
+ * WP-V3-14K generalizes VAT payable inference so detection follows
+ * installment/base + VAT transform + payable conclusion, not specific amounts.
  * Correction (max 1) and fallbacks are owned by the conversation service.
  */
 
@@ -90,7 +92,7 @@ const VAT_INFERENCE_PATTERNS: RegExp[] = [
 ];
 
 const VAT_NEGATION_AROUND =
-  /ยังสรุปไม่ได้|ไม่ควรคูณ|ห้ามคูณ|เป็นเพียงคณิตศาสตร์|ไม่ใช่ข้อยืนยัน|ใช้ยืนยัน.{0,24}ไม่ได้|ไม่ได้แปลว่า|ไม่เหมารวม|ห้ามถือส่วนต่าง|ส่วนต่าง.{0,12}7\s*%.{0,24}ใช้ยืนยัน|ห้ามอนุมานจาก|ไม่สรุปจากค่างวดดิบ/;
+  /ยังสรุปไม่ได้|ไม่ควรคูณ|ห้ามคูณ|อย่าใช้สูตร|ห้ามใช้สูตร|ไม่ควรใช้สูตร|เป็นเพียงคณิตศาสตร์|ไม่ใช่ข้อยืนยัน|ใช้ยืนยัน.{0,24}ไม่ได้|ไม่ได้แปลว่า|ไม่เหมารวม|ห้ามถือส่วนต่าง|ส่วนต่าง.{0,12}7\s*%.{0,24}ใช้ยืนยัน|ห้ามอนุมานจาก|ไม่สรุปจากค่างวดดิบ/;
 
 const VAT_DEFERRED_RE =
   /ควรถามไฟแนนซ์|ถามไฟแนนซ์อีกครั้ง|แต่ควร(?:ถาม|ตรวจ)|ภายหลังควร/;
@@ -114,6 +116,19 @@ function foldVatText(text: string): string {
     .trim();
 }
 
+const THAI_DIGIT_MAP: Record<string, string> = {
+  "๐": "0",
+  "๑": "1",
+  "๒": "2",
+  "๓": "3",
+  "๔": "4",
+  "๕": "5",
+  "๖": "6",
+  "๗": "7",
+  "๘": "8",
+  "๙": "9",
+};
+
 function parseBahtDigits(raw: string): number | null {
   const digits = raw.replace(/[^\d]/g, "");
   if (!digits) return null;
@@ -121,10 +136,182 @@ function parseBahtDigits(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function parseMoneyNumber(raw: string): number | null {
+  const mapped = String(raw ?? "").replace(/[๐-๙]/g, (ch) => THAI_DIGIT_MAP[ch] ?? ch);
+  const normalized = mapped.replace(/,/g, "").trim();
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+  const value = Number(normalized);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function isApproxSevenPercentMarkup(base: number, payable: number): boolean {
+  if (!(base > 0) || !(payable > base)) return false;
+  const expected = base * 1.07;
+  const absTol = Math.max(0.02, base * 0.0005);
+  return (
+    Math.abs(payable - expected) <= absTol ||
+    Math.abs(payable - Math.round(expected)) <= 1
+  );
+}
+
 function vatWindowIsMathOnly(window: string): boolean {
   return /เป็นเพียงคณิตศาสตร์|ไม่ใช่ข้อยืนยันยอด|ไม่ได้หมายความว่าต้องจ่าย/.test(
     window
   );
+}
+
+const VAT_INSTALLMENT_BASE_RE =
+  /ยอดจัด.{0,40}ดอกเบี้ย.{0,48}(?:÷|\/|หาร|แบ่ง).{0,32}(?:งวด|เดือน|จำนวน)|ยอดรวมต้นและดอก.{0,32}(?:หาร|แบ่ง)|เงินต้นรวมดอก.{0,32}(?:หาร|แบ่ง)|ยอดจัดบวกดอกเบี้ยแล้วหาร|เอาเงินต้นรวมดอกแล้วแบ่ง|คำนวณค่างวดก่อน(?:ภาษี|VAT)|ค่างวดก่อน(?:\s*)?(?:VAT|ภาษี)|ยอดผ่อนพื้นฐาน|ยอดงวดที่ยังไม่รวม(?:ภาษี|VAT)|ยอด(?:ทั้งหมด|รวม)?ก่อน(?:\s*)?(?:VAT|ภาษี)|ค่างวดเนื้อ/;
+
+const VAT_TRANSFORM_RE =
+  /(?:คูณ(?:ด้วย)?|×)\s*1\.07|บวก(?:เพิ่ม)?(?:อีก)?\s*(?:VAT\s*)?7\s*%|บวก\s*VAT(?:\s*7\s*%)?|เพิ่มภาษีมูลค่าเพิ่ม|นำค่างวดไปคิด\s*VAT|ยอดเดิม\s*\+\s*VAT|คิด\s*VAT\s*เพิ่ม/;
+
+const VAT_PAYABLE_RE =
+  /ยอดจริงที่ต้องจ่าย|ค่างวดจริง|ต้องจ่ายเดือนละ|ยอดสุทธิที่.{0,16}ต้องจ่าย|ยอดเรียกเก็บจริง|จ่ายจริงเป็น|จึงต้องชำระ|จะกลายเป็น(?:ยอด|ค่างวด)?|นี่คือยอดที่ไฟแนนซ์เรียกเก็บ|แสดงว่ายังไม่รวม\s*VAT|แสดงว่ารวม\s*VAT(?:\s*แล้ว)?|ต้องจ่ายจริง|ยอดที่(?:ลุง|พี่|คุณ)?ต้องจ่าย|ยอดจริงคือ|เป็นยอดจริง|จ่ายจริง/;
+
+function foldVatRelationText(text: string): string {
+  return String(text ?? "")
+    .replace(/[๐-๙]/g, (ch) => THAI_DIGIT_MAP[ch] ?? ch)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[×＊*]/g, "×")
+    .replace(/(\d)\s*[xX]\s*(?=1)/g, "$1×")
+    .replace(/[xX]\s*(1\s*[,.]\s*07)/g, "×$1")
+    .replace(/1\s*[,.]\s*07/g, "1.07")
+    .replace(/107\s*%/g, "1.07")
+    .replace(/เจ็ด\s*เปอร์เซ็นต์์?/g, "7%")
+    .replace(/[;:!?()]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/([ก-๙])\s+(?=[ก-๙])/g, "$1")
+    .trim();
+}
+
+function vatRelationSegments(text: string): string[] {
+  return text
+    .split(/\n+|(?<=[.!?])\s+|\s+แต่\s+|\s+อย่างไรก็ตาม\s+|\s+ทั้งนี้\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+function vatSegmentIsSafeIllustration(segment: string): boolean {
+  if (VAT_NEGATION_AROUND.test(segment)) return true;
+  if (vatWindowIsMathOnly(segment)) return true;
+  if (
+    /อย่าใช้สูตร|ห้ามใช้สูตร|ไม่ควรใช้สูตร|ไม่ใช่ข้อยืนยันยอดที่ต้องจ่าย|ห้ามคูณ\s*1\.07\s*อัตโนมัติ/.test(
+      segment
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function vatSegmentIsVerifiedDocument(segment: string): boolean {
+  const docStatesPreVat =
+    /(?:ใบเสนอราคา|สัญญา|เอกสาร).{0,48}(?:ระบุ|กำหนด|เขียน).{0,48}(?:ยอดก่อน\s*VAT|ยังไม่รวม\s*VAT)/.test(
+      segment
+    ) || /ระบุชัดว่า.{0,32}(?:ยอดก่อน\s*VAT|ยังไม่รวม\s*VAT)/.test(segment);
+  const docRequiresSeparateVat =
+    /กำหนดให้บวก\s*VAT\s*แยก|(?:เอกสาร|สัญญา|ใบเสนอราคา).{0,40}กำหนด.{0,32}บวก\s*VAT\s*แยก/.test(
+      segment
+    );
+  const followsDocument =
+    /ตาม(?:เงื่อนไข|ข้อความ)?ในเอกสาร|ตามที่เอกสารระบุ|คำนวณตามเงื่อนไขในเอกสาร/.test(
+      segment
+    );
+  return docStatesPreVat && docRequiresSeparateVat && followsDocument;
+}
+
+function vatSegmentHasInstallmentBase(segment: string): boolean {
+  return VAT_INSTALLMENT_BASE_RE.test(segment);
+}
+
+function vatSegmentHasExplicitTransform(segment: string): boolean {
+  return VAT_TRANSFORM_RE.test(segment);
+}
+
+function vatSegmentHasPayableConclusion(segment: string): boolean {
+  return VAT_PAYABLE_RE.test(segment);
+}
+
+function vatSegmentHasNumericTransform(segment: string): boolean {
+  const equation =
+    /(\d[\d,.]*)\s*×\s*1\.07(?:\s*=\s*(\d[\d,.]*))?/g;
+  const arrow = /(\d[\d,.]*)\s*(?:→|->|=>)\s*(\d[\d,.]*)/g;
+  let match: RegExpExecArray | null;
+  while ((match = equation.exec(segment)) !== null) {
+    if (match[2]) {
+      const base = parseMoneyNumber(match[1] ?? "");
+      const payable = parseMoneyNumber(match[2] ?? "");
+      if (
+        base != null &&
+        payable != null &&
+        isApproxSevenPercentMarkup(base, payable)
+      ) {
+        return true;
+      }
+    } else {
+      return true;
+    }
+  }
+  while ((match = arrow.exec(segment)) !== null) {
+    const base = parseMoneyNumber(match[1] ?? "");
+    const payable = parseMoneyNumber(match[2] ?? "");
+    if (
+      base != null &&
+      payable != null &&
+      isApproxSevenPercentMarkup(base, payable)
+    ) {
+      return true;
+    }
+  }
+  if (!/(?:VAT|ภาษีมูลค่าเพิ่ม|1\.07|7\s*%)/.test(segment)) return false;
+  const tokens = [...segment.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+|\d{4,})/g)];
+  const values = tokens
+    .map((item) => parseMoneyNumber(item[1] ?? ""))
+    .filter((value): value is number => value != null && value !== 1.07);
+  for (let i = 0; i < values.length; i += 1) {
+    for (let j = i + 1; j < values.length; j += 1) {
+      const left = values[i] ?? 0;
+      const right = values[j] ?? 0;
+      if (
+        isApproxSevenPercentMarkup(left, right) ||
+        isApproxSevenPercentMarkup(right, left)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function vatSegmentHasTransform(segment: string): boolean {
+  return vatSegmentHasExplicitTransform(segment) || vatSegmentHasNumericTransform(segment);
+}
+
+function detectVatPayableInference(assistantContent: string): boolean {
+  const text = foldVatRelationText(assistantContent);
+  if (!text) return false;
+  const segments = vatRelationSegments(text);
+  for (const segment of segments) {
+    if (vatSegmentIsSafeIllustration(segment)) continue;
+    if (vatSegmentIsVerifiedDocument(segment)) continue;
+    const hasBase = vatSegmentHasInstallmentBase(segment);
+    const hasTransform = vatSegmentHasTransform(segment);
+    const hasPayable = vatSegmentHasPayableConclusion(segment);
+    if (hasTransform && hasPayable) return true;
+    if (hasBase && hasTransform && hasPayable) return true;
+  }
+  const fullIsSafe =
+    vatSegmentIsSafeIllustration(text) || vatSegmentIsVerifiedDocument(text);
+  if (fullIsSafe) return false;
+  const hasBase = vatSegmentHasInstallmentBase(text);
+  const hasTransform = vatSegmentHasTransform(text);
+  const hasPayable = vatSegmentHasPayableConclusion(text);
+  if (vatSegmentIsSafeIllustration(text)) return false;
+  if (hasTransform && hasPayable) return true;
+  if (hasBase && hasTransform && hasPayable) return true;
+  return false;
 }
 
 function vatMatchIsRisky(text: string, match: RegExpExecArray): boolean {
@@ -155,15 +342,15 @@ function hasRiskyVatMatch(text: string, patterns: RegExp[]): boolean {
 
 function hasAutoMarkupPayableClaim(text: string): boolean {
   const re =
-    /(\d[\d,]*)\s*บาท.{0,40}(?:ต้องจ่ายจริง|จ่ายจริง)\s*(\d[\d,]*)/g;
+    /(\d[\d,.]*)\s*บาท.{0,48}(?:ต้องจ่ายจริง|จ่ายจริง|ต้องจ่าย)\s*(\d[\d,.]*)/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
     if (!vatMatchIsRisky(text, match)) continue;
-    const base = parseBahtDigits(match[1] ?? "");
-    const payable = parseBahtDigits(match[2] ?? "");
+    const base = parseMoneyNumber(match[1] ?? "") ?? parseBahtDigits(match[1] ?? "");
+    const payable =
+      parseMoneyNumber(match[2] ?? "") ?? parseBahtDigits(match[2] ?? "");
     if (base == null || payable == null || base <= 0) continue;
-    const expected = Math.round(base * 1.07);
-    if (Math.abs(payable - expected) <= 1) return true;
+    if (isApproxSevenPercentMarkup(base, payable)) return true;
   }
   return false;
 }
@@ -174,6 +361,7 @@ function detectVatAbsoluteGeneralization(assistantContent: string): boolean {
   if (hasRiskyVatMatch(text, VAT_PATTERNS)) return true;
   if (hasRiskyVatMatch(text, VAT_INFERENCE_PATTERNS)) return true;
   if (hasAutoMarkupPayableClaim(text)) return true;
+  if (detectVatPayableInference(assistantContent)) return true;
   return false;
 }
 
@@ -500,8 +688,9 @@ export function buildChatV3HighRiskCorrectionInstruction(input: {
     facts.push(
       "VAT_ABSOLUTE_GENERALIZATION:",
       "- ถอนข้อสรุปแบบเหมารวมเรื่อง VAT จากคำว่ารถใหม่หรือรถมือสอง",
-      "- ถอนการอ้างกฎหมายแบบเด็ดขาด และการอนุมานจากค่างวดดิบหรือส่วนต่างประมาณ 7%",
-      "- ห้ามคูณค่างวดด้วย 1.07 เป็นยอดจ่ายจริง และห้ามแต่งยอดชำระหรือข้อกฎหมายใหม่",
+      "- ถอนการอ้างกฎหมายแบบเด็ดขาด และการอนุมานจากสูตรค่างวดหรือส่วนต่างประมาณ 7% โดยไม่มีเอกสาร",
+      "- ห้ามนิยาม (ยอดจัด+ดอกเบี้ย)÷งวด เป็นยอดก่อน VAT เมื่อไม่มีใบเสนอราคาหรือสัญญา",
+      "- ห้ามคูณค่างวดด้วย 1.07 หรือบวก VAT 7% เพื่อยืนยันยอดจ่ายจริง และห้ามแต่งยอดชำระหรือข้อกฎหมายใหม่",
       "- แนะนำให้ตรวจใบเสนอราคา สัญญา ราคารถ เงินดาวน์ ยอดจัด ค่างวด VAT ค่าธรรมเนียม ยอดรวมตลอดสัญญา และขอคำยืนยันเป็นลายลักษณ์อักษร",
       "- รักษาบริบทและตัวเลขการเงินที่ถูกต้องเดิม"
     );
