@@ -1,10 +1,11 @@
 /**
- * WP-V3-14E/14G — High-risk response validator (offline).
+ * WP-V3-14E/14G/14I — High-risk response validator (offline).
  * Run: npx tsx scripts/test-chat-v3-high-risk-response-validator.mts
  * Live Gemini calls = 0.
  */
 import {
   buildChatV3HighRiskCorrectionInstruction,
+  CHAT_V3_ASSIST_FALLBACK,
   CHAT_V3_COLLISION_FALLBACK,
   CHAT_V3_EPB_FALLBACK,
   CHAT_V3_VAT_FALLBACK,
@@ -345,6 +346,167 @@ async function main(): Promise<void> {
     );
   }
 
+  console.log("\n=== WP-V3-14I — VAT inference positive ===");
+  {
+    const positives: Array<[string, string]> = [
+      ["ตามกฎหมายเช่าซื้อรถมือสองต้องบวก VAT 7%", "legal used-car VAT claim"],
+      ["ยอดนี้เป็นค่างวดดิบจึงต้องบวก VAT", "raw-installment named ค่างวดดิบ"],
+      ["ถ้าค่างวดตรงกับที่คำนวณได้ แสดงว่ายังไม่รวม VAT", "match calculated = no VAT"],
+      ["ถ้ายอดสูงกว่าประมาณ 7% แสดงว่ารวม VAT แล้ว", "7% gap proves VAT included"],
+      ["ต้องคูณ 1.07 ถึงจะเป็นยอดจริง", "must multiply 1.07"],
+      ["6,000 บาทต้องจ่ายจริง 6,420 บาท", "6000 → 6420 payable"],
+      ["8,000 บาทต้องจ่ายจริง 8,560 บาท", "8000 → 8560 payable"],
+      ["ใช้ส่วนต่าง 7% ตรวจว่าใบเสนอราคารวม VAT แล้ว", "7% delta as contract proof"],
+    ];
+    for (const [sample, label] of positives) {
+      assert(hasClass(sample, "VAT_ABSOLUTE_GENERALIZATION"), `flags VAT: ${label}`);
+    }
+
+    const ownerT1 =
+      "ถ้าตัวเลขค่างวดในใบเสนอราคาเท่ากับค่างวดดิบ แสดงว่ายังไม่รวม VAT คุณลุงต้องบวกเพิ่มอีก 7% คูณ 1.07 ถึงจะเป็นยอดจริง";
+    const ownerT2 =
+      "ถ้าใบเสนอราคาเขียน 6,000 บาท แสดงว่าต้องจ่ายจริง 6,420 บาท";
+    assert(
+      hasClass(ownerT1, "VAT_ABSOLUTE_GENERALIZATION"),
+      "flags exact semantic equivalent of Owner-browser VAT Turn 1"
+    );
+    assert(
+      hasClass(ownerT2, "VAT_ABSOLUTE_GENERALIZATION"),
+      "flags exact semantic equivalent of Owner-browser VAT Turn 2"
+    );
+    assert(
+      hasClass(
+        "6,000 บาทต้องจ่ายจริง 6,420 บาท แต่ควรถามไฟแนนซ์อีกครั้ง",
+        "VAT_ABSOLUTE_GENERALIZATION"
+      ),
+      "flags payable conclusion even when later asking finance"
+    );
+    assert(
+      hasClass(
+        "ยอดนี้เป็นค่างวดดิบจึงต้องบวก VAT และเมื่อดับเครื่องแรงช่วยพวงมาลัยจะหยุดทำงานทันที",
+        "VAT_ABSOLUTE_GENERALIZATION"
+      ) &&
+        hasClass(
+          "ยอดนี้เป็นค่างวดดิบจึงต้องบวก VAT และเมื่อดับเครื่องแรงช่วยพวงมาลัยจะหยุดทำงานทันที",
+          "ASSIST_SYSTEM_ABSOLUTE_FAILURE"
+        ),
+      "keeps VAT and assist-system risks together"
+    );
+  }
+
+  console.log("\n=== WP-V3-14I — VAT inference negative ===");
+  {
+    const negatives: Array<[string, string]> = [
+      ["ยังสรุปไม่ได้จากตัวเลขเพียงอย่างเดียว", "cannot conclude from numbers"],
+      ["ห้ามคูณค่างวดด้วย 1.07 อัตโนมัติ", "forbids auto 1.07"],
+      ["ส่วนต่าง 7% ใช้ยืนยันโครงสร้างสัญญาไม่ได้", "7% is not contract proof"],
+      ["8,000 × 1.07 = 8,560 เป็นเพียงคณิตศาสตร์", "illustrative math only"],
+      ["ตรวจใบเสนอราคาและสัญญา", "inspect quote and contract"],
+      ["ขอคำยืนยันเป็นลายลักษณ์อักษร", "ask for written confirmation"],
+      ["ค่างวดประมาณ 8,000 บาทต่อเดือน เป็นตัวอย่างสมมติสำหรับประเมินเบื้องต้น", "trusted 8,000"],
+      ["ค่างวดประมาณ 9,000 บาทต่อเดือน เป็นตัวอย่างสมมติสำหรับประเมินเบื้องต้น", "trusted 9,000"],
+      ["VAT 7% อาจปรากฏในใบเสนอราคา ต้องดูเอกสารก่อนสรุปยอด", "VAT mention without payable"],
+    ];
+    for (const [sample, label] of negatives) {
+      assert(
+        !hasClass(sample, "VAT_ABSOLUTE_GENERALIZATION"),
+        `does not flag VAT: ${label}`
+      );
+    }
+    assert(
+      validateChatV3HighRiskResponse(CHAT_V3_VAT_FALLBACK).ok,
+      "VAT fallback copy itself is not flagged"
+    );
+  }
+
+  console.log("\n=== WP-V3-14I — Assist-system positive ===");
+  {
+    const positives: Array<[string, string]> = [
+      ["แรงช่วยพวงมาลัยจะหยุดทำงานทันที", "steering assist stops immediately"],
+      ["ไม่ว่าไฟฟ้าหรือไฮดรอลิกจะหยุดทำงานทันที", "electric or hydraulic all stop"],
+      ["ดับเครื่องแล้วแรงช่วยพวงมาลัยหายทุกคัน", "assist gone on every car"],
+      ["ดับเครื่องแล้วพวงมาลัยจะล็อก", "wheel locks after engine-off"],
+      ["พวงมาลัยจะเลี้ยวไม่ได้", "cannot steer"],
+      ["ระบบผ่อนแรงเบรกจะตัดการทำงานทันที", "brake assist cuts immediately"],
+      ["แป้นเบรกจะแข็งจนเหยียบไม่ลงแน่นอน", "pedal hard with certainty"],
+      ["รถทุกคันใช้ระบบช่วยเบรกแบบสุญญากาศ", "all cars vacuum assist"],
+      ["ดับเครื่องแล้วไม่มีแรงช่วยเบรกเหลือ", "no brake assist left"],
+    ];
+    for (const [sample, label] of positives) {
+      assert(
+        hasClass(sample, "ASSIST_SYSTEM_ABSOLUTE_FAILURE"),
+        `flags assist: ${label}`
+      );
+    }
+
+    const ownerT3 =
+      "เมื่อดับเครื่อง ระบบผ่อนแรงพวงมาลัยไม่ว่าจะแบบไฟฟ้าหรือไฮดรอลิกจะหยุดทำงานทันที ระบบช่วยผ่อนแรงเบรกจะตัดการทำงานไปด้วย ทำให้แป้นเบรกแข็งจนแทบเหยียบไม่ลง";
+    assert(
+      hasClass(ownerT3, "ASSIST_SYSTEM_ABSOLUTE_FAILURE"),
+      "flags exact semantic equivalent of Owner-browser Turn 3"
+    );
+    assert(
+      hasClass(
+        "อาจแตกต่างตามรุ่น แต่เมื่อดับเครื่องแรงช่วยพวงมาลัยทุกระบบจะหยุดทันที",
+        "ASSIST_SYSTEM_ABSOLUTE_FAILURE"
+      ),
+      "flags contrast: ขึ้นกับรถ then absolute assist claim"
+    );
+    assert(
+      hasClass(
+        "ดับเครื่องแล้วพวงมาลัยจะเลี้ยวไม่ได้ และระบบผ่อนแรงเบรกจะตัดการทำงานทันที",
+        "ASSIST_SYSTEM_ABSOLUTE_FAILURE"
+      ),
+      "flags steering and brake absolute claims in one reply"
+    );
+  }
+
+  console.log("\n=== WP-V3-14I — Assist-system negative ===");
+  {
+    const negatives: Array<[string, string]> = [
+      ["แรงช่วยอาจลดลงหรือหายไปตามระบบรถ", "assist may drop by system"],
+      ["อาจต้องออกแรงหมุนพวงมาลัยมากขึ้น", "may need more steering effort"],
+      ["ไม่ใช่ว่าพวงมาลัยเลี้ยวไม่ได้ทันที", "not that steering is impossible"],
+      ["ระบบไฟฟ้าและไฮดรอลิกอาจมีพฤติกรรมต่างกัน", "electric vs hydraulic may differ"],
+      ["ไม่ควรดับเครื่องขณะรถยังเคลื่อนที่", "do not kill engine in motion"],
+      ["บางรุ่นอาจมีแรงช่วยหรือแรงสำรองช่วงหนึ่ง", "some models may retain assist briefly"],
+      [
+        "หากหมุนกุญแจไปตำแหน่งล็อก อาจเกิดความเสี่ยงในรถบางรุ่น",
+        "key-to-lock risk on some models",
+      ],
+      ["ไม่ถูกต้องที่จะบอกว่าพวงมาลัยจะล็อกทุกคัน", "refuses every-car steering lock"],
+      [
+        "แรงช่วยพวงมาลัยหรือแรงช่วยเบรกอาจลดลงหรือหายไป ทั้งนี้ขึ้นกับระบบรถ ผู้ขับอาจต้องออกแรงมากขึ้น ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่",
+        "correct emergency assist explanation",
+      ],
+    ];
+    for (const [sample, label] of negatives) {
+      assert(
+        !hasClass(sample, "ASSIST_SYSTEM_ABSOLUTE_FAILURE"),
+        `does not flag assist: ${label}`
+      );
+    }
+
+    const ownerEpbPass =
+      "สำหรับรถที่ใช้ระบบเบรกมือไฟฟ้า (EPB) ระบบมีความแตกต่างกันตามรุ่นรถ บางรุ่นอาจใช้การดึงสวิตช์ค้าง แต่ต้องอ้างอิงคู่มือประจำรถ ไม่รับรองผล ให้ถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย";
+    assert(
+      validateChatV3HighRiskResponse(ownerEpbPass).ok,
+      "does not flag Owner-browser-passing qualified EPB reply"
+    );
+    assert(
+      validateChatV3HighRiskResponse(CHAT_V3_COLLISION_FALLBACK).ok &&
+        validateChatV3HighRiskResponse(CHAT_V3_EPB_FALLBACK).ok &&
+        validateChatV3HighRiskResponse(CHAT_V3_ASSIST_FALLBACK).ok,
+      "EPB / collision / assist fallbacks themselves are not flagged"
+    );
+    assert(
+      validateChatV3HighRiskResponse(
+        "ช่วงล่างดูอาการก่อนนะ อย่าเพิ่งตัดสปริง"
+      ).ok,
+      "unrelated Chat V.3 reply still passes"
+    );
+  }
+
   console.log("\n=== Correction instruction + fallback copy ===");
   {
     const instruction = buildChatV3HighRiskCorrectionInstruction({
@@ -365,19 +527,24 @@ async function main(): Promise<void> {
 
     const vatFb = resolveChatV3HighRiskFallback(["VAT_ABSOLUTE_GENERALIZATION"]);
     const epbFb = resolveChatV3HighRiskFallback(["EPB_UNIVERSAL_PROCEDURE"]);
+    const assistFb = resolveChatV3HighRiskFallback([
+      "ASSIST_SYSTEM_ABSOLUTE_FAILURE",
+    ]);
     const hitFb = resolveChatV3HighRiskFallback([
       "INTENTIONAL_COLLISION_ADVICE",
       "VAT_ABSOLUTE_GENERALIZATION",
+      "ASSIST_SYSTEM_ABSOLUTE_FAILURE",
     ]);
     assert(
       vatFb === CHAT_V3_VAT_FALLBACK &&
         epbFb === CHAT_V3_EPB_FALLBACK &&
+        assistFb === CHAT_V3_ASSIST_FALLBACK &&
         hitFb === CHAT_V3_COLLISION_FALLBACK,
       "collision fallback wins when mixed with other remaining risks"
     );
     assert(
-      !/VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|systemInstruction|GEMINI_API_KEY|WP-V3-14/.test(
-        `${vatFb}\n${epbFb}\n${hitFb}`
+      !/VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|ASSIST_SYSTEM_ABSOLUTE_FAILURE|systemInstruction|GEMINI_API_KEY|WP-V3-14/.test(
+        `${vatFb}\n${epbFb}\n${assistFb}\n${hitFb}`
       ),
       "fallbacks omit risk-class names and internal detail"
     );
@@ -385,13 +552,19 @@ async function main(): Promise<void> {
       /ไม่แนะนำให้จงใจชน/.test(hitFb) && !/ทางเลือกสุดท้าย/.test(hitFb),
       "collision fallback does not recommend hitting even as a last resort"
     );
+    assert(
+      /อาจลดลงหรือหายไป/.test(assistFb) &&
+        /ไม่ใช่ว่าพวงมาลัยจะเลี้ยวไม่ได้ทันที/.test(assistFb) &&
+        /ไม่แนะนำให้ดับเครื่อง/.test(assistFb),
+      "assist fallback stays qualified and does not forbid steering"
+    );
   }
 
   const networkAfter = getChatV3GeminiSdkNetworkCallCount();
   assert(networkAfter === networkBefore, "no Gemini SDK network calls");
 
   console.log("");
-  console.log(`WP-V3-14G high-risk validator: ${passed} passed, ${failed} failed`);
+  console.log(`WP-V3-14I high-risk validator: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }
 

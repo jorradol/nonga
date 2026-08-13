@@ -1,5 +1,5 @@
 /**
- * WP-V3-14E/14G — High-risk correction flow + fallbacks (offline, mock provider).
+ * WP-V3-14E/14G/14I — High-risk correction flow + fallbacks (offline, mock provider).
  * Run: npx tsx scripts/test-chat-v3-high-risk-correction-flow.mts
  * Live Gemini calls = 0.
  */
@@ -8,6 +8,7 @@ import {
   CHAT_V3_FINANCE_RECALC_NOTICE,
 } from "../src/services/ai/chat-v3/chatV3FinanceConsistency.ts";
 import {
+  CHAT_V3_ASSIST_FALLBACK,
   CHAT_V3_COLLISION_FALLBACK,
   CHAT_V3_EPB_FALLBACK,
   CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID,
@@ -53,6 +54,12 @@ const SAFE_VAT =
   "ยังสรุปจากคำว่ารถมือสองอย่างเดียวไม่ได้ ต้องดูใบเสนอราคาและสัญญาว่ายอดใดรวม VAT แล้ว ไม่ควรคูณค่างวดด้วย 1.07 อัตโนมัติ";
 const SAFE_EPB =
   "เบรกจอดไฟฟ้าต่างกันตามรุ่น บางรุ่นอาจรองรับการดึงสวิตช์ค้าง แต่ต้องดูคู่มือ ไม่รับรองผล ให้ถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย";
+const SAFE_ASSIST =
+  "แรงช่วยพวงมาลัยหรือแรงช่วยเบรกอาจลดลงหรือหายไปตามระบบรถ อาจต้องออกแรงมากขึ้น ไม่ใช่ว่าพวงมาลัยเลี้ยวไม่ได้ทันที ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่ ให้ถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย หลังหยุดห้ามขับต่อ ให้เรียกรถยก";
+const OWNER_VAT_T1 =
+  "ถ้าตัวเลขค่างวดในใบเสนอราคาเท่ากับค่างวดดิบ แสดงว่ายังไม่รวม VAT คุณลุงต้องบวกเพิ่มอีก 7% คูณ 1.07 ถึงจะเป็นยอดจริง";
+const OWNER_ASSIST_T3 =
+  "เมื่อดับเครื่อง ระบบผ่อนแรงพวงมาลัยไม่ว่าจะแบบไฟฟ้าหรือไฮดรอลิกจะหยุดทำงานทันที ระบบช่วยผ่อนแรงเบรกจะตัดการทำงานไปด้วย ทำให้แป้นเบรกแข็งจนแทบเหยียบไม่ลง";
 const TURN4_EPB_FAIL =
   "สำหรับเบรกมือไฟฟ้า (EPB) ในสถานการณ์ฉุกเฉินที่เบรกเท้าใช้ไม่ได้ขณะรถวิ่ง คุณลุงต้องใช้วิธีดึงค้างไว้หรือกดค้างไว้ค่ะ ต้องดึงสวิตช์ขึ้นค้างไว้ ระบบคอมพิวเตอร์ของรถจะเข้าใจทันทีว่านี่คือการเบรกฉุกเฉิน ระบบจะสั่งการให้ปั๊มเบรกทำงานเพื่อชะลอความเร็ว";
 const SAFE_COLLISION =
@@ -123,7 +130,7 @@ async function runWith(
 }
 
 function leaksInternal(text: string): boolean {
-  return /VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|systemInstruction|GEMINI_API_KEY|NONGA_AI_|WP-V3-14E|chatV3HighRisk/.test(
+  return /VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|ASSIST_SYSTEM_ABSOLUTE_FAILURE|systemInstruction|GEMINI_API_KEY|NONGA_AI_|WP-V3-14|chatV3HighRisk/.test(
     text
   );
 }
@@ -307,6 +314,135 @@ async function main(): Promise<void> {
     assert(
       result.success === true && provider.calls === 1 && sent === general,
       "general Chat V.3 reply does not call EPB correction"
+    );
+  }
+
+  section("WP-V3-14I — VAT inference / assist-system flow");
+  {
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [OWNER_VAT_T1, SAFE_VAT, extra],
+    });
+    const result = await runWith(VAT_ASK, provider, [], "FINANCE");
+    const meta = getLastChatV3HighRiskGuardMetadata();
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "Owner VAT original triggers exactly one correction");
+    assert(
+      meta.riskClasses.includes("VAT_ABSOLUTE_GENERALIZATION") &&
+        sent === SAFE_VAT &&
+        !sent.includes("ค่างวดดิบ") &&
+        !sent.includes("คูณ 1.07 ถึงจะเป็นยอดจริง"),
+      "Owner VAT original is held; accepted correction is sent"
+    );
+  }
+
+  {
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [OWNER_ASSIST_T3, SAFE_ASSIST, extra],
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const meta = getLastChatV3HighRiskGuardMetadata();
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "Owner assist original triggers exactly one correction");
+    assert(
+      meta.riskClasses.includes("ASSIST_SYSTEM_ABSOLUTE_FAILURE") &&
+        sent === SAFE_ASSIST &&
+        !sent.includes("หยุดทำงานทันที") &&
+        !sent.includes("เหยียบไม่ลง"),
+      "Owner assist original is held; accepted correction is sent"
+    );
+  }
+
+  {
+    const multi =
+      "ยอดนี้เป็นค่างวดดิบจึงต้องบวก VAT และเมื่อดับเครื่องแรงช่วยพวงมาลัยจะหยุดทำงานทันที";
+    let correctionCount = 0;
+    let instruction = "";
+    const provider = createScriptedProvider({
+      replies: [multi, SAFE_ASSIST],
+      onGenerate(callIndex, request) {
+        if (callIndex === 1) {
+          correctionCount += 1;
+          instruction = request.systemInstruction;
+        }
+      },
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    assert(correctionCount === 1 && provider.calls === 2, "VAT + assist share one correction call");
+    assert(
+      instruction.includes("VAT_ABSOLUTE_GENERALIZATION") &&
+        instruction.includes("ASSIST_SYSTEM_ABSOLUTE_FAILURE"),
+      "single correction instruction lists VAT and assist-system risks"
+    );
+    assert(result.success === true && provider.calls <= 2, "VAT + assist stay at most 2 calls");
+  }
+
+  {
+    const stillInfer =
+      "ถ้าตัวเลขค่างวดเท่ากับค่างวดดิบ แสดงว่ายังไม่รวม VAT ต้องคูณ 1.07 ถึงจะเป็นยอดจริง";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [OWNER_VAT_T1, stillInfer, extra],
+    });
+    const result = await runWith(VAT_ASK, provider, [], "FINANCE");
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "still-inferring VAT correction does not call a third time");
+    assert(
+      result.success === true &&
+        sent === CHAT_V3_VAT_FALLBACK &&
+        !sent.includes("ค่างวดดิบ") &&
+        !sent.includes("ต้องจ่ายจริง 6,420"),
+      "still-inferring VAT uses VAT fallback; original and corrected unsafe are not sent"
+    );
+  }
+
+  {
+    const stillAbsolute =
+      "เมื่อดับเครื่องแรงช่วยพวงมาลัยทุกระบบจะหยุดทันที แป้นเบรกจะแข็งจนเหยียบไม่ลงแน่นอน";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [OWNER_ASSIST_T3, stillAbsolute, extra],
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "still-absolute assist correction does not call a third time");
+    assert(
+      result.success === true &&
+        sent === CHAT_V3_ASSIST_FALLBACK &&
+        !sent.includes("ทุกระบบจะหยุดทันที") &&
+        !sent.includes("เหยียบไม่ลงแน่นอน"),
+      "still-absolute assist uses emergency fallback; unsafe claims are not sent"
+    );
+  }
+
+  {
+    const provider = createScriptedProvider({
+      replies: [OWNER_ASSIST_T3],
+      failOnCall: 1,
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "assist provider error does not retry correction");
+    assert(
+      result.success === true &&
+        sent === CHAT_V3_ASSIST_FALLBACK &&
+        !sent.includes("หยุดทำงานทันที"),
+      "assist provider error uses assist fallback; original unsafe is not sent"
+    );
+  }
+
+  {
+    const provider = createScriptedProvider({ replies: [SAFE_ASSIST] });
+    const result = await runWith(BRAKE_ASK, provider);
+    const meta = getLastChatV3HighRiskGuardMetadata();
+    const sent = visibleContent(result);
+    assert(provider.calls === 1, "qualified assist reply does not call correction");
+    assert(
+      result.success === true &&
+        sent === SAFE_ASSIST &&
+        meta.correctionAttempted === false,
+      "passing assist reply is sent as original"
     );
   }
 
@@ -677,7 +813,7 @@ async function main(): Promise<void> {
   assert(networkAfter === networkBefore, "no Gemini SDK network calls");
 
   console.log("");
-  console.log(`WP-V3-14G high-risk correction flow: ${passed} passed, ${failed} failed`);
+  console.log(`WP-V3-14I high-risk correction flow: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }
 

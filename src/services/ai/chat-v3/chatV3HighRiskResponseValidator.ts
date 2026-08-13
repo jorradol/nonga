@@ -1,15 +1,16 @@
 /**
- * WP-V3-14E/14G — Narrow high-risk output guard for Chat V.3.
- * Flags only three unsafe claim classes. Does not rewrite ordinary Gemini prose.
- * WP-V3-14G expands EPB_UNIVERSAL_PROCEDURE to catch unqualified imperatives
- * and guaranteed outcomes, not only “เท่านั้น / ทุกยี่ห้อ” wording.
+ * WP-V3-14E/14G/14I — Narrow high-risk output guard for Chat V.3.
+ * Does not rewrite ordinary Gemini prose.
+ * WP-V3-14I expands VAT_ABSOLUTE_GENERALIZATION (raw-installment / 1.07 inference)
+ * and adds ASSIST_SYSTEM_ABSOLUTE_FAILURE. EPB and Collision stay unchanged.
  * Correction (max 1) and fallbacks are owned by the conversation service.
  */
 
 export type ChatV3HighRiskClass =
   | "VAT_ABSOLUTE_GENERALIZATION"
   | "EPB_UNIVERSAL_PROCEDURE"
-  | "INTENTIONAL_COLLISION_ADVICE";
+  | "INTENTIONAL_COLLISION_ADVICE"
+  | "ASSIST_SYSTEM_ABSOLUTE_FAILURE";
 
 export interface ChatV3HighRiskFinding {
   riskClass: ChatV3HighRiskClass;
@@ -37,6 +38,7 @@ export interface ChatV3HighRiskGuardMetadata {
 
 const RISK_ORDER: ChatV3HighRiskClass[] = [
   "INTENTIONAL_COLLISION_ADVICE",
+  "ASSIST_SYSTEM_ABSOLUTE_FAILURE",
   "VAT_ABSOLUTE_GENERALIZATION",
   "EPB_UNIVERSAL_PROCEDURE",
 ];
@@ -60,6 +62,120 @@ const VAT_PATTERNS: RegExp[] = [
   /ค่างวด.{0,36}8\s*,?\s*000.{0,48}(?:ต้อง|จึง|เลย).{0,24}8\s*,?\s*560/,
   /(?:ต้อง|จึง)(?:จ่าย|ชำระ).{0,12}8\s*,?\s*560/,
 ];
+
+const VAT_INFERENCE_PATTERNS: RegExp[] = [
+  /ตามกฎหมาย.{0,40}(?:รถมือสอง|เช่าซื้อ).{0,32}(?:ต้องบวก|บวก)\s*VAT/,
+  /ตามกฎหมายเช่าซื้อรถมือสองต้องบวก\s*VAT/,
+  /รถมือสองที่ยังไม่รวม\s*VAT.{0,20}ต้องบวก\s*7\s*%/,
+  /ค่างวดรถมือสองทุกกรณีมี\s*VAT/,
+  /รถใหม่ไม่ต้องบวก\s*VAT/,
+  /ค่างวดดิบ/,
+  /ยอดนี้เป็นค่างวดดิบ/,
+  /(?:เท่ากับ|ตรงกับ)ค่างวดดิบ.{0,32}ยังไม่รวม\s*VAT/,
+  /ถ้าค่างวดตรงกับที่คำนวณได้.{0,24}ยังไม่รวม\s*VAT/,
+  /(?:ยอดจัด\s*\+?\s*ดอกเบี้ย).{0,40}ยอดก่อน\s*VAT/,
+  /สูงกว่าประมาณ\s*7\s*%.{0,28}รวม\s*VAT/,
+  /ใช้ส่วนต่าง\s*7\s*%.{0,28}รวม\s*VAT/,
+  /ส่วนต่าง.{0,12}7\s*%.{0,28}(?:แสดงว่า|ยืนยัน|ตรวจว่า).{0,24}รวม\s*VAT/,
+  /คูณ\s*1\s*\.\s*07.{0,20}ยอดจริง/,
+  /ต้องคูณ\s*1\s*\.\s*07/,
+  /บวก\s*VAT\s*เองอีก\s*7\s*%/,
+  /ต้องบวกเพิ่มอีก\s*7\s*%/,
+  /ถ้ายอดตรงกับค่างวดดิบ.{0,20}บวก\s*7\s*%/,
+  /ต้องจ่ายจริง\s*6\s*,?\s*420/,
+  /ต้องจ่ายจริง\s*8\s*,?\s*560/,
+  /แสดงว่าต้องจ่ายจริง\s*6\s*,?\s*420/,
+  /6\s*,?\s*000\s*บาท.{0,24}ต้องจ่ายจริง\s*6\s*,?\s*420/,
+  /8\s*,?\s*000\s*บาท.{0,24}ต้องจ่ายจริง\s*8\s*,?\s*560/,
+];
+
+const VAT_NEGATION_AROUND =
+  /ยังสรุปไม่ได้|ไม่ควรคูณ|ห้ามคูณ|เป็นเพียงคณิตศาสตร์|ไม่ใช่ข้อยืนยัน|ใช้ยืนยัน.{0,24}ไม่ได้|ไม่ได้แปลว่า|ไม่เหมารวม|ห้ามถือส่วนต่าง|ส่วนต่าง.{0,12}7\s*%.{0,24}ใช้ยืนยัน|ห้ามอนุมานจาก|ไม่สรุปจากค่างวดดิบ/;
+
+const VAT_DEFERRED_RE =
+  /ควรถามไฟแนนซ์|ถามไฟแนนซ์อีกครั้ง|แต่ควร(?:ถาม|ตรวจ)|ภายหลังควร/;
+
+function foldAssistText(text: string): string {
+  return String(text ?? "")
+    .replace(/[“”"']/g, "")
+    .replace(/[.,;:!?()]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/([ก-๙])\s+(?=[ก-๙])/g, "$1")
+    .trim();
+}
+
+function foldVatText(text: string): string {
+  return String(text ?? "")
+    .replace(/[“”"']/g, "")
+    .replace(/[;:!?()]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/([ก-๙])\s+(?=[ก-๙])/g, "$1")
+    .trim();
+}
+
+function parseBahtDigits(raw: string): number | null {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const value = Number(digits);
+  return Number.isFinite(value) ? value : null;
+}
+
+function vatWindowIsMathOnly(window: string): boolean {
+  return /เป็นเพียงคณิตศาสตร์|ไม่ใช่ข้อยืนยันยอด|ไม่ได้หมายความว่าต้องจ่าย/.test(
+    window
+  );
+}
+
+function vatMatchIsRisky(text: string, match: RegExpExecArray): boolean {
+  const prefix = text.slice(Math.max(0, match.index - 40), match.index);
+  if (DIRECT_NEGATION_BEFORE.test(prefix)) return false;
+  if (VAT_NEGATION_AROUND.test(prefix) || VAT_NEGATION_AROUND.test(match[0])) {
+    return false;
+  }
+  const window = windowAround(text, match.index, match[0].length);
+  if (vatWindowIsMathOnly(window)) return false;
+  if (VAT_DEFERRED_RE.test(window) && !VAT_NEGATION_AROUND.test(window)) {
+    return true;
+  }
+  return true;
+}
+
+function hasRiskyVatMatch(text: string, patterns: RegExp[]): boolean {
+  for (const pattern of patterns) {
+    const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+    const re = new RegExp(pattern.source, flags);
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text)) !== null) {
+      if (vatMatchIsRisky(text, match)) return true;
+    }
+  }
+  return false;
+}
+
+function hasAutoMarkupPayableClaim(text: string): boolean {
+  const re =
+    /(\d[\d,]*)\s*บาท.{0,40}(?:ต้องจ่ายจริง|จ่ายจริง)\s*(\d[\d,]*)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (!vatMatchIsRisky(text, match)) continue;
+    const base = parseBahtDigits(match[1] ?? "");
+    const payable = parseBahtDigits(match[2] ?? "");
+    if (base == null || payable == null || base <= 0) continue;
+    const expected = Math.round(base * 1.07);
+    if (Math.abs(payable - expected) <= 1) return true;
+  }
+  return false;
+}
+
+function detectVatAbsoluteGeneralization(assistantContent: string): boolean {
+  const text = foldVatText(assistantContent);
+  if (!text) return false;
+  if (hasRiskyVatMatch(text, VAT_PATTERNS)) return true;
+  if (hasRiskyVatMatch(text, VAT_INFERENCE_PATTERNS)) return true;
+  if (hasAutoMarkupPayableClaim(text)) return true;
+  return false;
+}
 
 const EPB_CONTEXT_RE =
   /EPB|เบรก(?:มือ|จอด)ไฟฟ้า|สวิตช์(?:เบรก)?(?:จอด|มือ)|Electric Parking Brake/i;
@@ -208,6 +324,97 @@ const COLLISION_PATTERNS: RegExp[] = [
   /ขับชน(?:พุ่มไม้|กอกล้วย|ขอบทาง|แบริเออร์|กองดิน|วัตถุ)/,
 ];
 
+const ASSIST_CONTEXT_RE =
+  /ดับเครื่อง|เครื่องยนต์ดับ|เบรกจม|พวงมาลัย|แรงช่วย|ผ่อนแรง|แป้นเบรก|ระบบช่วยเบรก|ไฮดรอลิก|สุญญากาศ/;
+
+const ASSIST_STEERING_PATTERNS: RegExp[] = [
+  /ระบบผ่อนแรงพวงมาลัยจะหยุดทำงานทันที/,
+  /ผ่อนแรงพวงมาลัย.{0,80}หยุดทำงานทันที/,
+  /ไม่ว่า.{0,48}(?:ไฟฟ้า.{0,32}ไฮดรอลิก|ไฮดรอลิก.{0,32}ไฟฟ้า).{0,40}หยุด/,
+  /ไฟฟ้าหรือไฮดรอลิกจะหยุด(?:ทำงาน)?ทันที/,
+  /พวงมาลัยจะหนักขึ้นมหาศาลแน่นอน/,
+  /แรงช่วยพวงมาลัยจะหยุดทำงานทันที/,
+  /แรงช่วยพวงมาลัย.{0,24}หยุดทำงานทันที/,
+  /แรงช่วยพวงมาลัยหายทันทีทุกคัน/,
+  /ดับเครื่องแล้วแรงช่วยพวงมาลัยหายทุกคัน/,
+  /ดับเครื่องแล้วพวงมาลัยจะล็อก/,
+  /พวงมาลัยจะล็อก(?:ตาย)?ทันที/,
+  /พวงมาลัย(?:จะ)?เลี้ยวไม่ได้/,
+  /แรงช่วยพวงมาลัยทุกระบบจะหยุดทันที/,
+];
+
+const ASSIST_BRAKE_PATTERNS: RegExp[] = [
+  /ระบบผ่อนแรงเบรกจะตัดการทำงานทันที/,
+  /ระบบช่วยผ่อนแรงเบรกจะตัดการทำงาน/,
+  /ระบบช่วย(?:ผ่อนแรง)?เบรกจะ(?:ตัด|หยุด|หาย)/,
+  /แป้นเบรกจะแข็งจนเหยียบไม่ลงแน่นอน/,
+  /แป้นเบรกแข็งจนแทบเหยียบไม่ลง/,
+  /เหยียบแทบไม่ลง/,
+  /รถทุกคันใช้(?:หม้อลม)?สุญญากาศ/,
+  /รถทุกคันใช้ระบบช่วยเบรกแบบสุญญากาศ/,
+  /ดับเครื่องแล้วไม่มีแรงช่วยเบรกเหลือ/,
+  /ระบบช่วยเบรกจะหยุดทั้งหมดทันที/,
+  /ระบบช่วยเบรกจะตัดแน่นอน/,
+];
+
+const ASSIST_NEGATION_AROUND =
+  /ไม่ใช่ว่า|ไม่ถึงกับ|ไม่ถูกต้องที่จะบอกว่า|ไม่ควรกล่าวว่า|ไม่ควรเหมารวมว่า|อย่าเหมารวมว่า|ห้ามเหมารวม|ไม่ได้แปลว่า/;
+
+function hasAssistContext(text: string): boolean {
+  return ASSIST_CONTEXT_RE.test(text);
+}
+
+function assistWindowIsQualified(window: string, matchText: string): boolean {
+  const absoluteInMatch =
+    /ทันที|ทั้งหมด|ทุกคัน|แน่นอน|ไม่ว่า.{0,20}หรือ/.test(matchText);
+  if (absoluteInMatch) return false;
+  if (
+    /อาจลดลงหรือหายไปตามระบบรถ|ขึ้นกับระบบรถ|อาจต้องออกแรง|บางรุ่นอาจมีแรงช่วย/.test(
+      window
+    )
+  ) {
+    return true;
+  }
+  if (
+    /หมุนกุญแจไปตำแหน่งล็อก|บิดกุญแจ.{0,16}ตำแหน่ง\s*Lock/i.test(window) &&
+    /(?:อาจ|บางรุ่น)/.test(window)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function assistMatchIsRisky(text: string, match: RegExpExecArray): boolean {
+  const prefix = text.slice(Math.max(0, match.index - 48), match.index);
+  if (DIRECT_NEGATION_BEFORE.test(prefix)) return false;
+  if (ASSIST_NEGATION_AROUND.test(prefix) || ASSIST_NEGATION_AROUND.test(match[0])) {
+    return false;
+  }
+  const window = windowAround(text, match.index, match[0].length);
+  if (assistWindowIsQualified(window, match[0])) return false;
+  return true;
+}
+
+function hasRiskyAssistMatch(text: string, patterns: RegExp[]): boolean {
+  for (const pattern of patterns) {
+    const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+    const re = new RegExp(pattern.source, flags);
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text)) !== null) {
+      if (assistMatchIsRisky(text, match)) return true;
+    }
+  }
+  return false;
+}
+
+function detectAssistSystemAbsoluteFailure(assistantContent: string): boolean {
+  const text = foldAssistText(assistantContent);
+  if (!text || !hasAssistContext(text)) return false;
+  if (hasRiskyAssistMatch(text, ASSIST_STEERING_PATTERNS)) return true;
+  if (hasRiskyAssistMatch(text, ASSIST_BRAKE_PATTERNS)) return true;
+  return false;
+}
+
 let lastGuardMetadata: ChatV3HighRiskGuardMetadata = emptyGuardMetadata();
 
 function emptyGuardMetadata(): ChatV3HighRiskGuardMetadata {
@@ -257,7 +464,7 @@ export function validateChatV3HighRiskResponse(
   const text = String(assistantContent ?? "");
   const findings: ChatV3HighRiskFinding[] = [];
 
-  if (hasUnnegatedMatch(text, VAT_PATTERNS)) {
+  if (detectVatAbsoluteGeneralization(text)) {
     findings.push({ riskClass: "VAT_ABSOLUTE_GENERALIZATION" });
   }
 
@@ -267,6 +474,10 @@ export function validateChatV3HighRiskResponse(
 
   if (hasUnnegatedMatch(text, COLLISION_PATTERNS)) {
     findings.push({ riskClass: "INTENTIONAL_COLLISION_ADVICE" });
+  }
+
+  if (detectAssistSystemAbsoluteFailure(text)) {
+    findings.push({ riskClass: "ASSIST_SYSTEM_ABSOLUTE_FAILURE" });
   }
 
   return { ok: findings.length === 0, findings };
@@ -289,9 +500,21 @@ export function buildChatV3HighRiskCorrectionInstruction(input: {
     facts.push(
       "VAT_ABSOLUTE_GENERALIZATION:",
       "- ถอนข้อสรุปแบบเหมารวมเรื่อง VAT จากคำว่ารถใหม่หรือรถมือสอง",
-      "- ห้ามบวก 7% อัตโนมัติ และห้ามแต่งยอดชำระจริง",
-      "- แนะนำให้ตรวจราคารถ เงินดาวน์ ยอดจัด ค่างวด ค่าธรรมเนียม VAT และยอดรวมตลอดสัญญา",
+      "- ถอนการอ้างกฎหมายแบบเด็ดขาด และการอนุมานจากค่างวดดิบหรือส่วนต่างประมาณ 7%",
+      "- ห้ามคูณค่างวดด้วย 1.07 เป็นยอดจ่ายจริง และห้ามแต่งยอดชำระหรือข้อกฎหมายใหม่",
+      "- แนะนำให้ตรวจใบเสนอราคา สัญญา ราคารถ เงินดาวน์ ยอดจัด ค่างวด VAT ค่าธรรมเนียม ยอดรวมตลอดสัญญา และขอคำยืนยันเป็นลายลักษณ์อักษร",
       "- รักษาบริบทและตัวเลขการเงินที่ถูกต้องเดิม"
+    );
+  }
+
+  if (classes.includes("ASSIST_SYSTEM_ABSOLUTE_FAILURE")) {
+    facts.push(
+      "ASSIST_SYSTEM_ABSOLUTE_FAILURE:",
+      "- ถอนคำรับรองว่าแรงช่วยพวงมาลัยหรือแรงช่วยเบรกของรถทุกระบบจะหยุดทันทีหรือหายไปแน่นอน",
+      "- ระบุว่าแรงช่วยอาจลดลงหรือหายไปตามระบบรถ และผู้ขับอาจต้องออกแรงมากขึ้น",
+      "- ไม่ใช่ว่าพวงมาลัยเลี้ยวไม่ได้ทันที และห้ามเหมารวมระบบไฟฟ้า ไฮดรอลิก หรือสุญญากาศ",
+      "- ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่",
+      "- รักษาคำแนะนำถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง ลดความเร็ว และหาพื้นที่ปลอดภัย หลังหยุดห้ามขับต่อ ให้เรียกรถยก"
     );
   }
 
@@ -321,13 +544,16 @@ export function buildChatV3HighRiskCorrectionInstruction(input: {
 }
 
 export const CHAT_V3_VAT_FALLBACK =
-  "ยังสรุปยอด VAT จากคำว่ารถใหม่หรือรถมือสองอย่างเดียวไม่ได้ ต้องตรวจใบเสนอราคาและสัญญาว่ายอดใดรวม VAT แล้ว ไม่ควรคูณค่างวดด้วย 1.07 อัตโนมัติ ถ้ามีเอกสารที่ปกปิดข้อมูลส่วนบุคคลแล้ว ส่งมาให้น้องเอช่วยดูต่อได้";
+  "ยังสรุปยอด VAT จากคำว่ารถใหม่หรือรถมือสอง หรือจากตัวเลขค่างวดเพียงอย่างเดียวไม่ได้ ต้องตรวจใบเสนอราคา สัญญา และยอดรวมตลอดสัญญาว่ายอดใดรวม VAT แล้ว ไม่ควรคูณค่างวดด้วย 1.07 อัตโนมัติ และห้ามถือส่วนต่างประมาณ 7% เป็นหลักฐานยืนยันโครงสร้างสัญญา ควรขอคำยืนยันเป็นลายลักษณ์อักษรจากผู้ขายหรือผู้ให้เช่าซื้อ ถ้ามีเอกสารที่ปกปิดข้อมูลส่วนบุคคลแล้ว ส่งมาให้น้องเอช่วยดูต่อได้";
 
 export const CHAT_V3_EPB_FALLBACK =
   "ยืนยันวิธีใช้เบรกจอดไฟฟ้าแบบเดียวกับรถทุกคันไม่ได้ เพราะระบบต่างกันตามยี่ห้อและรุ่น บางรุ่นอาจรองรับการดึงสวิตช์ค้างในเหตุฉุกเฉิน แต่ต้องดูคู่มือรถคันนั้น ขณะเกิดเหตุให้รักษาการควบคุมรถ ถอนคันเร่ง เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย หลังหยุดแล้วห้ามขับต่อ ควรเรียกรถยก";
 
 export const CHAT_V3_COLLISION_FALLBACK =
   "ไม่แนะนำให้จงใจชนพุ่มไม้ ขอบทาง แบริเออร์ รถคันอื่น หรือวัตถุเพื่อหยุดรถ การชนควบคุมผลไม่ได้ และอาจทำให้รถเสียหลัก พลิกคว่ำ หรือกระทบผู้อื่น ให้ถอนคันเร่ง ประคองทิศทาง เตือนรถรอบข้าง ลดความเร็วตามระบบรถ ใช้เบรกจอดเท่าที่ระบบรองรับ และมองหาพื้นที่เปิดที่ปลอดภัย หลังหยุดแล้วห้ามขับต่อ ให้เรียกรถยกหรือความช่วยเหลือ";
+
+export const CHAT_V3_ASSIST_FALLBACK =
+  "แรงช่วยพวงมาลัยหรือแรงช่วยเบรกอาจลดลงหรือหายไป ทั้งนี้ขึ้นกับระบบรถ ผู้ขับอาจต้องออกแรงหมุนพวงมาลัยหรือเหยียบเบรกมากขึ้น ไม่ใช่ว่าพวงมาลัยจะเลี้ยวไม่ได้ทันที และห้ามเหมารวมว่าระบบไฟฟ้า ไฮดรอลิก หรือสุญญากาศให้ผลเหมือนกันทุกคัน ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่ ให้ถอนคันเร่ง ประคองทิศทาง เตือนรถรอบข้าง ลดความเร็วตามระบบรถ และหาพื้นที่ปลอดภัย หลังหยุดแล้วห้ามขับต่อ ให้เรียกรถยกหรือความช่วยเหลือ";
 
 export const CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID = "chat-v3-high-risk-fallback";
 
@@ -345,6 +571,9 @@ export function resolveChatV3HighRiskFallback(
   const parts: string[] = [];
   if (classes.includes("VAT_ABSOLUTE_GENERALIZATION")) {
     parts.push(CHAT_V3_VAT_FALLBACK);
+  }
+  if (classes.includes("ASSIST_SYSTEM_ABSOLUTE_FAILURE")) {
+    parts.push(CHAT_V3_ASSIST_FALLBACK);
   }
   if (classes.includes("EPB_UNIVERSAL_PROCEDURE")) {
     parts.push(CHAT_V3_EPB_FALLBACK);
