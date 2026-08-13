@@ -1,5 +1,5 @@
 /**
- * WP-V3-14E — High-risk correction flow + fallbacks (offline, mock provider).
+ * WP-V3-14E/14G — High-risk correction flow + fallbacks (offline, mock provider).
  * Run: npx tsx scripts/test-chat-v3-high-risk-correction-flow.mts
  * Live Gemini calls = 0.
  */
@@ -53,6 +53,8 @@ const SAFE_VAT =
   "ยังสรุปจากคำว่ารถมือสองอย่างเดียวไม่ได้ ต้องดูใบเสนอราคาและสัญญาว่ายอดใดรวม VAT แล้ว ไม่ควรคูณค่างวดด้วย 1.07 อัตโนมัติ";
 const SAFE_EPB =
   "เบรกจอดไฟฟ้าต่างกันตามรุ่น บางรุ่นอาจรองรับการดึงสวิตช์ค้าง แต่ต้องดูคู่มือ ไม่รับรองผล ให้ถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย";
+const TURN4_EPB_FAIL =
+  "สำหรับเบรกมือไฟฟ้า (EPB) ในสถานการณ์ฉุกเฉินที่เบรกเท้าใช้ไม่ได้ขณะรถวิ่ง คุณลุงต้องใช้วิธีดึงค้างไว้หรือกดค้างไว้ค่ะ ต้องดึงสวิตช์ขึ้นค้างไว้ ระบบคอมพิวเตอร์ของรถจะเข้าใจทันทีว่านี่คือการเบรกฉุกเฉิน ระบบจะสั่งการให้ปั๊มเบรกทำงานเพื่อชะลอความเร็ว";
 const SAFE_COLLISION =
   "ไม่แนะนำให้จงใจชนพุ่มไม้ ขอบทาง หรือแบริเออร์ ให้ถอนคันเร่ง ประคองทิศทาง เตือนรถรอบข้าง และหาพื้นที่เปิดปลอดภัย หลังหยุดห้ามขับต่อ ให้เรียกรถยก";
 const SAFE_FINANCE = `ค่างวดประมาณ ${formatBaht(8_000)} ต่อเดือน เป็นตัวอย่างสมมติสำหรับประเมินเบื้องต้น`;
@@ -193,6 +195,119 @@ async function main(): Promise<void> {
     if (result.success) {
       assert(result.data.content === SAFE_EPB, "accepted EPB correction is sent");
     }
+  }
+
+  section("WP-V3-14G — EPB Turn 4 / imperative-guarantee flow");
+  {
+    let correctionInstruction = "";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [TURN4_EPB_FAIL, SAFE_EPB, extra],
+      onGenerate(callIndex, request) {
+        if (callIndex === 1) correctionInstruction = request.systemInstruction;
+      },
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const meta = getLastChatV3HighRiskGuardMetadata();
+    const sent = visibleContent(result);
+    assert(result.success === true, "Turn 4 EPB original still returns a turn");
+    assert(provider.calls === 2, "Turn 4 EPB original triggers exactly one correction");
+    assert(
+      meta.riskClasses.includes("EPB_UNIVERSAL_PROCEDURE") &&
+        meta.correctionAttempted === true &&
+        meta.correctionAccepted === true &&
+        meta.fallbackUsed === false,
+      "Turn 4 risk detected as EPB_UNIVERSAL_PROCEDURE; corrected reply accepted"
+    );
+    assert(
+      correctionInstruction.includes("EPB_UNIVERSAL_PROCEDURE"),
+      "Turn 4 correction instruction names EPB_UNIVERSAL_PROCEDURE"
+    );
+    assert(
+      sent === SAFE_EPB &&
+        !sent.includes("ต้องใช้วิธีดึงค้างไว้") &&
+        !sent.includes("ระบบจะสั่งการให้ปั๊มเบรก"),
+      "accepted Turn 4 correction is sent; original unsafe is not"
+    );
+  }
+
+  {
+    const stillImperative = "เบรกมือไฟฟ้าต้องดึงสวิตช์ค้างไว้";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [TURN4_EPB_FAIL, stillImperative, extra],
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "still-imperative correction does not call a third time");
+    assert(
+      result.success === true &&
+        result.data.providerId === CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID &&
+        sent === CHAT_V3_EPB_FALLBACK &&
+        !sent.includes("ต้องดึงสวิตช์ค้างไว้") &&
+        !sent.includes("ต้องใช้วิธีดึงค้างไว้"),
+      "still-imperative corrected reply uses EPB fallback; original and corrected unsafe are not sent"
+    );
+  }
+
+  {
+    const stillGuarantee =
+      "เบรกมือไฟฟ้า ระบบจะเข้าใจว่าเป็นการเบรกฉุกเฉินและจะสั่งปั๊มเบรก";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [TURN4_EPB_FAIL, stillGuarantee, extra],
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "still-guarantee correction does not call a third time");
+    assert(
+      result.success === true &&
+        sent === CHAT_V3_EPB_FALLBACK &&
+        !sent.includes("ระบบจะเข้าใจว่าเป็นการเบรกฉุกเฉิน") &&
+        !sent.includes("สั่งปั๊มเบรก"),
+      "still-guarantee corrected reply uses EPB fallback; unsafe guarantee is not sent"
+    );
+  }
+
+  {
+    const provider = createScriptedProvider({
+      replies: [TURN4_EPB_FAIL],
+      failOnCall: 1,
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "Turn 4 provider error does not retry correction");
+    assert(
+      result.success === true &&
+        sent === CHAT_V3_EPB_FALLBACK &&
+        !sent.includes("ต้องใช้วิธีดึงค้างไว้"),
+      "Turn 4 provider error uses EPB fallback; original unsafe is not sent"
+    );
+  }
+
+  {
+    const provider = createScriptedProvider({ replies: [SAFE_EPB] });
+    const result = await runWith(BRAKE_ASK, provider);
+    const meta = getLastChatV3HighRiskGuardMetadata();
+    const sent = visibleContent(result);
+    assert(provider.calls === 1, "qualified EPB reply does not call correction");
+    assert(
+      result.success === true &&
+        sent === SAFE_EPB &&
+        meta.correctionAttempted === false,
+      "qualified EPB reply is sent as original"
+    );
+  }
+
+  {
+    const general = "CDI คือกล่องจุดระเบิด ใช้สั่งงานหัวเทียน";
+    const provider = createScriptedProvider({ replies: [general] });
+    const result = await runWith(GENERAL_ASK, provider);
+    const sent = visibleContent(result);
+    assert(
+      result.success === true && provider.calls === 1 && sent === general,
+      "general Chat V.3 reply does not call EPB correction"
+    );
   }
 
   {
@@ -562,7 +677,7 @@ async function main(): Promise<void> {
   assert(networkAfter === networkBefore, "no Gemini SDK network calls");
 
   console.log("");
-  console.log(`WP-V3-14E high-risk correction flow: ${passed} passed, ${failed} failed`);
+  console.log(`WP-V3-14G high-risk correction flow: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }
 
