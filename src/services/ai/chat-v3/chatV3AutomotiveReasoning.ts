@@ -10,6 +10,10 @@ import {
   type ChatV3AutomotiveDomainCategory,
 } from "./chatV3AutomotiveDomainGuidance";
 import {
+  buildChatV3AutomotiveAccuracyGuidanceBlock,
+  detectChatV3AccuracyTopics,
+} from "./chatV3AutomotiveAccuracyGuidance";
+import {
   buildChatV3FinanceAssumptionBlock,
   resolveTrustedPriceFromVehicleContext,
   type ChatV3FinanceAssumptionBlock,
@@ -426,6 +430,7 @@ export function buildChatV3AutomotiveReasoningPrinciples(): string {
     "ความปลอดภัยเบื้องต้นเท่านั้น (ยังไม่ใช่ Safety Layer เต็ม): เบรก พวงมาลัย ยาง เชื้อเพลิง ไฟฟ้าแรงสูง หรืออาการเสี่ยงอุบัติเหตุ — แนะนำหยุดใช้หรือพบช่างเมื่อเหมาะสม และห้ามรับรองความปลอดภัยจากข้อมูลไม่ครบ",
     "การเงินที่ไม่มีข้อมูลผู้ให้บริการจริงต้องติดป้ายประมาณการ — กฎหมาย/ภาษี/ประกันที่เปลี่ยนได้ต้องแนะนำให้ตรวจข้อมูลล่าสุด",
     "เมื่อมีบล็อกคำนวณ deterministic ให้ใช้ตัวเลขนั้นเท่านั้น ห้ามคำนวณค่างวดชุดเดียวกันใหม่เอง",
+    "ความถูกต้องเชิงเทคนิค: ห้ามตัดสปริงโช้คเป็นคำแนะนำทั่วไป · ลมยางอ้างอิงคู่มือ/สติกเกอร์ · ห้ามเหมารวมเกียร์/ระยะซ่อมบำรุง · เรื่องมูต้องติดป้ายความเชื่อ",
   ].join("\n");
 }
 
@@ -448,7 +453,8 @@ function formatVehicleFacts(vehicle: ChatV3VehicleContextItem): string {
  */
 export function buildChatV3AutomotiveTurnAddendum(
   analysis: ChatV3AutomotiveTurnAnalysis,
-  vehicleContext?: ChatV3AutomotiveVehicleContext | null
+  vehicleContext?: ChatV3AutomotiveVehicleContext | null,
+  sourceMessage = ""
 ): string {
   const lines: string[] = ["[บริบทการคิดรอบนี้]"];
 
@@ -504,6 +510,13 @@ export function buildChatV3AutomotiveTurnAddendum(
     lines.push(domainBlock);
   }
 
+  const accuracyBlock = buildChatV3AutomotiveAccuracyGuidanceBlock(
+    detectChatV3AccuracyTopics(sourceMessage)
+  );
+  if (accuracyBlock) {
+    lines.push(accuracyBlock);
+  }
+
   if (analysis.financeBlock.instructionText) {
     lines.push(analysis.financeBlock.instructionText);
   }
@@ -534,7 +547,8 @@ export function composeChatV3AutomotiveReasoningBlocks(
     principles: buildChatV3AutomotiveReasoningPrinciples(),
     turnAddendum: buildChatV3AutomotiveTurnAddendum(
       analysis,
-      options.vehicleContext
+      options.vehicleContext,
+      options.message
     ),
   };
 }

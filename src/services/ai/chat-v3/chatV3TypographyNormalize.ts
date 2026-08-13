@@ -1,6 +1,7 @@
 /**
- * WP-V3-10D — Targeted Chat V.3 assistant typography cleanup.
+ * WP-V3-10D/14 — Targeted Chat V.3 assistant typography + leak cleanup.
  * Converts a small allowlist of raw LaTeX-like commands to Unicode.
+ * Strips banned cheer words and accidental CJK/Kana leakage outside code.
  * Does not strip $, \\, {}, HTML, or escapes broadly.
  * Preserves fenced code blocks and inline code unchanged.
  */
@@ -16,6 +17,16 @@ const LATEX_COMMAND_MAP: ReadonlyArray<readonly [command: string, glyph: string]
   ["\\le", "≤"],
   ["\\%", "%"],
 ];
+
+/** Banned cheer / hype tokens (WP-V3-14). */
+const BANNED_CHEER_RE = /ปังปุริเย่[!！]?/g;
+
+/**
+ * CJK Unified Ideographs + Hiragana + Katakana — accidental foreign-script leakage.
+ * Does not remove Latin technical terms.
+ */
+const CJK_OR_KANA_RE =
+  /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+/g;
 
 type TextSegment = { kind: "plain" | "code"; text: string };
 
@@ -73,6 +84,11 @@ function normalizePlainTypography(text: string): string {
     out = out.replace(bare, glyph);
   }
 
+  out = out.replace(BANNED_CHEER_RE, "");
+  out = out.replace(CJK_OR_KANA_RE, "");
+  // Collapse leftover double spaces from removals (keep newlines).
+  out = out.replace(/[^\S\n]{2,}/g, " ");
+
   return out;
 }
 
@@ -82,9 +98,16 @@ function normalizePlainTypography(text: string): string {
  */
 export function normalizeChatV3AssistantTypography(content: string): string {
   if (!content) return content;
-  if (!content.includes("\\") && !content.includes("$")) {
-    return content;
-  }
+
+  const needsPass =
+    content.includes("\\") ||
+    content.includes("$") ||
+    BANNED_CHEER_RE.test(content) ||
+    CJK_OR_KANA_RE.test(content);
+  // Reset lastIndex after global test.
+  BANNED_CHEER_RE.lastIndex = 0;
+  CJK_OR_KANA_RE.lastIndex = 0;
+  if (!needsPass) return content;
 
   return splitPreservingCodeSegments(content)
     .map((segment) =>

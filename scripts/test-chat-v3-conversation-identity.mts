@@ -48,18 +48,17 @@ assert(
 );
 
 assert(
-  instruction.includes("ปังปุริเย่") &&
-    /ครั้งคราว|ห้ามใส่ทุกคำตอบ/.test(instruction) &&
-    !/ปังปุริเย่[!！]?\s*ทุกคำตอบ|ทุกคำตอบ.*ปังปุริเย่|ทุกข้อความ.*ปังปุริเย่/.test(
-      instruction
-    ),
-  "ปังปุริเย่ is optional accent, not every answer"
+  /ห้ามใช้คำว่า\s*ปังปุริเย่/.test(instruction) &&
+    !/\[ปังปุริเย่! — สำเนียงเฉพาะตัว\]/.test(instruction) &&
+    !/ใช้ได้สูงสุด 1 ครั้งต่อคำตอบ/.test(instruction),
+  "ปังปุริเย่ is fully banned (not an optional accent)"
 );
 
 assert(
-  /ห้ามใช้\s*ปังปุริเย่/.test(instruction) &&
-    /กลิ่นไหม้|ควัน|ไฟ|เบรก|พวงมาลัย|ฉุกเฉิน/.test(instruction),
-  "ปังปุริเย่ banned in danger/serious contexts"
+  /ห้ามสลับ.*พี่.*คุณลุง|ยึดคำที่ผู้ใช้แนะนำตัว|สรรพนามกลางที่สุภาพ/.test(
+    instruction
+  ),
+  "pronoun stability guidance present"
 );
 
 assert(

@@ -241,9 +241,8 @@ async function main(): Promise<void> {
   const instruction = buildChatV3SystemInstruction("REPAIR");
   assert(
     !/5-8 ประโยค|soft CTA|บังคับถาม|จำนวนรถ/i.test(instruction) &&
-      instruction.includes("ปังปุริเย่") &&
-      /ครั้งคราว|ห้ามใส่ทุกคำตอบ/.test(instruction),
-    "no fixed sentence count / CTA / vehicle count; ปังปุริเย่ is occasional only"
+      /ห้ามใช้คำว่า\s*ปังปุริเย่/.test(instruction),
+    "no fixed sentence count / CTA / vehicle count; ปังปุริเย่ fully banned"
   );
 
   section("9.5 UI behavior (static + history helper)");

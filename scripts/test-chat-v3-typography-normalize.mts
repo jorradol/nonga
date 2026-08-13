@@ -242,6 +242,33 @@ async function main(): Promise<void> {
     );
   }
 
+  section("WP-V3-14 — banned cheer + accidental CJK/Kana");
+
+  {
+    const cheer = normalizeChatV3AssistantTypography(
+      "ตัวเลือกนี้น่าสนใจ ปังปุริเย่! ลุยต่อได้เลย"
+    );
+    assert(!/ปังปุริเย่/.test(cheer), "strips banned cheer ปังปุริเย่");
+    assert(cheer.includes("น่าสนใจ"), "keeps surrounding Thai copy");
+
+    const leaked = normalizeChatV3AssistantTypography(
+      "ตรวจโช้ค $\\rightarrow$ 你好 カタカナ และใช้ CDI ได้"
+    );
+    assert(leaked.includes("→"), "latex arrow still normalized with CJK present");
+    assert(!/你好|カタカナ|\\rightarrow/.test(leaked), "removes CJK/Kana and raw latex");
+    assert(leaked.includes("CDI"), "keeps Latin technical terms");
+
+    const inCode = normalizeChatV3AssistantTypography(
+      "นอกโค้ด ปังปุริเย่ แต่ในโค้ด `ปังปุริเย่` และ ```\n你好\n```"
+    );
+    assert(inCode.includes("`ปังปุริเย่`"), "cheer preserved inside inline code");
+    assert(inCode.includes("你好"), "CJK preserved inside fenced code");
+    assert(
+      inCode.startsWith("นอกโค้ด") && !inCode.slice(0, inCode.indexOf("`")).includes("ปังปุริเย่"),
+      "cheer stripped from plain text before code"
+    );
+  }
+
   section("Runtime wiring — assistant only");
 
   {
@@ -303,9 +330,9 @@ async function main(): Promise<void> {
     );
     assert(
       instruction.includes("น้องเอ") &&
-        instruction.includes("ปังปุริเย่") &&
+        /ห้ามใช้คำว่า\s*ปังปุริเย่/.test(instruction) &&
         /เป็นธรรมชาติ|เพื่อนคู่คิด/.test(instruction),
-      "personality / identity blocks still present"
+      "personality / identity blocks still present (ปังปุริเย่ banned)"
     );
   }
 
