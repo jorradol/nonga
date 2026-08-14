@@ -5,6 +5,9 @@
  * and adds ASSIST_SYSTEM_ABSOLUTE_FAILURE. EPB and Collision stay unchanged.
  * WP-V3-14K generalizes VAT payable inference so detection follows
  * installment/base + VAT transform + payable conclusion, not specific amounts.
+ * WP-V3-14M generalizes ASSIST_SYSTEM_ABSOLUTE_FAILURE so detection follows
+ * power-loss/moving context + assist system + immediate/universal/near-total loss,
+ * not a single Owner-browser sentence.
  * Correction (max 1) and fallbacks are owned by the conversation service.
  */
 
@@ -99,8 +102,11 @@ const VAT_DEFERRED_RE =
 
 function foldAssistText(text: string): string {
   return String(text ?? "")
-    .replace(/[“”"']/g, "")
-    .replace(/[.,;:!?()]/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[*_`#\[\]]/g, " ")
+    .replace(/^[\s>-]+/gm, " ")
+    .replace(/[.,;:!()]/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\s*\/\s*/g, "/")
     .replace(/([ก-๙])\s+(?=[ก-๙])/g, "$1")
@@ -513,7 +519,7 @@ const COLLISION_PATTERNS: RegExp[] = [
 ];
 
 const ASSIST_CONTEXT_RE =
-  /ดับเครื่อง|เครื่องยนต์ดับ|เบรกจม|พวงมาลัย|แรงช่วย|ผ่อนแรง|แป้นเบรก|ระบบช่วยเบรก|ไฮดรอลิก|สุญญากาศ/;
+  /ดับเครื่อง|เครื่องยนต์ดับ|เบรกจม|พวงมาลัย|แรงช่วย|ผ่อนแรง|แป้นเบรก|ระบบช่วยเบรก|ไฮดรอลิก|สุญญากาศ|หม้อลม|แรงดันเบรก|เพาเวอร์|พาวเวอร์|power\s*steering|steering\s*assist|brake\s*assist|brake\s*booster|engine(?:\s+is)?\s+(?:switched\s+)?off|\bsteering\b/i;
 
 const ASSIST_STEERING_PATTERNS: RegExp[] = [
   /ระบบผ่อนแรงพวงมาลัยจะหยุดทำงานทันที/,
@@ -546,16 +552,47 @@ const ASSIST_BRAKE_PATTERNS: RegExp[] = [
 ];
 
 const ASSIST_NEGATION_AROUND =
-  /ไม่ใช่ว่า|ไม่ถึงกับ|ไม่ถูกต้องที่จะบอกว่า|ไม่ควรกล่าวว่า|ไม่ควรเหมารวมว่า|อย่าเหมารวมว่า|ห้ามเหมารวม|ไม่ได้แปลว่า/;
+  /ไม่ใช่ว่า|ไม่ถึงกับ|ไม่ถูกต้องที่จะบอกว่า|ไม่ควรกล่าวว่า|ไม่ควรเหมารวมว่า|อย่าเหมารวมว่า|ห้ามเหมารวม|ไม่ได้แปลว่า|ไม่ได้ทำให้|ไม่จริงที่ว่า|it is not true|does not mean|should not assume|do not assume/i;
+
+const ASSIST_CITATION_BEFORE =
+  /คำกล่าวที่ว่า|ความเชื่อที่ว่า|มีคนบอกว่า|ใครบอกว่า|ถามว่า|หรือว่า/;
+
+const ASSIST_NON_ENDORSE_AFTER =
+  /ไม่ถูกต้อง|ไม่เป็นความจริง|ไม่จริง|หรือไม่|ใช่ไหม|จริงหรือ|หรือเปล่า|\?/;
+
+const ASSIST_SYSTEM_RE =
+  /แรงช่วยพวงมาลัย|ผ่อนแรงพวงมาลัย|พวงมาลัยเ?พ[าว]{1,3}เวอร์|เ?พ[าว]{1,3}เวอร์(?:ผ่อนแรง)?พวงมาลัย|เพาเวอร์|พาวเวอร์|power\s*steering|steering\s*assist|ระบบผ่อนแรง|ระบบช่วยแรง|คอพวงมาลัย|ระบบพวงมาลัย|แรงช่วย|แรงดัน(?:ช่วย)?เบรก|ผ่อนแรงเบรก|ระบบช่วย(?:ผ่อนแรง|แรง)?เบรก|หม้อลม(?:เบรก)?|brake\s*assist|brake\s*booster|สุญญากาศ|แป้นเบรก|assist(?:ance)?\s+systems?/i;
+
+const ASSIST_ABSOLUTE_LOSS_RE =
+  /(?:หยุด(?:ทำงาน)?|หาย(?:ไป)?|ตัด(?:การทำงาน)?|หมด|ไม่ทำงาน|ใช้ไม่ได้)\s*(?:ทันที|ทั้งหมด|ทุกระบบ|ทุกกรณี|ทุกคัน|แน่นอน(?:อยู่แล้ว)?|พร้อมกัน)|หายทันที|หยุดทันที|ตัดทันที|หมดทันที|stops?\s+(?:immediately|instantly)|disappears?\s+(?:immediately|instantly)|fails?\s+(?:immediately|instantly)|cut(?:s)?\s+(?:out|off)\s+(?:immediately|instantly)/i;
+
+const ASSIST_NEAR_TOTAL_STEERING_RE =
+  /(?:แทบ)?(?:หมุน|เลี้ยว)ไม่(?:ได้|ไป)|หนักจนแทบ|almost\s+impossible\s+to\s+turn|impossible\s+to\s+turn|cannot\s+(?:really\s+)?turn/i;
+
+const ASSIST_AUTO_LOCK_RE =
+  /(?:คอ)?พวงมาลัยจะ?ล็อก(?:เอง|ตาย)?|ล็อกเอง(?:ทันที)?|steering(?:\s+(?:column|wheel))?(?:\s+will)?\s+lock(?:s)?(?:\s+(?:by\s+itself|automatically))?/i;
+
+const ASSIST_POWER_LOSS_RE =
+  /ดับเครื่อง|เครื่อง(?:ยนต์)?ดับ|เครื่องดับ|ตัดเครื่อง|engine(?:\s+is)?\s+(?:switched\s+)?off|ignition\s+off|power[\s-]?loss/i;
+
+const ASSIST_MOVING_RE =
+  /รถ(?:ยัง)?(?:เคลื่อนที่|วิ่ง)|ขณะ(?:ที่)?(?:รถ)?(?:วิ่ง|เคลื่อนที่)|รถกำลัง(?:วิ่ง|เคลื่อน)|while\s+(?:the\s+)?(?:vehicle|car)\s+(?:is\s+)?mov/i;
+
+const ASSIST_KEY_LOCK_CONDITION_RE =
+  /หมุนกุญแจไปตำแหน่ง(?:ล็อก|LOCK)|บิดกุญแจ.{0,20}(?:LOCK|ล็อก)|ดึงกุญแจออก|ตำแหน่ง\s*LOCK|key\s+(?:to\s+)?(?:the\s+)?LOCK|remove(?:s|d)?\s+the\s+key/i;
+
+const ASSIST_MECHANICAL_CAUSE_RE =
+  /ความเสียหายทางกล|แร็ค(?:พวงมาลัย)?|ลูกหมาก|ข้อต่อพวงมาลัย|ผ้าเบรก|จานเบรก|สายเบรก|น้ำมันเบรกหมด|ยางแบน/;
+
+const ASSIST_ABSOLUTE_MARKERS =
+  /ทันที|ทั้งหมด|ทุกระบบ|ทุกกรณี|ทุกคัน|แทบทุกคัน|โดยหลักแล้วทั้งหมด|แน่นอน(?:อยู่แล้ว)?|ไม่ว่า.{0,20}หรือ|immediately|instantly|regardless|every\s+car|all\s+(?:cars?|systems?)/i;
 
 function hasAssistContext(text: string): boolean {
   return ASSIST_CONTEXT_RE.test(text);
 }
 
 function assistWindowIsQualified(window: string, matchText: string): boolean {
-  const absoluteInMatch =
-    /ทันที|ทั้งหมด|ทุกคัน|แน่นอน|ไม่ว่า.{0,20}หรือ/.test(matchText);
-  if (absoluteInMatch) return false;
+  if (ASSIST_ABSOLUTE_MARKERS.test(matchText)) return false;
   if (
     /อาจลดลงหรือหายไปตามระบบรถ|ขึ้นกับระบบรถ|อาจต้องออกแรง|บางรุ่นอาจมีแรงช่วย/.test(
       window
@@ -572,10 +609,30 @@ function assistWindowIsQualified(window: string, matchText: string): boolean {
   return false;
 }
 
+function assistClaimIsCitedWithoutEndorsement(
+  text: string,
+  index: number,
+  length: number
+): boolean {
+  const before = text.slice(Math.max(0, index - 80), index);
+  const after = text.slice(index + length, index + length + 40);
+  if (ASSIST_CITATION_BEFORE.test(before) && ASSIST_NON_ENDORSE_AFTER.test(after)) {
+    return true;
+  }
+  const quoted = text.slice(Math.max(0, index - 2), index + length + 2);
+  if (/^["'].*["']$/.test(quoted.trim()) && ASSIST_NON_ENDORSE_AFTER.test(after)) {
+    return true;
+  }
+  return false;
+}
+
 function assistMatchIsRisky(text: string, match: RegExpExecArray): boolean {
   const prefix = text.slice(Math.max(0, match.index - 48), match.index);
   if (DIRECT_NEGATION_BEFORE.test(prefix)) return false;
   if (ASSIST_NEGATION_AROUND.test(prefix) || ASSIST_NEGATION_AROUND.test(match[0])) {
+    return false;
+  }
+  if (assistClaimIsCitedWithoutEndorsement(text, match.index, match[0].length)) {
     return false;
   }
   const window = windowAround(text, match.index, match[0].length);
@@ -595,11 +652,86 @@ function hasRiskyAssistMatch(text: string, patterns: RegExp[]): boolean {
   return false;
 }
 
+function assistSemanticMatchIsRisky(
+  text: string,
+  match: RegExpExecArray,
+  kind: "loss" | "steering" | "lock"
+): boolean {
+  if (!assistMatchIsRisky(text, match)) return false;
+  const window = windowAround(text, match.index, match[0].length);
+  if (kind === "loss") {
+    return (
+      ASSIST_SYSTEM_RE.test(window) ||
+      ASSIST_SYSTEM_RE.test(match[0]) ||
+      /พวงมาลัย|\bsteering\b|เพาเวอร์|พาวเวอร์|หม้อลม|แรงดันเบรก/i.test(window)
+    );
+  }
+  if (kind === "steering") {
+    if (ASSIST_MECHANICAL_CAUSE_RE.test(window) && !ASSIST_ABSOLUTE_LOSS_RE.test(window)) {
+      return false;
+    }
+    return (
+      /พวงมาลัย|\bsteering\b|แรงช่วย|ผ่อนแรง/i.test(window) ||
+      ASSIST_POWER_LOSS_RE.test(window) ||
+      ASSIST_MOVING_RE.test(window)
+    );
+  }
+  if (ASSIST_KEY_LOCK_CONDITION_RE.test(window)) return false;
+  return (
+    ASSIST_POWER_LOSS_RE.test(window) ||
+    ASSIST_MOVING_RE.test(window) ||
+    /ล็อกเอง/.test(match[0]) ||
+    /ล็อกเอง/.test(window)
+  );
+}
+
+function hasRiskyAssistSemanticMatch(
+  text: string,
+  pattern: RegExp,
+  kind: "loss" | "steering" | "lock"
+): boolean {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const re = new RegExp(pattern.source, flags);
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (assistSemanticMatchIsRisky(text, match, kind)) return true;
+  }
+  return false;
+}
+
+function detectAssistAllSystemsAbsoluteStop(text: string): boolean {
+  if (!/ไฟฟ้า/.test(text) || !/ไฮดรอลิก/.test(text) || !/สุญญากาศ/.test(text)) {
+    return false;
+  }
+  if (!/(?:หยุด|หาย|ตัด)/.test(text)) return false;
+  if (!/(?:พร้อมกัน|ทั้งหมด|ทันที)/.test(text)) return false;
+  if (ASSIST_NEGATION_AROUND.test(text) && ASSIST_CITATION_BEFORE.test(text)) {
+    return false;
+  }
+  if (ASSIST_NEGATION_AROUND.test(text) && !ASSIST_ABSOLUTE_LOSS_RE.test(text)) {
+    return false;
+  }
+  const loss = ASSIST_ABSOLUTE_LOSS_RE.exec(text);
+  if (loss && !assistMatchIsRisky(text, loss)) return false;
+  return true;
+}
+
+/**
+ * ASSIST_SYSTEM_ABSOLUTE_FAILURE: engine-off / moving / assist-system context
+ * plus an immediate, universal, near-total, or automatic-lock conclusion.
+ * A later mild caveat does not cancel an absolute claim in the same reply.
+ */
 function detectAssistSystemAbsoluteFailure(assistantContent: string): boolean {
   const text = foldAssistText(assistantContent);
   if (!text || !hasAssistContext(text)) return false;
   if (hasRiskyAssistMatch(text, ASSIST_STEERING_PATTERNS)) return true;
   if (hasRiskyAssistMatch(text, ASSIST_BRAKE_PATTERNS)) return true;
+  if (hasRiskyAssistSemanticMatch(text, ASSIST_ABSOLUTE_LOSS_RE, "loss")) return true;
+  if (hasRiskyAssistSemanticMatch(text, ASSIST_NEAR_TOTAL_STEERING_RE, "steering")) {
+    return true;
+  }
+  if (hasRiskyAssistSemanticMatch(text, ASSIST_AUTO_LOCK_RE, "lock")) return true;
+  if (detectAssistAllSystemsAbsoluteStop(text)) return true;
   return false;
 }
 
@@ -702,6 +834,8 @@ export function buildChatV3HighRiskCorrectionInstruction(input: {
       "- ถอนคำรับรองว่าแรงช่วยพวงมาลัยหรือแรงช่วยเบรกของรถทุกระบบจะหยุดทันทีหรือหายไปแน่นอน",
       "- ระบุว่าแรงช่วยอาจลดลงหรือหายไปตามระบบรถ และผู้ขับอาจต้องออกแรงมากขึ้น",
       "- ไม่ใช่ว่าพวงมาลัยเลี้ยวไม่ได้ทันที และห้ามเหมารวมระบบไฟฟ้า ไฮดรอลิก หรือสุญญากาศ",
+      "- ห้ามรับรองว่าพวงมาลัยล็อกเองทันทีเมื่อดับเครื่อง Steering lock เป็นคนละประเด็น และอาจเกิดเมื่อหมุนกุญแจไปตำแหน่ง LOCK หรือดึงกุญแจออก",
+      "- ระบบช่วยแรงเบรกอาจยังมีแรงช่วยสะสมเหลือจำกัด ห้ามเหมารวมว่าหมดทันทีทุกคัน",
       "- ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่",
       "- รักษาคำแนะนำถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง ลดความเร็ว และหาพื้นที่ปลอดภัย หลังหยุดห้ามขับต่อ ให้เรียกรถยก"
     );

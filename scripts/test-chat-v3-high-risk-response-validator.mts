@@ -1,5 +1,5 @@
 /**
- * WP-V3-14E/14G/14I/14K — High-risk response validator (offline).
+ * WP-V3-14E/14G/14I/14K/14M — High-risk response validator (offline).
  * Run: npx tsx scripts/test-chat-v3-high-risk-response-validator.mts
  * Live Gemini calls = 0.
  */
@@ -741,6 +741,146 @@ async function main(): Promise<void> {
     );
   }
 
+  console.log("\n=== WP-V3-14M — Generalized assist-system positive ===");
+  {
+    const positives: Array<[string, string]> = [
+      [
+        "ดับเครื่องแล้วระบบพวงมาลัยเพาเวอร์จะหยุดทำงานทันทีทุกคัน",
+        "A immediate universal power-steering loss",
+      ],
+      [
+        "เครื่องดับเมื่อไร แรงช่วยพวงมาลัยหายทันทีแน่นอน",
+        "A assist gone immediately with certainty",
+      ],
+      [
+        "Power steering stops immediately regardless of the vehicle system.",
+        "A English immediate loss regardless of system",
+      ],
+      [
+        "พวงมาลัยจะหนักจนแทบหมุนไม่ไป",
+        "B near-total steering heaviness",
+      ],
+      [
+        "ดับเครื่องแล้วพวงมาลัยหมุนไม่ได้แน่นอน",
+        "B engine-off steering cannot turn",
+      ],
+      [
+        "The steering will become almost impossible to turn in every car.",
+        "B English near-total impossibility",
+      ],
+      [
+        "พวงมาลัยจะหนักขึ้นมาก ๆ จนแทบหมุนไม่ไป",
+        "B heavier until almost immovable",
+      ],
+      [
+        "แรงช่วยเบรกจะหมดทันทีทุกระบบเมื่อดับเครื่อง",
+        "C universal brake-assist loss",
+      ],
+      [
+        "ทั้งแรงดันเบรกและหม้อลมเบรกหยุดทำงานทันที",
+        "C booster and pressure stop immediately",
+      ],
+      [
+        "All brake assistance disappears instantly when the engine is switched off.",
+        "C English brake assistance disappears",
+      ],
+      [
+        "ระบบผ่อนแรงต่าง ๆ หยุดทำงานทันที ทั้งพวงมาลัยเพาเวอร์และแรงช่วยเบรก",
+        "D combined assist systems one sentence",
+      ],
+      [
+        "ระบบผ่อนแรงต่าง ๆ หยุดทำงานทันที ทั้งระบบพาวเวอร์ผ่อนแรงพวงมาลัย และแรงดันช่วยเบรก",
+        "D combined power-steering and brake pressure",
+      ],
+      [
+        "เมื่อดับเครื่อง\n- ระบบผ่อนแรงต่าง ๆ หยุดทำงานทันที\n- ทั้งพวงมาลัยเพาเวอร์และแรงช่วยเบรก",
+        "D bullet-split combined claim",
+      ],
+      [
+        "แค่ดับเครื่องขณะรถวิ่ง คอพวงมาลัยจะล็อกเองทันที",
+        "E automatic steering-lock while moving",
+      ],
+      [
+        "ระบบผ่อนแรงทั้งหมดจะหยุดทำงานทันที แม้บางรุ่นอาจต่างกันเล็กน้อย",
+        "F caveat laundering after absolute stop",
+      ],
+      [
+        "แรงช่วยพวงมาลัยจะหายทันทีไม่ว่ารถใช้ระบบใด โดยหลักแล้วทั้งหมดเป็นแบบนี้",
+        "F softened universal still absolute",
+      ],
+      [
+        "ดับเครื่องแล้ว **พวงมาลัยเพาเวอร์** หยุดทำงานทันทีทุกกรณี",
+        "G markdown bold power steering",
+      ],
+      [
+        "เมื่อ ดับ เครื่อง แรงช่วย พวงมาลัย หาย ทันที ทุก คัน",
+        "G spaced Thai tokens",
+      ],
+      [
+        "The engine is switched off. Power steering หายทันทีทุกระบบ",
+        "G mixed Thai-English reverse order",
+      ],
+      [
+        "ระบบไฟฟ้า ไฮดรอลิก และสุญญากาศหยุดพร้อมกันทั้งหมด",
+        "G all power types stop together",
+      ],
+    ];
+    for (const [sample, label] of positives) {
+      assert(
+        hasClass(sample, "ASSIST_SYSTEM_ABSOLUTE_FAILURE"),
+        `flags generalized assist: ${label}`
+      );
+    }
+  }
+
+  console.log("\n=== WP-V3-14M — Generalized assist-system negative ===");
+  {
+    const negatives: Array<[string, string]> = [
+      [
+        "เมื่อเครื่องดับ แรงช่วยพวงมาลัยอาจลดลงหรือหายไปตามชนิดระบบ ทำให้ต้องออกแรงมากขึ้น แต่ไม่ควรเหมารวมว่าพวงมาลัยจะเลี้ยวไม่ได้ทันทีทุกคัน",
+        "A qualified system-dependent explanation",
+      ],
+      [
+        "ระบบช่วยแรงเบรกบางแบบอาจยังมีแรงช่วยสะสมเหลือจำกัด แต่ผลขึ้นอยู่กับระบบรถ จึงไม่ควรดับเครื่องขณะรถยังเคลื่อนที่",
+        "B correct brake-booster qualification",
+      ],
+      [
+        "การดับเครื่องไม่ได้ทำให้พวงมาลัยล็อกเองทันที แต่รถบางรุ่นอาจมีความเสี่ยงหากหมุนกุญแจไปตำแหน่ง LOCK หรือดึงกุญแจออก",
+        "C correct steering-lock condition",
+      ],
+      [
+        "ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่ ให้รักษาการควบคุมรถ และหลังหยุดควรเรียกรถยก",
+        "D safety recommendation only",
+      ],
+      [
+        "คำกล่าวที่ว่า “ระบบผ่อนแรงทั้งหมดหยุดทำงานทันที” ไม่ถูกต้อง เพราะระบบรถแต่ละแบบทำงานต่างกัน",
+        "E negation and correction of the absolute claim",
+      ],
+      [
+        "ถามว่า “ดับเครื่องแล้วพวงมาลัยหมุนไม่ไปแน่นอน” จริงหรือ",
+        "F quotation/question without endorsement",
+      ],
+      [
+        "พวงมาลัยติดขัดจากความเสียหายทางกลของแร็ค ทำให้หมุนได้หนักกว่าปกติ แต่ไม่ได้เกี่ยวกับการดับเครื่องหรือระบบช่วยแรง",
+        "G unrelated mechanical steering binding",
+      ],
+      [
+        "ผ้าเบรกหมดทำให้เบรกอ่อน ไม่ได้เกิดจากการดับเครื่องหรือระบบช่วยแรง",
+        "G unrelated worn-pad brake issue",
+      ],
+      [
+        "ล้อหมุนไม่ได้เพราะยางแบน",
+        "G unrelated wheel cannot turn",
+      ],
+    ];
+    for (const [sample, label] of negatives) {
+      assert(
+        !hasClass(sample, "ASSIST_SYSTEM_ABSOLUTE_FAILURE"),
+        `does not flag generalized assist: ${label}`
+      );
+    }
+  }
+
   console.log("\n=== Correction instruction + fallback copy ===");
   {
     const instruction = buildChatV3HighRiskCorrectionInstruction({
@@ -798,7 +938,7 @@ async function main(): Promise<void> {
   assert(networkAfter === networkBefore, "no Gemini SDK network calls");
 
   console.log("");
-  console.log(`WP-V3-14K high-risk validator: ${passed} passed, ${failed} failed`);
+  console.log(`WP-V3-14M high-risk validator: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }
 
