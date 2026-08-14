@@ -1,5 +1,5 @@
 /**
- * WP-V3-14E/14G/14I/14K/14M — High-risk response validator (offline).
+ * WP-V3-14E/14G/14I/14K/14M/14O — High-risk response validator (offline).
  * Run: npx tsx scripts/test-chat-v3-high-risk-response-validator.mts
  * Live Gemini calls = 0.
  */
@@ -881,6 +881,138 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log("\n=== WP-V3-14O — EPB cross-model capability positive ===");
+  {
+    const positives: Array<[string, string]> = [
+      [
+        "รถใหม่ส่วนใหญ่สามารถดึงสวิตช์เบรกมือไฟฟ้าค้างเพื่อเบรกฉุกเฉินได้",
+        "A majority-model Thai hold capability",
+      ],
+      [
+        "EPB ของรถสมัยใหม่เกือบทุกคันรองรับการดึงค้าง",
+        "A almost-every modern car supports hold",
+      ],
+      [
+        "Most modern vehicles support holding the EPB switch for emergency braking.",
+        "A English most-modern hold support",
+      ],
+      [
+        "ถ้าเป็นเบรกมือไฟฟ้า ให้ดึงสวิตช์ค้างไว้เมื่อเบรกหลักเสีย",
+        "B generic if-EPB then hold",
+      ],
+      [
+        "โดยทั่วไปให้กดปุ่ม EPB ค้างเพื่อชะลอรถ",
+        "B generic typically press-and-hold",
+      ],
+      [
+        "With an electronic parking brake, hold the switch when the service brake fails.",
+        "B English default hold instruction",
+      ],
+      [
+        "EPB ทุกคันจะเข้าสู่โหมดเบรกฉุกเฉินเมื่อดึงสวิตช์ค้าง",
+        "C every car emergency mode on hold",
+      ],
+      [
+        "ดึงค้างแล้วระบบจะสั่งปั๊มเบรกและหยุดรถให้แน่นอน",
+        "C hold then pump and stop guaranteed",
+      ],
+      [
+        "The car will definitely stop if you hold the EPB switch.",
+        "C English definite stop on hold",
+      ],
+      [
+        "ปกติรถใหม่ส่วนมากน่าจะใช้วิธีดึงสวิตช์ค้างได้",
+        "D softened น่าจะ majority hold",
+      ],
+      [
+        "โดยหลักแล้ว EPB ของรถยุคใหม่มักรองรับวิธีนี้",
+        "D โดยหลักแล้ว modern EPB supports the method",
+      ],
+      [
+        "An electronic parking brake is common now. Generally, most newer cars should support this method.",
+        "D English softened most-newer support",
+      ],
+      [
+        "รถใหม่ส่วนใหญ่ดึงสวิตช์ EPB ค้างได้เมื่อเบรกหลักมีปัญหา โดยไม่ต้องเปิดคู่มือก่อน",
+        "E majority hold without model manual",
+      ],
+      [
+        "รถใหม่ส่วนใหญ่ดึง EPB ค้างได้ แม้รายละเอียดอาจต่างกันเล็กน้อย",
+        "F caveat laundering ต่างกันเล็กน้อย",
+      ],
+      [
+        "โดยทั่วไปใช้วิธีดึงสวิตช์ EPB ค้างได้ แต่แต่ละรุ่นอาจไม่เหมือนกันบ้าง",
+        "F โดยทั่วไป plus weak later caveat",
+      ],
+      [
+        "รถสมัยใหม่รองรับวิธีนี้\nดึงสวิตช์ค้างเมื่อเบรกหลักเสีย",
+        "G split-sentence capability then instruction",
+      ],
+      [
+        "- **EPB** ของรถสมัยใหม่\n- ดึงสวิตช์ค้างได้เมื่อฉุกเฉิน",
+        "G markdown bullet bold EPB",
+      ],
+      [
+        "เบรกมือไฟฟ้า (Electronic parking brake) ของรถใหม่ส่วนใหญ่ ให้ ดึง สวิตช์ ค้าง ได้",
+        "G mixed Thai/English spaced hold",
+      ],
+      [
+        "รถใหม่ส่วนใหญ่ใช้การดึงสวิตช์ค้างได้",
+        "H Owner/Candidate Turn 4 meaning without model manual",
+      ],
+    ];
+    for (const [sample, label] of positives) {
+      assert(
+        hasClass(sample, "EPB_UNIVERSAL_PROCEDURE"),
+        `flags EPB 14O: ${label}`
+      );
+    }
+  }
+
+  console.log("\n=== WP-V3-14O — EPB cross-model capability negative ===");
+  {
+    const negatives: Array<[string, string]> = [
+      [
+        "ระบบ EPB แตกต่างกันตามรุ่น รถบางรุ่นอาจรองรับการดึงสวิตช์ค้าง แต่ต้องตรวจคู่มือรถรุ่นนั้นและไม่ควรรับรองว่าจะหยุดรถแน่นอน",
+        "A properly qualified model-dependent explanation",
+      ],
+      [
+        "หากคู่มือของรถรุ่นนี้จากผู้ผลิตระบุให้ดึงสวิตช์ EPB ค้างในเหตุฉุกเฉิน ให้ปฏิบัติตามขั้นตอนและเงื่อนไขในคู่มือนั้น",
+        "B specific verified this-model manual",
+      ],
+      [
+        "ไม่ควรสรุปว่ารถใหม่ส่วนใหญ่ดึง EPB ค้างได้ เพราะระบบแตกต่างกันตามรุ่นและต้องตรวจคู่มือเฉพาะคัน",
+        "C negation/correction of majority hold",
+      ],
+      [
+        'คำกล่าวว่า “รถใหม่ส่วนใหญ่ดึง EPB ค้างได้” ถูกต้องหรือไม่',
+        "D quotation/question without endorsement",
+      ],
+      [
+        "หลังรถหยุดสนิทแล้วให้เปิด EPB เพื่อจอดรถ และปลด EPB ก่อนออกรถ การตรวจซ่อม EPB ทำได้ขณะรถจอด",
+        "E stationary parking / release / repair",
+      ],
+      [
+        "Auto Hold คนละระบบกับ EPB ไม่ใช่การเบรกฉุกเฉิน และไม่ควรเหมารวมวิธีใช้ EPB ข้ามรุ่น",
+        "F Auto Hold distinguished from EPB",
+      ],
+      [
+        "ผู้ผลิตบางรายออกแบบ EPB ให้มีฟังก์ชันช่วยเบรกฉุกเฉิน แต่รายละเอียดและเงื่อนไขต้องตรวจจากคู่มือเฉพาะรุ่น",
+        "G non-instructional some-manufacturers technical note",
+      ],
+      [
+        "ขณะฉุกเฉินให้ตั้งสติ ถอนคันเร่ง เปิดไฟฉุกเฉิน รักษาการควบคุมรถ หาพื้นที่ปลอดภัย และเรียกรถยก",
+        "H emergency guidance without EPB operation",
+      ],
+    ];
+    for (const [sample, label] of negatives) {
+      assert(
+        !hasClass(sample, "EPB_UNIVERSAL_PROCEDURE"),
+        `does not flag EPB 14O: ${label}`
+      );
+    }
+  }
+
   console.log("\n=== Correction instruction + fallback copy ===");
   {
     const instruction = buildChatV3HighRiskCorrectionInstruction({
@@ -938,7 +1070,7 @@ async function main(): Promise<void> {
   assert(networkAfter === networkBefore, "no Gemini SDK network calls");
 
   console.log("");
-  console.log(`WP-V3-14M high-risk validator: ${passed} passed, ${failed} failed`);
+  console.log(`WP-V3-14O high-risk validator: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }
 

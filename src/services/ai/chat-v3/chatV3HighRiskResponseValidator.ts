@@ -8,6 +8,8 @@
  * WP-V3-14M generalizes ASSIST_SYSTEM_ABSOLUTE_FAILURE so detection follows
  * power-loss/moving context + assist system + immediate/universal/near-total loss,
  * not a single Owner-browser sentence.
+ * WP-V3-14O expands EPB_UNIVERSAL_PROCEDURE to catch cross-model / majority
+ * hold-switch capability claims, not only absolute stop guarantees.
  * Correction (max 1) and fallbacks are owned by the conversation service.
  */
 
@@ -372,7 +374,7 @@ function detectVatAbsoluteGeneralization(assistantContent: string): boolean {
 }
 
 const EPB_CONTEXT_RE =
-  /EPB|เบรก(?:มือ|จอด)ไฟฟ้า|สวิตช์(?:เบรก)?(?:จอด|มือ)|Electric Parking Brake/i;
+  /EPB|เบรก(?:มือ|จอด)ไฟฟ้า|สวิตช์(?:เบรก)?(?:จอด|มือ)|e-?lectr(?:onic|ic) parking brake/i;
 
 const EPB_LEGACY_PATTERNS: RegExp[] = [
   /ดึงสวิตช์ค้างไว้เท่านั้น/,
@@ -401,6 +403,39 @@ const EPB_IMPERATIVE_PATTERNS: RegExp[] = [
   /(?:must|should)\s+pull\s+and\s+hold\s+EPB/i,
 ];
 
+const EPB_SELF_CONTEXT_RE =
+  /ระบบจะเข้าใจว่าเป็นการเบรกฉุกเฉิน|ระบบจะสั่ง(?:การให้)?ปั๊มเบรก|ดึงค้างแล้วรถจะหยุดแน่นอน|(?:ดึง|กด)(?:สวิตช์)?(?:ขึ้น)?ค้าง|ดึงไว้\s*อย่าปล่อย|pull\s*(?:\/\s*|\s+and\s+)?hold/i;
+
+const EPB_NEGATION_AROUND =
+  /ยังยืนยันไม่ได้ว่า|อย่าเหมารวมว่า|ไม่รับรองว่า|ไม่ควร(?:กล่าว|สรุป)ว่า|ไม่สามารถรับรอง(?:ได้)?ว่า|ไม่ใช่ข้อสรุป|ถามว่า|ไม่ได้แปลว่า|ไม่ควรเหมารวม|ห้ามเหมารวม|คำกล่าวที่ว่า|ไม่ถูกต้อง/;
+
+const EPB_DEFERRED_MANUAL_RE =
+  /ภายหลัง.{0,16}คู่มือ|คู่มือภายหลัง|อ่านคู่มือด้วย|ควรอ่านคู่มือ(?:ด้วย)?ภายหลัง/;
+
+const EPB_CITATION_BEFORE =
+  /คำกล่าว(?:ที่)?ว่า|ความเชื่อที่ว่า|มีคนบอกว่า|ใครบอกว่า|ถามว่า|หรือว่า/;
+
+const EPB_NON_ENDORSE_AFTER =
+  /ไม่ถูกต้อง|ถูกต้องหรือไม่|ไม่เป็นความจริง|ไม่จริง|หรือไม่|ใช่ไหม|จริงหรือ|หรือเปล่า|\?/;
+
+const EPB_HOLD_OP_RE =
+  /(?:ดึง|กด)(?:\s*(?:สวิตช์|ปุ่ม|EPB|เบรกมือไฟฟ้า|เบรกจอดไฟฟ้า))?.{0,20}ค้าง|hold(?:ing)?(?:\s+the)?(?:\s+EPB)?\s+switch|hold the switch|pull\s*(?:and\s+)?hold/i;
+
+const EPB_EMERGENCY_CTX_RE =
+  /ฉุกเฉิน|เบรกหลัก(?:เสีย|ใช้ไม่ได้|มีปัญหา)|เบรกเท้าใช้ไม่ได้|ขณะ(?:ที่)?(?:รถ)?(?:วิ่ง|เคลื่อน)|รถยังวิ่ง|รถเคลื่อนที่|service brake fails?|emergency braking|while moving|เมื่อเบรก(?:หลัก|เท้า)|ชะลอรถ/i;
+
+const EPB_CROSS_MODEL_RE =
+  /รถใหม่|รถสมัยใหม่|รถยุคใหม่|ส่วนใหญ่|ส่วนมาก|เกือบทุกคัน|แทบทุกคัน|ทุกคัน|โดยทั่วไป|ตามปกติ|โดยหลักแล้ว|ปกติ.{0,16}รถ|EPB ทั่วไป|most modern|most newer|generally|typically|standard (?:EPB|behavior)/i;
+
+const EPB_GENERIC_INSTR_RE =
+  /ถ้าเป็น(?:เบรกมือไฟฟ้า|EPB).{0,40}ให้(?:ดึง|กด).{0,24}ค้าง|โดยทั่วไปให้(?:ดึง|กด).{0,24}ค้าง|ให้ดึงสวิตช์ค้างไว้เมื่อ|with an electronic parking brake.{0,64}hold/i;
+
+const EPB_CAPABILITY_RE =
+  /รองรับ(?:การ)?(?:ดึง|กด|วิธี)|สามารถ(?:ดึง|กด|ใช้)|ใช้(?:การ|วิธี)?ดึง.{0,20}ค้างได้|ดึง.{0,20}ค้างได้|มักรองรับวิธี|support(?:s|ing)? holding|support this method|can be used by holding|designed to (?:work|activate) when/i;
+
+const EPB_METHOD_CLAIM_RE =
+  /รองรับวิธีนี้|ใช้วิธีนี้ได้|มักรองรับวิธี|support this method/i;
+
 const EPB_GUARANTEE_PATTERNS: RegExp[] = [
   /ระบบจะเข้าใจว่าเป็นการเบรกฉุกเฉิน/,
   /จะเข้าใจทันทีว่า.{0,32}เบรกฉุกเฉิน/,
@@ -414,21 +449,16 @@ const EPB_GUARANTEE_PATTERNS: RegExp[] = [
   /ชะลอรถให้เอง/,
   /ใช้(?:วิธีนี้)?ได้กับรถทุกรุ่น/,
   /ทำได้กับรถคันนี้แน่นอน/,
+  /will definitely stop.{0,40}(?:hold|EPB)|(?:hold|EPB).{0,40}will definitely stop/i,
 ];
-
-const EPB_SELF_CONTEXT_RE =
-  /ระบบจะเข้าใจว่าเป็นการเบรกฉุกเฉิน|ระบบจะสั่ง(?:การให้)?ปั๊มเบรก|ดึงค้างแล้วรถจะหยุดแน่นอน|(?:ดึง|กด)(?:สวิตช์)?(?:ขึ้น)?ค้าง|ดึงไว้\s*อย่าปล่อย|pull\s*(?:\/\s*|\s+and\s+)?hold/i;
-
-const EPB_NEGATION_AROUND =
-  /ยังยืนยันไม่ได้ว่า|อย่าเหมารวมว่า|ไม่รับรองว่า|ไม่ควร(?:กล่าว|สรุป)ว่า|ไม่สามารถรับรอง(?:ได้)?ว่า|ไม่ใช่ข้อสรุป|ถามว่า|ไม่ได้แปลว่า|ไม่ควรเหมารวม|ห้ามเหมารวม/;
-
-const EPB_DEFERRED_MANUAL_RE =
-  /ภายหลัง.{0,16}คู่มือ|คู่มือภายหลัง|อ่านคู่มือด้วย|ควรอ่านคู่มือ(?:ด้วย)?ภายหลัง/;
 
 function foldEpbText(text: string): string {
   return String(text ?? "")
-    .replace(/[“”"']/g, "")
-    .replace(/[.,;:!?()]/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[*_`#\[\]]/g, " ")
+    .replace(/^[\s>-]+/gm, " ")
+    .replace(/[.,;:!()]/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\s*\/\s*/g, "/")
     .replace(/([ก-๙])\s+(?=[ก-๙])/g, "$1")
@@ -468,10 +498,30 @@ function epbWindowIsQualified(window: string): boolean {
   return false;
 }
 
+function epbClaimIsCitedWithoutEndorsement(
+  text: string,
+  index: number,
+  length: number
+): boolean {
+  const before = text.slice(Math.max(0, index - 80), index);
+  const after = text.slice(index + length, index + length + 40);
+  if (EPB_CITATION_BEFORE.test(before) && EPB_NON_ENDORSE_AFTER.test(after)) {
+    return true;
+  }
+  const quoted = text.slice(Math.max(0, index - 2), index + length + 2);
+  if (/^["'].*["']$/.test(quoted.trim()) && EPB_NON_ENDORSE_AFTER.test(after)) {
+    return true;
+  }
+  return false;
+}
+
 function epbMatchIsRisky(text: string, match: RegExpExecArray): boolean {
   const prefix = text.slice(Math.max(0, match.index - 40), match.index);
   if (DIRECT_NEGATION_BEFORE.test(prefix)) return false;
   if (EPB_NEGATION_AROUND.test(prefix) || EPB_NEGATION_AROUND.test(match[0])) {
+    return false;
+  }
+  if (epbClaimIsCitedWithoutEndorsement(text, match.index, match[0].length)) {
     return false;
   }
   const window = windowAround(text, match.index, match[0].length);
@@ -491,9 +541,111 @@ function hasRiskyEpbMatch(text: string, patterns: RegExp[]): boolean {
   return false;
 }
 
+function epbHasEffectiveModelQualification(text: string): boolean {
+  const differs =
+    /แตกต่างตาม(?:ยี่ห้อ|รุ่น|ผู้ผลิต)|ต่างกันตาม(?:ยี่ห้อ|รุ่น)|แตกต่างกันตามรุ่น/.test(
+      text
+    );
+  const someMay = /บางรุ่นอาจ|รถบางรุ่นอาจ|ผู้ผลิตบางราย/.test(text);
+  const manual =
+    /ต้องตรวจคู่มือ|ดูคู่มือรถ(?:รุ่น|คัน)|คู่มือเฉพาะ(?:รุ่น|คัน)|คู่มือของรถรุ่น(?:นี้|นั้น)|หากคู่มือ.{0,48}ระบุ|ต้องดูคู่มือ/.test(
+      text
+    );
+  const noGuarantee =
+    /ไม่รับรอง|ไม่สามารถรับรอง|ห้ามรับรอง|ไม่ควรรับรองว่า.{0,16}หยุด/.test(text);
+  const verifiedThisModel =
+    /(?:หาก|ตามที่)?คู่มือของรถรุ่นนี้.{0,48}ระบุ|คู่มือรถคันนี้ระบุ|จากผู้ผลิตระบุให้/.test(
+      text
+    );
+  const majority = EPB_CROSS_MODEL_RE.test(text);
+  const weakCaveat =
+    /แม้รายละเอียดอาจต่าง|อาจไม่เหมือนกันบ้าง|ต่างกันเล็กน้อย/.test(text);
+  if (verifiedThisModel && !majority) return true;
+  if (majority) {
+    if (weakCaveat && !manual) return false;
+    return (
+      (differs && someMay && manual) ||
+      (differs && manual && noGuarantee) ||
+      (someMay && manual && differs)
+    );
+  }
+  return Boolean(
+    (someMay && manual) || (differs && manual) || verifiedThisModel
+  );
+}
+
+function epbIsStationaryParkingOnly(text: string): boolean {
+  const stationary =
+    /หลังรถหยุดสนิท|เมื่อจอดแล้ว|ใช้จอดรถ|ปลด(?:เบรกจอด|EPB)|ก่อนออกรถ|ตรวจซ่อม/.test(
+      text
+    );
+  return stationary && !EPB_EMERGENCY_CTX_RE.test(text);
+}
+
+function epbIsAutoHoldDistinction(text: string): boolean {
+  if (!/Auto\s*Hold/i.test(text)) return false;
+  const distinguishes =
+    /คนละระบบ|ไม่ใช่(?:การ)?เบรกฉุกเฉิน|ต่างจาก\s*EPB|แยกจาก\s*EPB/i.test(text);
+  if (!distinguishes) return false;
+  if (EPB_NEGATION_AROUND.test(text) || /ไม่(?:ควร|ได้)?(?:เหมารวม|รับรอง)/.test(text)) {
+    return true;
+  }
+  return !EPB_CROSS_MODEL_RE.test(text) || !EPB_HOLD_OP_RE.test(text);
+}
+
+function hasRiskyPatternMatch(text: string, pattern: RegExp): boolean {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const re = new RegExp(pattern.source, flags);
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (epbMatchIsRisky(text, match)) return true;
+  }
+  return false;
+}
+
+function detectEpbCrossModelCapability(text: string): boolean {
+  if (epbIsStationaryParkingOnly(text)) return false;
+  if (epbIsAutoHoldDistinction(text)) return false;
+  if (epbHasEffectiveModelQualification(text)) return false;
+
+  const holdRe = new RegExp(EPB_HOLD_OP_RE.source, "ig");
+  let match: RegExpExecArray | null;
+  while ((match = holdRe.exec(text)) !== null) {
+    if (!epbMatchIsRisky(text, match)) continue;
+    const window = windowAround(text, match.index, match[0].length);
+    const hasEmergency =
+      EPB_EMERGENCY_CTX_RE.test(window) || EPB_EMERGENCY_CTX_RE.test(text);
+    const hasCross = EPB_CROSS_MODEL_RE.test(window) || EPB_CROSS_MODEL_RE.test(text);
+    const hasGeneric =
+      EPB_GENERIC_INSTR_RE.test(window) || EPB_GENERIC_INSTR_RE.test(text);
+    const hasCapability =
+      EPB_CAPABILITY_RE.test(window) || EPB_CAPABILITY_RE.test(text);
+    if (hasCross && (hasCapability || hasEmergency || hasGeneric)) return true;
+    if (hasGeneric && (hasEmergency || hasCapability || hasCross)) return true;
+  }
+
+  if (
+    hasRiskyPatternMatch(text, EPB_GENERIC_INSTR_RE) &&
+    EPB_EMERGENCY_CTX_RE.test(text) &&
+    hasEpbContext(text)
+  ) {
+    return true;
+  }
+
+  if (
+    EPB_CROSS_MODEL_RE.test(text) &&
+    hasRiskyPatternMatch(text, EPB_METHOD_CLAIM_RE) &&
+    hasEpbContext(text)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
- * EPB_UNIVERSAL_PROCEDURE: unqualified hold-switch command or guaranteed outcome.
- * A later “อ่านคู่มือ” does not cancel an immediate command/guarantee.
+ * EPB_UNIVERSAL_PROCEDURE: unqualified hold-switch command, guaranteed
+ * outcome, or cross-model/majority capability presented as the default.
+ * A later mild caveat does not cancel an absolute or majority claim.
  */
 function detectEpbUniversalProcedure(assistantContent: string): boolean {
   const text = foldEpbText(assistantContent);
@@ -501,6 +653,7 @@ function detectEpbUniversalProcedure(assistantContent: string): boolean {
   if (hasRiskyEpbMatch(text, EPB_LEGACY_PATTERNS)) return true;
   if (hasRiskyEpbMatch(text, EPB_IMPERATIVE_PATTERNS)) return true;
   if (hasRiskyEpbMatch(text, EPB_GUARANTEE_PATTERNS)) return true;
+  if (detectEpbCrossModelCapability(text)) return true;
   return false;
 }
 
@@ -847,6 +1000,7 @@ export function buildChatV3HighRiskCorrectionInstruction(input: {
       "- ถอนวิธีใช้เบรกจอดไฟฟ้าแบบครอบจักรวาล",
       "- ระบุว่าระบบ EPB แตกต่างตามรุ่น",
       "- บางรุ่นอาจใช้การดึงสวิตช์ค้าง แต่ต้องอ้างอิงคู่มือรถคันนั้น",
+      "- ห้ามกล่าวว่ารถใหม่หรือรถส่วนใหญ่รองรับการดึงหรือกดสวิตช์ค้าง หากไม่มีข้อมูลเฉพาะรุ่น",
       "- ห้ามรับรองผล",
       "- ให้คำแนะนำหลักเรื่องการควบคุมรถ โดยไม่สร้างสูตรเกียร์ตายตัว"
     );
