@@ -25,3 +25,71 @@ export {
   type ConversationOwnershipVerifyResult,
   type RegisterConversationCoreRoutesOptions,
 } from "./conversationCoreRouteHandler";
+
+export {
+  CONVERSATION_CORE_ALLOWED_GEMINI_MODELS,
+  CONVERSATION_CORE_GEMINI_API_KEY_ENV,
+  CONVERSATION_CORE_GEMINI_MODEL_FAMILY,
+  CONVERSATION_CORE_GEMINI_PROVIDER_ID,
+  NONGA_CONVERSATION_CORE_GEMINI_ENABLED_ENV,
+  NONGA_CONVERSATION_CORE_GEMINI_MODEL_ENV,
+  inspectConversationCoreGeminiConfigStatus,
+  resolveConversationCoreGeminiConfig,
+  type ConversationCoreAllowedGeminiModel,
+  type ConversationCoreGeminiConfigInput,
+  type ConversationCoreGeminiConfigStatus,
+  type ConversationCoreGeminiConfigUnavailableReason,
+} from "./conversationCoreGeminiConfig";
+
+export {
+  CONVERSATION_CORE_GEMINI_DEFAULT_TIMEOUT_MS,
+  CONVERSATION_CORE_GEMINI_MAX_TIMEOUT_MS,
+  buildConversationCoreGeminiContents,
+  createConversationCoreGeminiAdapter,
+  createConversationCoreGeminiSdkTransport,
+  inspectConversationCoreGeminiSdkResponse,
+  isConversationCoreGeminiAdapter,
+  mapConversationHistoryRoleToGemini,
+  resolveConversationCoreGeminiTimeoutMs,
+  type ConversationCoreGeminiAdapter,
+  type ConversationCoreGeminiAdapterErrorCode,
+  type ConversationCoreGeminiAdapterInput,
+  type ConversationCoreGeminiAdapterOptions,
+  type ConversationCoreGeminiAdapterResult,
+  type ConversationCoreGeminiContentTurn,
+  type ConversationCoreGeminiGenerateRequest,
+  type ConversationCoreGeminiRole,
+  type ConversationCoreGeminiTimeoutHandle,
+  type ConversationCoreGeminiTransport,
+  type ConversationCoreGeminiTransportGenerateOptions,
+  type ConversationCoreGeminiTransportResult,
+} from "./conversationCoreGeminiAdapter";
+
+export {
+  CONVERSATION_CORE_MAX_PROVIDER_CALLS,
+  CONVERSATION_CORE_SECRET_HARD_REJECT_CODES,
+  buildConversationCoreCorrectionInstruction,
+  hasSecretOrPiiHardReject,
+  runConversationCoreMaxOneCorrection,
+  shouldAttemptCorrection,
+  type ConversationCoreCorrectionPhase,
+  type ConversationCoreMaxOneCorrectionInput,
+  type ConversationCoreMaxOneCorrectionResult,
+  type ConversationCoreMaxOneReasonCode,
+  type ConversationCoreMaxOneTerminal,
+} from "./conversationCoreCorrectionService";
+
+export {
+  CONVERSATION_CORE_HIGH_RISK_FALLBACK_TEXT,
+  buildConversationCoreHighRiskFallback,
+  type ConversationCoreHighRiskFallbackInput,
+  type ConversationCoreHighRiskFallbackResult,
+} from "./conversationCoreHighRiskFallback";
+
+export {
+  runConversationCoreExecutionService,
+  type ConversationCoreExecutionCandidateContext,
+  type ConversationCoreExecutionReasonCode,
+  type ConversationCoreExecutionResult,
+  type ConversationCoreExecutionServiceInput,
+} from "./conversationCoreExecutionService";

@@ -100,46 +100,14 @@ const ALLOWLIST_PATHS = new Set([
   "src/services/conversation-core/index.ts",
 ]);
 
-const OWNER_DIRTY_PATHS = new Set([
-  "package.json",
-  "scripts/test-nonga-chat-car-cards.mts",
-  "scripts/test-v22.26-multi-car-sales-explanation.mts",
-  "src/components/chat/ChatMessageBubble.tsx",
-  "src/hooks/chat/useVehiclePanel.ts",
-  "src/services/ai/chat/buyerCarPitchCopy.ts",
-  "src/services/ai/chat/buyerMarketplaceScoring.ts",
-  "src/services/ai/chat/buyerScoredMarketplaceSearch.ts",
-  "src/services/ai/chat/chatRefinementReplyCopy.ts",
-  "src/services/ai/chat/chatSearchOrchestrator.ts",
-  "src/services/ai/chat/chatSearchReplyCopy.ts",
-  "src/services/ai/chat/vehicleDiscovery.ts",
-  "src/services/ai/chat/vehicleDiscoveryCriteriaParser.ts",
-  "src/services/ai/chat/vehicleDiscoveryIndex.ts",
-  "src/services/ai/chat/vehicleDiscoveryRelaxation.ts",
-  "src/services/ai/salesBrainUserVisiblePilotBuyerCopy.ts",
-  "CHAT-V2-DARK-VERIFY.zip",
-  "CHAT-V2-EVIDENCE.zip",
-  "CHAT-V2-EVIDENCE",
-  "CHAT-V2-FIX-EVIDENCE.zip",
-  "CHAT-V2-WORKSPACE-EVIDENCE.zip",
-  "CHAT-V2-WORKSPACE-EVIDENCE",
-  "CHAT-V3-CHAT-FIRST-EVIDENCE",
-  "CHAT-V3-WORKSPACE-EVIDENCE.zip",
-  "CHAT-V3-WORKSPACE-EVIDENCE",
-  "NUL",
-  "Nong_AI_Thailand_Automotive_Economy_Business_Plan_v5_TH.pdf",
-  "docs/wp-vd02-vehicle-results-expansion-report.md",
-  "scripts/capture-chat-v2-qa.mts",
-  "scripts/diagnose-dealer-inventory-load.mts",
-  "scripts/diagnose-dealer1-inventory-api.mts",
-  "scripts/execute-ownership-transfer-nonga-dealer.mts",
-  "scripts/test-chat-v3-gemini-live-smoke.mts",
-  "scripts/test-wp-vd02-vehicle-results-expansion.mts",
-  "src/services/ai/chat/vehicleDiscoveryDiversifier.ts",
-  "src/services/ai/chat/vehicleFirstResultPresentation.ts",
-  "src/services/ai/chat/vehicleResultsPagination.ts",
-  "tmp",
-]);
+const SERVICE_CORE_DIR = "src/services/conversation-core/";
+
+function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  return (
+    statusPath === "scripts/test-conversation-core-response-validators.mts" ||
+    statusPath.startsWith(SERVICE_CORE_DIR)
+  );
+}
 
 const FORBIDDEN_IMPORT_PATTERNS = [
   /from\s+["'].*chat-v3/,
@@ -1313,15 +1281,111 @@ const statusPaths = statusRaw
   .map((line) => line.trimEnd())
   .filter((line) => line.length > 0)
   .map((line) => line.slice(3).replace(/\/$/, "").replace(/\\/g, "/"));
-for (const statusPath of statusPaths) {
+const ownedStatusPaths = statusPaths.filter(isResponseValidatorHarnessOwnedPath);
+for (const statusPath of ownedStatusPaths) {
   assertTruthy(
     `allowlist: ${statusPath} is expected`,
-    ALLOWLIST_PATHS.has(statusPath) || OWNER_DIRTY_PATHS.has(statusPath)
+    ALLOWLIST_PATHS.has(statusPath)
   );
 }
 for (const allowPath of ALLOWLIST_PATHS) {
   assertTruthy(`allowlist file exists: ${allowPath}`, fs.existsSync(path.join(process.cwd(), allowPath)));
 }
+
+assertTruthy(
+  "harness: unknown service-core path is owned by this suite",
+  isResponseValidatorHarnessOwnedPath("src/services/conversation-core/forgedUnknownValidator.ts")
+);
+assertFalsy(
+  "harness: unknown service-core path is not silently allowed",
+  ALLOWLIST_PATHS.has("src/services/conversation-core/forgedUnknownValidator.ts")
+);
+assertFalsy(
+  "harness: server conversation-core is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreGeminiAdapter.ts")
+);
+assertFalsy(
+  "harness: server conversation-core index is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("src/server/conversation-core/index.ts")
+);
+assertFalsy(
+  "harness: 03C3 gemini config is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreGeminiConfig.ts")
+);
+assertFalsy(
+  "harness: 03C3 correction service is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreCorrectionService.ts")
+);
+assertFalsy(
+  "harness: 03C3 execution service is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreExecutionService.ts")
+);
+assertFalsy(
+  "harness: 03C3 fallback is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreHighRiskFallback.ts")
+);
+assertFalsy(
+  "harness: 03C3 gemini test is out of 03C2 scope",
+  isResponseValidatorHarnessOwnedPath("scripts/test-conversation-core-gemini-correction.mts")
+);
+assertTruthy(
+  "harness: this test file remains in 03C2 owned scope",
+  isResponseValidatorHarnessOwnedPath("scripts/test-conversation-core-response-validators.mts")
+);
+assertTruthy(
+  "harness: services conversation-core index remains owned",
+  isResponseValidatorHarnessOwnedPath("src/services/conversation-core/index.ts")
+);
+
+const OUT_OF_HARNESS_SCOPE = [
+  "package.json",
+  "src/components/chat/ChatMessageBubble.tsx",
+  "src/hooks/chat/useVehiclePanel.ts",
+  "src/services/ai/chat/buyerCarPitchCopy.ts",
+  "src/services/ai/chat/buyerMarketplaceScoring.ts",
+  "src/services/ai/chat/buyerScoredMarketplaceSearch.ts",
+  "src/services/ai/chat/chatRefinementReplyCopy.ts",
+  "src/services/ai/chat/chatSearchOrchestrator.ts",
+  "src/services/ai/chat/chatSearchReplyCopy.ts",
+  "src/services/ai/chat/vehicleDiscovery.ts",
+  "src/services/ai/chat/vehicleDiscoveryCriteriaParser.ts",
+  "src/services/ai/chat/vehicleDiscoveryIndex.ts",
+  "src/services/ai/chat/vehicleDiscoveryRelaxation.ts",
+  "src/services/ai/salesBrainUserVisiblePilotBuyerCopy.ts",
+  "src/server/conversation-core/index.ts",
+  "src/server/conversation-core/conversationCoreGeminiConfig.ts",
+  "src/server/conversation-core/conversationCoreGeminiAdapter.ts",
+  "src/server/conversation-core/conversationCoreCorrectionService.ts",
+  "src/server/conversation-core/conversationCoreExecutionService.ts",
+  "src/server/conversation-core/conversationCoreHighRiskFallback.ts",
+  "src/server/conversation-core/conversationCoreFeatureFlags.ts",
+  "src/server/conversation-core/conversationCoreOrchestrator.ts",
+  "src/server/conversation-core/conversationCoreRouteHandler.ts",
+  "scripts/test-conversation-core-gemini-correction.mts",
+  "scripts/test-conversation-core-orchestrator.mts",
+  "scripts/test-conversation-core-contracts.mts",
+  "scripts/test-conversation-core-policy-foundation.mts",
+  "scripts/test-nonga-chat-car-cards.mts",
+  "scripts/test-v22.26-multi-car-sales-explanation.mts",
+  "tmp",
+  "CHAT-V2-EVIDENCE",
+] as const;
+for (const statusPath of OUT_OF_HARNESS_SCOPE) {
+  assertFalsy(
+    `harness: ${statusPath} is outside 03C2 owned scope`,
+    isResponseValidatorHarnessOwnedPath(statusPath)
+  );
+}
+
+assertEqual("harness: 03C2 allowlist size is exact", ALLOWLIST_PATHS.size, 6);
+assertFalsy(
+  "harness: unrelated root file is not owned on a clean checkout",
+  isResponseValidatorHarnessOwnedPath("README.md")
+);
+assertFalsy(
+  "harness: owner dirty paths are not judged by this suite",
+  isResponseValidatorHarnessOwnedPath("package.json")
+);
 
 assertFalsy(
   "candidate validator source has no user-message classifier",
