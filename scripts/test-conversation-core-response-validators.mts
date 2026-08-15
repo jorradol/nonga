@@ -102,6 +102,14 @@ const WP_V2U_03D4B_ALLOWLIST_PATHS = [
 
 const WP_V2U_03D4B_ALLOWLIST_SET = new Set<string>(WP_V2U_03D4B_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
+const WP_V2U_03E2A_ALLOWLIST_PATHS = [
+  "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
+  "scripts/test-conversation-core-gemini-turn-outcome.mts",
+] as const;
+
+const WP_V2U_03E2A_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2A_ALLOWLIST_PATHS);
+
 /** WP-V2U-03D3B — exact approved dirty paths for finance adapter work package. */
 const WP_V2U_03D3B_ALLOWLIST_PATHS = [
   "src/server/conversation-core/adapters/financeCalculateToolAdapter.ts",
@@ -121,11 +129,15 @@ const ALLOWLIST_PATHS = new Set([
   "src/services/conversation-core/index.ts",
   ...WP_V2U_03D3B_ALLOWLIST_PATHS,
   ...WP_V2U_03D4B_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2A_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2A_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03D4B_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1404,7 +1416,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 14);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 16);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1417,6 +1429,36 @@ for (const wp03d4bPath of WP_V2U_03D4B_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03d4bPath)
   );
 }
+for (const wp03e2aPath of WP_V2U_03E2A_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2aPath} is approved for WP-V2U-03E2A`,
+    ALLOWLIST_PATHS.has(wp03e2aPath)
+  );
+}
+assertTruthy(
+  "harness: 03E2A gemini turn outcome contract is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2A gemini turn outcome test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-gemini-turn-outcome.mts"
+  )
+);
+assertFalsy(
+  "harness: unapproved adjacent gemini turn outcome path is not in allowlist",
+  ALLOWLIST_PATHS.has(
+    "src/services/conversation-core/conversationCoreGeminiTurnOutcomeForged.ts"
+  )
+);
+assertTruthy(
+  "harness: unapproved adjacent gemini turn outcome path is in service-core owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/services/conversation-core/conversationCoreGeminiTurnOutcomeForged.ts"
+  )
+);
 assertTruthy(
   "harness: 03D4B business tool composite is in owned scope",
   isResponseValidatorHarnessOwnedPath(

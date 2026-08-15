@@ -198,6 +198,16 @@ export {
 } from "./conversationCoreHighRiskValidator";
 
 export {
+  CONVERSATION_CORE_GEMINI_TURN_OUTCOME_KINDS,
+  GEMINI_TURN_OUTCOME_SERVER_OWNED_KEYS,
+  validateConversationCoreGeminiTurnOutcome,
+  type ConversationCoreGeminiFinalAnswerOutcome,
+  type ConversationCoreGeminiToolRequestOutcome,
+  type ConversationCoreGeminiTurnOutcome,
+  type ConversationCoreGeminiTurnOutcomeKind,
+} from "./conversationCoreGeminiTurnOutcome";
+
+export {
   CONVERSATION_CORE_CANDIDATE_ISSUE_CATEGORIES,
   CONVERSATION_CORE_CANDIDATE_ISSUE_CODES,
   CONVERSATION_CORE_CANDIDATE_OUTCOMES,

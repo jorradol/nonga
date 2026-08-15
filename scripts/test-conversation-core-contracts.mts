@@ -6,6 +6,7 @@ import {
   CONVERSATION_CORE_POLICY_VERSION,
   parseTrustedToolResults,
   validateConversationCoreExecutionContext,
+  validateConversationCoreGeminiTurnOutcome,
   validateConversationCoreResult,
   validateConversationTurnRequest,
   validateToolRequest,
@@ -1275,6 +1276,71 @@ assertOk(
       toolResults: rawToolResults(validMarketplaceToolResult()),
     }
   )
+);
+
+// --- WP-V2U-03E2A Gemini turn outcome exports and validation ---
+
+assertOk(
+  "03E2A valid final-answer outcome",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "final-answer",
+    assistantText: "สวัสดีครับ มีรถให้ดูครับ",
+  })
+);
+assertOk(
+  "03E2A valid tool-request outcome",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "tool-request",
+    toolName: "marketplace.search",
+    toolInput: { query: "รถเก๋ง" },
+  })
+);
+assertFail(
+  "03E2A reject unknown outer key on final answer",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "final-answer",
+    assistantText: "hello",
+    requestId: "forged",
+  }),
+  "unknown_field"
+);
+assertFail(
+  "03E2A reject posting tool on outcome",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "tool-request",
+    toolName: "posting.publish",
+    toolInput: {},
+  }),
+  "forbidden_tool"
+);
+assertFail(
+  "03E2A reject tool outside Phase 1 allowlist",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "tool-request",
+    toolName: "inventory.write",
+    toolInput: {},
+  }),
+  "forbidden_tool"
+);
+assertFail(
+  "03E2A reject server-owned conversationId",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "tool-request",
+    toolName: "inventory.fetch",
+    toolInput: {},
+    conversationId: CONVERSATION_ID,
+  }),
+  "unknown_field"
+);
+assertFail(
+  "03E2A reject mixed outcome fields",
+  validateConversationCoreGeminiTurnOutcome({
+    kind: "final-answer",
+    assistantText: "hello",
+    toolName: "marketplace.search",
+    toolInput: { query: "x" },
+  }),
+  "mixed_outcome_fields"
 );
 
 console.log(`\nConversation core contract gate: ${passCount} assertions passed.`);
