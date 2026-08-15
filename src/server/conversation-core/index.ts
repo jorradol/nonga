@@ -92,6 +92,7 @@ export {
   type ConversationCoreExecutionReasonCode,
   type ConversationCoreExecutionResult,
   type ConversationCoreExecutionServiceInput,
+  type ConversationCoreExecutionToolInjection,
 } from "./conversationCoreExecutionService";
 
 export {
@@ -118,3 +119,19 @@ export {
   type ConversationCoreToolExecutorScheduleHandle,
   type ConversationCoreToolTrustedBinding,
 } from "./conversationCoreToolExecutor";
+
+export {
+  createConversationCoreVehicleToolRegistrations,
+  createConversationCoreVehicleToolRegistry,
+  INVENTORY_FETCH_ADAPTER_ERROR_CODES,
+  MARKETPLACE_SEARCH_ADAPTER_ERROR_CODES,
+  VEHICLE_RESOLVE_SELECTION_ADAPTER_ERROR_CODES,
+  type ConversationCoreVehicleToolAdapterDeps,
+  type ConversationTrustedListingContext,
+  type ConversationTrustedListingContextProvider,
+  type InventoryFetchToolAdapterDeps,
+  type LegacyMarketplaceSearchFn,
+  type MarketplaceSearchToolAdapterDeps,
+  type ScoredMarketplaceSearchFn,
+  type VehicleResolveSelectionToolAdapterDeps,
+} from "./conversationCoreVehicleToolAdapters";

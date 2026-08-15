@@ -14,7 +14,9 @@ import {
   CONVERSATION_CORE_TOOL_MAX_TIMEOUT_MS,
   CONVERSATION_CORE_TOOL_MIN_TIMEOUT_MS,
   ConversationCoreToolRegistryDuplicateError,
+  VEHICLE_RESOLVE_SELECTION_ADAPTER_ERROR_CODES,
   createConversationCoreToolRegistry,
+  createConversationCoreVehicleToolRegistry,
   createEmptyConversationCoreToolRegistry,
   executeConversationCoreTool,
   resolveConversationCoreToolTimeoutMs,
@@ -26,6 +28,10 @@ import {
   type ConversationCoreToolHandlerOutput,
   type ConversationCoreToolTrustedBinding,
 } from "../src/server/conversation-core/index";
+import type { InventoryRepository } from "../src/server/repositories/inventoryRepository";
+import type { MarketplaceCarRecord } from "../src/server/marketplaceInventory";
+import type { MarketplaceSearchToolData } from "../src/services/conversation-core/index";
+import type { VehicleDiscoveryResult } from "../src/services/ai/chat/vehicleDiscoveryIndex";
 
 let passCount = 0;
 
@@ -945,6 +951,264 @@ await executeConversationCoreTool(
 );
 assertTruthy("timeout-config: invalid timeout still uses scheduler", unboundedScheduleUsed);
 
+// ---------- Vehicle adapter factory integration (03D2B) ----------
+
+function adapterTestRecord(id: string): MarketplaceCarRecord {
+  return {
+    id,
+    title: "Honda City",
+    brand: "Honda",
+    model: "City",
+    year: 2020,
+    price: 450000,
+    type: "used",
+    condition: "good",
+    mileage: 50000,
+    fuelType: "gasoline",
+    images: ["https://example.com/a.jpg"],
+    description: "test",
+    ownerId: "owner-1",
+    ownerName: "Dealer",
+    ownerPhone: "0800000000",
+    isSold: false,
+    listingStatus: "published",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function adapterTestInventoryRepository(
+  published: MarketplaceCarRecord[] = [adapterTestRecord("adapter-listing-1")]
+): InventoryRepository {
+  const byId = Object.fromEntries(published.map((record) => [record.id, record]));
+  return {
+    backend: "file",
+    listings: {
+      async listPublished() {
+        return published;
+      },
+      async listAll() {
+        return published;
+      },
+      async listByDealer() {
+        return published;
+      },
+      async getById(id: string) {
+        return byId[id] ?? null;
+      },
+      async createListing(_dealerId, record) {
+        return record;
+      },
+      async updateListing() {
+        return null;
+      },
+      async updateVisibility() {
+        return null;
+      },
+      async deleteListing() {
+        return false;
+      },
+    },
+    drafts: {
+      async listByDealer() {
+        return [];
+      },
+      async getById() {
+        return null;
+      },
+      async createDraft(_dealerId, record) {
+        return record;
+      },
+      async updateDraft() {
+        return null;
+      },
+      async deleteDraft() {
+        return false;
+      },
+    },
+    async publishDraft() {
+      return { error: "not-implemented" };
+    },
+  };
+}
+
+const adapterConversationId = "conv-tool-exec-adapters";
+const adapterVehicleRegistry = createConversationCoreVehicleToolRegistry({
+  inventoryRepository: adapterTestInventoryRepository(),
+  trustedContextProvider: {
+    getContext(conversationId) {
+      return conversationId === adapterConversationId
+        ? {
+            conversationId: adapterConversationId,
+            allowedListingIds: ["adapter-listing-1"],
+          }
+        : null;
+    },
+  },
+  scoredMarketplaceSearch: (): VehicleDiscoveryResult => ({
+    criteria: { isDiscovery: true },
+    exactMatches: [
+      {
+        car: {
+          id: "adapter-listing-1",
+          title: "Honda City",
+          brand: "Honda",
+          model: "City",
+          year: 2020,
+          price: 450000,
+          mileage: 50000,
+          listingStatus: "published",
+        },
+        listingId: "adapter-listing-1",
+        score: 1,
+        reasons: ["test"],
+        isExactMatch: true,
+      },
+    ],
+    nearAlternatives: [],
+    blockingConstraints: [],
+    summaryText: "",
+    carCards: [],
+    allCarCards: [],
+    hasMoreCars: false,
+    isRelaxed: false,
+  }),
+});
+assertTruthy("adapter-integration: factory registry created", adapterVehicleRegistry);
+
+const adapterSearchRequest = validMarketplaceRequest({
+  requestId: "tool-req-adapter-search",
+  conversationId: adapterConversationId,
+});
+const adapterSearchOutcome = await executeConversationCoreTool(
+  executorInput(adapterSearchRequest, {
+    trustedToolAllowlist: ["marketplace.search", "vehicle.resolveSelection"],
+  }),
+  { registry: adapterVehicleRegistry! }
+);
+assertEqual("adapter-integration: marketplace search completes", adapterSearchOutcome.kind, "completed");
+if (adapterSearchOutcome.kind === "completed") {
+  assertEqual(
+    "adapter-integration: marketplace search provenance",
+    adapterSearchOutcome.result.provenance,
+    "marketplace-search"
+  );
+  assertEqual(
+    "adapter-integration: marketplace search listing ids",
+    adapterSearchOutcome.result.status === "ok"
+      ? (adapterSearchOutcome.result.data as MarketplaceSearchToolData).listingIds
+      : null,
+    ["adapter-listing-1"]
+  );
+}
+
+const adapterResolveRequest: ToolRequest = {
+  toolName: "vehicle.resolveSelection",
+  requestId: "tool-req-adapter-resolve",
+  conversationId: adapterConversationId,
+  input: { listingId: "adapter-listing-1" },
+};
+const adapterResolveOutcome = await executeConversationCoreTool(
+  {
+    rawRequest: adapterResolveRequest,
+    trustedBinding: trustedBindingFor(adapterResolveRequest),
+    trustedToolAllowlist: ["marketplace.search", "vehicle.resolveSelection"],
+  },
+  { registry: adapterVehicleRegistry! }
+);
+if (adapterResolveOutcome.kind === "completed" && adapterResolveOutcome.result.status === "ok") {
+  assertEqual(
+    "adapter-integration: trusted resolve data",
+    adapterResolveOutcome.result.data,
+    { listingId: "adapter-listing-1", resolved: true }
+  );
+}
+
+const adapterMissingContextRequest: ToolRequest = {
+  toolName: "vehicle.resolveSelection",
+  requestId: "tool-req-adapter-missing-context",
+  conversationId: "conv-tool-exec-other-room",
+  input: { listingId: "adapter-listing-1" },
+};
+const adapterMissingContextOutcome = await executeConversationCoreTool(
+  {
+    rawRequest: adapterMissingContextRequest,
+    trustedBinding: trustedBindingFor(adapterMissingContextRequest),
+    trustedToolAllowlist: ["vehicle.resolveSelection"],
+  },
+  { registry: adapterVehicleRegistry! }
+);
+if (adapterMissingContextOutcome.kind === "completed") {
+  assertEqual(
+    "adapter-integration: missing context rejection",
+    adapterMissingContextOutcome.result.errorCode,
+    VEHICLE_RESOLVE_SELECTION_ADAPTER_ERROR_CODES.missingConversationContext
+  );
+}
+
+const adapterCrossRoomRequest: ToolRequest = {
+  toolName: "vehicle.resolveSelection",
+  requestId: "tool-req-adapter-cross-room",
+  conversationId: adapterConversationId,
+  input: { listingId: "adapter-listing-2" },
+};
+const adapterCrossRoomOutcome = await executeConversationCoreTool(
+  {
+    rawRequest: adapterCrossRoomRequest,
+    trustedBinding: trustedBindingFor(adapterCrossRoomRequest),
+    trustedToolAllowlist: ["vehicle.resolveSelection"],
+  },
+  { registry: adapterVehicleRegistry! }
+);
+if (adapterCrossRoomOutcome.kind === "completed") {
+  assertEqual(
+    "adapter-integration: cross-room rejection",
+    adapterCrossRoomOutcome.result.errorCode,
+    VEHICLE_RESOLVE_SELECTION_ADAPTER_ERROR_CODES.listingNotInTrustedSet
+  );
+}
+
+const adapterTimeoutOutcome = await executeConversationCoreTool(
+  executorInput(
+    validMarketplaceRequest({
+      requestId: "tool-req-adapter-timeout",
+      conversationId: adapterConversationId,
+    }),
+    { timeoutMs: 1 }
+  ),
+  {
+    registry: createConversationCoreToolRegistry([
+      {
+        toolName: "marketplace.search",
+        handler: () =>
+          new Promise<ConversationCoreToolHandlerOutput>((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  status: "ok",
+                  data: {
+                    listingIds: ["late-listing"],
+                    query: "slow",
+                  },
+                }),
+              50
+            );
+          }),
+      },
+    ]),
+    scheduleTimeout(callback) {
+      callback();
+      return { cancel() {} };
+    },
+  }
+);
+if (adapterTimeoutOutcome.kind === "completed") {
+  assertEqual(
+    "adapter-integration: handler timeout preserved",
+    adapterTimeoutOutcome.result.errorCode,
+    CONVERSATION_CORE_TOOL_EXECUTOR_ERROR_CODES.handlerTimeout
+  );
+}
+
 // ---------- Safety and scope ----------
 
 assertFalsy(
@@ -963,6 +1227,7 @@ assertEqual(
 );
 
 const MIN_TOOL_EXECUTOR_ASSERTIONS = 109;
+const EXPECTED_TOOL_EXECUTOR_ASSERTIONS = 117;
 
 if (passCount < MIN_TOOL_EXECUTOR_ASSERTIONS) {
   console.error(
@@ -971,9 +1236,9 @@ if (passCount < MIN_TOOL_EXECUTOR_ASSERTIONS) {
   process.exit(1);
 }
 
-if (passCount !== MIN_TOOL_EXECUTOR_ASSERTIONS) {
+if (passCount !== EXPECTED_TOOL_EXECUTOR_ASSERTIONS) {
   console.error(
-    `FAIL assertion floor ${MIN_TOOL_EXECUTOR_ASSERTIONS} does not match final count ${passCount}`
+    `FAIL expected ${EXPECTED_TOOL_EXECUTOR_ASSERTIONS} assertions, got ${passCount}`
   );
   process.exit(1);
 }

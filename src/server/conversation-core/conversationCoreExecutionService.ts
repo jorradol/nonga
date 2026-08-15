@@ -35,6 +35,8 @@ import {
   buildConversationCoreHighRiskFallback,
   type ConversationCoreHighRiskFallbackResult,
 } from "./conversationCoreHighRiskFallback";
+import type { ConversationCoreToolRegistry } from "./conversationCoreToolRegistry";
+import type { ConversationCoreVehicleToolAdapterDeps } from "./conversationCoreVehicleToolAdapters";
 
 export type ConversationCoreExecutionReasonCode =
   | "invalid-input"
@@ -77,6 +79,11 @@ export interface ConversationCoreExecutionCandidateContext {
   readonly hasTrustedAuthoritativeContext?: false;
 }
 
+export interface ConversationCoreExecutionToolInjection {
+  readonly toolRegistry?: ConversationCoreToolRegistry;
+  readonly vehicleToolAdapterDeps?: ConversationCoreVehicleToolAdapterDeps;
+}
+
 export interface ConversationCoreExecutionServiceInput {
   readonly request: ConversationTurnRequest;
   readonly context: ConversationCoreExecutionContext;
@@ -88,6 +95,11 @@ export interface ConversationCoreExecutionServiceInput {
   readonly fallbackBuilder?: (
     input: { policyLane: ConversationCorePolicyLane }
   ) => ConversationCoreHighRiskFallbackResult;
+  /**
+   * Optional explicit tool registry / adapter deps for future integration.
+   * Not used by the 03C3 execution foundation — default route behavior stays fail-closed.
+   */
+  readonly toolInjection?: ConversationCoreExecutionToolInjection;
 }
 
 const CANDIDATE_CONTEXT_ALLOWED_KEYS = new Set([
@@ -208,6 +220,7 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
       adapter: ConversationCoreGeminiAdapter;
       candidateContext: ConversationCoreExecutionCandidateContext | undefined;
       fallbackBuilder: ConversationCoreExecutionServiceInput["fallbackBuilder"];
+      toolInjection: ConversationCoreExecutionToolInjection | undefined;
     }
   | { ok: false; reasonCode: ConversationCoreExecutionReasonCode } {
   if (!isPlainObject(input as unknown)) {
@@ -226,6 +239,13 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
     Object.prototype.hasOwnProperty.call(input, "fallbackBuilder") &&
     input.fallbackBuilder !== undefined &&
     typeof input.fallbackBuilder !== "function"
+  ) {
+    return { ok: false, reasonCode: "invalid-input" };
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(input, "toolInjection") &&
+    input.toolInjection !== undefined &&
+    !isPlainObject(input.toolInjection)
   ) {
     return { ok: false, reasonCode: "invalid-input" };
   }
@@ -271,6 +291,9 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
     adapter: input.adapter,
     candidateContext: candidateContext.value,
     fallbackBuilder: typeof input.fallbackBuilder === "function" ? input.fallbackBuilder : undefined,
+    toolInjection: isPlainObject(input.toolInjection)
+      ? (input.toolInjection as ConversationCoreExecutionToolInjection)
+      : undefined,
   };
 }
 
@@ -438,9 +461,11 @@ export async function runConversationCoreExecutionService(
     adapter,
     candidateContext,
     fallbackBuilder,
+    toolInjection,
   } = inspected;
 
   void getConversationCorePolicyLaneDefinition(policyLane);
+  void toolInjection;
 
   if (policyLane === "write-action-blocked") {
     return freezeBlocked();
