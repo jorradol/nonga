@@ -100,6 +100,37 @@ export {
 } from "./workspaceAction";
 
 export {
+  CONVERSATION_CORE_ASSISTANT_NAME,
+  CONVERSATION_CORE_EXPERT_MODE_HINTS,
+  CONVERSATION_CORE_EXPERT_MODE_HINT_KEYS,
+  CONVERSATION_CORE_PERSONA_CONVERSATION_LINES,
+  CONVERSATION_CORE_PERSONA_FORMAT_LINES,
+  CONVERSATION_CORE_PERSONA_HONESTY_LINES,
+  CONVERSATION_CORE_PERSONA_IDENTITY_LINES,
+  CONVERSATION_CORE_PERSONA_PHASE_BOUNDARY_LINES,
+  CONVERSATION_CORE_PERSONA_SAFETY_LINES,
+  CONVERSATION_CORE_PRODUCT_NAME,
+} from "./conversationCorePersona";
+
+export {
+  buildConversationCoreBaseInstruction,
+  type BuildConversationCoreBaseInstructionInput,
+} from "./conversationCoreInstruction";
+
+export {
+  CONVERSATION_CORE_POLICY_LANE_DEFINITIONS,
+  CONVERSATION_CORE_POLICY_LANE_IDS,
+  getConversationCorePolicyLaneDefinition,
+  type ConversationCoreLaneFailureBehavior,
+  type ConversationCorePolicyLane,
+  type ConversationCorePolicyLaneDefinition,
+  type ConversationCoreProviderPolicy,
+  type ConversationCoreToolRequirement,
+  type ConversationCoreValidatorPolicy,
+  type ConversationCoreWorkspaceActionPolicy,
+} from "./conversationCorePolicyLanes";
+
+export {
   APPROVED_TOOL_FAILURE_ERROR_CODES,
   CORE_ERROR_CODES,
   CORRECTION_STATUSES,
