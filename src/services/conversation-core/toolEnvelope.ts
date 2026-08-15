@@ -56,10 +56,36 @@ export interface VehicleResolveSelectionToolInput {
   listingId: string;
 }
 
+export const FINANCE_PRICE_SOURCES = ["inventory"] as const;
+export type FinancePriceSource = (typeof FINANCE_PRICE_SOURCES)[number];
+
+export const FINANCE_CALCULATION_MODES = ["listing-bound"] as const;
+export type FinanceCalculationMode = (typeof FINANCE_CALCULATION_MODES)[number];
+
+export const FINANCE_INTEREST_METHODS = ["flat"] as const;
+export type FinanceInterestMethod = (typeof FINANCE_INTEREST_METHODS)[number];
+
+export const FINANCE_CURRENCIES = ["THB"] as const;
+export type FinanceCurrency = (typeof FINANCE_CURRENCIES)[number];
+
+export const FINANCE_QUOTATION_STATUSES = ["not-quotation"] as const;
+export type FinanceQuotationStatus = (typeof FINANCE_QUOTATION_STATUSES)[number];
+
+export const FINANCE_VAT_STATUSES = ["not-calculated"] as const;
+export type FinanceVatStatus = (typeof FINANCE_VAT_STATUSES)[number];
+
+export const FINANCE_ADDITIONAL_CHARGES_STATUSES = ["not-calculated"] as const;
+export type FinanceAdditionalChargesStatus =
+  (typeof FINANCE_ADDITIONAL_CHARGES_STATUSES)[number];
+
+export const FINANCE_MAX_INTEREST_RATE_PERCENT = 30;
+
 export interface FinanceCalculateToolInput {
   listingId: string;
+  annualInterestRatePercent: number;
+  termMonths: number;
   downPayment?: number;
-  termMonths?: number;
+  downPaymentPercent?: number;
 }
 
 export type InventoryFetchToolRequest = {
@@ -112,8 +138,23 @@ export interface VehicleResolveSelectionToolData {
 
 export interface FinanceCalculateToolData {
   listingId: string;
-  monthlyPayment?: number;
-  totalPayable?: number;
+  vehiclePrice: number;
+  priceSource: FinancePriceSource;
+  calculationMode: FinanceCalculationMode;
+  downPaymentBaht: number;
+  downPaymentPercent: number;
+  loanAmount: number;
+  annualInterestRatePercent: number;
+  interestMethod: FinanceInterestMethod;
+  termMonths: number;
+  totalInterest: number;
+  monthlyPayment: number;
+  totalPayable: number;
+  currency: FinanceCurrency;
+  isEstimate: true;
+  quotationStatus: FinanceQuotationStatus;
+  vatStatus: FinanceVatStatus;
+  additionalChargesStatus: FinanceAdditionalChargesStatus;
 }
 
 export type InventoryFetchToolResult = {
@@ -187,12 +228,37 @@ const TOOL_RESULT_ALLOWED_KEYS = new Set([
 const INVENTORY_FETCH_INPUT_KEYS = new Set(["refresh"]);
 const MARKETPLACE_SEARCH_INPUT_KEYS = new Set(["query"]);
 const VEHICLE_RESOLVE_INPUT_KEYS = new Set(["listingId"]);
-const FINANCE_CALCULATE_INPUT_KEYS = new Set(["listingId", "downPayment", "termMonths"]);
+const FINANCE_CALCULATE_INPUT_KEYS = new Set([
+  "listingId",
+  "annualInterestRatePercent",
+  "termMonths",
+  "downPayment",
+  "downPaymentPercent",
+]);
 
 const INVENTORY_FETCH_DATA_KEYS = new Set(["listingIds"]);
 const MARKETPLACE_SEARCH_DATA_KEYS = new Set(["listingIds", "query"]);
 const VEHICLE_RESOLVE_DATA_KEYS = new Set(["listingId", "resolved"]);
-const FINANCE_CALCULATE_DATA_KEYS = new Set(["listingId", "monthlyPayment", "totalPayable"]);
+const FINANCE_CALCULATE_DATA_KEYS = new Set([
+  "listingId",
+  "vehiclePrice",
+  "priceSource",
+  "calculationMode",
+  "downPaymentBaht",
+  "downPaymentPercent",
+  "loanAmount",
+  "annualInterestRatePercent",
+  "interestMethod",
+  "termMonths",
+  "totalInterest",
+  "monthlyPayment",
+  "totalPayable",
+  "currency",
+  "isEstimate",
+  "quotationStatus",
+  "vatStatus",
+  "additionalChargesStatus",
+]);
 
 function validateBoundedErrorCode(
   raw: unknown,
@@ -298,6 +364,24 @@ function validateVehicleResolveInput(
   return listingId ? { listingId } : null;
 }
 
+function requireLiteralEnum<T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+  path: string,
+  issues: ValidationIssue[]
+): T | null {
+  if (typeof raw !== "string") {
+    issues.push(issue(path, "invalid_type", "Value must be a string"));
+    return null;
+  }
+  const value = raw.trim();
+  if (!(allowed as readonly string[]).includes(value)) {
+    issues.push(issue(path, "invalid_enum", "Value is not an allowed enum literal"));
+    return null;
+  }
+  return value as T;
+}
+
 function validateFinanceCalculateInput(
   raw: unknown,
   issues: ValidationIssue[]
@@ -311,8 +395,56 @@ function validateFinanceCalculateInput(
   if (!listingId) {
     return null;
   }
-  const input: FinanceCalculateToolInput = { listingId };
-  if (raw.downPayment !== undefined) {
+
+  const annualInterestRatePercent = requireFiniteNumber(
+    raw.annualInterestRatePercent,
+    "input.annualInterestRatePercent",
+    issues,
+    { min: 0, max: FINANCE_MAX_INTEREST_RATE_PERCENT }
+  );
+  if (annualInterestRatePercent === null) {
+    return null;
+  }
+
+  const termMonths = requireFiniteNumber(raw.termMonths, "input.termMonths", issues, {
+    min: 1,
+    max: 120,
+    integer: true,
+  });
+  if (termMonths === null) {
+    return null;
+  }
+
+  const hasDownPayment = raw.downPayment !== undefined;
+  const hasDownPaymentPercent = raw.downPaymentPercent !== undefined;
+  if (hasDownPayment && hasDownPaymentPercent) {
+    issues.push(
+      issue(
+        "input",
+        "conflicting_down_payment",
+        "Down payment must be specified as either amount or percent, not both"
+      )
+    );
+    return null;
+  }
+  if (!hasDownPayment && !hasDownPaymentPercent) {
+    issues.push(
+      issue(
+        "input",
+        "missing_down_payment",
+        "Down payment amount or percent is required"
+      )
+    );
+    return null;
+  }
+
+  const input: FinanceCalculateToolInput = {
+    listingId,
+    annualInterestRatePercent,
+    termMonths,
+  };
+
+  if (hasDownPayment) {
     const downPayment = requireFiniteNumber(raw.downPayment, "input.downPayment", issues, {
       min: 0,
       max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT,
@@ -322,17 +454,20 @@ function validateFinanceCalculateInput(
     }
     input.downPayment = downPayment;
   }
-  if (raw.termMonths !== undefined) {
-    const termMonths = requireFiniteNumber(raw.termMonths, "input.termMonths", issues, {
-      min: 1,
-      max: 120,
-      integer: true,
-    });
-    if (termMonths === null) {
+
+  if (hasDownPaymentPercent) {
+    const downPaymentPercent = requireFiniteNumber(
+      raw.downPaymentPercent,
+      "input.downPaymentPercent",
+      issues,
+      { min: 0, max: 100 }
+    );
+    if (downPaymentPercent === null) {
       return null;
     }
-    input.termMonths = termMonths;
+    input.downPaymentPercent = downPaymentPercent;
   }
+
   return input;
 }
 
@@ -416,30 +551,143 @@ function validateFinanceCalculateData(
   if (!listingId) {
     return undefined;
   }
-  const data: FinanceCalculateToolData = { listingId };
-  if (raw.monthlyPayment !== undefined) {
-    const monthlyPayment = requireFiniteNumber(
-      raw.monthlyPayment,
-      "data.monthlyPayment",
-      issues,
-      { min: 0, max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT }
-    );
-    if (monthlyPayment === null) {
-      return undefined;
-    }
-    data.monthlyPayment = monthlyPayment;
+
+  const vehiclePrice = requireFiniteNumber(raw.vehiclePrice, "data.vehiclePrice", issues, {
+    min: 0,
+    max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT,
+  });
+  const priceSource = requireLiteralEnum(
+    raw.priceSource,
+    FINANCE_PRICE_SOURCES,
+    "data.priceSource",
+    issues
+  );
+  const calculationMode = requireLiteralEnum(
+    raw.calculationMode,
+    FINANCE_CALCULATION_MODES,
+    "data.calculationMode",
+    issues
+  );
+  const downPaymentBaht = requireFiniteNumber(
+    raw.downPaymentBaht,
+    "data.downPaymentBaht",
+    issues,
+    { min: 0, max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT }
+  );
+  const downPaymentPercent = requireFiniteNumber(
+    raw.downPaymentPercent,
+    "data.downPaymentPercent",
+    issues,
+    { min: 0, max: 100 }
+  );
+  const loanAmount = requireFiniteNumber(raw.loanAmount, "data.loanAmount", issues, {
+    min: 0,
+    max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT,
+  });
+  const annualInterestRatePercent = requireFiniteNumber(
+    raw.annualInterestRatePercent,
+    "data.annualInterestRatePercent",
+    issues,
+    { min: 0, max: FINANCE_MAX_INTEREST_RATE_PERCENT }
+  );
+  const interestMethod = requireLiteralEnum(
+    raw.interestMethod,
+    FINANCE_INTEREST_METHODS,
+    "data.interestMethod",
+    issues
+  );
+  const termMonths = requireFiniteNumber(raw.termMonths, "data.termMonths", issues, {
+    min: 1,
+    max: 120,
+    integer: true,
+  });
+  const totalInterest = requireFiniteNumber(
+    raw.totalInterest,
+    "data.totalInterest",
+    issues,
+    { min: 0, max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT }
+  );
+  const monthlyPayment = requireFiniteNumber(
+    raw.monthlyPayment,
+    "data.monthlyPayment",
+    issues,
+    { min: 0, max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT }
+  );
+  const totalPayable = requireFiniteNumber(raw.totalPayable, "data.totalPayable", issues, {
+    min: 0,
+    max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT,
+  });
+  const currency = requireLiteralEnum(
+    raw.currency,
+    FINANCE_CURRENCIES,
+    "data.currency",
+    issues
+  );
+  const quotationStatus = requireLiteralEnum(
+    raw.quotationStatus,
+    FINANCE_QUOTATION_STATUSES,
+    "data.quotationStatus",
+    issues
+  );
+  const vatStatus = requireLiteralEnum(
+    raw.vatStatus,
+    FINANCE_VAT_STATUSES,
+    "data.vatStatus",
+    issues
+  );
+  const additionalChargesStatus = requireLiteralEnum(
+    raw.additionalChargesStatus,
+    FINANCE_ADDITIONAL_CHARGES_STATUSES,
+    "data.additionalChargesStatus",
+    issues
+  );
+
+  if (raw.isEstimate !== true) {
+    issues.push(issue("data.isEstimate", "invalid_type", "Estimate flag must be true"));
+    return undefined;
   }
-  if (raw.totalPayable !== undefined) {
-    const totalPayable = requireFiniteNumber(raw.totalPayable, "data.totalPayable", issues, {
-      min: 0,
-      max: CONVERSATION_CORE_MAX_FINANCE_AMOUNT,
-    });
-    if (totalPayable === null) {
-      return undefined;
-    }
-    data.totalPayable = totalPayable;
+
+  if (
+    vehiclePrice === null ||
+    !priceSource ||
+    !calculationMode ||
+    downPaymentBaht === null ||
+    downPaymentPercent === null ||
+    loanAmount === null ||
+    annualInterestRatePercent === null ||
+    !interestMethod ||
+    termMonths === null ||
+    totalInterest === null ||
+    monthlyPayment === null ||
+    totalPayable === null ||
+    !currency ||
+    !quotationStatus ||
+    !vatStatus ||
+    !additionalChargesStatus
+  ) {
+    return undefined;
   }
-  return data;
+
+  return {
+    listingId,
+    vehiclePrice,
+    priceSource,
+    calculationMode,
+    downPaymentBaht,
+    downPaymentPercent,
+    loanAmount,
+    annualInterestRatePercent,
+    interestMethod,
+    termMonths,
+    totalInterest,
+    monthlyPayment,
+    totalPayable,
+    currency,
+    isEstimate: true,
+    quotationStatus,
+    vatStatus,
+    additionalChargesStatus,
+  };
 }
 
 function validateToolResultData(

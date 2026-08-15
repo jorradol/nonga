@@ -125,6 +125,53 @@ function validMarketplaceToolRequest() {
   };
 }
 
+function validFinanceToolRequest(overrides: Record<string, unknown> = {}) {
+  const input = {
+    listingId: "listing-100",
+    annualInterestRatePercent: 5,
+    termMonths: 60,
+    downPaymentPercent: 20,
+    ...(overrides.input as Record<string, unknown> | undefined),
+  };
+  return {
+    toolName: "finance.calculate",
+    requestId: "fin-req-1",
+    conversationId: CONVERSATION_ID,
+    input,
+    ...overrides,
+  };
+}
+
+function validFinanceToolResult(): ToolResult {
+  return {
+    requestId: "fin-req-1",
+    conversationId: CONVERSATION_ID,
+    toolName: "finance.calculate",
+    status: "ok",
+    provenance: "finance-calculator",
+    data: {
+      listingId: "listing-100",
+      vehiclePrice: 500_000,
+      priceSource: "inventory",
+      calculationMode: "listing-bound",
+      downPaymentBaht: 100_000,
+      downPaymentPercent: 20,
+      loanAmount: 400_000,
+      annualInterestRatePercent: 5,
+      interestMethod: "flat",
+      termMonths: 60,
+      totalInterest: 100_000,
+      monthlyPayment: 8_333,
+      totalPayable: 500_000,
+      currency: "THB",
+      isEstimate: true,
+      quotationStatus: "not-quotation",
+      vatStatus: "not-calculated",
+      additionalChargesStatus: "not-calculated",
+    },
+  };
+}
+
 function validMarketplaceToolResult(): ToolResult {
   return {
     requestId: TOOL_REQUEST_ID,
@@ -327,12 +374,16 @@ assertFail(
 );
 assertFail(
   "NaN finance value rejected",
-  validateToolRequest({
-    toolName: "finance.calculate",
-    requestId: "fin-1",
-    conversationId: CONVERSATION_ID,
-    input: { listingId: "listing-100", downPayment: Number.NaN },
-  }),
+  validateToolRequest(
+    validFinanceToolRequest({
+      input: {
+        listingId: "listing-100",
+        annualInterestRatePercent: 5,
+        termMonths: 60,
+        downPayment: Number.NaN,
+      },
+    })
+  ),
   "invalid_number"
 );
 assertFail(
@@ -532,6 +583,108 @@ assertFail(
     },
   }),
   "duplicate_listing_id"
+);
+
+// --- Finance tool contracts ---
+assertOk("valid finance ToolRequest", validateToolRequest(validFinanceToolRequest()));
+assertOk(
+  "valid finance ToolResult",
+  validateToolResult(validFinanceToolResult(), {
+    requestId: "fin-req-1",
+    conversationId: CONVERSATION_ID,
+    toolName: "finance.calculate",
+  })
+);
+assertFail(
+  "finance missing annualInterestRatePercent rejected",
+  validateToolRequest(
+    validFinanceToolRequest({
+      input: {
+        listingId: "listing-100",
+        termMonths: 60,
+        downPaymentPercent: 20,
+      },
+    })
+  ),
+  "invalid_number"
+);
+assertFail(
+  "finance missing termMonths rejected",
+  validateToolRequest(
+    validFinanceToolRequest({
+      input: {
+        listingId: "listing-100",
+        annualInterestRatePercent: 5,
+        downPaymentPercent: 20,
+      },
+    })
+  ),
+  "invalid_number"
+);
+assertFail(
+  "finance conflicting down payment rejected",
+  validateToolRequest(
+    validFinanceToolRequest({
+      input: {
+        listingId: "listing-100",
+        annualInterestRatePercent: 5,
+        termMonths: 60,
+        downPayment: 100_000,
+        downPaymentPercent: 20,
+      },
+    })
+  ),
+  "conflicting_down_payment"
+);
+assertFail(
+  "finance missing down payment rejected",
+  validateToolRequest(
+    validFinanceToolRequest({
+      input: {
+        listingId: "listing-100",
+        annualInterestRatePercent: 5,
+        termMonths: 60,
+      },
+    })
+  ),
+  "missing_down_payment"
+);
+assertFail(
+  "finance unknown input field rejected",
+  validateToolRequest(
+    validFinanceToolRequest({
+      input: {
+        listingId: "listing-100",
+        annualInterestRatePercent: 5,
+        termMonths: 60,
+        downPaymentPercent: 20,
+        vehiclePrice: 500_000,
+      },
+    })
+  ),
+  "unknown_field"
+);
+assertFail(
+  "finance result missing estimate metadata rejected",
+  validateToolResult({
+    ...validFinanceToolResult(),
+    data: {
+      ...validFinanceToolResult().data,
+      isEstimate: false,
+    },
+  }),
+  "invalid_type"
+);
+assertFail(
+  "finance result unknown data field rejected",
+  validateToolResult({
+    ...validFinanceToolResult(),
+    data: {
+      ...validFinanceToolResult().data,
+      vatAmount: 700,
+    },
+  }),
+  "unknown_field"
 );
 
 // --- Workspace grounding ---

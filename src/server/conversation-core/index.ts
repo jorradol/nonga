@@ -121,6 +121,13 @@ export {
 } from "./conversationCoreToolExecutor";
 
 export {
+  createConversationCoreFinanceToolRegistrations,
+  createConversationCoreFinanceToolRegistry,
+  FINANCE_CALCULATE_ADAPTER_ERROR_CODES,
+  type ConversationCoreFinanceToolAdapterDeps,
+} from "./conversationCoreFinanceToolAdapters";
+
+export {
   createConversationCoreVehicleToolRegistrations,
   createConversationCoreVehicleToolRegistry,
   INVENTORY_FETCH_ADAPTER_ERROR_CODES,

@@ -94,15 +94,32 @@ const VALIDATOR_FILES = [
   "src/services/conversation-core/conversationCoreCandidateValidator.ts",
 ];
 
+/** WP-V2U-03D3B — exact approved dirty paths for finance adapter work package. */
+const WP_V2U_03D3B_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/adapters/financeCalculateToolAdapter.ts",
+  "src/server/conversation-core/conversationCoreFinanceToolAdapters.ts",
+  "src/server/conversation-core/index.ts",
+  "src/services/conversation-core/toolEnvelope.ts",
+  "src/services/conversation-core/index.ts",
+  "scripts/test-conversation-core-finance-tool-adapter.mts",
+  "scripts/test-conversation-core-contracts.mts",
+] as const;
+
+const WP_V2U_03D3B_ALLOWLIST_SET = new Set<string>(WP_V2U_03D3B_ALLOWLIST_PATHS);
+
 const ALLOWLIST_PATHS = new Set([
   ...VALIDATOR_FILES,
   "scripts/test-conversation-core-response-validators.mts",
   "src/services/conversation-core/index.ts",
+  ...WP_V2U_03D3B_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03D3B_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   return (
     statusPath === "scripts/test-conversation-core-response-validators.mts" ||
     statusPath.startsWith(SERVICE_CORE_DIR)
@@ -1304,8 +1321,8 @@ assertFalsy(
   "harness: server conversation-core is out of 03C2 scope",
   isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreGeminiAdapter.ts")
 );
-assertFalsy(
-  "harness: server conversation-core index is out of 03C2 scope",
+assertTruthy(
+  "harness: 03D3B server conversation-core index is in owned scope",
   isResponseValidatorHarnessOwnedPath("src/server/conversation-core/index.ts")
 );
 assertFalsy(
@@ -1352,7 +1369,6 @@ const OUT_OF_HARNESS_SCOPE = [
   "src/services/ai/chat/vehicleDiscoveryIndex.ts",
   "src/services/ai/chat/vehicleDiscoveryRelaxation.ts",
   "src/services/ai/salesBrainUserVisiblePilotBuyerCopy.ts",
-  "src/server/conversation-core/index.ts",
   "src/server/conversation-core/conversationCoreGeminiConfig.ts",
   "src/server/conversation-core/conversationCoreGeminiAdapter.ts",
   "src/server/conversation-core/conversationCoreCorrectionService.ts",
@@ -1363,7 +1379,6 @@ const OUT_OF_HARNESS_SCOPE = [
   "src/server/conversation-core/conversationCoreRouteHandler.ts",
   "scripts/test-conversation-core-gemini-correction.mts",
   "scripts/test-conversation-core-orchestrator.mts",
-  "scripts/test-conversation-core-contracts.mts",
   "scripts/test-conversation-core-policy-foundation.mts",
   "scripts/test-nonga-chat-car-cards.mts",
   "scripts/test-v22.26-multi-car-sales-explanation.mts",
@@ -1377,7 +1392,27 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: 03C2 allowlist size is exact", ALLOWLIST_PATHS.size, 6);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 12);
+for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
+    ALLOWLIST_PATHS.has(wp03d3bPath)
+  );
+}
+assertTruthy(
+  "harness: 03D3B toolEnvelope is in owned scope",
+  isResponseValidatorHarnessOwnedPath("src/services/conversation-core/toolEnvelope.ts")
+);
+assertTruthy(
+  "harness: 03D3B finance adapter test is in owned scope",
+  isResponseValidatorHarnessOwnedPath("scripts/test-conversation-core-finance-tool-adapter.mts")
+);
+assertFalsy(
+  "harness: unapproved adjacent server finance path is not owned",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreFinanceToolAdaptersForged.ts"
+  )
+);
 assertFalsy(
   "harness: unrelated root file is not owned on a clean checkout",
   isResponseValidatorHarnessOwnedPath("README.md")
