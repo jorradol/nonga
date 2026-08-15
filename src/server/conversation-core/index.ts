@@ -93,3 +93,28 @@ export {
   type ConversationCoreExecutionResult,
   type ConversationCoreExecutionServiceInput,
 } from "./conversationCoreExecutionService";
+
+export {
+  ConversationCoreToolRegistryDuplicateError,
+  createConversationCoreToolRegistry,
+  createEmptyConversationCoreToolRegistry,
+  type ConversationCoreToolHandler,
+  type ConversationCoreToolHandlerOutput,
+  type ConversationCoreToolRegistration,
+  type ConversationCoreToolRegistry,
+} from "./conversationCoreToolRegistry";
+
+export {
+  CONVERSATION_CORE_TOOL_DEFAULT_TIMEOUT_MS,
+  CONVERSATION_CORE_TOOL_EXECUTOR_ERROR_CODES,
+  CONVERSATION_CORE_TOOL_MAX_TIMEOUT_MS,
+  CONVERSATION_CORE_TOOL_MIN_TIMEOUT_MS,
+  executeConversationCoreTool,
+  resolveConversationCoreToolTimeoutMs,
+  type ConversationCoreToolExecutorDeps,
+  type ConversationCoreToolExecutorInput,
+  type ConversationCoreToolExecutorOutcome,
+  type ConversationCoreToolExecutorRejectReason,
+  type ConversationCoreToolExecutorScheduleHandle,
+  type ConversationCoreToolTrustedBinding,
+} from "./conversationCoreToolExecutor";
