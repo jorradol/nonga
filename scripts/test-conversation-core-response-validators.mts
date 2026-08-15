@@ -111,6 +111,15 @@ const WP_V2U_03E2B2_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2B2_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2B2_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2C2A — exact approved dirty paths for authoritative grounding foundation. */
+const WP_V2U_03E2C2A_ALLOWLIST_PATHS = [
+  "src/services/conversation-core/conversationCoreAuthoritativeGrounding.ts",
+  "src/services/conversation-core/conversationCoreNumericNormalization.ts",
+  "scripts/test-conversation-core-authoritative-grounding.mts",
+] as const;
+
+const WP_V2U_03E2C2A_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2C2A_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -140,11 +149,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03D4B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2A_ALLOWLIST_PATHS,
   ...WP_V2U_03E2B2_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2C2A_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2C2A_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2B2_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1429,7 +1442,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 19);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 22);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1454,6 +1467,42 @@ for (const wp03e2b2Path of WP_V2U_03E2B2_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2b2Path)
   );
 }
+for (const wp03e2c2aPath of WP_V2U_03E2C2A_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2c2aPath} is approved for WP-V2U-03E2C2A`,
+    ALLOWLIST_PATHS.has(wp03e2c2aPath)
+  );
+}
+assertTruthy(
+  "harness: 03E2C2A authoritative grounding is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/services/conversation-core/conversationCoreAuthoritativeGrounding.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2C2A numeric normalization is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/services/conversation-core/conversationCoreNumericNormalization.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2C2A authoritative grounding test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-authoritative-grounding.mts"
+  )
+);
+assertFalsy(
+  "harness: unapproved adjacent authoritative grounding path is not in allowlist",
+  ALLOWLIST_PATHS.has(
+    "src/services/conversation-core/conversationCoreAuthoritativeGroundingForged.ts"
+  )
+);
+assertTruthy(
+  "harness: unapproved adjacent authoritative grounding path is in service-core owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/services/conversation-core/conversationCoreAuthoritativeGroundingForged.ts"
+  )
+);
 assertTruthy(
   "harness: 03E2B2 gemini tool transport is in owned scope",
   isResponseValidatorHarnessOwnedPath(

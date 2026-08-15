@@ -208,6 +208,40 @@ export {
 } from "./conversationCoreGeminiTurnOutcome";
 
 export {
+  buildConversationCoreAuthoritativeGroundedAnswer,
+  CONVERSATION_CORE_AUTHORITATIVE_GROUNDING_FALLBACK_TEXT,
+  CONVERSATION_CORE_AUTHORITATIVE_GROUNDING_REASON_CODES,
+  isConversationCoreAuthoritativeGroundingReasonCode,
+  validateConversationCoreAuthoritativeGrounding,
+  type ConversationCoreAuthoritativeGroundingInput,
+  type ConversationCoreAuthoritativeGroundingReasonCode,
+  type ConversationCoreAuthoritativeGroundingResult,
+  type ConversationCoreUserAssumption,
+  type ConversationCoreUserMoneyAssumption,
+  type ConversationCoreUserTextAssumption,
+} from "./conversationCoreAuthoritativeGrounding";
+
+export {
+  CONVERSATION_CORE_NUMERIC_NORMALIZATION_ERROR_CODES,
+  conversationCoreTextHasNumericRange,
+  conversationCoreTextHasScaledAmountUnit,
+  extractConversationCoreCountClaims,
+  extractConversationCoreMoneyAmounts,
+  extractConversationCoreUnmaskedNumericTokens,
+  findConversationCoreListingIdSpans,
+  maskConversationCoreListingIdSpans,
+  normalizeConversationCoreDigits,
+  parseConversationCoreIntegerToken,
+  type ConversationCoreListingIdSpan,
+  type ConversationCoreNormalizedIntegerToken,
+  type ConversationCoreNumericNormalizationErrorCode,
+  type ConversationCoreNumericNormalizationResult,
+  type ConversationCoreParsedCountClaim,
+  type ConversationCoreParsedMoneyAmount,
+  type ConversationCoreUnmaskedNumericToken,
+} from "./conversationCoreNumericNormalization";
+
+export {
   CONVERSATION_CORE_CANDIDATE_ISSUE_CATEGORIES,
   CONVERSATION_CORE_CANDIDATE_ISSUE_CODES,
   CONVERSATION_CORE_CANDIDATE_OUTCOMES,
