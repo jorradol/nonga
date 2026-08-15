@@ -66,6 +66,30 @@ export {
 } from "./conversationCoreGeminiAdapter";
 
 export {
+  CONVERSATION_CORE_GEMINI_FORBIDDEN_DECLARATION_NAMES,
+  CONVERSATION_CORE_GEMINI_FORBIDDEN_DECLARATION_PREFIXES,
+  CONVERSATION_CORE_GEMINI_FUNCTION_DECLARATIONS,
+  CONVERSATION_CORE_GEMINI_VISIBLE_INPUT_KEYS_BY_TOOL,
+  buildConversationCoreGeminiFunctionDeclarations,
+} from "./conversationCoreGeminiFunctionDeclarations";
+
+export {
+  CONVERSATION_CORE_GEMINI_TOOL_TRANSPORT_ERROR_CODES,
+  createConversationCoreGeminiToolTransportSdkSeam,
+  generateFinalAnswerFromToolResult,
+  generateStructuredInitialTurn,
+  isConversationCoreGeminiToolTransportErrorCode,
+  type ConversationCoreGeminiFinalAnswerFromToolResultInput,
+  type ConversationCoreGeminiProviderFunctionCallContext,
+  type ConversationCoreGeminiStructuredInitialTurnInput,
+  type ConversationCoreGeminiStructuredInitialTurnSuccess,
+  type ConversationCoreGeminiToolTransportErrorCode,
+  type ConversationCoreGeminiToolTransportGenerateContentRequest,
+  type ConversationCoreGeminiToolTransportResult,
+  type ConversationCoreGeminiToolTransportSdkSeam,
+} from "./conversationCoreGeminiToolTransport";
+
+export {
   CONVERSATION_CORE_MAX_PROVIDER_CALLS,
   CONVERSATION_CORE_SECRET_HARD_REJECT_CODES,
   buildConversationCoreCorrectionInstruction,
