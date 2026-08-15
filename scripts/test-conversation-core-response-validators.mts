@@ -94,6 +94,14 @@ const VALIDATOR_FILES = [
   "src/services/conversation-core/conversationCoreCandidateValidator.ts",
 ];
 
+/** WP-V2U-03D4B — exact approved dirty paths for business tool registry composition. */
+const WP_V2U_03D4B_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreBusinessToolAdapters.ts",
+  "scripts/test-conversation-core-business-tool-adapters.mts",
+] as const;
+
+const WP_V2U_03D4B_ALLOWLIST_SET = new Set<string>(WP_V2U_03D4B_ALLOWLIST_PATHS);
+
 /** WP-V2U-03D3B — exact approved dirty paths for finance adapter work package. */
 const WP_V2U_03D3B_ALLOWLIST_PATHS = [
   "src/server/conversation-core/adapters/financeCalculateToolAdapter.ts",
@@ -112,11 +120,15 @@ const ALLOWLIST_PATHS = new Set([
   "scripts/test-conversation-core-response-validators.mts",
   "src/services/conversation-core/index.ts",
   ...WP_V2U_03D3B_ALLOWLIST_PATHS,
+  ...WP_V2U_03D4B_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03D4B_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03D3B_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1392,13 +1404,35 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 12);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 14);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
     ALLOWLIST_PATHS.has(wp03d3bPath)
   );
 }
+for (const wp03d4bPath of WP_V2U_03D4B_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03d4bPath} is approved for WP-V2U-03D4B`,
+    ALLOWLIST_PATHS.has(wp03d4bPath)
+  );
+}
+assertTruthy(
+  "harness: 03D4B business tool composite is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreBusinessToolAdapters.ts"
+  )
+);
+assertTruthy(
+  "harness: 03D4B business tool adapter test is in owned scope",
+  isResponseValidatorHarnessOwnedPath("scripts/test-conversation-core-business-tool-adapters.mts")
+);
+assertFalsy(
+  "harness: unapproved adjacent business composite path is not owned",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreBusinessToolAdaptersForged.ts"
+  )
+);
 assertTruthy(
   "harness: 03D3B toolEnvelope is in owned scope",
   isResponseValidatorHarnessOwnedPath("src/services/conversation-core/toolEnvelope.ts")
