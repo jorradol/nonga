@@ -1855,8 +1855,15 @@ assertFalsy(
   )
 );
 
-if (passCount < 437) {
-  console.error(`FAIL [assertion count] expected at least 437, got ${passCount}`);
+// Clean-tree substantive baseline: 433 deterministic assertions through the harness
+// checks above. Git-status-owned allowlist paths add up to four additive passes when
+// those files are dirty; the floor must not depend on current dirty-file count.
+const RESPONSE_VALIDATOR_CLEAN_TREE_MIN_ASSERTIONS = 433;
+
+if (passCount < RESPONSE_VALIDATOR_CLEAN_TREE_MIN_ASSERTIONS) {
+  console.error(
+    `FAIL [assertion count] expected at least ${RESPONSE_VALIDATOR_CLEAN_TREE_MIN_ASSERTIONS}, got ${passCount}`
+  );
   process.exit(1);
 }
 
