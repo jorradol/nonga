@@ -2,25 +2,39 @@
  * WP-V2U-03C3 / R1 — Server-owned Gemini execution foundation (not route-wired).
  */
 import {
+  CONVERSATION_CORE_MAX_MESSAGE_LENGTH,
   CONVERSATION_CORE_POLICY_LANE_IDS,
   CONVERSATION_CORE_POLICY_VERSION,
   getConversationCorePolicyLaneDefinition,
+  listingIdsFromToolResult,
   validateConversationCoreCandidate,
   validateConversationCoreExecutionContext,
   validateConversationCoreResult,
   validateConversationTurnRequest,
+  validateToolResult,
   type ConversationCoreExecutionContext,
   type ConversationCorePolicyLane,
   type ConversationCoreResult,
   type ConversationTurnRequest,
   type CorrectionStatus,
+  type GroundedFactRef,
   type SafetyOutcome,
+  type ToolResultSummary,
   type ValidatorOutcome,
 } from "../../services/conversation-core/index";
 import {
+  buildConversationCoreGeminiContents,
   isConversationCoreGeminiAdapter,
   type ConversationCoreGeminiAdapter,
 } from "./conversationCoreGeminiAdapter";
+import {
+  CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_PROVIDER_CALLS,
+  CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_TOOL_EXECUTIONS,
+  type ConversationCoreGroundedToolTurnCoordinatorInput,
+  type ConversationCoreGroundedToolTurnCoordinatorOutcome,
+  type ConversationCoreGroundedToolTurnCoordinatorSuccess,
+  type ConversationCoreGroundedToolTurnGroundingStatus,
+} from "./conversationCoreGroundedToolTurnCoordinator";
 import {
   runConversationCoreMaxOneCorrection,
   type ConversationCoreMaxOneReasonCode,
@@ -100,6 +114,12 @@ export interface ConversationCoreExecutionServiceInput {
    * Not used by the 03C3 execution foundation — default route behavior stays fail-closed.
    */
   readonly toolInjection?: ConversationCoreExecutionToolInjection;
+  /**
+   * Optional grounded tool-turn coordinator hook (mock-tested in D2B; no default runtime wiring).
+   */
+  readonly runGroundedToolTurnCoordinator?: (
+    input: ConversationCoreGroundedToolTurnCoordinatorInput
+  ) => Promise<ConversationCoreGroundedToolTurnCoordinatorOutcome>;
 }
 
 const CANDIDATE_CONTEXT_ALLOWED_KEYS = new Set([
@@ -221,6 +241,7 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
       candidateContext: ConversationCoreExecutionCandidateContext | undefined;
       fallbackBuilder: ConversationCoreExecutionServiceInput["fallbackBuilder"];
       toolInjection: ConversationCoreExecutionToolInjection | undefined;
+      runGroundedToolTurnCoordinator: ConversationCoreExecutionServiceInput["runGroundedToolTurnCoordinator"];
     }
   | { ok: false; reasonCode: ConversationCoreExecutionReasonCode } {
   if (!isPlainObject(input as unknown)) {
@@ -246,6 +267,13 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
     Object.prototype.hasOwnProperty.call(input, "toolInjection") &&
     input.toolInjection !== undefined &&
     !isPlainObject(input.toolInjection)
+  ) {
+    return { ok: false, reasonCode: "invalid-input" };
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(input, "runGroundedToolTurnCoordinator") &&
+    input.runGroundedToolTurnCoordinator !== undefined &&
+    typeof input.runGroundedToolTurnCoordinator !== "function"
   ) {
     return { ok: false, reasonCode: "invalid-input" };
   }
@@ -294,8 +322,17 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
     toolInjection: isPlainObject(input.toolInjection)
       ? (input.toolInjection as ConversationCoreExecutionToolInjection)
       : undefined,
+    runGroundedToolTurnCoordinator:
+      typeof input.runGroundedToolTurnCoordinator === "function"
+        ? input.runGroundedToolTurnCoordinator
+        : undefined,
   };
 }
+
+const AUTHORITATIVE_GROUNDING_STATUSES = new Set<ConversationCoreGroundedToolTurnGroundingStatus>([
+  "accepted",
+  "deterministic-fallback",
+]);
 
 function composeResult(input: {
   request: ConversationTurnRequest;
@@ -304,14 +341,17 @@ function composeResult(input: {
   validatorOutcome: ValidatorOutcome;
   correctionStatus: CorrectionStatus;
   includeProviderMetadata: boolean;
+  groundedFactRefs?: readonly GroundedFactRef[];
+  toolResultsUsed?: readonly ToolResultSummary[];
+  workspaceActions?: readonly [];
   errorState?: ConversationCoreResult["errorState"];
 }): unknown {
   return {
     conversationId: input.request.conversationId,
     messageId: input.request.messageId,
     assistantText: input.assistantText,
-    groundedFactRefs: [],
-    workspaceActions: [],
+    groundedFactRefs: input.groundedFactRefs ? [...input.groundedFactRefs] : [],
+    workspaceActions: input.workspaceActions ? [...input.workspaceActions] : [],
     safetyOutcome: input.safetyOutcome,
     validatorOutcome: input.validatorOutcome,
     correctionStatus: input.correctionStatus,
@@ -323,24 +363,185 @@ function composeResult(input: {
           },
         }
       : {}),
-    toolResultsUsed: [],
+    toolResultsUsed: input.toolResultsUsed ? [...input.toolResultsUsed] : [],
     ...(input.errorState ? { errorState: input.errorState } : {}),
   };
 }
 
 function validateComposedResult(
   raw: unknown,
-  request: ConversationTurnRequest
+  request: ConversationTurnRequest,
+  options?: {
+    toolResults?: unknown;
+    requiredToolRequestIds?: unknown;
+  }
 ): ConversationCoreResult | null {
   const validated = validateConversationCoreResult(raw, {
     expectedConversationId: request.conversationId,
     expectedMessageId: request.messageId,
-    toolResults: [],
+    toolResults: options?.toolResults ?? [],
+    ...(options?.requiredToolRequestIds !== undefined
+      ? { requiredToolRequestIds: options.requiredToolRequestIds }
+      : {}),
   });
   if (!validated.ok) {
     return null;
   }
   return validated.value;
+}
+
+function validateCoordinatorSuccessBundle(
+  outcome: ConversationCoreGroundedToolTurnCoordinatorOutcome,
+  expectedConversationId: string
+): outcome is ConversationCoreGroundedToolTurnCoordinatorSuccess {
+  if (outcome.kind !== "grounded") {
+    return false;
+  }
+
+  const assistantText = outcome.assistantText.trim();
+  if (!assistantText || assistantText.length > CONVERSATION_CORE_MAX_MESSAGE_LENGTH) {
+    return false;
+  }
+  if (outcome.correctionStatus !== "none") {
+    return false;
+  }
+  if (outcome.workspaceActions.length !== 0) {
+    return false;
+  }
+  if (outcome.providerCallCount > CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_PROVIDER_CALLS) {
+    return false;
+  }
+  if (outcome.toolExecutionCount !== CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_TOOL_EXECUTIONS) {
+    return false;
+  }
+  if (!AUTHORITATIVE_GROUNDING_STATUSES.has(outcome.groundingStatus)) {
+    return false;
+  }
+
+  const validatedToolResult = validateToolResult(outcome.toolResult);
+  if (!validatedToolResult.ok || validatedToolResult.value.status !== "ok") {
+    return false;
+  }
+  const toolResult = validatedToolResult.value;
+  if (toolResult.conversationId !== expectedConversationId) {
+    return false;
+  }
+
+  if (outcome.toolResultsUsed.length !== 1) {
+    return false;
+  }
+  const summary = outcome.toolResultsUsed[0];
+  if (
+    !summary ||
+    summary.requestId !== toolResult.requestId ||
+    summary.toolName !== toolResult.toolName ||
+    summary.status !== "ok" ||
+    summary.provenance !== toolResult.provenance
+  ) {
+    return false;
+  }
+
+  const listingIds = listingIdsFromToolResult(toolResult);
+  let hasToolResultRef = false;
+  for (const ref of outcome.groundedFactRefs) {
+    if (ref.kind === "tool-result") {
+      if (ref.id !== toolResult.requestId) {
+        return false;
+      }
+      hasToolResultRef = true;
+      continue;
+    }
+    if (ref.kind === "listing") {
+      if (!listingIds.has(ref.id)) {
+        return false;
+      }
+      continue;
+    }
+    return false;
+  }
+  if (!hasToolResultRef) {
+    return false;
+  }
+
+  return true;
+}
+
+async function completeAuthoritativeGrounded(input: {
+  request: ConversationTurnRequest;
+  policyLane: ConversationCorePolicyLane;
+  baseInstruction: string;
+  context: ConversationCoreExecutionContext;
+  geminiModel: string;
+  runGroundedToolTurnCoordinator: NonNullable<
+    ConversationCoreExecutionServiceInput["runGroundedToolTurnCoordinator"]
+  >;
+}): Promise<ConversationCoreExecutionResult> {
+  const coordinatorOutcome = await input.runGroundedToolTurnCoordinator({
+    conversationId: input.request.conversationId,
+    policyLane: "authoritative-data",
+    toolsEnabled: true,
+    allowedToolNames: input.context.toolAllowlist,
+    initialTurn: {
+      model: input.geminiModel,
+      systemInstruction: input.baseInstruction,
+      contents: buildConversationCoreGeminiContents(
+        input.request.history,
+        input.request.userMessage
+      ),
+    },
+  });
+
+  if (coordinatorOutcome.kind === "unavailable") {
+    return freezeUnavailable("tools-not-ready", coordinatorOutcome.providerCallCount);
+  }
+
+  const groundedOutcome = coordinatorOutcome;
+  const coordinatorProviderCallCount = groundedOutcome.providerCallCount;
+
+  if (!validateCoordinatorSuccessBundle(groundedOutcome, input.request.conversationId)) {
+    return freezeUnavailable("result-invalid", coordinatorProviderCallCount);
+  }
+
+  const candidate = validateConversationCoreCandidate({
+    candidateText: groundedOutcome.assistantText,
+    context: {
+      policyLane: input.policyLane,
+      hasTrustedAuthoritativeContext: true,
+    },
+  });
+  if (candidate.outcome !== "accept") {
+    return freezeUnavailable("result-invalid", coordinatorProviderCallCount);
+  }
+
+  const raw = composeResult({
+    request: input.request,
+    assistantText: groundedOutcome.assistantText,
+    safetyOutcome: "pass",
+    validatorOutcome: "pass",
+    correctionStatus: "none",
+    includeProviderMetadata: groundedOutcome.providerCallCount > 0,
+    groundedFactRefs: groundedOutcome.groundedFactRefs,
+    toolResultsUsed: groundedOutcome.toolResultsUsed,
+    workspaceActions: [],
+    ...(groundedOutcome.groundingStatus === "deterministic-fallback"
+      ? {
+          errorState: {
+            code: "validation_fallback",
+            fallbackPath: "deterministic-grounded",
+          },
+        }
+      : {}),
+  });
+
+  const result = validateComposedResult(raw, input.request, {
+    toolResults: [groundedOutcome.toolResult],
+    requiredToolRequestIds: [groundedOutcome.toolResult.requestId],
+  });
+  if (!result) {
+    return freezeUnavailable("result-invalid", coordinatorProviderCallCount);
+  }
+
+  return freezeCompleted(result, coordinatorProviderCallCount);
 }
 
 async function completeAccepted(input: {
@@ -462,6 +663,7 @@ export async function runConversationCoreExecutionService(
     candidateContext,
     fallbackBuilder,
     toolInjection,
+    runGroundedToolTurnCoordinator,
   } = inspected;
 
   void getConversationCorePolicyLaneDefinition(policyLane);
@@ -472,7 +674,23 @@ export async function runConversationCoreExecutionService(
   }
 
   if (policyLane === "authoritative-data") {
-    return freezeUnavailable("tools-not-ready", 0);
+    if (!context.featureFlags.toolsEnabled) {
+      return freezeUnavailable("tools-not-ready", 0);
+    }
+    if (typeof runGroundedToolTurnCoordinator !== "function") {
+      return freezeUnavailable("tools-not-ready", 0);
+    }
+    if (geminiConfig.status !== "ready") {
+      return freezeUnavailable(mapConfigUnavailable(geminiConfig), 0);
+    }
+    return completeAuthoritativeGrounded({
+      request,
+      policyLane,
+      baseInstruction,
+      context,
+      geminiModel: geminiConfig.model,
+      runGroundedToolTurnCoordinator,
+    });
   }
 
   if (!context.featureFlags.coreEnabled || !context.featureFlags.geminiEnabled) {

@@ -136,6 +136,14 @@ const WP_V2U_03E2D2A_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2D2A_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2A_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2D2B — exact approved dirty paths for grounded tool-turn execution integration. */
+const WP_V2U_03E2D2B_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreExecutionService.ts",
+  "scripts/test-conversation-core-grounded-tool-turn-execution.mts",
+] as const;
+
+const WP_V2U_03E2D2B_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2B_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -168,11 +176,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2C2A_ALLOWLIST_PATHS,
   ...WP_V2U_03E2C2B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2A_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2D2B_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2D2B_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2D2A_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1407,8 +1419,8 @@ assertFalsy(
   "harness: 03C3 correction service is out of 03C2 scope",
   isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreCorrectionService.ts")
 );
-assertFalsy(
-  "harness: 03C3 execution service is out of 03C2 scope",
+assertTruthy(
+  "harness: 03E2D2B execution service is in owned scope",
   isResponseValidatorHarnessOwnedPath("src/server/conversation-core/conversationCoreExecutionService.ts")
 );
 assertFalsy(
@@ -1446,7 +1458,6 @@ const OUT_OF_HARNESS_SCOPE = [
   "src/server/conversation-core/conversationCoreGeminiConfig.ts",
   "src/server/conversation-core/conversationCoreGeminiAdapter.ts",
   "src/server/conversation-core/conversationCoreCorrectionService.ts",
-  "src/server/conversation-core/conversationCoreExecutionService.ts",
   "src/server/conversation-core/conversationCoreHighRiskFallback.ts",
   "src/server/conversation-core/conversationCoreFeatureFlags.ts",
   "src/server/conversation-core/conversationCoreOrchestrator.ts",
@@ -1466,7 +1477,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 26);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 28);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1509,6 +1520,12 @@ for (const wp03e2d2aPath of WP_V2U_03E2D2A_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2d2aPath)
   );
 }
+for (const wp03e2d2bPath of WP_V2U_03E2D2B_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2d2bPath} is approved for WP-V2U-03E2D2B`,
+    ALLOWLIST_PATHS.has(wp03e2d2bPath)
+  );
+}
 assertTruthy(
   "harness: 03E2C2B finance grounding is in owned scope",
   isResponseValidatorHarnessOwnedPath(
@@ -1531,6 +1548,18 @@ assertTruthy(
   "harness: unapproved adjacent finance grounding path is in service-core owned scope",
   isResponseValidatorHarnessOwnedPath(
     "src/services/conversation-core/conversationCoreFinanceGroundingForged.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2B grounded tool-turn execution is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-grounded-tool-turn-execution.mts"
+  )
+);
+assertFalsy(
+  "harness: unapproved adjacent grounded execution path is not in allowlist",
+  ALLOWLIST_PATHS.has(
+    "scripts/test-conversation-core-grounded-tool-turn-executionForged.mts"
   )
 );
 assertTruthy(
