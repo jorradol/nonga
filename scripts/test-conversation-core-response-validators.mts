@@ -152,6 +152,14 @@ const WP_V2U_03E2D2C2A_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2D2C2A_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2A_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2D2C2B — exact approved dirty paths for lazy runtime dependencies factory. */
+const WP_V2U_03E2D2C2B_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreRuntimeDeps.ts",
+  "scripts/test-conversation-core-runtime-deps.mts",
+] as const;
+
+const WP_V2U_03E2D2C2B_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2B_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -186,11 +194,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2D2A_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2A_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2D2C2B_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2D2C2B_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2D2C2A_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1489,7 +1501,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 30);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 32);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1544,6 +1556,12 @@ for (const wp03e2d2c2aPath of WP_V2U_03E2D2C2A_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2d2c2aPath)
   );
 }
+for (const wp03e2d2c2bPath of WP_V2U_03E2D2C2B_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2d2c2bPath} is approved for WP-V2U-03E2D2C2B`,
+    ALLOWLIST_PATHS.has(wp03e2d2c2bPath)
+  );
+}
 assertTruthy(
   "harness: 03E2D2C2A lane classifier is in owned scope",
   isResponseValidatorHarnessOwnedPath(
@@ -1560,6 +1578,24 @@ assertFalsy(
   "harness: unapproved adjacent lane classifier path is not in allowlist",
   ALLOWLIST_PATHS.has(
     "src/server/conversation-core/conversationCoreLaneClassifierForged.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2B runtime deps factory is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreRuntimeDeps.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2B runtime deps test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-runtime-deps.mts"
+  )
+);
+assertFalsy(
+  "harness: unapproved adjacent runtime deps path is not in allowlist",
+  ALLOWLIST_PATHS.has(
+    "src/server/conversation-core/conversationCoreRuntimeDepsForged.ts"
   )
 );
 assertTruthy(
@@ -1757,8 +1793,8 @@ assertFalsy(
   )
 );
 
-if (passCount < 309) {
-  console.error(`FAIL [assertion count] expected at least 309, got ${passCount}`);
+if (passCount < 422) {
+  console.error(`FAIL [assertion count] expected at least 422, got ${passCount}`);
   process.exit(1);
 }
 

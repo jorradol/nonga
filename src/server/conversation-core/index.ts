@@ -188,3 +188,17 @@ export {
   type ScoredMarketplaceSearchFn,
   type VehicleResolveSelectionToolAdapterDeps,
 } from "./conversationCoreVehicleToolAdapters";
+
+export {
+  CONVERSATION_CORE_RUNTIME_DEPS_REASON_CODES,
+  CONVERSATION_CORE_RUNTIME_DEPS_SUPPORTED_TOOL_NAMES,
+  createConversationCoreRuntimeDeps,
+  type ConversationCoreRuntimeDepsActivationSnapshot,
+  type ConversationCoreRuntimeDepsGroundedToolTurnRunner,
+  type ConversationCoreRuntimeDepsInput,
+  type ConversationCoreRuntimeDepsReasonCode,
+  type ConversationCoreRuntimeDepsReady,
+  type ConversationCoreRuntimeDepsResult,
+  type ConversationCoreRuntimeDepsSupportedToolName,
+  type ConversationCoreRuntimeDepsUnavailable,
+} from "./conversationCoreRuntimeDeps";
