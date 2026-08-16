@@ -65,7 +65,7 @@ export interface ConversationCoreRouteHandlerDeps {
   orchestrator?: (
     request: ConversationTurnRequest,
     context: ConversationCoreExecutionContext
-  ) => ConversationCoreOrchestratorResult;
+  ) => ConversationCoreOrchestratorResult | Promise<ConversationCoreOrchestratorResult>;
   validateTurnRequest?: (raw: unknown) => ValidationResult<ConversationTurnRequest>;
   validateExecutionContext?: (
     raw: unknown
@@ -219,7 +219,7 @@ export async function handleConversationCoreTurnPost(
   }
 
   const orchestrator = deps.orchestrator ?? runConversationCoreOrchestrator;
-  const orchestratorResult = orchestrator(turnRequest, contextValidation.value);
+  const orchestratorResult = await orchestrator(turnRequest, contextValidation.value);
 
   return {
     status: 503,

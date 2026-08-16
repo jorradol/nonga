@@ -716,11 +716,21 @@ assertFalsy(
   orchestratorSource.includes("conversationCoreOrchestratorIntegration")
 );
 
-// --- 20. No route file change (this WP) ---
+// --- 20. Route async boundary (C2C2C2A) without integration activation ---
 
-assertTruthy("route unchanged: still registers turn route", routeSource.includes('"/api/ai/conversation-core/turn"'));
-assertTruthy("route unchanged: still calls sync orchestrator", routeSource.includes("runConversationCoreOrchestrator"));
-assertFalsy("route unchanged: no await orchestrator", /await\s+orchestrator\(/.test(routeSource));
+assertTruthy("route boundary: still registers turn route", routeSource.includes('"/api/ai/conversation-core/turn"'));
+assertTruthy(
+  "route boundary: default binding still sync orchestrator",
+  routeSource.includes("runConversationCoreOrchestrator")
+);
+assertTruthy(
+  "route boundary: awaits orchestrator result",
+  /await\s+orchestrator\(/.test(routeSource)
+);
+assertFalsy(
+  "route boundary: still no integration import",
+  routeSource.includes("conversationCoreOrchestratorIntegration")
+);
 
 // --- Laziness: classify before resolver on blocked path ---
 

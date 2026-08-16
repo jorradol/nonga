@@ -2,6 +2,7 @@
  * WP-V2U-03B / R1 — Conversation Core server orchestrator tests.
  * Run: .\node_modules\.bin\tsx.cmd scripts/test-conversation-core-orchestrator.mts
  */
+import type { Express, Request, Response } from "express";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -15,8 +16,10 @@ import { NONGA_AI_EMERGENCY_KILL_SWITCH_ENV } from "../src/services/ai/salesBrai
 import { ServerAuthError, type ServerAuthContext } from "../src/server/serverAuthContext";
 import {
   NONGA_CONVERSATION_CORE_ENABLED_ENV,
+  CONVERSATION_CORE_TURN_ROUTE,
   failClosedConversationOwnershipVerifier,
   handleConversationCoreTurnPost,
+  registerConversationCoreRoutes,
   resolveConversationCoreFeatureFlags,
   runConversationCoreOrchestrator,
   type ConversationCoreOrchestratorResult,
@@ -55,6 +58,149 @@ function assertFalsy(label: string, value: unknown): void {
     process.exit(1);
   }
   pass(label);
+}
+
+async function assertRejects(label: string, run: () => Promise<unknown>): Promise<void> {
+  let rejected = false;
+  try {
+    await run();
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    console.error(`FAIL [${label}] expected rejection`);
+    process.exit(1);
+  }
+  pass(label);
+}
+
+const REGISTERED_ROUTE_DEV_TOKEN = "dev-conversation-core-route-test-token";
+
+function setupRegisteredRouteDevAuth(): void {
+  process.env.NONGA_DEV_FIREBASE_TOKEN_MAP = JSON.stringify({
+    [REGISTERED_ROUTE_DEV_TOKEN]: {
+      uid: AUTH_UID,
+      email: "buyer@example.com",
+      displayName: "Buyer",
+    },
+  });
+  process.env.NONGA_DEV_USER_PROFILE_MAP = JSON.stringify({
+    [AUTH_UID]: {
+      uid: AUTH_UID,
+      email: "buyer@example.com",
+      displayName: "Buyer",
+      role: "member",
+      status: "active",
+    },
+  });
+}
+
+function reqWithRegisteredRouteAuth(body: unknown): Request {
+  return {
+    headers: { authorization: `Bearer ${REGISTERED_ROUTE_DEV_TOKEN}` },
+    query: {},
+    body,
+  } as Request;
+}
+
+type RegisteredPostCapture = {
+  path: string;
+  handler: (req: Request, res: Response) => unknown;
+};
+
+function createFakeExpressApp(): {
+  app: Express;
+  registrations: RegisteredPostCapture[];
+} {
+  const registrations: RegisteredPostCapture[] = [];
+  const app = {
+    post(path: string, handler: (req: Request, res: Response) => unknown) {
+      registrations.push({ path, handler });
+    },
+  } as Express;
+  return { app, registrations };
+}
+
+function createRecordingRes(): {
+  res: Response;
+  getStatusCallCount: () => number;
+  getJsonCallCount: () => number;
+  getStatusCode: () => number;
+  getJsonBody: () => unknown;
+} {
+  let statusCallCount = 0;
+  let jsonCallCount = 0;
+  let statusCode = 0;
+  let jsonBody: unknown;
+  const res = {
+    status(code: number) {
+      statusCallCount += 1;
+      statusCode = code;
+      return res;
+    },
+    json(body: unknown) {
+      jsonCallCount += 1;
+      jsonBody = body;
+      return res;
+    },
+  } as Response;
+  return {
+    res,
+    getStatusCallCount: () => statusCallCount,
+    getJsonCallCount: () => jsonCallCount,
+    getStatusCode: () => statusCode,
+    getJsonBody: () => jsonBody,
+  };
+}
+
+async function invokeCapturedRegisteredRoute(input: {
+  ownershipVerifier: ConversationOwnershipVerifier;
+  body?: unknown;
+}): Promise<{
+  statusCallCount: number;
+  jsonCallCount: number;
+  statusCode: number;
+  jsonBody: unknown;
+  escapedRejection: unknown;
+  ownershipVerifyCalls: number;
+}> {
+  setupRegisteredRouteDevAuth();
+  const { app, registrations } = createFakeExpressApp();
+  let ownershipVerifyCalls = 0;
+  const ownershipVerifier: ConversationOwnershipVerifier = {
+    verify(verifyInput) {
+      ownershipVerifyCalls += 1;
+      return input.ownershipVerifier.verify(verifyInput);
+    },
+  };
+
+  registerConversationCoreRoutes(app, {
+    ownershipVerifier,
+    readEnv: envReader({ [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" }),
+  });
+
+  assertEqual("registered wrapper: route registered once", registrations.length, 1);
+  assertEqual(
+    "registered wrapper: expected route path",
+    registrations[0]?.path,
+    CONVERSATION_CORE_TURN_ROUTE
+  );
+
+  const recorder = createRecordingRes();
+  const req = reqWithRegisteredRouteAuth(input.body ?? validTurnBody());
+  let escapedRejection: unknown = null;
+  await Promise.resolve(registrations[0]!.handler(req, recorder.res)).catch((err) => {
+    escapedRejection = err;
+  });
+
+  return {
+    statusCallCount: recorder.getStatusCallCount(),
+    jsonCallCount: recorder.getJsonCallCount(),
+    statusCode: recorder.getStatusCode(),
+    jsonBody: recorder.getJsonBody(),
+    escapedRejection,
+    ownershipVerifyCalls,
+  };
 }
 
 const AUTH_UID = "firebase-uid-test-001";
@@ -112,7 +258,7 @@ async function runHandler(
     orchestrator?: (
       request: ConversationTurnRequest,
       context: ConversationCoreExecutionContext
-    ) => ConversationCoreOrchestratorResult;
+    ) => ConversationCoreOrchestratorResult | Promise<ConversationCoreOrchestratorResult>;
   } = {}
 ) {
   return handleConversationCoreTurnPost(
@@ -497,6 +643,293 @@ assertEqual(
   "routing: core ON does not legacy-delegate",
   (coreOnVerified.body as ConversationCoreRouteResponse).route,
   "honest-unavailable"
+);
+
+const verifiedOrchestratorDeps = {
+  ownershipVerifier: trustedVerifiedOwnershipMock(AUTH_UID),
+  env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+};
+
+// --- Injected orchestrator: sync + async awaitable boundary ---
+let syncOrchestratorCalls = 0;
+const syncInjected = await runHandler(
+  {
+    auth: authContext(),
+    body: validTurnBody(),
+  },
+  {
+    ...verifiedOrchestratorDeps,
+    orchestrator: () => {
+      syncOrchestratorCalls += 1;
+      return {
+        route: "honest-unavailable",
+        error: { code: "core-not-ready" },
+      };
+    },
+  }
+);
+assertEqual("injected sync orchestrator: 503", syncInjected.status, 503);
+assertEqual(
+  "injected sync orchestrator: honest-unavailable",
+  (syncInjected.body as ConversationCoreRouteResponse).route,
+  "honest-unavailable"
+);
+assertEqual(
+  "injected sync orchestrator: core-not-ready",
+  (syncInjected.body as ConversationCoreRouteResponse & { error?: { code: string } }).error?.code,
+  "core-not-ready"
+);
+assertEqual("injected sync orchestrator: call count", syncOrchestratorCalls, 1);
+
+let asyncOrchestratorCalls = 0;
+const asyncInjected = await runHandler(
+  {
+    auth: authContext(),
+    body: validTurnBody(),
+  },
+  {
+    ...verifiedOrchestratorDeps,
+    orchestrator: async () => {
+      asyncOrchestratorCalls += 1;
+      return {
+        route: "honest-unavailable",
+        error: { code: "core-not-ready" },
+      };
+    },
+  }
+);
+assertEqual("injected async orchestrator: 503", asyncInjected.status, 503);
+assertEqual(
+  "injected async orchestrator: honest-unavailable",
+  (asyncInjected.body as ConversationCoreRouteResponse).route,
+  "honest-unavailable"
+);
+assertEqual(
+  "injected async orchestrator: core-not-ready",
+  (asyncInjected.body as ConversationCoreRouteResponse & { error?: { code: string } }).error?.code,
+  "core-not-ready"
+);
+assertEqual("injected async orchestrator: call count", asyncOrchestratorCalls, 1);
+
+// --- Direct handler: orchestrator throw/reject propagates (no HTTP at this layer) ---
+let syncThrowOrchestratorCalls = 0;
+await assertRejects("direct handler: sync orchestrator throw rejects", () =>
+  runHandler(
+    {
+      auth: authContext(),
+      body: validTurnBody(),
+    },
+    {
+      ...verifiedOrchestratorDeps,
+      orchestrator: () => {
+        syncThrowOrchestratorCalls += 1;
+        throw new Error("sync orchestrator failure");
+      },
+    }
+  )
+);
+assertEqual(
+  "direct handler: sync throw orchestrator call count",
+  syncThrowOrchestratorCalls,
+  1
+);
+
+let asyncRejectOrchestratorCalls = 0;
+await assertRejects("direct handler: async orchestrator rejection rejects", () =>
+  runHandler(
+    {
+      auth: authContext(),
+      body: validTurnBody(),
+    },
+    {
+      ...verifiedOrchestratorDeps,
+      orchestrator: async () => {
+        asyncRejectOrchestratorCalls += 1;
+        throw new Error("async orchestrator failure");
+      },
+    }
+  )
+);
+assertEqual(
+  "direct handler: async reject orchestrator call count",
+  asyncRejectOrchestratorCalls,
+  1
+);
+
+// --- Registered wrapper: real registerConversationCoreRoutes callback ---
+// registerConversationCoreRoutes does not inject orchestrator; ownership verify is the
+// existing safe rejection boundary. Compositional proof:
+// 1) direct handler tests above prove orchestrator throw/reject propagates
+// 2) registered wrapper proves propagated non-auth failure becomes one 503 internal-error
+
+const registeredOwnershipSyncThrow = await invokeCapturedRegisteredRoute({
+  ownershipVerifier: {
+    verify() {
+      throw new Error("ownership sync failure");
+    },
+  },
+});
+assertFalsy(
+  "registered wrapper sync throw: no escaped rejection",
+  registeredOwnershipSyncThrow.escapedRejection
+);
+assertEqual(
+  "registered wrapper sync throw: ownership verify called once",
+  registeredOwnershipSyncThrow.ownershipVerifyCalls,
+  1
+);
+assertEqual(
+  "registered wrapper sync throw: res.status called once",
+  registeredOwnershipSyncThrow.statusCallCount,
+  1
+);
+assertEqual(
+  "registered wrapper sync throw: status 503",
+  registeredOwnershipSyncThrow.statusCode,
+  503
+);
+assertEqual(
+  "registered wrapper sync throw: res.json called once",
+  registeredOwnershipSyncThrow.jsonCallCount,
+  1
+);
+assertEqual(
+  "registered wrapper sync throw: honest-unavailable route",
+  (registeredOwnershipSyncThrow.jsonBody as ConversationCoreRouteResponse).route,
+  "honest-unavailable"
+);
+assertEqual(
+  "registered wrapper sync throw: internal-error code",
+  (registeredOwnershipSyncThrow.jsonBody as ConversationCoreRouteResponse & {
+    error?: { code: string };
+  }).error?.code,
+  "internal-error"
+);
+
+const registeredOwnershipAsyncReject = await invokeCapturedRegisteredRoute({
+  ownershipVerifier: {
+    verify() {
+      return Promise.reject(new Error("ownership async failure"));
+    },
+  },
+});
+assertFalsy(
+  "registered wrapper async reject: no escaped rejection",
+  registeredOwnershipAsyncReject.escapedRejection
+);
+assertEqual(
+  "registered wrapper async reject: ownership verify called once",
+  registeredOwnershipAsyncReject.ownershipVerifyCalls,
+  1
+);
+assertEqual(
+  "registered wrapper async reject: res.status called once",
+  registeredOwnershipAsyncReject.statusCallCount,
+  1
+);
+assertEqual(
+  "registered wrapper async reject: status 503",
+  registeredOwnershipAsyncReject.statusCode,
+  503
+);
+assertEqual(
+  "registered wrapper async reject: res.json called once",
+  registeredOwnershipAsyncReject.jsonCallCount,
+  1
+);
+assertEqual(
+  "registered wrapper async reject: honest-unavailable route",
+  (registeredOwnershipAsyncReject.jsonBody as ConversationCoreRouteResponse).route,
+  "honest-unavailable"
+);
+assertEqual(
+  "registered wrapper async reject: internal-error code",
+  (registeredOwnershipAsyncReject.jsonBody as ConversationCoreRouteResponse & {
+    error?: { code: string };
+  }).error?.code,
+  "internal-error"
+);
+
+let orchestratorCallsWhenCoreOff = 0;
+await runHandler(
+  {
+    auth: authContext(),
+    body: validTurnBody(),
+  },
+  {
+    orchestrator: () => {
+      orchestratorCallsWhenCoreOff += 1;
+      return {
+        route: "honest-unavailable",
+        error: { code: "core-not-ready" },
+      };
+    },
+  }
+);
+assertEqual(
+  "routing: orchestrator not called when core OFF",
+  orchestratorCallsWhenCoreOff,
+  0
+);
+
+let orchestratorCallsOnInvalidBody = 0;
+await runHandler(
+  {
+    auth: authContext(),
+    body: { conversationId: CONVERSATION_ID },
+  },
+  {
+    ...verifiedOrchestratorDeps,
+    orchestrator: () => {
+      orchestratorCallsOnInvalidBody += 1;
+      return {
+        route: "honest-unavailable",
+        error: { code: "core-not-ready" },
+      };
+    },
+  }
+);
+assertEqual(
+  "routing: orchestrator not called on invalid body",
+  orchestratorCallsOnInvalidBody,
+  0
+);
+
+let orchestratorCallsOnDenied = 0;
+await runHandler(
+  {
+    auth: authContext(),
+    body: validTurnBody(),
+  },
+  {
+    ownershipVerifier: { async verify() { return { status: "denied" }; } },
+    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    orchestrator: () => {
+      orchestratorCallsOnDenied += 1;
+      return {
+        route: "honest-unavailable",
+        error: { code: "core-not-ready" },
+      };
+    },
+  }
+);
+assertEqual(
+  "routing: orchestrator not called on ownership denied",
+  orchestratorCallsOnDenied,
+  0
+);
+
+const routeSource = fs.readFileSync(
+  path.join(process.cwd(), "src/server/conversation-core/conversationCoreRouteHandler.ts"),
+  "utf8"
+);
+assertFalsy(
+  "boundary: route handler has no integration import",
+  routeSource.includes("conversationCoreOrchestratorIntegration")
+);
+assertTruthy(
+  "boundary: route handler awaits orchestrator",
+  /await\s+orchestrator\(/.test(routeSource)
 );
 
 const turnFixture = validateConversationTurnRequest(validTurnBody());
