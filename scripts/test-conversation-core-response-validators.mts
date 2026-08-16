@@ -144,6 +144,14 @@ const WP_V2U_03E2D2B_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2D2B_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2B_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2D2C2A — exact approved dirty paths for lane/tool eligibility classifier. */
+const WP_V2U_03E2D2C2A_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreLaneClassifier.ts",
+  "scripts/test-conversation-core-lane-classifier.mts",
+] as const;
+
+const WP_V2U_03E2D2C2A_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2A_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -177,11 +185,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2C2B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2A_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2B_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2D2C2A_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2D2C2A_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2D2B_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1477,7 +1489,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 28);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 30);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1526,6 +1538,30 @@ for (const wp03e2d2bPath of WP_V2U_03E2D2B_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2d2bPath)
   );
 }
+for (const wp03e2d2c2aPath of WP_V2U_03E2D2C2A_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2d2c2aPath} is approved for WP-V2U-03E2D2C2A`,
+    ALLOWLIST_PATHS.has(wp03e2d2c2aPath)
+  );
+}
+assertTruthy(
+  "harness: 03E2D2C2A lane classifier is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreLaneClassifier.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2A lane classifier test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-lane-classifier.mts"
+  )
+);
+assertFalsy(
+  "harness: unapproved adjacent lane classifier path is not in allowlist",
+  ALLOWLIST_PATHS.has(
+    "src/server/conversation-core/conversationCoreLaneClassifierForged.ts"
+  )
+);
 assertTruthy(
   "harness: 03E2C2B finance grounding is in owned scope",
   isResponseValidatorHarnessOwnedPath(
