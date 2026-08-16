@@ -2,6 +2,11 @@
  * WP-V2U-03E2C2A / R1 — Authoritative grounding (allow-by-construction).
  */
 import {
+  buildConversationCoreFinanceGroundedAnswer,
+  validateConversationCoreFinanceGrounding,
+  type ConversationCoreFinanceGroundingResult,
+} from "./conversationCoreFinanceGrounding";
+import {
   validateToolResult,
   type ToolResult,
 } from "./toolEnvelope";
@@ -35,6 +40,20 @@ export const CONVERSATION_CORE_AUTHORITATIVE_GROUNDING_REASON_CODES = [
   "unsupported_prose_shape",
   "unverifiable_vehicle_claim",
   "noncanonical_grounded_answer",
+  "finance_value_mismatch",
+  "finance_role_mismatch",
+  "finance_unaccounted_numeric_claim",
+  "finance_interest_rate_mismatch",
+  "finance_interest_method_mismatch",
+  "finance_term_mismatch",
+  "finance_missing_disclaimer",
+  "finance_quotation_claim",
+  "finance_vat_claim",
+  "finance_additional_charge_claim",
+  "finance_approval_claim",
+  "finance_unsupported_prose_shape",
+  "finance_metadata_mismatch",
+  "finance_precision_loss",
 ] as const;
 
 export type ConversationCoreAuthoritativeGroundingReasonCode =
@@ -172,6 +191,10 @@ export function buildConversationCoreAuthoritativeGroundedAnswer(
 
     const idList = formatListingIdList(listingIds);
     return `${prefix}พบผลลัพธ์ ${listingIds.length} รายการ: ${idList}`.trim();
+  }
+
+  if (okResult.toolName === "finance.calculate" && okResult.data) {
+    return buildConversationCoreFinanceGroundedAnswer(okResult.data);
   }
 
   return CONVERSATION_CORE_AUTHORITATIVE_GROUNDING_FALLBACK_TEXT;
@@ -641,6 +664,23 @@ function validateSelectionGrounding(
   return { ok: true, assistantText: normalized };
 }
 
+function isFinanceCanonicalAttempt(text: string): boolean {
+  return /^ประมาณการค่างวดสำหรับ\s+\S+:/u.test(collapseWhitespace(text));
+}
+
+function mapFinanceGroundingResult(
+  result: ConversationCoreFinanceGroundingResult
+): ConversationCoreAuthoritativeGroundingResult {
+  if (result.ok === false) {
+    return {
+      ok: false,
+      code: result.code,
+      fallbackText: result.fallbackText,
+    };
+  }
+  return result;
+}
+
 export function validateConversationCoreAuthoritativeGrounding(
   input: ConversationCoreAuthoritativeGroundingInput
 ): ConversationCoreAuthoritativeGroundingResult {
@@ -660,7 +700,14 @@ export function validateConversationCoreAuthoritativeGrounding(
   }
 
   if (toolResult.toolName === "finance.calculate") {
-    return reject("unsupported_tool");
+    const financeResult = validateConversationCoreFinanceGrounding({
+      assistantText,
+      toolResult,
+    });
+    if (!financeResult.ok && !isFinanceCanonicalAttempt(assistantText)) {
+      return reject("unsupported_tool");
+    }
+    return mapFinanceGroundingResult(financeResult);
   }
 
   if (toolResult.toolName === "vehicle.resolveSelection") {

@@ -222,6 +222,18 @@ export {
 } from "./conversationCoreAuthoritativeGrounding";
 
 export {
+  buildConversationCoreFinanceGroundedAnswer,
+  CONVERSATION_CORE_FINANCE_GROUNDING_FALLBACK_TEXT,
+  CONVERSATION_CORE_FINANCE_GROUNDING_REASON_CODES,
+  extractAuthoritativeFinanceFacts,
+  validateConversationCoreFinanceGrounding,
+  type AuthoritativeFinanceFacts,
+  type ConversationCoreFinanceGroundingInput,
+  type ConversationCoreFinanceGroundingReasonCode,
+  type ConversationCoreFinanceGroundingResult,
+} from "./conversationCoreFinanceGrounding";
+
+export {
   CONVERSATION_CORE_NUMERIC_NORMALIZATION_ERROR_CODES,
   conversationCoreTextHasNumericRange,
   conversationCoreTextHasScaledAmountUnit,
