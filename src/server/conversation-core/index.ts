@@ -10,6 +10,9 @@ export {
 
 export {
   runConversationCoreOrchestrator,
+  type ConversationCoreOrchestratorActivation,
+  type ConversationCoreOrchestratorCompletedResult,
+  type ConversationCoreOrchestratorFailClosedResult,
   type ConversationCoreOrchestratorResult,
 } from "./conversationCoreOrchestrator";
 

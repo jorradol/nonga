@@ -274,8 +274,8 @@ const orchestratorSource = readFileSync(
   fileURLToPath(new URL("../src/server/conversation-core/conversationCoreOrchestrator.ts", import.meta.url)),
   "utf8"
 );
-assertFalsy(
-  "orchestrator source: no integration import",
+assertTruthy(
+  "orchestrator source: default orchestrator imports dormant integration",
   orchestratorSource.includes("conversationCoreOrchestratorIntegration")
 );
 
@@ -711,8 +711,8 @@ const barrelSource = readFileSync(
 assertFalsy("production: route does not import integration", routeSource.includes("conversationCoreOrchestratorIntegration"));
 assertFalsy("production: server does not import integration", serverSource.includes("conversationCoreOrchestratorIntegration"));
 assertFalsy("production: barrel does not export integration", barrelSource.includes("conversationCoreOrchestratorIntegration"));
-assertFalsy(
-  "production: orchestrator does not import integration",
+assertTruthy(
+  "production: default orchestrator imports dormant integration",
   orchestratorSource.includes("conversationCoreOrchestratorIntegration")
 );
 

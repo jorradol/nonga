@@ -7,6 +7,7 @@ import {
   validateConversationCoreExecutionContext,
   validateConversationTurnRequest,
   type ConversationCoreExecutionContext,
+  type ConversationCoreResult,
   type ConversationTurnRequest,
   type ValidationResult,
 } from "../../services/conversation-core/index";
@@ -19,6 +20,7 @@ import type { AuthRole } from "../../utils/rbac";
 import { resolveConversationCoreFeatureFlags } from "./conversationCoreFeatureFlags";
 import {
   runConversationCoreOrchestrator,
+  type ConversationCoreOrchestratorActivation,
   type ConversationCoreOrchestratorResult,
 } from "./conversationCoreOrchestrator";
 
@@ -38,6 +40,10 @@ export type ConversationCoreRouteResponse =
   | {
       route: "honest-unavailable";
       error: { code: ConversationCoreHonestUnavailableCode };
+    }
+  | {
+      route: "completed";
+      result: ConversationCoreResult;
     };
 
 export type ConversationOwnershipVerifyResult =
@@ -66,6 +72,7 @@ export interface ConversationCoreRouteHandlerDeps {
     request: ConversationTurnRequest,
     context: ConversationCoreExecutionContext
   ) => ConversationCoreOrchestratorResult | Promise<ConversationCoreOrchestratorResult>;
+  orchestratorActivation?: ConversationCoreOrchestratorActivation;
   validateTurnRequest?: (raw: unknown) => ValidationResult<ConversationTurnRequest>;
   validateExecutionContext?: (
     raw: unknown
@@ -94,6 +101,12 @@ function invalidRequestResponse(): { status: 400; body: { success: false; messag
 function mapOrchestratorResultToRouteResponse(
   result: ConversationCoreOrchestratorResult
 ): ConversationCoreRouteResponse {
+  if (result.route === "completed") {
+    return {
+      route: "completed",
+      result: result.result,
+    };
+  }
   return {
     route: "honest-unavailable",
     error: { code: result.error.code },
@@ -218,12 +231,16 @@ export async function handleConversationCoreTurnPost(
     };
   }
 
-  const orchestrator = deps.orchestrator ?? runConversationCoreOrchestrator;
+  const orchestrator =
+    deps.orchestrator ??
+    ((request, context) =>
+      runConversationCoreOrchestrator(request, context, deps.orchestratorActivation));
   const orchestratorResult = await orchestrator(turnRequest, contextValidation.value);
 
+  const body = mapOrchestratorResultToRouteResponse(orchestratorResult);
   return {
-    status: 503,
-    body: mapOrchestratorResultToRouteResponse(orchestratorResult),
+    status: body.route === "completed" ? 200 : 503,
+    body,
   };
 }
 

@@ -176,6 +176,14 @@ const WP_V2U_03E2D2C2C2A_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2D2C2C2A_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2C2A_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2D2C2C2B — exact approved dirty paths for local Search/Inventory dormant wiring. */
+const WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreOrchestrator.ts",
+  "scripts/test-conversation-core-local-search-inventory-e2e.mts",
+] as const;
+
+const WP_V2U_03E2D2C2C2B_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -213,11 +221,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2D2C2B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C1_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C2A_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2D2C2C2B_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2D2C2C2A_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1508,7 +1520,6 @@ const OUT_OF_HARNESS_SCOPE = [
   "src/server/conversation-core/conversationCoreCorrectionService.ts",
   "src/server/conversation-core/conversationCoreHighRiskFallback.ts",
   "src/server/conversation-core/conversationCoreFeatureFlags.ts",
-  "src/server/conversation-core/conversationCoreOrchestrator.ts",
   "scripts/test-conversation-core-gemini-correction.mts",
   "scripts/test-conversation-core-policy-foundation.mts",
   "scripts/test-nonga-chat-car-cards.mts",
@@ -1523,7 +1534,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 36);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 38);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1596,6 +1607,30 @@ for (const wp03e2d2c2c2aPath of WP_V2U_03E2D2C2C2A_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2d2c2c2aPath)
   );
 }
+for (const wp03e2d2c2c2bPath of WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2d2c2c2bPath} is approved for WP-V2U-03E2D2C2C2B`,
+    ALLOWLIST_PATHS.has(wp03e2d2c2c2bPath)
+  );
+}
+assertTruthy(
+  "harness: 03E2D2C2C2B orchestrator is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreOrchestrator.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2C2B local search/inventory e2e test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-local-search-inventory-e2e.mts"
+  )
+);
+assertFalsy(
+  "harness: unapproved adjacent orchestrator path is not in allowlist",
+  ALLOWLIST_PATHS.has(
+    "src/server/conversation-core/conversationCoreOrchestratorForged.ts"
+  )
+);
 assertTruthy(
   "harness: 03E2D2C2C2A route handler is in owned scope",
   isResponseValidatorHarnessOwnedPath(

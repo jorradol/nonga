@@ -22,6 +22,7 @@ import {
   registerConversationCoreRoutes,
   resolveConversationCoreFeatureFlags,
   runConversationCoreOrchestrator,
+  type ConversationCoreOrchestratorActivation,
   type ConversationCoreOrchestratorResult,
   type ConversationCoreRouteResponse,
   type ConversationOwnershipVerifier,
@@ -259,6 +260,7 @@ async function runHandler(
       request: ConversationTurnRequest,
       context: ConversationCoreExecutionContext
     ) => ConversationCoreOrchestratorResult | Promise<ConversationCoreOrchestratorResult>;
+    orchestratorActivation?: ConversationCoreOrchestratorActivation;
   } = {}
 ) {
   return handleConversationCoreTurnPost(
@@ -281,6 +283,7 @@ async function runHandler(
       now: () => 1_700_000_000_000,
       validateExecutionContext: deps.validateExecutionContext,
       orchestrator: deps.orchestrator,
+      orchestratorActivation: deps.orchestratorActivation,
     }
   );
 }
@@ -711,6 +714,48 @@ assertEqual(
 );
 assertEqual("injected async orchestrator: call count", asyncOrchestratorCalls, 1);
 
+let completedOrchestratorCalls = 0;
+const completedInjected = await runHandler(
+  {
+    auth: authContext(),
+    body: validTurnBody(),
+  },
+  {
+    ...verifiedOrchestratorDeps,
+    orchestrator: () => {
+      completedOrchestratorCalls += 1;
+      return {
+        route: "completed",
+        result: {
+          conversationId: CONVERSATION_ID,
+          messageId: "msg-001",
+          assistantText: "พบผลลัพธ์ 1 รายการ: listing-injected-completed",
+          groundedFactRefs: [{ kind: "listing", id: "listing-injected-completed" }],
+          workspaceActions: [],
+          safetyOutcome: "pass",
+          validatorOutcome: "pass",
+          correctionStatus: "none",
+          toolResultsUsed: [
+            {
+              requestId: "req-injected-completed",
+              toolName: "marketplace.search",
+              status: "ok",
+              provenance: "marketplace-search",
+            },
+          ],
+        },
+      };
+    },
+  }
+);
+assertEqual("injected completed orchestrator: 200", completedInjected.status, 200);
+assertEqual(
+  "injected completed orchestrator: route",
+  (completedInjected.body as ConversationCoreRouteResponse).route,
+  "completed"
+);
+assertEqual("injected completed orchestrator: call count", completedOrchestratorCalls, 1);
+
 // --- Direct handler: orchestrator throw/reject propagates (no HTTP at this layer) ---
 let syncThrowOrchestratorCalls = 0;
 await assertRejects("direct handler: sync orchestrator throw rejects", () =>
@@ -954,15 +999,19 @@ if (!contextFixture.ok) {
   throw new Error("fixture invalid");
 }
 
-const orchestratorOnly: ConversationCoreOrchestratorResult = runConversationCoreOrchestrator(
+const orchestratorOnly = runConversationCoreOrchestrator(
   turnFixture.value,
   contextFixture.value
 );
+assertFalsy("orchestrator boundary: default call is not a Promise", orchestratorOnly instanceof Promise);
 assertEqual(
   "orchestrator boundary: skeleton route is honest-unavailable",
   orchestratorOnly.route,
   "honest-unavailable"
 );
+if (orchestratorOnly.route !== "honest-unavailable") {
+  throw new Error("expected fail-closed orchestrator result");
+}
 assertEqual(
   "orchestrator boundary: skeleton error code core-not-ready",
   orchestratorOnly.error.code,

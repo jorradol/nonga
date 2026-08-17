@@ -1,6 +1,8 @@
 /**
- * WP-V2U-03E2D2C2C1 — Dormant orchestrator integration seam (no production caller).
- * Wires lane classifier → lazy runtime-deps resolver → execution service for authoritative Search/Inventory only.
+ * WP-V2U-03E2D2C2C1 — Dormant orchestrator integration seam.
+ * WP-V2U-03E2D2C2C2B — Called by the default orchestrator only when server-controlled
+ * activation passes. Wires classifier → lazy runtime-deps resolver → execution
+ * for authoritative Search/Inventory only. No live Gemini/network/secrets.
  */
 import type {
   ConversationCoreExecutionContext,
@@ -21,7 +23,6 @@ import {
   type ConversationCoreLaneClassifierOutcome,
   type ConversationCoreLaneClassifierTrustedPrerequisiteSnapshot,
 } from "./conversationCoreLaneClassifier";
-import type { ConversationCoreOrchestratorResult } from "./conversationCoreOrchestrator";
 import type {
   ConversationCoreRuntimeDepsActivationSnapshot,
   ConversationCoreRuntimeDepsResult,
@@ -42,8 +43,12 @@ const BLOCKED_TOOL_SET = new Set<string>([
   "finance.calculate",
 ]);
 
-export type ConversationCoreOrchestratorIntegrationFailClosedResult =
-  ConversationCoreOrchestratorResult;
+export type ConversationCoreOrchestratorIntegrationFailClosedResult = {
+  readonly route: "honest-unavailable";
+  readonly error: {
+    readonly code: "core-not-ready";
+  };
+};
 
 export type ConversationCoreOrchestratorIntegrationSuccessResult = {
   readonly route: "completed";
@@ -153,7 +158,7 @@ function buildAuthoritativeExecutionContext(
 
 /**
  * Async dormant integration seam: classifier → lazy runtime resolver → execution.
- * No production caller. Requires injected resolver and execution runner.
+ * Resolver remains injected. Execution defaults to the existing execution service.
  */
 export async function runConversationCoreOrchestratorIntegration(
   input: ConversationCoreOrchestratorIntegrationInput,
@@ -191,11 +196,12 @@ export async function runConversationCoreOrchestratorIntegration(
     return freezeFailClosed();
   }
 
-  if (typeof deps.runExecution !== "function") {
+  const runExecution = deps.runExecution ?? runConversationCoreExecutionService;
+  if (typeof runExecution !== "function") {
     return freezeFailClosed();
   }
 
-  const executionResult = await deps.runExecution({
+  const executionResult = await runExecution({
     request: input.request,
     context: buildAuthoritativeExecutionContext(input.context, allowedTool),
     baseInstruction: input.baseInstruction,
