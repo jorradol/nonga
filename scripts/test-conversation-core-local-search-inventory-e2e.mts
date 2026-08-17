@@ -14,14 +14,19 @@ import {
 import { ServerAuthError, type ServerAuthContext } from "../src/server/serverAuthContext";
 import {
   CONVERSATION_CORE_GEMINI_API_KEY_ENV,
+  CONVERSATION_CORE_LIVE_STAGED_TOOL_NAMES,
   createConversationCoreGeminiAdapter,
   createConversationCoreRuntimeDeps,
   handleConversationCoreTurnPost,
+  inspectConversationCoreLiveEnvironmentIdentity,
   NONGA_CONVERSATION_CORE_ENABLED_ENV,
   NONGA_CONVERSATION_CORE_GEMINI_ENABLED_ENV,
   NONGA_CONVERSATION_CORE_GEMINI_MODEL_ENV,
+  NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV,
+  NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV,
   resolveConversationCoreFeatureFlags,
   resolveConversationCoreGeminiConfig,
+  resolveConversationCoreLiveServerActivation,
   runConversationCoreOrchestrator,
   type ConversationCoreGeminiToolTransportGenerateContentRequest,
   type ConversationCoreGeminiToolTransportSdkSeam,
@@ -300,7 +305,7 @@ function countingAdapter(counters: { generateCalls: number }) {
 function createActivation(input: {
   counters: { generateCalls: number };
   inventory?: InventoryRepository & { listPublishedCalls: number };
-  transport?: ConversationCoreGeminiToolTransportSdkSeam;
+  transport?: ConversationCoreGeminiToolTransportSdkSeam & { callCount: number };
   toolsEnabled?: boolean;
   geminiEnabled?: boolean;
   staged?: Array<"marketplace.search" | "inventory.fetch">;
@@ -365,7 +370,11 @@ async function runDefaultServerPath(input: {
     },
     {
       ownershipVerifier: verifiedOwnership(),
-      readEnv: (key) => (input.env ?? { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" })[key],
+      readEnv: (key) =>
+        (input.env ?? {
+          [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+          [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: AUTH_UID,
+        })[key],
       now: () => 1_700_000_000_000,
       orchestratorActivation: input.activation,
       orchestrator: input.orchestrator,
@@ -434,12 +443,42 @@ assertFalsy("purity: orchestrator has no execution import", /conversationCoreExe
 assertFalsy("purity: integration has no process.env", /\bprocess\.env\b/.test(integrationSource));
 assertFalsy("purity: route has no live SDK factory", /createConversationCoreGeminiToolTransportSdkSeam\(/.test(routeSource));
 assertFalsy("purity: route has no Gemini env", /NONGA_CONVERSATION_CORE_GEMINI_ENABLED/.test(routeSource));
+assertTruthy(
+  "wiring: route imports live activation module",
+  routeSource.includes("conversationCoreLiveServerActivation")
+);
+assertTruthy(
+  "wiring: route imports pilot eligibility module",
+  routeSource.includes("conversationCorePilotEligibility")
+);
+assertFalsy(
+  "wiring: registerConversationCoreRoutes does not hardcode gemini on",
+  /geminiEnabled:\s*true/.test(routeSource)
+);
+assertEqual(
+  "live staged tools bounded",
+  [...CONVERSATION_CORE_LIVE_STAGED_TOOL_NAMES],
+  ["marketplace.search", "inventory.fetch"]
+);
 
 const defaultFlags = resolveConversationCoreFeatureFlags({ readEnv: () => undefined });
 assertFalsy("flags default: core", defaultFlags.coreEnabled);
 assertFalsy("flags default: gemini", defaultFlags.featureFlagSnapshot.geminiEnabled);
 assertFalsy("flags default: tools", defaultFlags.featureFlagSnapshot.toolsEnabled);
 assertFalsy("flags default: workspace", defaultFlags.featureFlagSnapshot.workspaceActionsEnabled);
+
+{
+  const flagsExplicit = resolveConversationCoreFeatureFlags({
+    readEnv: (key) =>
+      ({
+        [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+        [NONGA_CONVERSATION_CORE_GEMINI_ENABLED_ENV]: "true",
+        [NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV]: "true",
+      })[key],
+  });
+  assertFalsy("03B snapshot still hides gemini", flagsExplicit.featureFlagSnapshot.geminiEnabled);
+  assertFalsy("03B snapshot still hides tools", flagsExplicit.featureFlagSnapshot.toolsEnabled);
+}
 
 {
   const coreOff = await runDefaultServerPath({
@@ -484,6 +523,9 @@ assertFalsy("flags default: workspace", defaultFlags.featureFlagSnapshot.workspa
     }
   );
   assertFalsy("default orchestrator without activation is sync", syncResult instanceof Promise);
+  if (syncResult instanceof Promise) {
+    process.exit(1);
+  }
   assertEqual("default orchestrator without activation route", syncResult.route, "honest-unavailable");
 }
 
@@ -741,6 +783,165 @@ assertFalsy("flags default: workspace", defaultFlags.featureFlagSnapshot.workspa
     "activated orchestrator settles",
     resolved.route === "completed" || resolved.route === "honest-unavailable"
   );
+}
+
+function liveFactoryEnv(overrides: Record<string, string | undefined> = {}) {
+  return {
+    NONGA_RUNTIME_ENV: "local",
+    NONGA_DATA_BACKEND: "file",
+    [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+    [NONGA_CONVERSATION_CORE_GEMINI_ENABLED_ENV]: "true",
+    [NONGA_CONVERSATION_CORE_GEMINI_MODEL_ENV]: ALLOWED_MODEL,
+    [NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV]: "true",
+    [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: AUTH_UID,
+    [CONVERSATION_CORE_GEMINI_API_KEY_ENV]: FAKE_API_KEY,
+    ...overrides,
+  };
+}
+
+{
+  const identity = inspectConversationCoreLiveEnvironmentIdentity(() => undefined);
+  assertEqual("identity missing is blocked", identity.ok, false);
+}
+
+{
+  const identity = inspectConversationCoreLiveEnvironmentIdentity(
+    (key) => liveFactoryEnv({ NONGA_RUNTIME_ENV: "production" })[key]
+  );
+  assertEqual("identity production is blocked", identity.ok, false);
+}
+
+{
+  const identity = inspectConversationCoreLiveEnvironmentIdentity((key) => liveFactoryEnv()[key]);
+  assertEqual("identity local file is ok", identity.ok, true);
+  if (identity.ok) {
+    assertEqual("identity local class", identity.identity, "local");
+    assertEqual("identity local backend", identity.backend, "file");
+    assertEqual("identity local project class", identity.projectClass, "local-file");
+  }
+}
+
+{
+  let createSeamCalls = 0;
+  const inactive = resolveConversationCoreLiveServerActivation({
+    readEnv: () => undefined,
+    createSdkSeam: () => {
+      createSeamCalls += 1;
+      throw new Error("sdk seam must not be created when flags are off");
+    },
+    createInventoryRepository: () => {
+      throw new Error("inventory must not be created when flags are off");
+    },
+  });
+  assertEqual("live factory flags off: undefined", inactive, undefined);
+  assertEqual("live factory flags off: no sdk", createSeamCalls, 0);
+}
+
+{
+  let createSeamCalls = 0;
+  const productionBlocked = resolveConversationCoreLiveServerActivation({
+    readEnv: (key) => liveFactoryEnv({ NONGA_RUNTIME_ENV: "production" })[key],
+    inventoryRepository: createFakeInventoryRepository(),
+    createSdkSeam: () => {
+      createSeamCalls += 1;
+      throw new Error("sdk seam must not be created in production identity");
+    },
+  });
+  assertEqual("live factory production: undefined", productionBlocked, undefined);
+  assertEqual("live factory production: no sdk", createSeamCalls, 0);
+}
+
+{
+  const inventory = createFakeInventoryRepository();
+  const transport = createRecordingTransport([
+    toolPartResponse({ name: "marketplace.search", args: { query: SENTINEL_QUERY } }),
+    textResponse("พบรถที่เหมาะกับคุณครับ"),
+  ]);
+  let createSeamCalls = 0;
+  const activation = resolveConversationCoreLiveServerActivation({
+    readEnv: (key) => liveFactoryEnv()[key],
+    inventoryRepository: inventory,
+    createSdkSeam: () => {
+      createSeamCalls += 1;
+      return transport;
+    },
+  });
+  assertTruthy("live factory local ready", Boolean(activation));
+  assertEqual("live factory staged tools", [...(activation?.serverStagedToolNames ?? [])], [
+    "marketplace.search",
+    "inventory.fetch",
+  ]);
+  assertFalsy(
+    "live factory does not stage selection",
+    (activation?.serverStagedToolNames ?? []).includes("vehicle.resolveSelection")
+  );
+  assertFalsy(
+    "live factory does not stage finance",
+    (activation?.serverStagedToolNames ?? []).includes("finance.calculate")
+  );
+  const response = await runDefaultServerPath({
+    body: turnBody({ messageId: SEARCH_MESSAGE_ID, userMessage: SEARCH_MESSAGE }),
+    activation,
+    env: liveFactoryEnv(),
+  });
+  assertEqual("live factory search: 200", response.status, 200);
+  const result = completedResult(response.body as ConversationCoreRouteResponse);
+  assertGroundedFromFixture("live factory search", result, "marketplace.search");
+  assertEqual("live factory search: sdk constructed lazily", createSeamCalls, 1);
+}
+
+{
+  const inventory = createFakeInventoryRepository();
+  const transport = createRecordingTransport([
+    toolPartResponse({ name: "marketplace.search", args: { query: SENTINEL_QUERY } }),
+    textResponse("พบรถที่เหมาะกับคุณครับ"),
+  ]);
+  const defaultPath = await handleConversationCoreTurnPost(
+    {
+      body: turnBody({ messageId: SEARCH_MESSAGE_ID, userMessage: SEARCH_MESSAGE }),
+      resolveAuth: async () => authContext(),
+    },
+    {
+      ownershipVerifier: verifiedOwnership(),
+      readEnv: (key) => liveFactoryEnv()[key],
+      now: () => 1_700_000_000_000,
+      inventoryRepository: inventory,
+      createSdkSeam: () => transport,
+    }
+  );
+  assertEqual("default route live factory: 200", defaultPath.status, 200);
+  const result = completedResult(defaultPath.body as ConversationCoreRouteResponse);
+  assertGroundedFromFixture("default route live factory", result, "marketplace.search");
+  assertEqual("default route live factory: inventory used", inventory.listPublishedCalls >= 1, true);
+  assertEqual("default route live factory: mock sdk called", transport.callCount >= 1, true);
+}
+
+{
+  const inventory = createFakeInventoryRepository();
+  let createSeamCalls = 0;
+  const flagsOffPath = await handleConversationCoreTurnPost(
+    {
+      body: turnBody({ messageId: SEARCH_MESSAGE_ID, userMessage: SEARCH_MESSAGE }),
+      resolveAuth: async () => authContext(),
+    },
+    {
+      ownershipVerifier: verifiedOwnership(),
+      readEnv: (key) =>
+        ({
+          [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+          [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: AUTH_UID,
+        })[key],
+      now: () => 1_700_000_000_000,
+      inventoryRepository: inventory,
+      createSdkSeam: () => {
+        createSeamCalls += 1;
+        throw new Error("sdk seam must not run when tools/gemini are off");
+      },
+    }
+  );
+  assertFailClosedUnavailable("default route flags off", flagsOffPath.status, flagsOffPath.body);
+  assertEqual("default route flags off: no sdk", createSeamCalls, 0);
+  assertEqual("default route flags off: no inventory read", inventory.listPublishedCalls, 0);
 }
 
 console.log(`\nConversation Core local Search/Inventory e2e tests passed (${passCount} assertions).`);

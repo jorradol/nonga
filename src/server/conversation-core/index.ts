@@ -193,6 +193,26 @@ export {
 } from "./conversationCoreVehicleToolAdapters";
 
 export {
+  NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV,
+  evaluateConversationCorePilotEligibility,
+  type ConversationCorePilotEligibilityReason,
+  type ConversationCorePilotEligibilityResult,
+} from "./conversationCorePilotEligibility";
+
+export {
+  CONVERSATION_CORE_LIVE_KNOWN_NON_PRODUCTION_PROJECT_IDS,
+  CONVERSATION_CORE_LIVE_STAGED_TOOL_NAMES,
+  NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV,
+  inspectConversationCoreLiveEnvironmentIdentity,
+  resolveConversationCoreLiveServerActivation,
+  type ConversationCoreLiveEnvironmentIdentityBlocked,
+  type ConversationCoreLiveEnvironmentIdentityOk,
+  type ConversationCoreLiveEnvironmentIdentityResult,
+  type ConversationCoreLiveProjectClass,
+  type ConversationCoreLiveServerActivationInput,
+} from "./conversationCoreLiveServerActivation";
+
+export {
   CONVERSATION_CORE_RUNTIME_DEPS_REASON_CODES,
   CONVERSATION_CORE_RUNTIME_DEPS_SUPPORTED_TOOL_NAMES,
   createConversationCoreRuntimeDeps,

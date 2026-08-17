@@ -723,7 +723,7 @@ registerSalesBrainUserVisibleOrchestrationBridgeRoutes(app, {
   },
 });
 registerChatV3ConversationRoutes(app);
-registerConversationCoreRoutes(app);
+registerConversationCoreRoutes(app, { inventoryRepository });
 
 // 4. API: AI Smart Chat Assistant (Nong A)
 app.post("/api/gemini/chat", async (req, res) => {

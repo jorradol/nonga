@@ -16,6 +16,9 @@ import { NONGA_AI_EMERGENCY_KILL_SWITCH_ENV } from "../src/services/ai/salesBrai
 import { ServerAuthError, type ServerAuthContext } from "../src/server/serverAuthContext";
 import {
   NONGA_CONVERSATION_CORE_ENABLED_ENV,
+  NONGA_CONVERSATION_CORE_GEMINI_ENABLED_ENV,
+  NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV,
+  NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV,
   CONVERSATION_CORE_TURN_ROUTE,
   failClosedConversationOwnershipVerifier,
   handleConversationCoreTurnPost,
@@ -154,6 +157,20 @@ function createRecordingRes(): {
   };
 }
 
+const AUTH_UID = "firebase-uid-test-001";
+const OTHER_UID = "firebase-uid-other-002";
+const CONVERSATION_ID = "conv-orchestrator-001";
+
+function coreOnEnv(
+  overrides: Record<string, string | undefined> = {}
+): Record<string, string | undefined> {
+  return {
+    [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+    [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: AUTH_UID,
+    ...overrides,
+  };
+}
+
 async function invokeCapturedRegisteredRoute(input: {
   ownershipVerifier: ConversationOwnershipVerifier;
   body?: unknown;
@@ -177,7 +194,10 @@ async function invokeCapturedRegisteredRoute(input: {
 
   registerConversationCoreRoutes(app, {
     ownershipVerifier,
-    readEnv: envReader({ [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" }),
+    readEnv: envReader({
+      [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+      [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: AUTH_UID,
+    }),
   });
 
   assertEqual("registered wrapper: route registered once", registrations.length, 1);
@@ -203,10 +223,6 @@ async function invokeCapturedRegisteredRoute(input: {
     ownershipVerifyCalls,
   };
 }
-
-const AUTH_UID = "firebase-uid-test-001";
-const OTHER_UID = "firebase-uid-other-002";
-const CONVERSATION_ID = "conv-orchestrator-001";
 
 function authContext(overrides: Partial<ServerAuthContext> = {}): ServerAuthContext {
   return {
@@ -365,6 +381,18 @@ assertFalsy(
   "flags: emergency kill overrides core even when core requested",
   flagsKill.coreEnabled
 );
+assertFalsy("flags: kill switch keeps gemini off", flagsKill.featureFlagSnapshot.geminiEnabled);
+assertFalsy("flags: kill switch keeps tools off", flagsKill.featureFlagSnapshot.toolsEnabled);
+
+const flagsGeminiToolsEnv = resolveConversationCoreFeatureFlags({
+  readEnv: envReader({
+    [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true",
+    [NONGA_CONVERSATION_CORE_GEMINI_ENABLED_ENV]: "true",
+    [NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV]: "true",
+  }),
+});
+assertFalsy("flags: 03B snapshot ignores gemini env", flagsGeminiToolsEnv.featureFlagSnapshot.geminiEnabled);
+assertFalsy("flags: 03B snapshot ignores tools env", flagsGeminiToolsEnv.featureFlagSnapshot.toolsEnabled);
 
 // --- Auth disclosure ---
 const missingAuth = await runHandler({ auth: null });
@@ -440,7 +468,7 @@ const trustedVerifiedPath = await runHandler(
   },
   {
     ownershipVerifier: trustedVerifiedOwnershipVerifier,
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
   }
 );
 assertEqual(
@@ -469,7 +497,7 @@ const validatedPath = await runHandler(
   },
   {
     ownershipVerifier: trustedVerifiedOwnershipMock(AUTH_UID),
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
     validateExecutionContext: (raw) => {
       executionContextValidated = true;
       return validateConversationCoreExecutionContext(raw);
@@ -490,7 +518,7 @@ await runHandler(
   },
   {
     ownershipVerifier: failClosedConversationOwnershipVerifier,
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
     validateExecutionContext: (raw) => {
       contextValidateCallsOnUnavailable += 1;
       return validateConversationCoreExecutionContext(raw);
@@ -510,7 +538,7 @@ const mismatch = await runHandler(
   },
   {
     ownershipVerifier: trustedVerifiedOwnershipMock(OTHER_UID),
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
   }
 );
 assertEqual("ownership: actor mismatch => 403", mismatch.status, 403);
@@ -527,7 +555,7 @@ const denied = await runHandler(
   },
   {
     ownershipVerifier: { async verify() { return { status: "denied" }; } },
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
   }
 );
 assertEqual("ownership: denied => 403", denied.status, 403);
@@ -539,7 +567,7 @@ const unavailable = await runHandler(
   },
   {
     ownershipVerifier: failClosedConversationOwnershipVerifier,
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
   }
 );
 assertEqual("ownership: default fail-closed verifier => 503", unavailable.status, 503);
@@ -638,7 +666,7 @@ const coreOnVerified = await runHandler(
   },
   {
     ownershipVerifier: trustedVerifiedOwnershipMock(AUTH_UID),
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
   }
 );
 assertEqual("routing: core ON verified => 503", coreOnVerified.status, 503);
@@ -650,7 +678,7 @@ assertEqual(
 
 const verifiedOrchestratorDeps = {
   ownershipVerifier: trustedVerifiedOwnershipMock(AUTH_UID),
-  env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+  env: coreOnEnv(),
 };
 
 // --- Injected orchestrator: sync + async awaitable boundary ---
@@ -948,7 +976,7 @@ await runHandler(
   },
   {
     ownershipVerifier: { async verify() { return { status: "denied" }; } },
-    env: { [NONGA_CONVERSATION_CORE_ENABLED_ENV]: "true" },
+    env: coreOnEnv(),
     orchestrator: () => {
       orchestratorCallsOnDenied += 1;
       return {
@@ -1004,6 +1032,9 @@ const orchestratorOnly = runConversationCoreOrchestrator(
   contextFixture.value
 );
 assertFalsy("orchestrator boundary: default call is not a Promise", orchestratorOnly instanceof Promise);
+if (orchestratorOnly instanceof Promise) {
+  throw new Error("expected sync orchestrator result");
+}
 assertEqual(
   "orchestrator boundary: skeleton route is honest-unavailable",
   orchestratorOnly.route,

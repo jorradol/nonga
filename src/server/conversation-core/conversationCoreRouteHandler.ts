@@ -16,8 +16,14 @@ import {
   ServerAuthError,
   type ServerAuthContext,
 } from "../serverAuthContext";
+import type { InventoryRepository } from "../repositories/inventoryRepository";
 import type { AuthRole } from "../../utils/rbac";
 import { resolveConversationCoreFeatureFlags } from "./conversationCoreFeatureFlags";
+import { evaluateConversationCorePilotEligibility } from "./conversationCorePilotEligibility";
+import {
+  resolveConversationCoreLiveServerActivation,
+  type ConversationCoreLiveServerActivationInput,
+} from "./conversationCoreLiveServerActivation";
 import {
   runConversationCoreOrchestrator,
   type ConversationCoreOrchestratorActivation,
@@ -73,6 +79,9 @@ export interface ConversationCoreRouteHandlerDeps {
     context: ConversationCoreExecutionContext
   ) => ConversationCoreOrchestratorResult | Promise<ConversationCoreOrchestratorResult>;
   orchestratorActivation?: ConversationCoreOrchestratorActivation;
+  inventoryRepository?: InventoryRepository | null;
+  createSdkSeam?: ConversationCoreLiveServerActivationInput["createSdkSeam"];
+  createInventoryRepository?: ConversationCoreLiveServerActivationInput["createInventoryRepository"];
   validateTurnRequest?: (raw: unknown) => ValidationResult<ConversationTurnRequest>;
   validateExecutionContext?: (
     raw: unknown
@@ -167,6 +176,20 @@ export async function handleConversationCoreTurnPost(
     };
   }
 
+  const pilotEligibility = evaluateConversationCorePilotEligibility({
+    authenticatedActorRef: auth.uid,
+    readEnv: deps.readEnv,
+  });
+  if (!pilotEligibility.eligible) {
+    return {
+      status: 200,
+      body: {
+        route: "legacy-delegate",
+        reason: "core-disabled",
+      },
+    };
+  }
+
   const ownership = await deps.ownershipVerifier.verify({
     conversationId: turnRequest.conversationId,
     authenticatedActorRef: auth.uid,
@@ -231,10 +254,20 @@ export async function handleConversationCoreTurnPost(
     };
   }
 
+  const activation =
+    typeof deps.orchestrator === "function"
+      ? deps.orchestratorActivation
+      : (deps.orchestratorActivation ??
+        resolveConversationCoreLiveServerActivation({
+          readEnv: deps.readEnv,
+          inventoryRepository: deps.inventoryRepository,
+          createSdkSeam: deps.createSdkSeam,
+          createInventoryRepository: deps.createInventoryRepository,
+          expertMode: turnRequest.expertMode ?? "AUTO",
+        }));
   const orchestrator =
     deps.orchestrator ??
-    ((request, context) =>
-      runConversationCoreOrchestrator(request, context, deps.orchestratorActivation));
+    ((request, context) => runConversationCoreOrchestrator(request, context, activation));
   const orchestratorResult = await orchestrator(turnRequest, contextValidation.value);
 
   const body = mapOrchestratorResultToRouteResponse(orchestratorResult);
@@ -247,6 +280,7 @@ export async function handleConversationCoreTurnPost(
 export interface RegisterConversationCoreRoutesOptions {
   ownershipVerifier?: ConversationOwnershipVerifier;
   readEnv?: (key: string) => string | undefined;
+  inventoryRepository?: InventoryRepository | null;
 }
 
 export function registerConversationCoreRoutes(
@@ -257,6 +291,7 @@ export function registerConversationCoreRoutes(
     ownershipVerifier:
       options.ownershipVerifier ?? failClosedConversationOwnershipVerifier,
     readEnv: options.readEnv ?? ((key) => process.env[key]),
+    inventoryRepository: options.inventoryRepository,
   };
 
   app.post(CONVERSATION_CORE_TURN_ROUTE, async (req: Request, res: Response) => {

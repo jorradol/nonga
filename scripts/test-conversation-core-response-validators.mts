@@ -184,6 +184,16 @@ const WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2D2C2C2B_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS);
 
+/** WP-V2U-03E2D2C2C2C — exact approved dirty paths for controlled live Search/Inventory connection. */
+const WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreLiveServerActivation.ts",
+  "src/server/conversation-core/conversationCorePilotEligibility.ts",
+  "scripts/test-conversation-core-live-search-inventory-smoke.mts",
+  "scripts/test-conversation-core-pilot-eligibility.mts",
+] as const;
+
+const WP_V2U_03E2D2C2C2C_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -222,11 +232,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2D2C2C1_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C2A_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS,
+  ...WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_03E2D2C2C2C_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2D2C2C2B_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1534,7 +1548,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 38);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 42);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1613,6 +1627,12 @@ for (const wp03e2d2c2c2bPath of WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2d2c2c2bPath)
   );
 }
+for (const wp03e2d2c2c2cPath of WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp03e2d2c2c2cPath} is approved for WP-V2U-03E2D2C2C2C`,
+    ALLOWLIST_PATHS.has(wp03e2d2c2c2cPath)
+  );
+}
 assertTruthy(
   "harness: 03E2D2C2C2B orchestrator is in owned scope",
   isResponseValidatorHarnessOwnedPath(
@@ -1623,6 +1643,36 @@ assertTruthy(
   "harness: 03E2D2C2C2B local search/inventory e2e test is in owned scope",
   isResponseValidatorHarnessOwnedPath(
     "scripts/test-conversation-core-local-search-inventory-e2e.mts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2C2C live activation is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreLiveServerActivation.ts"
+  )
+);
+assertFalsy(
+  "harness: 03B feature flags remain outside this WP owned snapshot",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreFeatureFlags.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2C2C live smoke test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-live-search-inventory-smoke.mts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2C2C-R1 pilot eligibility is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCorePilotEligibility.ts"
+  )
+);
+assertTruthy(
+  "harness: 03E2D2C2C2C-R1 pilot eligibility test is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "scripts/test-conversation-core-pilot-eligibility.mts"
   )
 );
 assertFalsy(
