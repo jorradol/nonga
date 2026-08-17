@@ -58,6 +58,11 @@ import {
   parseUserVisibleAllowlistUids,
   NONGA_AI_USER_VISIBLE_ALLOWLIST_UIDS_ENV,
 } from "./salesBrainUserVisibleGate";
+import {
+  executeChatUserVisibleConversationCoreTurn,
+  resolveChatUserVisibleConversationCoreRouting,
+  type ChatUserVisibleConversationCoreRunner,
+} from "../../server/conversation-core/conversationCoreChatUserVisiblePilotBridge";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -965,14 +970,27 @@ function isParseError(
   return "error" in parsed;
 }
 
+export interface ChatUserVisibleOrchestrateHandlerDeps {
+  loadChatInventory: () => Promise<ChatInventoryCar[]>;
+  readEnv?: (key: string) => string | undefined;
+  now?: () => number;
+  resolveAuth?: (req: Request) => Promise<ServerAuthContext>;
+  runLegacyOrchestration?: (
+    input: OrchestrateForTrustedAuthInput
+  ) => UserVisibleOrchestrationBridgeResult;
+  applyRealProvider?: typeof maybeApplyUserVisibleRealProvider;
+  runConversationCore?: ChatUserVisibleConversationCoreRunner;
+}
+
 export async function handleChatUserVisibleOrchestratePost(
   req: Request,
   res: Response,
-  deps: { loadChatInventory: () => Promise<ChatInventoryCar[]> }
+  deps: ChatUserVisibleOrchestrateHandlerDeps
 ): Promise<void> {
   const requestCorrelationId = createRuntimeAttributionCorrelationId();
   try {
-    const auth = await getServerAuthContext(req);
+    const resolveAuth = deps.resolveAuth ?? ((incoming: Request) => getServerAuthContext(incoming));
+    const auth = await resolveAuth(req);
     const parsed = parseOrchestrateBody(req.body as Record<string, unknown> | undefined);
     if (isParseError(parsed)) {
       res.status(400).json({ success: false, message: parsed.error });
@@ -981,15 +999,56 @@ export async function handleChatUserVisibleOrchestratePost(
     const { userMessage, attachedImageCount, pilotSessionContext } = parsed;
     const inventory = await deps.loadChatInventory();
     const bridgeEnvironment = resolveBridgeEnvironment();
+    const readEnv = deps.readEnv ?? ((key: string) => process.env[key]);
+    const envSnapshot = process.env as Record<string, string | undefined>;
 
-    let result = orchestrateUserVisibleChatForTrustedAuth({
-      auth,
+    const coreRouting = resolveChatUserVisibleConversationCoreRouting({
+      authenticatedActorRef: auth.uid,
       userMessage,
-      attachedImageCount,
-      inventory,
-      env: process.env as Record<string, string | undefined>,
-      pilotSessionContext,
+      readEnv,
     });
+
+    let result: UserVisibleOrchestrationBridgeResult;
+    let skipRealProvider = false;
+
+    if (coreRouting.kind === "conversation-core") {
+      skipRealProvider = true;
+      const coreMapped = await executeChatUserVisibleConversationCoreTurn({
+        authenticatedActorRef: auth.uid,
+        authRole: auth.role,
+        userMessage,
+        attachedImageCount,
+        inventory,
+        readEnv,
+        receivedAtMs: deps.now?.() ?? Date.now(),
+        runConversationCore: deps.runConversationCore,
+      });
+      const orchestrated: OrchestratedChatReply = {
+        text: coreMapped.userVisibleText,
+        carCards: [...coreMapped.carCards],
+        skipGemini: true,
+      };
+      result = {
+        orchestrated,
+        payload: buildRedactedPayload(
+          orchestrated,
+          coreMapped.userVisibleText,
+          false,
+          false
+        ),
+      };
+    } else {
+      const runLegacy =
+        deps.runLegacyOrchestration ?? orchestrateUserVisibleChatForTrustedAuth;
+      result = runLegacy({
+        auth,
+        userMessage,
+        attachedImageCount,
+        inventory,
+        env: envSnapshot,
+        pilotSessionContext,
+      });
+    }
 
     const {
       hint: pilotOrchestrationForRealProvider,
@@ -1003,15 +1062,19 @@ export async function handleChatUserVisibleOrchestratePost(
       inventory,
     });
 
-    result = await maybeApplyUserVisibleRealProvider({
-      bridgeResult: result,
-      userMessage,
-      firebaseUid: auth.uid,
-      userRole: mapAuthToSalesBrainRole(auth),
-      pilotOrchestration: pilotOrchestrationForRealProvider,
-      environment: bridgeEnvironment,
-      env: process.env as Record<string, string | undefined>,
-    });
+    if (!skipRealProvider) {
+      const applyRealProvider =
+        deps.applyRealProvider ?? maybeApplyUserVisibleRealProvider;
+      result = await applyRealProvider({
+        bridgeResult: result,
+        userMessage,
+        firebaseUid: auth.uid,
+        userRole: mapAuthToSalesBrainRole(auth),
+        pilotOrchestration: pilotOrchestrationForRealProvider,
+        environment: bridgeEnvironment,
+        env: envSnapshot,
+      });
+    }
 
     const payloadWithMaskedGate = withMaskedUserVisibleGateDiagnostic({
       payload: result.payload,

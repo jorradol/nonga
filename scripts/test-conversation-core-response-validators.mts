@@ -194,6 +194,14 @@ const WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS = [
 
 const WP_V2U_03E2D2C2C2C_ALLOWLIST_SET = new Set<string>(WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS);
 
+/** WP-V2U-04B — exact approved dirty paths for Chat V.2 server-side Pilot Search/Inventory bridge. */
+const WP_V2U_04B_ALLOWLIST_PATHS = [
+  "src/server/conversation-core/conversationCoreChatUserVisiblePilotBridge.ts",
+  "scripts/test-chat-v2-conversation-core-pilot-bridge.mts",
+] as const;
+
+const WP_V2U_04B_ALLOWLIST_SET = new Set<string>(WP_V2U_04B_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -233,11 +241,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2D2C2C2A_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS,
+  ...WP_V2U_04B_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_04B_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_03E2D2C2C2C_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1548,7 +1560,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 42);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 44);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1633,6 +1645,28 @@ for (const wp03e2d2c2c2cPath of WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS) {
     ALLOWLIST_PATHS.has(wp03e2d2c2c2cPath)
   );
 }
+for (const wp04bPath of WP_V2U_04B_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp04bPath} is approved for WP-V2U-04B`,
+    ALLOWLIST_PATHS.has(wp04bPath)
+  );
+}
+assertTruthy(
+  "harness: 04B chat v2 pilot bridge is in owned scope",
+  isResponseValidatorHarnessOwnedPath(
+    "src/server/conversation-core/conversationCoreChatUserVisiblePilotBridge.ts"
+  )
+);
+assertTruthy(
+  "harness: 04B chat v2 pilot bridge test is in owned scope",
+  isResponseValidatorHarnessOwnedPath("scripts/test-chat-v2-conversation-core-pilot-bridge.mts")
+);
+assertFalsy(
+  "harness: 04B does not own the existing user-visible handler path as a core-owned file",
+  isResponseValidatorHarnessOwnedPath(
+    "src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts"
+  )
+);
 assertTruthy(
   "harness: 03E2D2C2C2B orchestrator is in owned scope",
   isResponseValidatorHarnessOwnedPath(
