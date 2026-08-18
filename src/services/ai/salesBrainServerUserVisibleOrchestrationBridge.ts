@@ -63,6 +63,7 @@ import {
   resolveChatUserVisibleConversationCoreRouting,
   type ChatUserVisibleConversationCoreRunner,
 } from "../../server/conversation-core/conversationCoreChatUserVisiblePilotBridge";
+import { hashPiiForLog } from "../../utils/piiLogRedaction";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -102,6 +103,8 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   sessionGroundingCount: number;
   orchestratedGroundingCount: number;
   capturedAt: string;
+  /** One-way SHA-256 of verified auth.uid. Diagnostic only; never authorize from this. */
+  verifiedActorFingerprint?: string;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
@@ -443,6 +446,8 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
   environment?: SalesBrainRuntimeEnvironment;
   env?: Record<string, string | undefined>;
   capturedAt?: string;
+  /** Server-derived hashPiiForLog(auth.uid) after verified auth. Absent when unauthenticated. */
+  verifiedActorFingerprint?: string | null;
 }): UserVisibleRuntimeAttributionDiagnostic {
   const readEnv = (key: string) => input.env?.[key];
   const aiFirstPathActive =
@@ -509,6 +514,11 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     fallbackUsed,
     providerGroundingIntent,
   });
+  const verifiedActorFingerprint =
+    typeof input.verifiedActorFingerprint === "string" &&
+    input.verifiedActorFingerprint.trim() !== ""
+      ? input.verifiedActorFingerprint
+      : undefined;
 
   return {
     sliceId: USER_VISIBLE_RUNTIME_ATTRIBUTION_SLICE_ID,
@@ -536,6 +546,7 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     gateCheck: allowlistEval.gateCheck,
     gateAuthPath: allowlistEval.authPath,
     capturedAt: input.capturedAt ?? new Date().toISOString(),
+    ...(verifiedActorFingerprint ? { verifiedActorFingerprint } : {}),
   };
 }
 
@@ -1109,6 +1120,7 @@ export async function handleChatUserVisibleOrchestratePost(
         environment: bridgeEnvironment,
         env: process.env as Record<string, string | undefined>,
         capturedAt: evidenceCapturedAt,
+        verifiedActorFingerprint: hashPiiForLog(auth.uid),
       })
     );
 

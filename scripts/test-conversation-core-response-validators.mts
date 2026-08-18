@@ -202,6 +202,15 @@ const WP_V2U_04B_ALLOWLIST_PATHS = [
 
 const WP_V2U_04B_ALLOWLIST_SET = new Set<string>(WP_V2U_04B_ALLOWLIST_PATHS);
 
+/** WP-V2U-04I1 — exact approved dirty paths for pseudonymous verified-actor attribution. */
+const WP_V2U_04I1_ALLOWLIST_PATHS = [
+  "src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts",
+  "scripts/test-chat-v2-conversation-core-pilot-bridge.mts",
+  "scripts/test-conversation-core-response-validators.mts",
+] as const;
+
+const WP_V2U_04I1_ALLOWLIST_SET = new Set<string>(WP_V2U_04I1_ALLOWLIST_PATHS);
+
 /** WP-V2U-03E2A — exact approved dirty paths for Gemini turn outcome contract. */
 const WP_V2U_03E2A_ALLOWLIST_PATHS = [
   "src/services/conversation-core/conversationCoreGeminiTurnOutcome.ts",
@@ -242,11 +251,15 @@ const ALLOWLIST_PATHS = new Set([
   ...WP_V2U_03E2D2C2C2B_ALLOWLIST_PATHS,
   ...WP_V2U_03E2D2C2C2C_ALLOWLIST_PATHS,
   ...WP_V2U_04B_ALLOWLIST_PATHS,
+  ...WP_V2U_04I1_ALLOWLIST_PATHS,
 ]);
 
 const SERVICE_CORE_DIR = "src/services/conversation-core/";
 
 function isResponseValidatorHarnessOwnedPath(statusPath: string): boolean {
+  if (WP_V2U_04I1_ALLOWLIST_SET.has(statusPath)) {
+    return true;
+  }
   if (WP_V2U_04B_ALLOWLIST_SET.has(statusPath)) {
     return true;
   }
@@ -1560,7 +1573,7 @@ for (const statusPath of OUT_OF_HARNESS_SCOPE) {
   );
 }
 
-assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 44);
+assertEqual("harness: approved allowlist size is exact", ALLOWLIST_PATHS.size, 45);
 for (const wp03d3bPath of WP_V2U_03D3B_ALLOWLIST_PATHS) {
   assertTruthy(
     `allowlist: ${wp03d3bPath} is approved for WP-V2U-03D3B`,
@@ -1662,11 +1675,69 @@ assertTruthy(
   isResponseValidatorHarnessOwnedPath("scripts/test-chat-v2-conversation-core-pilot-bridge.mts")
 );
 assertFalsy(
-  "harness: 04B does not own the existing user-visible handler path as a core-owned file",
+  "harness: 04B set does not include the user-visible handler path",
+  WP_V2U_04B_ALLOWLIST_SET.has(
+    "src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts"
+  )
+);
+for (const wp04i1Path of WP_V2U_04I1_ALLOWLIST_PATHS) {
+  assertTruthy(
+    `allowlist: ${wp04i1Path} is approved for WP-V2U-04I1`,
+    ALLOWLIST_PATHS.has(wp04i1Path)
+  );
+}
+assertTruthy(
+  "harness: 04I1 user-visible handler is in owned scope",
   isResponseValidatorHarnessOwnedPath(
     "src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts"
   )
 );
+assertTruthy(
+  "harness: 04I1 chat v2 pilot bridge test is in owned scope",
+  isResponseValidatorHarnessOwnedPath("scripts/test-chat-v2-conversation-core-pilot-bridge.mts")
+);
+assertFalsy(
+  "harness: 04I1 does not own Client/UI chat bubble",
+  WP_V2U_04I1_ALLOWLIST_SET.has("src/components/chat/ChatMessageBubble.tsx")
+);
+assertFalsy(
+  "harness: 04I1 does not own Client vehicle panel",
+  WP_V2U_04I1_ALLOWLIST_SET.has("src/hooks/chat/useVehiclePanel.ts")
+);
+{
+  const handlerSrc = read("src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts");
+  assertIncludes(
+    "04I1: handler derives fingerprint with hashPiiForLog(auth.uid)",
+    handlerSrc,
+    "verifiedActorFingerprint: hashPiiForLog(auth.uid)"
+  );
+  assertIncludes(
+    "04I1: handler reuses existing piiLogRedaction utility",
+    handlerSrc,
+    'from "../../utils/piiLogRedaction"'
+  );
+  const resJsonStart = handlerSrc.indexOf("res.json({");
+  const catchStart = handlerSrc.indexOf("} catch (err)");
+  const resJsonBlock =
+    resJsonStart >= 0 && catchStart > resJsonStart
+      ? handlerSrc.slice(resJsonStart, catchStart)
+      : "";
+  assertTruthy("04I1: HTTP response json block located", resJsonBlock.includes("success: true"));
+  assertExcludes(
+    "04I1: fingerprint is absent from user-visible HTTP response",
+    resJsonBlock,
+    "verifiedActorFingerprint"
+  );
+  assertExcludes(
+    "04I1: handler does not log raw auth.uid in structured event construction",
+    handlerSrc,
+    "uid: auth.uid"
+  );
+  assertFalsy(
+    "04I1: handler does not add a second hashing implementation",
+    /syncSha256Hex|createHash\(|subtle\.digest/.test(handlerSrc)
+  );
+}
 assertTruthy(
   "harness: 03E2D2C2C2B orchestrator is in owned scope",
   isResponseValidatorHarnessOwnedPath(

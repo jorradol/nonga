@@ -31,6 +31,7 @@ import {
   mintChatUserVisibleConversationTurnInput,
   resolveChatUserVisibleConversationCoreRouting,
 } from "../src/server/conversation-core/conversationCoreChatUserVisiblePilotBridge.ts";
+import { hashPiiForLog } from "../src/utils/piiLogRedaction.ts";
 
 let passCount = 0;
 
@@ -67,6 +68,13 @@ function assertFalsy(label: string, value: unknown): void {
 
 const PILOT_UID = "pilot-uid-chat-v2-04b";
 const NON_PILOT_UID = "non-pilot-uid-chat-v2-04b";
+const FAKE_VERIFIED_UID = "fake-verified-actor-uid-04i1";
+const FAKE_OTHER_UID = "fake-other-actor-uid-04i1";
+const FAKE_SPOOFED_UID = "fake-client-spoofed-uid-04i1";
+const FAKE_EMAIL = "fake-actor-email-04i1@example.test";
+const FAKE_DISPLAY_NAME = "Fake Actor Display Name 04I1";
+const FAKE_TOKEN = "fake-id-token-04i1-SHOULD-NOT-LOG";
+const FAKE_BODY_SENTINEL = "fake-request-body-sentinel-04i1";
 const SENTINEL_LISTING_ID = "listing-sentinel-camry-387654";
 const SENTINEL_PRICE = 387654;
 const SENTINEL_MILEAGE = 80000;
@@ -98,11 +106,14 @@ function readEnvFrom(values: Record<string, string | undefined>) {
   return (key: string) => values[key];
 }
 
-function authContext(uid = PILOT_UID): ServerAuthContext {
+function authContext(
+  uid = PILOT_UID,
+  extras?: { email?: string; displayName?: string }
+): ServerAuthContext {
   return {
     uid,
-    email: "redacted@example.test",
-    displayName: "Redacted",
+    email: extras?.email ?? "redacted@example.test",
+    displayName: extras?.displayName ?? "Redacted",
     role: "member",
     status: "active",
     memberships: [],
@@ -219,6 +230,18 @@ type CapturedJson = {
   body: unknown;
 };
 
+type AttributionEvent = Record<string, unknown>;
+
+function isAttributionLogLine(value: unknown): value is string {
+  return typeof value === "string" && value.includes('"event":"user_visible_runtime_attribution"');
+}
+
+function maskedUidForm(uid: string): string {
+  const value = uid.trim();
+  if (value.length <= 6) return "***";
+  return `${value.slice(0, 3)}...${value.slice(-3)}`;
+}
+
 function createMockRes(): Response & { captured: CapturedJson } {
   const captured: CapturedJson = { statusCode: 200, body: undefined };
   const res = {
@@ -241,6 +264,8 @@ function createMockReq(body: Record<string, unknown>): Request {
 
 async function runHandler(input: {
   uid?: string;
+  authEmail?: string;
+  authDisplayName?: string;
   body: Record<string, unknown>;
   env?: Record<string, string | undefined>;
   authError?: ServerAuthError;
@@ -248,40 +273,77 @@ async function runHandler(input: {
   runCore?: () => ConversationCoreOrchestratorResult | Promise<ConversationCoreOrchestratorResult>;
   applyRealProvider?: () => Promise<UserVisibleOrchestrationBridgeResult>;
   inventory?: ChatInventoryCar[];
-}): Promise<{ statusCode: number; body: unknown; counters: { legacy: number; core: number; realProvider: number } }> {
+}): Promise<{
+  statusCode: number;
+  body: unknown;
+  counters: { legacy: number; core: number; realProvider: number };
+  attributionEvents: AttributionEvent[];
+  serializedAttributionLogs: string[];
+}> {
   const counters = { legacy: 0, core: 0, realProvider: 0 };
+  const attributionEvents: AttributionEvent[] = [];
+  const serializedAttributionLogs: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => {
+    const attributionLines = args.filter(isAttributionLogLine);
+    if (attributionLines.length > 0) {
+      for (const line of attributionLines) {
+        serializedAttributionLogs.push(line);
+        try {
+          attributionEvents.push(JSON.parse(line) as AttributionEvent);
+        } catch {
+          // Ignore malformed attribution lines; assertions cover expected shape.
+        }
+      }
+      return;
+    }
+    originalLog.apply(console, args);
+  };
   const res = createMockRes();
-  await handleChatUserVisibleOrchestratePost(createMockReq(input.body), res, {
-    loadChatInventory: async () => input.inventory ?? [sentinelInventoryCar(), extraFixtureCar()],
-    readEnv: readEnvFrom(input.env ?? {}),
-    now: () => RECEIVED_AT_MS,
-    resolveAuth: async () => {
-      if (input.authError) {
-        throw input.authError;
-      }
-      return authContext(input.uid);
-    },
-    runLegacyOrchestration: () => {
-      counters.legacy += 1;
-      return input.runLegacy?.() ?? legacyResult();
-    },
-    applyRealProvider: (async (args) => {
-      counters.realProvider += 1;
-      if (input.applyRealProvider) {
-        return input.applyRealProvider();
-      }
-      return args.bridgeResult;
-    }) as ChatUserVisibleOrchestrateHandlerDeps["applyRealProvider"],
-    runConversationCore: async (turn) => {
-      counters.core += 1;
-      assertEqual("core turn userMessage", turn.request.userMessage, String(input.body.userMessage).trim());
-      assertEqual("core turn conversation is server-owned", turn.request.conversationId.startsWith("chat-v2:"), true);
-      assertEqual("core context toolAllowlist empty", [...turn.context.toolAllowlist], []);
-      assertFalsy("core request has no client toolAllowlist", "toolAllowlist" in turn.request);
-      return input.runCore?.() ?? completedSearchResult();
-    },
-  });
-  return { statusCode: res.captured.statusCode, body: res.captured.body, counters };
+  try {
+    await handleChatUserVisibleOrchestratePost(createMockReq(input.body), res, {
+      loadChatInventory: async () => input.inventory ?? [sentinelInventoryCar(), extraFixtureCar()],
+      readEnv: readEnvFrom(input.env ?? {}),
+      now: () => RECEIVED_AT_MS,
+      resolveAuth: async () => {
+        if (input.authError) {
+          throw input.authError;
+        }
+        return authContext(input.uid, {
+          email: input.authEmail,
+          displayName: input.authDisplayName,
+        });
+      },
+      runLegacyOrchestration: () => {
+        counters.legacy += 1;
+        return input.runLegacy?.() ?? legacyResult();
+      },
+      applyRealProvider: (async (args) => {
+        counters.realProvider += 1;
+        if (input.applyRealProvider) {
+          return input.applyRealProvider();
+        }
+        return args.bridgeResult;
+      }) as ChatUserVisibleOrchestrateHandlerDeps["applyRealProvider"],
+      runConversationCore: async (turn) => {
+        counters.core += 1;
+        assertEqual("core turn userMessage", turn.request.userMessage, String(input.body.userMessage).trim());
+        assertEqual("core turn conversation is server-owned", turn.request.conversationId.startsWith("chat-v2:"), true);
+        assertEqual("core context toolAllowlist empty", [...turn.context.toolAllowlist], []);
+        assertFalsy("core request has no client toolAllowlist", "toolAllowlist" in turn.request);
+        return input.runCore?.() ?? completedSearchResult();
+      },
+    });
+  } finally {
+    console.log = originalLog;
+  }
+  return {
+    statusCode: res.captured.statusCode,
+    body: res.captured.body,
+    counters,
+    attributionEvents,
+    serializedAttributionLogs,
+  };
 }
 
 function asSuccess(body: unknown): ChatUserVisibleOrchestrateResponse {
@@ -699,6 +761,295 @@ assertFalsy(
     "14: path constant preserved",
     SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE,
     "/api/ai/chat-user-visible-orchestrate"
+  );
+}
+
+function expectedFingerprint(uid: string): string {
+  const fingerprint = hashPiiForLog(uid);
+  assertTruthy("hashPiiForLog returns fingerprint for fake uid", Boolean(fingerprint));
+  return fingerprint as string;
+}
+
+function serializedAttribution(events: AttributionEvent[], logs: string[]): string {
+  return `${JSON.stringify(events)}\n${logs.join("\n")}`;
+}
+
+function assertNoIdentityLeak(label: string, serialized: string, uids: string[]): void {
+  for (const uid of uids) {
+    assertFalsy(`${label}: raw uid absent`, serialized.includes(uid));
+    assertFalsy(`${label}: masked uid absent`, serialized.includes(maskedUidForm(uid)));
+  }
+  assertFalsy(`${label}: email absent`, serialized.includes(FAKE_EMAIL));
+  assertFalsy(`${label}: display name absent`, serialized.includes(FAKE_DISPLAY_NAME));
+  assertFalsy(`${label}: token absent`, serialized.includes(FAKE_TOKEN));
+  assertFalsy(`${label}: body sentinel absent`, serialized.includes(FAKE_BODY_SENTINEL));
+  assertFalsy(`${label}: authorization header absent`, /Authorization/i.test(serialized));
+}
+
+console.log("\n=== WP-V2U-04I1 Pseudonymous Verified-Actor Attribution ===\n");
+
+assertTruthy(
+  "04I1 source: fingerprint derived from hashPiiForLog(auth.uid)",
+  handlerSource.includes("verifiedActorFingerprint: hashPiiForLog(auth.uid)")
+);
+assertTruthy(
+  "04I1 source: hashPiiForLog imported from existing redaction utility",
+  /from ["']\.\.\/\.\.\/utils\/piiLogRedaction["']/.test(handlerSource)
+);
+assertFalsy(
+  "04I1 source: no second sha256 implementation",
+  /syncSha256Hex|createHash\(|subtle\.digest/.test(handlerSource)
+);
+assertTruthy(
+  "04I1 source: core routing still uses verified auth.uid",
+  handlerSource.includes("authenticatedActorRef: auth.uid")
+);
+{
+  const resJsonStart = handlerSource.indexOf("res.json({");
+  const catchStart = handlerSource.indexOf("} catch (err)");
+  const resJsonBlock =
+    resJsonStart >= 0 && catchStart > resJsonStart
+      ? handlerSource.slice(resJsonStart, catchStart)
+      : "";
+  assertTruthy("04I1 source: response json block located", resJsonBlock.includes("success: true"));
+  assertFalsy(
+    "04I1 source: fingerprint is not placed in HTTP response",
+    resJsonBlock.includes("verifiedActorFingerprint")
+  );
+}
+
+{
+  const first = await runHandler({
+    uid: FAKE_VERIFIED_UID,
+    authEmail: FAKE_EMAIL,
+    authDisplayName: FAKE_DISPLAY_NAME,
+    body: {
+      userMessage: SEARCH_MESSAGE,
+      email: FAKE_EMAIL,
+      displayName: FAKE_DISPLAY_NAME,
+      token: FAKE_TOKEN,
+      sentinel: FAKE_BODY_SENTINEL,
+    },
+    env: corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID }),
+    runCore: () => completedSearchResult(),
+  });
+  const second = await runHandler({
+    uid: FAKE_VERIFIED_UID,
+    authEmail: FAKE_EMAIL,
+    authDisplayName: FAKE_DISPLAY_NAME,
+    body: { userMessage: SEARCH_MESSAGE, token: FAKE_TOKEN, sentinel: FAKE_BODY_SENTINEL },
+    env: corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID }),
+    runCore: () => completedSearchResult(),
+  });
+  const other = await runHandler({
+    uid: FAKE_OTHER_UID,
+    authEmail: FAKE_EMAIL,
+    authDisplayName: FAKE_DISPLAY_NAME,
+    body: { userMessage: SEARCH_MESSAGE, token: FAKE_TOKEN, sentinel: FAKE_BODY_SENTINEL },
+    env: corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID }),
+  });
+
+  assertEqual("04I1 1: authenticated pilot-eligible status", first.statusCode, 200);
+  assertEqual("04I1 5: authenticated pilot-eligible uses core", first.counters.core, 1);
+  assertEqual("04I1 13: authenticated pilot-eligible does not use legacy", first.counters.legacy, 0);
+  assertEqual("04I1 1: attribution event count", first.attributionEvents.length, 1);
+  const eligibleEvent = first.attributionEvents[0] ?? {};
+  const expectedEligible = expectedFingerprint(FAKE_VERIFIED_UID);
+  assertEqual(
+    "04I1 1: authenticated request emits verifiedActorFingerprint",
+    typeof eligibleEvent.verifiedActorFingerprint,
+    "string"
+  );
+  assertEqual(
+    "04I1 2: fingerprint equals hashPiiForLog of fake verified uid",
+    eligibleEvent.verifiedActorFingerprint,
+    expectedEligible
+  );
+  assertEqual(
+    "04I1 3: same fake uid produces the same fingerprint",
+    second.attributionEvents[0]?.verifiedActorFingerprint,
+    eligibleEvent.verifiedActorFingerprint
+  );
+  assertEqual("04I1 4: other attribution event count", other.attributionEvents.length, 1);
+  assertTruthy(
+    "04I1 4: different fake uid produces a different fingerprint",
+    other.attributionEvents[0]?.verifiedActorFingerprint !== eligibleEvent.verifiedActorFingerprint
+  );
+  assertEqual(
+    "04I1 4b: other fingerprint equals hashPiiForLog of other uid",
+    other.attributionEvents[0]?.verifiedActorFingerprint,
+    expectedFingerprint(FAKE_OTHER_UID)
+  );
+  assertEqual("04I1 5: fingerprint present for pilot-eligible", Boolean(eligibleEvent.verifiedActorFingerprint), true);
+  assertTruthy(
+    "04I1 7: fingerprint and requestCorrelationId exist in the same event",
+    Boolean(eligibleEvent.verifiedActorFingerprint) &&
+      typeof eligibleEvent.requestCorrelationId === "string" &&
+      String(eligibleEvent.requestCorrelationId).length > 0
+  );
+  assertEqual(
+    "04I1 7b: event name is runtime attribution",
+    eligibleEvent.event,
+    "user_visible_runtime_attribution"
+  );
+
+  const eligibleSerialized = serializedAttribution(first.attributionEvents, first.serializedAttributionLogs);
+  assertNoIdentityLeak("04I1 8-10 eligible logs", eligibleSerialized, [
+    FAKE_VERIFIED_UID,
+    FAKE_OTHER_UID,
+    FAKE_SPOOFED_UID,
+    PILOT_UID,
+    NON_PILOT_UID,
+  ]);
+  assertV2ReadableContract("04I1 13: eligible response contract", first.body);
+  const eligibleHttp = JSON.stringify(first.body);
+  assertFalsy("04I1 12: HTTP response has no raw verified uid", eligibleHttp.includes(FAKE_VERIFIED_UID));
+  assertFalsy(
+    "04I1 12: HTTP response has no actor fingerprint",
+    eligibleHttp.includes(String(eligibleEvent.verifiedActorFingerprint))
+  );
+  assertFalsy("04I1 12: HTTP response has no fake token", eligibleHttp.includes(FAKE_TOKEN));
+}
+
+{
+  const legacyFallback = await runHandler({
+    uid: FAKE_OTHER_UID,
+    authEmail: FAKE_EMAIL,
+    authDisplayName: FAKE_DISPLAY_NAME,
+    body: {
+      userMessage: SEARCH_MESSAGE,
+      email: FAKE_EMAIL,
+      displayName: FAKE_DISPLAY_NAME,
+      token: FAKE_TOKEN,
+      sentinel: FAKE_BODY_SENTINEL,
+    },
+    env: corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID }),
+  });
+  const routing = resolveChatUserVisibleConversationCoreRouting({
+    authenticatedActorRef: FAKE_OTHER_UID,
+    userMessage: SEARCH_MESSAGE,
+    readEnv: readEnvFrom(corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID })),
+  });
+  assertEqual("04I1 6: uid_not_allowlisted routing is legacy", routing.kind, "legacy");
+  if (routing.kind === "legacy") {
+    assertEqual("04I1 6: uid_not_allowlisted maps to not-allowlisted", routing.reason, "not-allowlisted");
+  }
+  assertEqual("04I1 6: authenticated not-allowlisted uses legacy", legacyFallback.counters.legacy, 1);
+  assertEqual("04I1 6: authenticated not-allowlisted does not use core", legacyFallback.counters.core, 0);
+  assertEqual("04I1 13: not-allowlisted status unchanged", legacyFallback.statusCode, 200);
+  assertEqual("04I1 6: not-allowlisted attribution event count", legacyFallback.attributionEvents.length, 1);
+  const fallbackEvent = legacyFallback.attributionEvents[0] ?? {};
+  assertEqual(
+    "04I1 6: fingerprint exists for authenticated uid_not_allowlisted legacy fallback",
+    fallbackEvent.verifiedActorFingerprint,
+    expectedFingerprint(FAKE_OTHER_UID)
+  );
+  assertTruthy(
+    "04I1 7: fallback fingerprint and correlation id share one event",
+    Boolean(fallbackEvent.verifiedActorFingerprint) &&
+      typeof fallbackEvent.requestCorrelationId === "string" &&
+      String(fallbackEvent.requestCorrelationId).length > 0
+  );
+  const fallbackSerialized = serializedAttribution(
+    legacyFallback.attributionEvents,
+    legacyFallback.serializedAttributionLogs
+  );
+  assertNoIdentityLeak("04I1 8-10 fallback logs", fallbackSerialized, [
+    FAKE_VERIFIED_UID,
+    FAKE_OTHER_UID,
+    FAKE_SPOOFED_UID,
+  ]);
+  assertV2ReadableContract("04I1 13: fallback response contract", legacyFallback.body);
+  assertFalsy(
+    "04I1 16: fingerprint does not grant Pilot eligibility",
+    Boolean(legacyFallback.counters.core)
+  );
+}
+
+{
+  const spoofed = await runHandler({
+    uid: FAKE_VERIFIED_UID,
+    authEmail: FAKE_EMAIL,
+    authDisplayName: FAKE_DISPLAY_NAME,
+    body: {
+      userMessage: SEARCH_MESSAGE,
+      firebaseUid: FAKE_SPOOFED_UID,
+      uid: FAKE_SPOOFED_UID,
+      email: FAKE_EMAIL,
+      displayName: FAKE_DISPLAY_NAME,
+      token: FAKE_TOKEN,
+      sentinel: FAKE_BODY_SENTINEL,
+      flags: { coreEnabled: true },
+    },
+    env: corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID }),
+    runCore: () => completedSearchResult(),
+  });
+  assertEqual("04I1 15: spoofed body still uses verified uid for core", spoofed.counters.core, 1);
+  assertEqual("04I1 15: spoofed body does not force extra legacy", spoofed.counters.legacy, 0);
+  assertEqual(
+    "04I1 15: fingerprint source ignores client spoofed uid",
+    spoofed.attributionEvents[0]?.verifiedActorFingerprint,
+    expectedFingerprint(FAKE_VERIFIED_UID)
+  );
+  assertTruthy(
+    "04I1 15: fingerprint is not the spoofed uid hash",
+    spoofed.attributionEvents[0]?.verifiedActorFingerprint !== expectedFingerprint(FAKE_SPOOFED_UID)
+  );
+  const spoofedSerialized = serializedAttribution(spoofed.attributionEvents, spoofed.serializedAttributionLogs);
+  assertNoIdentityLeak("04I1 15 logs", spoofedSerialized, [FAKE_VERIFIED_UID, FAKE_SPOOFED_UID, FAKE_OTHER_UID]);
+  const spoofedHttp = JSON.stringify(spoofed.body);
+  assertFalsy("04I1 15: HTTP response has no spoofed uid", spoofedHttp.includes(FAKE_SPOOFED_UID));
+  assertFalsy(
+    "04I1 15: HTTP response has no fingerprint",
+    spoofedHttp.includes(String(spoofed.attributionEvents[0]?.verifiedActorFingerprint))
+  );
+}
+
+{
+  const unauth = await runHandler({
+    uid: FAKE_VERIFIED_UID,
+    authEmail: FAKE_EMAIL,
+    authDisplayName: FAKE_DISPLAY_NAME,
+    body: {
+      userMessage: SEARCH_MESSAGE,
+      firebaseUid: FAKE_SPOOFED_UID,
+      token: FAKE_TOKEN,
+      sentinel: FAKE_BODY_SENTINEL,
+    },
+    env: corePilotEnv({ [NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV]: FAKE_VERIFIED_UID }),
+    authError: new ServerAuthError(401, "Authentication required"),
+  });
+  assertEqual("04I1 11: unauthenticated status", unauth.statusCode, 401);
+  assertEqual("04I1 11: unauthenticated emits no attribution event", unauth.attributionEvents.length, 0);
+  assertEqual("04I1 11: unauthenticated emits no actor fingerprint", unauth.serializedAttributionLogs.length, 0);
+  const unauthHttp = JSON.stringify(unauth.body);
+  assertFalsy("04I1 11: unauthenticated response has no raw uid", unauthHttp.includes(FAKE_VERIFIED_UID));
+  assertFalsy("04I1 11: unauthenticated response has no fingerprint key", unauthHttp.includes("verifiedActorFingerprint"));
+  assertEqual("04I1 13: unauthenticated does not call core", unauth.counters.core, 0);
+  assertEqual("04I1 13: unauthenticated does not call legacy", unauth.counters.legacy, 0);
+}
+
+{
+  const search = await runHandler({
+    uid: PILOT_UID,
+    body: { userMessage: SEARCH_MESSAGE },
+    env: corePilotEnv(),
+    runCore: () => completedSearchResult(),
+  });
+  const inventory = await runHandler({
+    uid: PILOT_UID,
+    body: { userMessage: INVENTORY_MESSAGE },
+    env: corePilotEnv(),
+    runCore: () => completedInventoryResult(),
+  });
+  assertEqual("04I1 14: search still routes to core", search.counters.core, 1);
+  assertEqual("04I1 14: search still skips legacy", search.counters.legacy, 0);
+  assertEqual("04I1 14: search listing id unchanged", asSuccess(search.body).data?.carCards?.[0]?.id, SENTINEL_LISTING_ID);
+  assertEqual("04I1 14: inventory still routes to core", inventory.counters.core, 1);
+  assertEqual(
+    "04I1 14: inventory listing id unchanged",
+    asSuccess(inventory.body).data?.carCards?.[0]?.id,
+    SENTINEL_LISTING_ID
   );
 }
 
