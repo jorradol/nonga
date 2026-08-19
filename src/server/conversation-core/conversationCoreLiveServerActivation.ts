@@ -3,6 +3,7 @@
  * No import-time network, secret access, or flag enablement.
  * registerConversationCoreRoutes does not turn capabilities on by importing this module.
  */
+import { randomUUID } from "node:crypto";
 import {
   isExplicitEnvironmentIdentity,
   resolveNongaEnvironmentIdentity,
@@ -27,15 +28,61 @@ import {
   resolveConversationCoreGeminiConfig,
 } from "./conversationCoreGeminiConfig";
 import {
+  CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES,
   createConversationCoreGeminiToolTransportSdkSeam,
   type ConversationCoreGeminiToolTransportSdkSeam,
+  type ConversationCoreRuntimeObservabilityEvent,
+  type ConversationCoreRuntimeObservabilitySink,
 } from "./conversationCoreGeminiToolTransport";
 import type { ConversationCoreOrchestratorActivation } from "./conversationCoreOrchestrator";
 import { resolveConversationCoreFeatureFlags } from "./conversationCoreFeatureFlags";
 import { createConversationCoreRuntimeDeps } from "./conversationCoreRuntimeDeps";
+import { runConversationCoreExecutionService } from "./conversationCoreExecutionService";
 
 export const NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV =
   "NONGA_CONVERSATION_CORE_TOOLS_ENABLED";
+
+export const NONGA_CONVERSATION_CORE_OBSERVABILITY_ENABLED_ENV =
+  "NONGA_CONVERSATION_CORE_OBSERVABILITY_ENABLED";
+
+export const CONVERSATION_CORE_RUNTIME_OBSERVABILITY_LOG_EVENT =
+  "conversation_core_runtime_observability";
+
+export const CONVERSATION_CORE_RUNTIME_OBSERVABILITY_MAX_EVENTS = 8;
+
+const OBSERVABILITY_STAGES = new Set([
+  "runtime_deps",
+  "gemini_initial",
+  "gemini_follow_up",
+  "tool_execution",
+  "coordinator",
+  "execution_service",
+]);
+
+const OBSERVABILITY_KINDS = new Set([
+  "ready",
+  "unavailable",
+  "tool_request",
+  "final_answer",
+  "provider_error",
+  "invalid_response",
+  "grounded",
+  "attempted",
+  "ok",
+  "rejected",
+  "error",
+]);
+
+const OBSERVABILITY_TOOLS = new Set(["marketplace.search", "inventory.fetch"]);
+
+const OBSERVABILITY_ROUTES = new Set(["completed", "honest_unavailable"]);
+
+const OBSERVABILITY_PROVIDER_ERROR_CLASSES = new Set<string>(
+  CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES
+);
+
+const BOUNDED_REASON_CODE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
+const BOUNDED_CORRELATION_ID = /^[a-zA-Z0-9._:-]{8,128}$/;
 
 export const CONVERSATION_CORE_LIVE_STAGED_TOOL_NAMES = [
   "marketplace.search",
@@ -94,6 +141,148 @@ export interface ConversationCoreLiveServerActivationInput {
   readonly createInventoryRepository?: () => InventoryRepository;
   readonly expertMode?: ConversationCoreExpertMode;
   readonly mintRequestId?: () => string;
+  readonly observabilityCorrelationId?: string;
+  readonly writeObservabilityLog?: (line: string) => void;
+}
+
+export function isConversationCoreObservabilityEnabled(
+  readEnv: (key: string) => string | undefined
+): boolean {
+  return String(readEnv(NONGA_CONVERSATION_CORE_OBSERVABILITY_ENABLED_ENV) ?? "").trim() === "true";
+}
+
+function takeBoundedString(
+  value: unknown,
+  allowed: ReadonlySet<string>
+): string | undefined {
+  return typeof value === "string" && allowed.has(value) ? value : undefined;
+}
+
+function takeBoundedReasonCode(value: unknown): string | undefined {
+  return typeof value === "string" && BOUNDED_REASON_CODE.test(value) ? value : undefined;
+}
+
+function takeBoundedCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 8
+    ? value
+    : undefined;
+}
+
+function mapObservabilityStage(
+  raw: ConversationCoreRuntimeObservabilityEvent
+): string | undefined {
+  if (raw.event === "runtime_deps_outcome") {
+    return "runtime_deps";
+  }
+  if (raw.event === "gemini_transport_outcome") {
+    if (raw.phase === "follow_up") {
+      return "gemini_follow_up";
+    }
+    if (raw.phase === "initial") {
+      return "gemini_initial";
+    }
+    return undefined;
+  }
+  if (raw.event === "tool_execution_outcome") {
+    return "tool_execution";
+  }
+  if (raw.event === "coordinator_outcome") {
+    return "coordinator";
+  }
+  if (raw.event === "execution_service_outcome") {
+    return "execution_service";
+  }
+  return undefined;
+}
+
+export function toConversationCoreRuntimeObservabilityLog(input: {
+  readonly requestCorrelationId: string;
+  readonly raw: ConversationCoreRuntimeObservabilityEvent;
+}): Record<string, string | number> | null {
+  if (!BOUNDED_CORRELATION_ID.test(input.requestCorrelationId)) {
+    return null;
+  }
+  const stage = mapObservabilityStage(input.raw);
+  if (!stage || !OBSERVABILITY_STAGES.has(stage)) {
+    return null;
+  }
+  const kind =
+    takeBoundedString(input.raw.kind, OBSERVABILITY_KINDS) ??
+    takeBoundedString(input.raw.status, OBSERVABILITY_KINDS);
+  const payload: Record<string, string | number> = {
+    event: CONVERSATION_CORE_RUNTIME_OBSERVABILITY_LOG_EVENT,
+    requestCorrelationId: input.requestCorrelationId,
+    stage,
+  };
+  if (kind) {
+    payload.kind = kind;
+  }
+  const reasonCode =
+    takeBoundedReasonCode(input.raw.reasonCode) ??
+    takeBoundedReasonCode(input.raw.preservedCoordinatorReasonCode);
+  if (reasonCode) {
+    payload.reasonCode = reasonCode;
+  }
+  const providerErrorClass = takeBoundedString(
+    input.raw.providerErrorClass,
+    OBSERVABILITY_PROVIDER_ERROR_CLASSES
+  );
+  if (providerErrorClass) {
+    payload.providerErrorClass = providerErrorClass;
+  }
+  const toolName = takeBoundedString(input.raw.toolName, OBSERVABILITY_TOOLS);
+  if (toolName) {
+    payload.toolName = toolName;
+  }
+  const providerCallCount = takeBoundedCount(input.raw.providerCallCount);
+  if (providerCallCount !== undefined) {
+    payload.providerCallCount = providerCallCount;
+  }
+  const toolExecutionCount = takeBoundedCount(input.raw.toolExecutionCount);
+  if (toolExecutionCount !== undefined) {
+    payload.toolExecutionCount = toolExecutionCount;
+  }
+  const authoritativeResultCount = takeBoundedCount(input.raw.authoritativeResultCount);
+  if (authoritativeResultCount !== undefined) {
+    payload.authoritativeResultCount = authoritativeResultCount;
+  }
+  const resultCount = takeBoundedCount(input.raw.resultCount);
+  if (resultCount !== undefined) {
+    payload.resultCount = resultCount;
+  }
+  const route = takeBoundedString(input.raw.route, OBSERVABILITY_ROUTES);
+  if (route) {
+    payload.route = route;
+  }
+  return payload;
+}
+
+export function createConversationCoreRuntimeObservabilityLogSink(input: {
+  readonly requestCorrelationId: string;
+  readonly writeLog?: (line: string) => void;
+  readonly maxEvents?: number;
+}): ConversationCoreRuntimeObservabilitySink {
+  const writeLog = input.writeLog ?? ((line: string) => console.log(line));
+  const maxEvents = input.maxEvents ?? CONVERSATION_CORE_RUNTIME_OBSERVABILITY_MAX_EVENTS;
+  let emitted = 0;
+  return (raw) => {
+    if (emitted >= maxEvents) {
+      return;
+    }
+    const payload = toConversationCoreRuntimeObservabilityLog({
+      requestCorrelationId: input.requestCorrelationId,
+      raw,
+    });
+    if (!payload) {
+      return;
+    }
+    emitted += 1;
+    try {
+      writeLog(JSON.stringify(payload));
+    } catch {
+      // Observability logging must never change Core control flow.
+    }
+  };
 }
 
 function firstNonEmpty(readEnv: (key: string) => string | undefined, keys: readonly string[]): string {
@@ -261,6 +450,18 @@ export function resolveConversationCoreLiveServerActivation(
     return undefined;
   }
 
+  const observabilityEnabled = isConversationCoreObservabilityEnabled(input.readEnv);
+  const observabilitySink = observabilityEnabled
+    ? createConversationCoreRuntimeObservabilityLogSink({
+        requestCorrelationId:
+          typeof input.observabilityCorrelationId === "string" &&
+          BOUNDED_CORRELATION_ID.test(input.observabilityCorrelationId)
+            ? input.observabilityCorrelationId
+            : randomUUID(),
+        writeLog: input.writeObservabilityLog,
+      })
+    : undefined;
+
   return Object.freeze({
     geminiEnabled: true,
     toolsEnabled: true,
@@ -278,7 +479,19 @@ export function resolveConversationCoreLiveServerActivation(
         ...(typeof input.mintRequestId === "function"
           ? { mintRequestId: input.mintRequestId }
           : {}),
+        ...(observabilitySink ? { observabilitySink } : {}),
       }),
+    ...(observabilitySink
+      ? {
+          runExecution: (
+            executionInput: Parameters<typeof runConversationCoreExecutionService>[0]
+          ) =>
+            runConversationCoreExecutionService({
+              ...executionInput,
+              observabilitySink,
+            }),
+        }
+      : {}),
   }) satisfies ConversationCoreOrchestratorActivation;
 }
 

@@ -32,6 +32,7 @@ import {
   CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_TOOL_EXECUTIONS,
   type ConversationCoreGroundedToolTurnCoordinatorInput,
   type ConversationCoreGroundedToolTurnCoordinatorOutcome,
+  type ConversationCoreGroundedToolTurnCoordinatorReasonCode,
   type ConversationCoreGroundedToolTurnCoordinatorSuccess,
   type ConversationCoreGroundedToolTurnGroundingStatus,
 } from "./conversationCoreGroundedToolTurnCoordinator";
@@ -45,6 +46,10 @@ import {
   inspectConversationCoreGeminiConfigStatus,
   type ConversationCoreGeminiConfigStatus,
 } from "./conversationCoreGeminiConfig";
+import {
+  emitConversationCoreRuntimeObservability,
+  type ConversationCoreRuntimeObservabilitySink,
+} from "./conversationCoreGeminiToolTransport";
 import {
   buildConversationCoreHighRiskFallback,
   type ConversationCoreHighRiskFallbackResult,
@@ -120,6 +125,7 @@ export interface ConversationCoreExecutionServiceInput {
   readonly runGroundedToolTurnCoordinator?: (
     input: ConversationCoreGroundedToolTurnCoordinatorInput
   ) => Promise<ConversationCoreGroundedToolTurnCoordinatorOutcome>;
+  readonly observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }
 
 const CANDIDATE_CONTEXT_ALLOWED_KEYS = new Set([
@@ -156,6 +162,24 @@ function freezeCompleted(
     providerCallCount,
     correctionStatus: result.correctionStatus,
   });
+}
+
+function emitExecutionServiceOutcome(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  result: ConversationCoreExecutionResult,
+  preservedCoordinatorReasonCode?: ConversationCoreGroundedToolTurnCoordinatorReasonCode
+): ConversationCoreExecutionResult {
+  if (result.kind === "blocked") {
+    return result;
+  }
+  emitConversationCoreRuntimeObservability(sink, {
+    event: "execution_service_outcome",
+    route: result.kind === "completed" ? "completed" : "honest_unavailable",
+    ...(preservedCoordinatorReasonCode
+      ? { preservedCoordinatorReasonCode }
+      : {}),
+  });
+  return result;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -242,6 +266,7 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
       fallbackBuilder: ConversationCoreExecutionServiceInput["fallbackBuilder"];
       toolInjection: ConversationCoreExecutionToolInjection | undefined;
       runGroundedToolTurnCoordinator: ConversationCoreExecutionServiceInput["runGroundedToolTurnCoordinator"];
+      observabilitySink: ConversationCoreRuntimeObservabilitySink | undefined;
     }
   | { ok: false; reasonCode: ConversationCoreExecutionReasonCode } {
   if (!isPlainObject(input as unknown)) {
@@ -326,6 +351,8 @@ function inspectRuntimeInput(input: ConversationCoreExecutionServiceInput):
       typeof input.runGroundedToolTurnCoordinator === "function"
         ? input.runGroundedToolTurnCoordinator
         : undefined,
+    observabilitySink:
+      typeof input.observabilitySink === "function" ? input.observabilitySink : undefined,
   };
 }
 
@@ -475,6 +502,7 @@ async function completeAuthoritativeGrounded(input: {
   runGroundedToolTurnCoordinator: NonNullable<
     ConversationCoreExecutionServiceInput["runGroundedToolTurnCoordinator"]
   >;
+  observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }): Promise<ConversationCoreExecutionResult> {
   const coordinatorOutcome = await input.runGroundedToolTurnCoordinator({
     conversationId: input.request.conversationId,
@@ -492,14 +520,21 @@ async function completeAuthoritativeGrounded(input: {
   });
 
   if (coordinatorOutcome.kind === "unavailable") {
-    return freezeUnavailable("tools-not-ready", coordinatorOutcome.providerCallCount);
+    return emitExecutionServiceOutcome(
+      input.observabilitySink,
+      freezeUnavailable("tools-not-ready", coordinatorOutcome.providerCallCount),
+      coordinatorOutcome.reasonCode
+    );
   }
 
   const groundedOutcome = coordinatorOutcome;
   const coordinatorProviderCallCount = groundedOutcome.providerCallCount;
 
   if (!validateCoordinatorSuccessBundle(groundedOutcome, input.request.conversationId)) {
-    return freezeUnavailable("result-invalid", coordinatorProviderCallCount);
+    return emitExecutionServiceOutcome(
+      input.observabilitySink,
+      freezeUnavailable("result-invalid", coordinatorProviderCallCount)
+    );
   }
 
   const candidate = validateConversationCoreCandidate({
@@ -510,7 +545,10 @@ async function completeAuthoritativeGrounded(input: {
     },
   });
   if (candidate.outcome !== "accept") {
-    return freezeUnavailable("result-invalid", coordinatorProviderCallCount);
+    return emitExecutionServiceOutcome(
+      input.observabilitySink,
+      freezeUnavailable("result-invalid", coordinatorProviderCallCount)
+    );
   }
 
   const raw = composeResult({
@@ -538,10 +576,16 @@ async function completeAuthoritativeGrounded(input: {
     requiredToolRequestIds: [groundedOutcome.toolResult.requestId],
   });
   if (!result) {
-    return freezeUnavailable("result-invalid", coordinatorProviderCallCount);
+    return emitExecutionServiceOutcome(
+      input.observabilitySink,
+      freezeUnavailable("result-invalid", coordinatorProviderCallCount)
+    );
   }
 
-  return freezeCompleted(result, coordinatorProviderCallCount);
+  return emitExecutionServiceOutcome(
+    input.observabilitySink,
+    freezeCompleted(result, coordinatorProviderCallCount)
+  );
 }
 
 async function completeAccepted(input: {
@@ -648,9 +692,11 @@ function fallbackErrorCode(
 export async function runConversationCoreExecutionService(
   input: ConversationCoreExecutionServiceInput
 ): Promise<ConversationCoreExecutionResult> {
+  const sink =
+    typeof input.observabilitySink === "function" ? input.observabilitySink : undefined;
   const inspected = inspectRuntimeInput(input);
   if (inspected.ok === false) {
-    return freezeUnavailable(inspected.reasonCode, 0);
+    return emitExecutionServiceOutcome(sink, freezeUnavailable(inspected.reasonCode, 0));
   }
 
   const {
@@ -664,6 +710,7 @@ export async function runConversationCoreExecutionService(
     fallbackBuilder,
     toolInjection,
     runGroundedToolTurnCoordinator,
+    observabilitySink,
   } = inspected;
 
   void getConversationCorePolicyLaneDefinition(policyLane);
@@ -675,13 +722,22 @@ export async function runConversationCoreExecutionService(
 
   if (policyLane === "authoritative-data") {
     if (!context.featureFlags.toolsEnabled) {
-      return freezeUnavailable("tools-not-ready", 0);
+      return emitExecutionServiceOutcome(
+        observabilitySink,
+        freezeUnavailable("tools-not-ready", 0)
+      );
     }
     if (typeof runGroundedToolTurnCoordinator !== "function") {
-      return freezeUnavailable("tools-not-ready", 0);
+      return emitExecutionServiceOutcome(
+        observabilitySink,
+        freezeUnavailable("tools-not-ready", 0)
+      );
     }
     if (geminiConfig.status !== "ready") {
-      return freezeUnavailable(mapConfigUnavailable(geminiConfig), 0);
+      return emitExecutionServiceOutcome(
+        observabilitySink,
+        freezeUnavailable(mapConfigUnavailable(geminiConfig), 0)
+      );
     }
     return completeAuthoritativeGrounded({
       request,
@@ -690,15 +746,22 @@ export async function runConversationCoreExecutionService(
       context,
       geminiModel: geminiConfig.model,
       runGroundedToolTurnCoordinator,
+      observabilitySink,
     });
   }
 
   if (!context.featureFlags.coreEnabled || !context.featureFlags.geminiEnabled) {
-    return freezeUnavailable("gemini-disabled", 0);
+    return emitExecutionServiceOutcome(
+      observabilitySink,
+      freezeUnavailable("gemini-disabled", 0)
+    );
   }
 
   if (geminiConfig.status !== "ready") {
-    return freezeUnavailable(mapConfigUnavailable(geminiConfig), 0);
+    return emitExecutionServiceOutcome(
+      observabilitySink,
+      freezeUnavailable(mapConfigUnavailable(geminiConfig), 0)
+    );
   }
 
   const correction = await runConversationCoreMaxOneCorrection({
@@ -712,26 +775,31 @@ export async function runConversationCoreExecutionService(
   });
 
   if (correction.terminal === "accepted" && typeof correction.assistantText === "string") {
-    return completeAccepted({
+    const accepted = await completeAccepted({
       request,
       assistantText: correction.assistantText,
       providerCallCount: correction.providerCallCount,
       correctionStatus: correction.correctionStatus,
     });
+    return emitExecutionServiceOutcome(observabilitySink, accepted);
   }
 
   if (correction.terminal === "needs-fallback" && policyLane === "high-risk-automotive") {
-    return completeHighRiskFallback({
+    const fallback = await completeHighRiskFallback({
       request,
       policyLane,
       providerCallCount: correction.providerCallCount,
       fallbackBuilder,
       errorCode: fallbackErrorCode(correction.reasonCode),
     });
+    return emitExecutionServiceOutcome(observabilitySink, fallback);
   }
 
-  return freezeUnavailable(
-    correction.reasonCode ?? "validation-failed",
-    correction.providerCallCount
+  return emitExecutionServiceOutcome(
+    observabilitySink,
+    freezeUnavailable(
+      correction.reasonCode ?? "validation-failed",
+      correction.providerCallCount
+    )
   );
 }

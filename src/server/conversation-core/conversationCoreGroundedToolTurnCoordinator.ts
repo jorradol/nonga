@@ -22,12 +22,14 @@ import {
   type ToolResult,
   type ToolResultSummary,
 } from "../../services/conversation-core/index";
-import type {
-  ConversationCoreGeminiFinalAnswerFromToolResultInput,
-  ConversationCoreGeminiProviderFunctionCallContext,
-  ConversationCoreGeminiStructuredInitialTurnInput,
-  ConversationCoreGeminiStructuredInitialTurnSuccess,
-  ConversationCoreGeminiToolTransportResult,
+import {
+  emitConversationCoreRuntimeObservability,
+  type ConversationCoreGeminiFinalAnswerFromToolResultInput,
+  type ConversationCoreGeminiProviderFunctionCallContext,
+  type ConversationCoreGeminiStructuredInitialTurnInput,
+  type ConversationCoreGeminiStructuredInitialTurnSuccess,
+  type ConversationCoreGeminiToolTransportResult,
+  type ConversationCoreRuntimeObservabilitySink,
 } from "./conversationCoreGeminiToolTransport";
 import type { ConversationCoreGeminiContentTurn } from "./conversationCoreGeminiAdapter";
 import type {
@@ -103,6 +105,7 @@ export interface ConversationCoreGroundedToolTurnCoordinatorDeps {
     userAssumptions?: readonly ConversationCoreUserAssumption[]
   ) => string;
   readonly mintRequestId: () => string;
+  readonly observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }
 
 export type ConversationCoreGroundedToolTurnGroundingStatus =
@@ -155,6 +158,36 @@ function freezeSuccess(
     kind: "grounded" as const,
     ...input,
     workspaceActions: [] as const,
+  });
+}
+
+function finishCoordinatorOutcome(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  outcome: ConversationCoreGroundedToolTurnCoordinatorOutcome,
+  authoritativeResultCount: number
+): ConversationCoreGroundedToolTurnCoordinatorOutcome {
+  emitConversationCoreRuntimeObservability(sink, {
+    event: "coordinator_outcome",
+    kind: outcome.kind,
+    ...(outcome.kind === "unavailable" ? { reasonCode: outcome.reasonCode } : {}),
+    providerCallCount: outcome.providerCallCount,
+    toolExecutionCount: outcome.toolExecutionCount,
+    authoritativeResultCount,
+  });
+  return outcome;
+}
+
+function emitToolExecutionOutcome(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  toolName: ConversationCoreToolName,
+  status: "attempted" | "ok" | "rejected" | "error",
+  resultCount: number
+): void {
+  emitConversationCoreRuntimeObservability(sink, {
+    event: "tool_execution_outcome",
+    toolName,
+    status,
+    resultCount,
   });
 }
 
@@ -370,16 +403,22 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
   input: ConversationCoreGroundedToolTurnCoordinatorInput,
   deps: ConversationCoreGroundedToolTurnCoordinatorDeps
 ): Promise<ConversationCoreGroundedToolTurnCoordinatorOutcome> {
+  const sink = deps.observabilitySink;
+  const finish = (
+    outcome: ConversationCoreGroundedToolTurnCoordinatorOutcome,
+    authoritativeResultCount = 0
+  ) => finishCoordinatorOutcome(sink, outcome, authoritativeResultCount);
+
   const inputIssue = validateCoordinatorInput(input);
   if (inputIssue) {
-    return freezeUnavailable(inputIssue, 0, 0);
+    return finish(freezeUnavailable(inputIssue, 0, 0));
   }
 
   let providerCallCount = 0;
   let toolExecutionCount = 0;
 
   if (providerCallCount >= CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_PROVIDER_CALLS) {
-    return freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount));
   }
 
   providerCallCount += 1;
@@ -390,36 +429,37 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
     allowedToolNames: input.allowedToolNames,
     transport: { generateContent: async () => ({}) },
     timeoutMs: input.timeoutMs,
+    observabilitySink: sink,
   });
 
   if (providerCallCount > CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_PROVIDER_CALLS) {
-    return freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount));
   }
 
   if (!initialResult.ok) {
-    return freezeUnavailable("invalid-tool-request", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("invalid-tool-request", providerCallCount, toolExecutionCount));
   }
 
   const outcomeValidation = validateConversationCoreGeminiTurnOutcome(
     initialResult.value.outcome
   );
   if (!outcomeValidation.ok) {
-    return freezeUnavailable("invalid-tool-request", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("invalid-tool-request", providerCallCount, toolExecutionCount));
   }
 
   const outcome = outcomeValidation.value;
 
   if (outcome.kind === "final-answer") {
-    return freezeUnavailable("tool-required", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("tool-required", providerCallCount, toolExecutionCount));
   }
 
   if (!isToolAllowedForTurn(outcome.toolName, input.allowedToolNames)) {
-    return freezeUnavailable("tool-not-allowed", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("tool-not-allowed", providerCallCount, toolExecutionCount));
   }
 
   const requestId = deps.mintRequestId();
   if (!isNonEmptyId(requestId)) {
-    return freezeUnavailable("invalid-tool-request", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("invalid-tool-request", providerCallCount, toolExecutionCount));
   }
 
   const boundRequest = buildServerToolRequest({
@@ -428,16 +468,17 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
     outcome,
   });
   if (boundRequest.ok === false) {
-    return freezeUnavailable(boundRequest.reasonCode, providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable(boundRequest.reasonCode, providerCallCount, toolExecutionCount));
   }
 
   const serverToolRequest = boundRequest.request;
 
   if (toolExecutionCount >= CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_TOOL_EXECUTIONS) {
-    return freezeUnavailable("duplicate-execution", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("duplicate-execution", providerCallCount, toolExecutionCount));
   }
 
   toolExecutionCount += 1;
+  emitToolExecutionOutcome(sink, serverToolRequest.toolName, "attempted", 0);
   const executorOutcome = await deps.executeTool({
     rawRequest: serverToolRequest,
     trustedBinding: buildTrustedBinding(
@@ -450,12 +491,13 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
   });
 
   if (toolExecutionCount > CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_TOOL_EXECUTIONS) {
-    return freezeUnavailable("tool-execution-budget-exceeded", providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable("tool-execution-budget-exceeded", providerCallCount, toolExecutionCount));
   }
 
   if (executorOutcome.kind === "rejected") {
+    emitToolExecutionOutcome(sink, serverToolRequest.toolName, "rejected", 0);
     const reasonCode = mapExecutorRejectedReason(executorOutcome.reasonCode);
-    return freezeUnavailable(reasonCode, providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable(reasonCode, providerCallCount, toolExecutionCount));
   }
 
   const validatedToolResult = validateToolResult(executorOutcome.result, {
@@ -465,7 +507,8 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
   });
 
   if (!validatedToolResult.ok) {
-    return freezeUnavailable("invalid-tool-result", providerCallCount, toolExecutionCount);
+    emitToolExecutionOutcome(sink, serverToolRequest.toolName, "error", 0);
+    return finish(freezeUnavailable("invalid-tool-result", providerCallCount, toolExecutionCount));
   }
 
   const toolResult = validatedToolResult.value;
@@ -475,21 +518,32 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
     toolResult.conversationId !== serverToolRequest.conversationId ||
     toolResult.toolName !== serverToolRequest.toolName
   ) {
-    return freezeUnavailable("invalid-tool-result", providerCallCount, toolExecutionCount);
+    emitToolExecutionOutcome(sink, serverToolRequest.toolName, "error", 0);
+    return finish(freezeUnavailable("invalid-tool-result", providerCallCount, toolExecutionCount));
   }
 
   if (toolResult.status !== "ok") {
-    return freezeUnavailable("tool-result-not-ok", providerCallCount, toolExecutionCount);
+    emitToolExecutionOutcome(sink, serverToolRequest.toolName, "error", 0);
+    return finish(freezeUnavailable("tool-result-not-ok", providerCallCount, toolExecutionCount));
   }
 
+  const authoritativeResultCount = listingIdsFromToolResult(toolResult).size;
+  emitToolExecutionOutcome(sink, serverToolRequest.toolName, "ok", authoritativeResultCount);
+
   if (providerCallCount >= CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_PROVIDER_CALLS) {
-    return freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount);
+    return finish(
+      freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount),
+      authoritativeResultCount
+    );
   }
 
   const providerContext: ConversationCoreGeminiProviderFunctionCallContext | undefined =
     initialResult.value.providerContext;
   if (!providerContext) {
-    return freezeUnavailable("follow-up-failed", providerCallCount, toolExecutionCount);
+    return finish(
+      freezeUnavailable("follow-up-failed", providerCallCount, toolExecutionCount),
+      authoritativeResultCount
+    );
   }
 
   providerCallCount += 1;
@@ -501,10 +555,14 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
     toolResult,
     transport: { generateContent: async () => ({}) },
     timeoutMs: input.timeoutMs,
+    observabilitySink: sink,
   });
 
   if (providerCallCount > CONVERSATION_CORE_GROUNDED_TOOL_TURN_MAX_PROVIDER_CALLS) {
-    return freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount);
+    return finish(
+      freezeUnavailable("provider-call-budget-exceeded", providerCallCount, toolExecutionCount),
+      authoritativeResultCount
+    );
   }
 
   if (followUpResult.ok === false) {
@@ -513,7 +571,7 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
       followUpFailureCode === "follow-up-function-call-rejected"
         ? "second-tool-request"
         : "follow-up-failed";
-    return freezeUnavailable(reasonCode, providerCallCount, toolExecutionCount);
+    return finish(freezeUnavailable(reasonCode, providerCallCount, toolExecutionCount), authoritativeResultCount);
   }
 
   const grounded = resolveGroundedAssistantText({
@@ -525,19 +583,25 @@ export async function runConversationCoreGroundedToolTurnCoordinator(
   });
 
   if (grounded.ok === false) {
-    return freezeUnavailable(grounded.reasonCode, providerCallCount, toolExecutionCount);
+    return finish(
+      freezeUnavailable(grounded.reasonCode, providerCallCount, toolExecutionCount),
+      authoritativeResultCount
+    );
   }
 
   const provenance = buildProvenanceFromOkToolResult(toolResult);
 
-  return freezeSuccess({
-    assistantText: grounded.assistantText,
-    toolResult,
-    toolResultsUsed: provenance.toolResultsUsed,
-    groundedFactRefs: provenance.groundedFactRefs,
-    groundingStatus: grounded.groundingStatus,
-    correctionStatus: "none",
-    providerCallCount,
-    toolExecutionCount,
-  });
+  return finish(
+    freezeSuccess({
+      assistantText: grounded.assistantText,
+      toolResult,
+      toolResultsUsed: provenance.toolResultsUsed,
+      groundedFactRefs: provenance.groundedFactRefs,
+      groundingStatus: grounded.groundingStatus,
+      correctionStatus: "none",
+      providerCallCount,
+      toolExecutionCount,
+    }),
+    authoritativeResultCount
+  );
 }

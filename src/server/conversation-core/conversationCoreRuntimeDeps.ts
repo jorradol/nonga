@@ -17,9 +17,11 @@ import {
   type ConversationCoreGeminiConfigStatus,
 } from "./conversationCoreGeminiConfig";
 import {
+  emitConversationCoreRuntimeObservability,
   generateFinalAnswerFromToolResult,
   generateStructuredInitialTurn,
   type ConversationCoreGeminiToolTransportSdkSeam,
+  type ConversationCoreRuntimeObservabilitySink,
 } from "./conversationCoreGeminiToolTransport";
 import {
   CONVERSATION_CORE_GROUNDED_TOOL_TURN_COORDINATOR_UNAVAILABLE_TEXT,
@@ -82,6 +84,7 @@ export interface ConversationCoreRuntimeDepsInput {
   }) => ConversationCoreGeminiToolTransportSdkSeam;
   readonly mintRequestId?: () => string;
   readonly resolveGeminiConfig?: (input: unknown) => ConversationCoreGeminiConfigStatus;
+  readonly observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }
 
 export type ConversationCoreRuntimeDepsGroundedToolTurnRunner = (
@@ -110,6 +113,7 @@ const INPUT_ALLOWED_KEYS = new Set([
   "createSdkSeam",
   "mintRequestId",
   "resolveGeminiConfig",
+  "observabilitySink",
 ]);
 
 const ACTIVATION_ALLOWED_KEYS = new Set([
@@ -265,6 +269,12 @@ function validateRuntimeDepsInput(
   ) {
     return null;
   }
+  if (
+    raw.observabilitySink !== undefined &&
+    typeof raw.observabilitySink !== "function"
+  ) {
+    return null;
+  }
   return Object.freeze({
     activation,
     readEnv:
@@ -286,6 +296,10 @@ function validateRuntimeDepsInput(
     resolveGeminiConfig:
       typeof raw.resolveGeminiConfig === "function"
         ? (raw.resolveGeminiConfig as NonNullable<ConversationCoreRuntimeDepsInput["resolveGeminiConfig"]>)
+        : undefined,
+    observabilitySink:
+      typeof raw.observabilitySink === "function"
+        ? (raw.observabilitySink as ConversationCoreRuntimeObservabilitySink)
         : undefined,
   }) satisfies ConversationCoreRuntimeDepsInput;
 }
@@ -328,20 +342,25 @@ function buildRunner(input: {
   readonly sdkSeam: ConversationCoreGeminiToolTransportSdkSeam;
   readonly registry: ConversationCoreToolRegistry;
   readonly mintRequestId: () => string;
+  readonly observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }): ConversationCoreRuntimeDepsGroundedToolTurnRunner {
   const effectiveStagedSet = new Set<string>(input.effectiveStagedToolNames);
+  const sink = input.observabilitySink;
 
   const coordinatorDeps = Object.freeze({
     mintRequestId: input.mintRequestId,
+    observabilitySink: sink,
     generateInitialTurn: async (callInput: Parameters<typeof generateStructuredInitialTurn>[0]) =>
       generateStructuredInitialTurn({
         ...callInput,
         transport: input.sdkSeam,
+        observabilitySink: sink,
       }),
     generateFollowUp: async (callInput: Parameters<typeof generateFinalAnswerFromToolResult>[0]) =>
       generateFinalAnswerFromToolResult({
         ...callInput,
         transport: input.sdkSeam,
+        observabilitySink: sink,
       }),
     executeTool: async (executorInput: Parameters<typeof executeConversationCoreTool>[0]) => {
       const requestedTool = extractRequestedToolName(executorInput.rawRequest);
@@ -384,6 +403,25 @@ function buildRunner(input: {
   };
 }
 
+function extractObservabilitySink(raw: unknown): ConversationCoreRuntimeObservabilitySink | undefined {
+  if (!isPlainObject(raw) || typeof raw.observabilitySink !== "function") {
+    return undefined;
+  }
+  return raw.observabilitySink as ConversationCoreRuntimeObservabilitySink;
+}
+
+function finishRuntimeDeps(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  result: ConversationCoreRuntimeDepsResult
+): ConversationCoreRuntimeDepsResult {
+  emitConversationCoreRuntimeObservability(sink, {
+    event: "runtime_deps_outcome",
+    kind: result.kind,
+    ...(result.kind === "unavailable" ? { reasonCode: result.reasonCode } : {}),
+  });
+  return result;
+}
+
 /**
  * Lazily compose grounded tool-turn runtime dependencies when activation snapshot is ready.
  * No import-time side effects. No production caller in this work package.
@@ -391,38 +429,39 @@ function buildRunner(input: {
 export function createConversationCoreRuntimeDeps(
   rawInput: unknown
 ): ConversationCoreRuntimeDepsResult {
+  const sink = extractObservabilitySink(rawInput);
   const input = validateRuntimeDepsInput(rawInput);
   if (!input) {
-    return freezeUnavailable("invalid-runtime-deps-input");
+    return finishRuntimeDeps(sink, freezeUnavailable("invalid-runtime-deps-input"));
   }
 
   const { activation } = input;
 
   if (activation.killSwitchEnabled) {
-    return freezeUnavailable("kill-switch-active");
+    return finishRuntimeDeps(sink, freezeUnavailable("kill-switch-active"));
   }
   if (!activation.coreEnabled) {
-    return freezeUnavailable("core-disabled");
+    return finishRuntimeDeps(sink, freezeUnavailable("core-disabled"));
   }
   if (!activation.geminiEnabled) {
-    return freezeUnavailable("gemini-disabled");
+    return finishRuntimeDeps(sink, freezeUnavailable("gemini-disabled"));
   }
   if (!activation.toolsEnabled) {
-    return freezeUnavailable("tools-disabled");
+    return finishRuntimeDeps(sink, freezeUnavailable("tools-disabled"));
   }
 
   if (activation.serverStagedToolNames.length === 0) {
-    return freezeUnavailable("empty-staged-tool-set");
+    return finishRuntimeDeps(sink, freezeUnavailable("empty-staged-tool-set"));
   }
   if (stagedHasBlockedTool(activation.serverStagedToolNames)) {
-    return freezeUnavailable("unsupported-staged-tool");
+    return finishRuntimeDeps(sink, freezeUnavailable("unsupported-staged-tool"));
   }
   if (!stagedHasSupportedTool(activation.serverStagedToolNames)) {
-    return freezeUnavailable("unsupported-staged-tool");
+    return finishRuntimeDeps(sink, freezeUnavailable("unsupported-staged-tool"));
   }
 
   if (!hasInventoryRepository(input.inventoryRepository ?? null)) {
-    return freezeUnavailable("inventory-repository-unavailable");
+    return finishRuntimeDeps(sink, freezeUnavailable("inventory-repository-unavailable"));
   }
 
   const resolveConfig = input.resolveGeminiConfig ?? resolveConversationCoreGeminiConfig;
@@ -431,25 +470,25 @@ export function createConversationCoreRuntimeDeps(
     apiKeyReady: true,
   });
   if (geminiConfig.status !== "ready") {
-    return freezeUnavailable("gemini-config-unavailable");
+    return finishRuntimeDeps(sink, freezeUnavailable("gemini-config-unavailable"));
   }
 
   const readEnv = input.readEnv ?? (() => undefined);
   const apiKey = String(readEnv(CONVERSATION_CORE_GEMINI_API_KEY_ENV) ?? "").trim();
   if (!apiKey) {
-    return freezeUnavailable("gemini-config-unavailable");
+    return finishRuntimeDeps(sink, freezeUnavailable("gemini-config-unavailable"));
   }
 
   const createSdkSeam = input.createSdkSeam;
   if (typeof createSdkSeam !== "function") {
-    return freezeUnavailable("sdk-seam-unavailable");
+    return finishRuntimeDeps(sink, freezeUnavailable("sdk-seam-unavailable"));
   }
 
   let sdkSeam: ConversationCoreGeminiToolTransportSdkSeam;
   try {
     sdkSeam = createSdkSeam({ apiKey });
   } catch {
-    return freezeUnavailable("runtime-deps-construction-failed");
+    return finishRuntimeDeps(sink, freezeUnavailable("runtime-deps-construction-failed"));
   }
 
   const registry = createConversationCoreBusinessToolRegistry({
@@ -460,7 +499,7 @@ export function createConversationCoreRuntimeDeps(
     finance: null,
   });
   if (!registry) {
-    return freezeUnavailable("runtime-deps-construction-failed");
+    return finishRuntimeDeps(sink, freezeUnavailable("runtime-deps-construction-failed"));
   }
 
   const effectiveStagedToolNames = activation.serverStagedToolNames.filter(
@@ -473,7 +512,8 @@ export function createConversationCoreRuntimeDeps(
     sdkSeam,
     registry,
     mintRequestId: createMintRequestIdFactory(input.mintRequestId),
+    observabilitySink: input.observabilitySink ?? sink,
   });
 
-  return freezeReady(runner);
+  return finishRuntimeDeps(sink, freezeReady(runner));
 }

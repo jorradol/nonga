@@ -68,6 +68,240 @@ export const CONVERSATION_CORE_GEMINI_TOOL_TRANSPORT_ERROR_CODES = [
 export type ConversationCoreGeminiToolTransportErrorCode =
   (typeof CONVERSATION_CORE_GEMINI_TOOL_TRANSPORT_ERROR_CODES)[number];
 
+const GEMINI_PROVIDER_ERROR_CLASSES = new Set<ConversationCoreGeminiToolTransportErrorCode>([
+  "sdk-unavailable",
+  "provider-timeout",
+  "provider-aborted",
+  "provider-error",
+]);
+
+export const CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES = [
+  "authentication_failed",
+  "permission_denied",
+  "quota_exhausted",
+  "model_not_found",
+  "provider_unavailable",
+  "timeout",
+  "network_error",
+  "unknown_provider_error",
+] as const;
+
+export type ConversationCoreBoundedGeminiProviderErrorClass =
+  (typeof CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES)[number];
+
+const STRUCTURED_GOOGLE_CODES = new Set([
+  "UNAUTHENTICATED",
+  "PERMISSION_DENIED",
+  "RESOURCE_EXHAUSTED",
+  "NOT_FOUND",
+  "UNAVAILABLE",
+  "INTERNAL",
+  "API_KEY_INVALID",
+  "DEADLINE_EXCEEDED",
+]);
+
+const NETWORK_SYSTEM_CODES = new Set([
+  "ECONNRESET",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "EPIPE",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ECONNABORTED",
+  "ERR_NETWORK",
+  "ERR_SOCKET",
+]);
+
+const TIMEOUT_SYSTEM_CODES = new Set([
+  "ETIMEDOUT",
+  "ERR_TIMEOUT",
+  "timeout",
+  "ABORT_ERR",
+  "ERR_CANCELED",
+]);
+
+const STANDARD_TIMEOUT_NAMES = new Set([
+  "AbortError",
+  "TimeoutError",
+  "APIConnectionTimeoutError",
+  "APIUserAbortError",
+]);
+
+const STANDARD_NETWORK_NAMES = new Set(["APIConnectionError"]);
+
+const STANDARD_CLASS_BY_NAME: Readonly<Record<string, ConversationCoreBoundedGeminiProviderErrorClass>> =
+  Object.freeze({
+    AuthenticationError: "authentication_failed",
+    PermissionDeniedError: "permission_denied",
+    RateLimitError: "quota_exhausted",
+    NotFoundError: "model_not_found",
+    InternalServerError: "provider_unavailable",
+  });
+
+type BoundedGeminiErrorSignals = {
+  httpStatus?: number;
+  structuredCode?: string;
+  errorName?: string;
+  systemCode?: string;
+};
+
+function isBoundedIntegerStatus(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 100 && value <= 599;
+}
+
+function takeAllowlistedCode(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  if (STRUCTURED_GOOGLE_CODES.has(value) || NETWORK_SYSTEM_CODES.has(value)) {
+    return value;
+  }
+  return undefined;
+}
+
+function collectBoundedGeminiErrorSignals(
+  error: unknown,
+  into: BoundedGeminiErrorSignals,
+  depth: number
+): void {
+  if (depth > 2 || !error || typeof error !== "object") {
+    return;
+  }
+  const record = error as Record<string, unknown>;
+  if (into.httpStatus === undefined) {
+    if (isBoundedIntegerStatus(record.status)) {
+      into.httpStatus = record.status;
+    } else if (isBoundedIntegerStatus(record.statusCode)) {
+      into.httpStatus = record.statusCode;
+    } else if (isBoundedIntegerStatus(record.code)) {
+      into.httpStatus = record.code;
+    }
+  }
+  if (into.structuredCode === undefined) {
+    const structured =
+      takeAllowlistedCode(record.code) ??
+      (typeof record.status === "string" ? takeAllowlistedCode(record.status) : undefined) ??
+      takeAllowlistedCode(record.reason);
+    if (structured && STRUCTURED_GOOGLE_CODES.has(structured)) {
+      into.structuredCode = structured;
+    }
+  }
+  if (into.systemCode === undefined && typeof record.code === "string") {
+    if (NETWORK_SYSTEM_CODES.has(record.code) || TIMEOUT_SYSTEM_CODES.has(record.code)) {
+      into.systemCode = record.code;
+    }
+  }
+  if (into.errorName === undefined && typeof record.name === "string") {
+    if (
+      STANDARD_TIMEOUT_NAMES.has(record.name) ||
+      STANDARD_NETWORK_NAMES.has(record.name) ||
+      Object.prototype.hasOwnProperty.call(STANDARD_CLASS_BY_NAME, record.name)
+    ) {
+      into.errorName = record.name;
+    }
+  }
+  if (Array.isArray(record.details)) {
+    for (const detail of record.details) {
+      if (detail && typeof detail === "object") {
+        const reason = takeAllowlistedCode((detail as Record<string, unknown>).reason);
+        if (reason && STRUCTURED_GOOGLE_CODES.has(reason) && into.structuredCode === undefined) {
+          into.structuredCode = reason;
+        }
+      }
+    }
+  }
+  if (record.error && typeof record.error === "object" && !Array.isArray(record.error)) {
+    collectBoundedGeminiErrorSignals(record.error, into, depth + 1);
+  }
+}
+
+export function classifyConversationCoreBoundedGeminiProviderError(
+  error: unknown
+): ConversationCoreBoundedGeminiProviderErrorClass {
+  const signals: BoundedGeminiErrorSignals = {};
+  collectBoundedGeminiErrorSignals(error, signals, 0);
+
+  if (
+    (signals.errorName !== undefined && STANDARD_TIMEOUT_NAMES.has(signals.errorName)) ||
+    (signals.systemCode !== undefined && TIMEOUT_SYSTEM_CODES.has(signals.systemCode)) ||
+    signals.structuredCode === "DEADLINE_EXCEEDED"
+  ) {
+    return "timeout";
+  }
+  if (signals.errorName !== undefined && STANDARD_NETWORK_NAMES.has(signals.errorName)) {
+    return "network_error";
+  }
+  if (signals.systemCode !== undefined && NETWORK_SYSTEM_CODES.has(signals.systemCode)) {
+    return "network_error";
+  }
+  if (signals.errorName !== undefined && STANDARD_CLASS_BY_NAME[signals.errorName]) {
+    return STANDARD_CLASS_BY_NAME[signals.errorName];
+  }
+  if (
+    signals.structuredCode === "UNAUTHENTICATED" ||
+    signals.structuredCode === "API_KEY_INVALID" ||
+    signals.httpStatus === 401
+  ) {
+    return "authentication_failed";
+  }
+  if (signals.structuredCode === "PERMISSION_DENIED" || signals.httpStatus === 403) {
+    return "permission_denied";
+  }
+  if (signals.structuredCode === "RESOURCE_EXHAUSTED" || signals.httpStatus === 429) {
+    return "quota_exhausted";
+  }
+  if (signals.structuredCode === "NOT_FOUND" || signals.httpStatus === 404) {
+    return "model_not_found";
+  }
+  if (
+    signals.structuredCode === "UNAVAILABLE" ||
+    signals.structuredCode === "INTERNAL" ||
+    signals.httpStatus === 500 ||
+    signals.httpStatus === 502 ||
+    signals.httpStatus === 503 ||
+    signals.httpStatus === 504
+  ) {
+    return "provider_unavailable";
+  }
+  return "unknown_provider_error";
+}
+
+export type ConversationCoreRuntimeObservabilityGeminiKind =
+  | "tool_request"
+  | "final_answer"
+  | "provider_error"
+  | "invalid_response";
+
+export type ConversationCoreRuntimeObservabilityEvent = {
+  readonly event: string;
+  readonly [key: string]: string | number | boolean | undefined;
+};
+
+export type ConversationCoreRuntimeObservabilitySink = (
+  event: ConversationCoreRuntimeObservabilityEvent
+) => void;
+
+export function emitConversationCoreRuntimeObservability(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  event: ConversationCoreRuntimeObservabilityEvent
+): void {
+  if (typeof sink !== "function") {
+    return;
+  }
+  try {
+    sink(Object.freeze({ ...event }));
+  } catch {
+    // Observability must never change control flow or public results.
+  }
+}
+
+function classifyGeminiTransportKind(
+  code: ConversationCoreGeminiToolTransportErrorCode
+): Extract<ConversationCoreRuntimeObservabilityGeminiKind, "provider_error" | "invalid_response"> {
+  return GEMINI_PROVIDER_ERROR_CLASSES.has(code) ? "provider_error" : "invalid_response";
+}
+
 export type ConversationCoreGeminiToolTransportResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly code: ConversationCoreGeminiToolTransportErrorCode };
@@ -126,6 +360,7 @@ export interface ConversationCoreGeminiStructuredInitialTurnInput {
     callback: () => void,
     ms: number
   ) => ConversationCoreGeminiTimeoutHandle;
+  readonly observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }
 
 export interface ConversationCoreGeminiStructuredInitialTurnSuccess {
@@ -145,6 +380,7 @@ export interface ConversationCoreGeminiFinalAnswerFromToolResultInput {
     callback: () => void,
     ms: number
   ) => ConversationCoreGeminiTimeoutHandle;
+  readonly observabilitySink?: ConversationCoreRuntimeObservabilitySink;
 }
 
 function freezeOk<T>(value: T): ConversationCoreGeminiToolTransportResult<T> {
@@ -392,7 +628,14 @@ async function invokeTransport(input: {
   request: ConversationCoreGeminiToolTransportGenerateContentRequest;
   timeoutMs?: number;
   scheduleTimeout?: (callback: () => void, ms: number) => ConversationCoreGeminiTimeoutHandle;
-}): Promise<ConversationCoreGeminiToolTransportResult<unknown>> {
+}): Promise<
+  | { readonly ok: true; readonly value: unknown }
+  | {
+      readonly ok: false;
+      readonly code: ConversationCoreGeminiToolTransportErrorCode;
+      readonly providerErrorClass: ConversationCoreBoundedGeminiProviderErrorClass;
+    }
+> {
   const controller = new AbortController();
   const timeoutMs = resolveConversationCoreGeminiTimeoutMs(
     input.timeoutMs ?? CONVERSATION_CORE_GEMINI_DEFAULT_TIMEOUT_MS
@@ -414,12 +657,16 @@ async function invokeTransport(input: {
       scheduleTimeout: input.scheduleTimeout,
       onTimeout: () => controller.abort(),
     });
-    return freezeOk(response);
+    return { ok: true as const, value: response };
   } catch (error) {
     if (!controller.signal.aborted) {
       controller.abort();
     }
-    return freezeFail(mapProviderException(error));
+    return {
+      ok: false as const,
+      code: mapProviderException(error),
+      providerErrorClass: classifyConversationCoreBoundedGeminiProviderError(error),
+    };
   }
 }
 
@@ -618,12 +865,71 @@ function parseFinalAnswerCandidate(
   return freezeOk(text);
 }
 
+function emitGeminiTransportOutcome(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  phase: "initial" | "follow_up",
+  kind: ConversationCoreRuntimeObservabilityGeminiKind,
+  errorClass?: ConversationCoreGeminiToolTransportErrorCode,
+  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass
+): void {
+  emitConversationCoreRuntimeObservability(sink, {
+    event: "gemini_transport_outcome",
+    phase,
+    kind,
+    ...(errorClass ? { errorClass } : {}),
+    ...(providerErrorClass ? { providerErrorClass } : {}),
+  });
+}
+
+function finishInitialTurn(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  result: ConversationCoreGeminiToolTransportResult<ConversationCoreGeminiStructuredInitialTurnSuccess>,
+  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass
+): ConversationCoreGeminiToolTransportResult<ConversationCoreGeminiStructuredInitialTurnSuccess> {
+  if (result.ok === false) {
+    emitGeminiTransportOutcome(
+      sink,
+      "initial",
+      classifyGeminiTransportKind(result.code),
+      result.code,
+      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? providerErrorClass : undefined
+    );
+    return result;
+  }
+  emitGeminiTransportOutcome(
+    sink,
+    "initial",
+    result.value.outcome.kind === "tool-request" ? "tool_request" : "final_answer"
+  );
+  return result;
+}
+
+function finishFollowUp(
+  sink: ConversationCoreRuntimeObservabilitySink | undefined,
+  result: ConversationCoreGeminiToolTransportResult<string>,
+  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass
+): ConversationCoreGeminiToolTransportResult<string> {
+  if (result.ok === false) {
+    emitGeminiTransportOutcome(
+      sink,
+      "follow_up",
+      classifyGeminiTransportKind(result.code),
+      result.code,
+      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? providerErrorClass : undefined
+    );
+    return result;
+  }
+  emitGeminiTransportOutcome(sink, "follow_up", "final_answer");
+  return result;
+}
+
 export async function generateStructuredInitialTurn(
   input: ConversationCoreGeminiStructuredInitialTurnInput
 ): Promise<ConversationCoreGeminiToolTransportResult<ConversationCoreGeminiStructuredInitialTurnSuccess>> {
+  const sink = input.observabilitySink;
   const declarationsResult = buildConversationCoreGeminiFunctionDeclarations(input.allowedToolNames);
   if (!declarationsResult.ok) {
-    return freezeFail("invalid-allowed-tool-declarations");
+    return finishInitialTurn(sink, freezeFail("invalid-allowed-tool-declarations"));
   }
 
   const allowedFunctionNames = input.allowedToolNames.map((name) => name);
@@ -648,10 +954,10 @@ export async function generateStructuredInitialTurn(
     },
   });
   if (transportResult.ok === false) {
-    return freezeFail(transportResult.code);
+    return finishInitialTurn(sink, freezeFail(transportResult.code), transportResult.providerErrorClass);
   }
   if (!isPlainObject(transportResult.value)) {
-    return freezeFail("malformed-response");
+    return finishInitialTurn(sink, freezeFail("malformed-response"));
   }
 
   const parsed = parseInitialCandidate({
@@ -659,29 +965,30 @@ export async function generateStructuredInitialTurn(
     allowedToolNames: input.allowedToolNames,
   });
   if (parsed.ok === false) {
-    return freezeFail(parsed.code);
+    return finishInitialTurn(sink, freezeFail(parsed.code));
   }
-  return freezeOk(parsed.value);
+  return finishInitialTurn(sink, freezeOk(parsed.value));
 }
 
 export async function generateFinalAnswerFromToolResult(
   input: ConversationCoreGeminiFinalAnswerFromToolResultInput
 ): Promise<ConversationCoreGeminiToolTransportResult<string>> {
+  const sink = input.observabilitySink;
   const validated = validateToolResult(input.toolResult);
   if (!validated.ok) {
-    return freezeFail("invalid-validated-tool-result-input");
+    return finishFollowUp(sink, freezeFail("invalid-validated-tool-result-input"));
   }
   if (validated.value.toolName !== input.providerContext.functionName) {
-    return freezeFail("tool-result-name-mismatch");
+    return finishFollowUp(sink, freezeFail("tool-result-name-mismatch"));
   }
   if (validated.value.status !== "ok") {
-    return freezeFail("tool-result-not-ok");
+    return finishFollowUp(sink, freezeFail("tool-result-not-ok"));
   }
 
   const responsePayload = buildGeminiFunctionResponsePayload(validated.value);
   const payloadJson = JSON.stringify(responsePayload);
   if (payloadJson.length > CONVERSATION_CORE_MAX_MESSAGE_LENGTH) {
-    return freezeFail("oversized-tool-result");
+    return finishFollowUp(sink, freezeFail("oversized-tool-result"));
   }
 
   let functionResponsePart: ReturnType<typeof createPartFromFunctionResponse>;
@@ -692,7 +999,7 @@ export async function generateFinalAnswerFromToolResult(
       responsePayload
     );
   } catch {
-    return freezeFail("invalid-function-response-construction");
+    return finishFollowUp(sink, freezeFail("invalid-function-response-construction"));
   }
 
   const followUpContents = [
@@ -723,13 +1030,13 @@ export async function generateFinalAnswerFromToolResult(
     },
   });
   if (transportResult.ok === false) {
-    return freezeFail(transportResult.code);
+    return finishFollowUp(sink, freezeFail(transportResult.code), transportResult.providerErrorClass);
   }
   if (!isPlainObject(transportResult.value)) {
-    return freezeFail("malformed-response");
+    return finishFollowUp(sink, freezeFail("malformed-response"));
   }
 
-  return parseFinalAnswerCandidate(transportResult.value);
+  return finishFollowUp(sink, parseFinalAnswerCandidate(transportResult.value));
 }
 
 /** Production SDK seam — inject config; never reads environment at import time. */
