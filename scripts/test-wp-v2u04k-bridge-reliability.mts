@@ -71,7 +71,7 @@ const SAMPLE_INVENTORY: ChatInventoryCar[] = [
   },
 ];
 
-const LEGACY_DISCOVERY_SNIPPET = "คัดจาก Inventory จริง";
+const LEGACY_FIXTURE_BRAND = SAMPLE_INVENTORY[0].brand;
 
 /** Mirrors chatStore finalizeStreamedReply card selection for persistence checks. */
 function resolveFinalizeCardsForPersistence(
@@ -234,8 +234,11 @@ async function testMissingTokenFailClosed(): Promise<void> {
 
   const legacy = tryOrchestrateChatReply(SEARCH_MSG, SAMPLE_INVENTORY);
   assert(
-    Boolean(legacy?.text?.includes(LEGACY_DISCOVERY_SNIPPET)),
-    "04K-5d: legacy discovery text exists for comparison"
+    Boolean(
+      legacy?.text?.includes(LEGACY_FIXTURE_BRAND) &&
+        (legacy?.carCards?.length ?? 0) >= 1
+    ),
+    "04K-5d: legacy discovery reflects fixture inventory for comparison"
   );
   assert(
     MANDATORY_VEHICLE_SEARCH_BRIDGE_FAIL_MESSAGE !== legacy?.text,
