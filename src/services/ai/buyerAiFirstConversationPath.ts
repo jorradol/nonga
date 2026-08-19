@@ -15,6 +15,8 @@ import {
 } from "./salesBrainUserVisibleGate";
 import { evaluateUserVisibleRealProviderEligibility } from "./salesBrainUserVisibleRealProvider";
 import type { SalesBrainUserRole } from "./salesBrainTypes";
+import { parseBuyerSearchIntent } from "./chat/buyerSearchIntentParser";
+import { isVehicleDiscoveryIntent } from "./chat/vehicleDiscoveryCriteriaParser";
 
 export const BUYER_AI_FIRST_CONVERSATION_SLICE_ID = "epic-b-ai-first";
 
@@ -125,6 +127,35 @@ export function evaluateBuyerAiFirstEligibility(
     gateReason: realProviderEligibility.gateReason,
     userVisibleGate,
   };
+}
+
+/** Signed-in vehicle Search/Inventory discovery turns (excludes sell/listing). */
+export function isMandatoryAuthenticatedVehicleSearchMessage(input: {
+  userMessage: string;
+  isSellerListingAction?: boolean;
+  isSellIntent?: boolean;
+}): boolean {
+  const message = input.userMessage.trim();
+  if (!message) return false;
+  if (input.isSellerListingAction || input.isSellIntent) return false;
+  return (
+    parseBuyerSearchIntent(message).isVehicleSearch ||
+    isVehicleDiscoveryIntent(message)
+  );
+}
+
+/**
+ * WP-V2U-04K — any signed-in role must hit the server bridge for vehicle Search;
+ * server derives Core vs Legacy from verified UID only.
+ */
+export function shouldInvokeAuthenticatedVehicleSearchServerBridge(input: {
+  isSignedIn: boolean;
+  userMessage: string;
+  isSellerListingAction?: boolean;
+  isSellIntent?: boolean;
+}): boolean {
+  if (!input.isSignedIn) return false;
+  return isMandatoryAuthenticatedVehicleSearchMessage(input);
 }
 
 /** Client-side: signed-in buyer turns should always hit the server bridge (gate is server-side). */

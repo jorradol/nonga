@@ -7,12 +7,21 @@ import {
   buildMockChatReply,
   chunkTextForStream,
 } from "../../services/ai/chatMockFallback";
-import { tryOrchestrateChatReply } from "../../services/ai/chat/chatSearchOrchestrator";
+import {
+  tryOrchestrateChatReply,
+  type OrchestratedChatReply,
+} from "../../services/ai/chat/chatSearchOrchestrator";
 import {
   applyChatUserVisibleServerBridge,
+  MANDATORY_VEHICLE_SEARCH_BRIDGE_FAIL_MESSAGE,
+  resolveChatUserVisibleBridgeResult,
   shouldApplyBridgeUserVisibleText,
+  type ChatUserVisibleOrchestrateData,
 } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
-import { shouldInvokeBuyerConversationServerBridge } from "../../services/ai/buyerAiFirstConversationPath";
+import {
+  shouldInvokeAuthenticatedVehicleSearchServerBridge,
+  shouldInvokeBuyerConversationServerBridge,
+} from "../../services/ai/buyerAiFirstConversationPath";
 import {
   resolvePilotSessionContextForFollowUp,
   pilotSessionCardsToChatCarCards,
@@ -236,6 +245,41 @@ function notifyDealerDraftSaved(draftId: string | undefined): void {
       detail: { draftId },
     })
   );
+}
+
+/**
+ * WP-V2U-04K-R1 — mandatory vehicle Search uses server bridge payload exactly
+ * (including empty carCards). Returns null when carCards is not a valid array.
+ */
+export function resolveMandatoryVehicleSearchOrchestratedReply(
+  bridgedData: ChatUserVisibleOrchestrateData
+): OrchestratedChatReply | null {
+  if (!Array.isArray(bridgedData.carCards)) {
+    return null;
+  }
+  const text = bridgedData.userVisibleText?.trim();
+  if (!text) {
+    return null;
+  }
+  return {
+    text: bridgedData.userVisibleText,
+    carCards: bridgedData.carCards,
+    skipGemini: true,
+    hasMoreCars: bridgedData.hasMoreCars,
+    isDraftPreview: bridgedData.isDraftPreview,
+    draftFields: bridgedData.draftFields,
+  };
+}
+
+/** Fail-closed publish args: error text only, no Legacy cards for this request. */
+export function buildMandatoryVehicleSearchBridgeFailurePublishArgs(): {
+  replyText: string;
+  carCards: ChatCarCardData[];
+} {
+  return {
+    replyText: MANDATORY_VEHICLE_SEARCH_BRIDGE_FAIL_MESSAGE,
+    carCards: [],
+  };
 }
 
 export function useChat() {
@@ -1703,56 +1747,90 @@ export function useChat() {
         isAdmin,
         isDealer,
       });
-      const shouldCallUserVisibleBridge =
-        shouldInvokeBuyerConversationServerBridge({
+      const isMandatoryVehicleSearchBridge =
+        shouldInvokeAuthenticatedVehicleSearchServerBridge({
           isSignedIn,
-          userRole: salesBrainUserRole,
           userMessage: trimmed,
           isSellerListingAction: isSaveListingChatAction(trimmed),
           isSellIntent: isSellIntent(trimmed),
-        }) &&
-        (Boolean(orchestrated?.skipGemini) ||
-          (isFollowUpPilot && !orchestrated) ||
-          !orchestrated);
+        });
 
-      if (shouldCallUserVisibleBridge) {
-        const bridged = await applyChatUserVisibleServerBridge({
+      if (isMandatoryVehicleSearchBridge) {
+        const bridgeResult = await resolveChatUserVisibleBridgeResult({
           userMessage: trimmed,
           attachedImageCount: hasImages ? imageAttachments.length : undefined,
-          orchestratedText: orchestrated?.text ?? "",
           pilotSessionContext,
         });
-        if (bridged?.userVisibleText?.trim()) {
-          if (orchestrated) {
-            if (
-              shouldApplyBridgeUserVisibleText({
-                userMessage: trimmed,
-                orchestratedText: orchestrated.text,
-                bridgedText: bridged.userVisibleText,
-              })
-            ) {
-              orchestrated.text = bridged.userVisibleText;
+        const publishMandatoryBridgeFailure = async () => {
+          const { replyText, carCards } =
+            buildMandatoryVehicleSearchBridgeFailurePublishArgs();
+          updateStreamedReply(replyText, carCards);
+          await finalizeStreamedReply(sessionId, carCards);
+          setGenerating(false);
+        };
+        if (bridgeResult.status === "failure") {
+          await publishMandatoryBridgeFailure();
+          return;
+        }
+        const mandatoryOrchestrated =
+          resolveMandatoryVehicleSearchOrchestratedReply(bridgeResult.data);
+        if (!mandatoryOrchestrated) {
+          await publishMandatoryBridgeFailure();
+          return;
+        }
+        orchestrated = mandatoryOrchestrated;
+      } else {
+        const shouldCallUserVisibleBridge =
+          shouldInvokeBuyerConversationServerBridge({
+            isSignedIn,
+            userRole: salesBrainUserRole,
+            userMessage: trimmed,
+            isSellerListingAction: isSaveListingChatAction(trimmed),
+            isSellIntent: isSellIntent(trimmed),
+          }) &&
+          (Boolean(orchestrated?.skipGemini) ||
+            (isFollowUpPilot && !orchestrated) ||
+            !orchestrated);
+
+        if (shouldCallUserVisibleBridge) {
+          const bridged = await applyChatUserVisibleServerBridge({
+            userMessage: trimmed,
+            attachedImageCount: hasImages ? imageAttachments.length : undefined,
+            orchestratedText: orchestrated?.text ?? "",
+            pilotSessionContext,
+          });
+          if (bridged?.userVisibleText?.trim()) {
+            if (orchestrated) {
+              if (
+                shouldApplyBridgeUserVisibleText({
+                  userMessage: trimmed,
+                  orchestratedText: orchestrated.text,
+                  bridgedText: bridged.userVisibleText,
+                })
+              ) {
+                orchestrated.text = bridged.userVisibleText;
+              }
+              // v22.58 — keep cards and text on the same canonical server set
+              // v22.59 — never let image-less server cards overwrite complete local cards
+              if (bridged.carCards && bridged.carCards.length > 0) {
+                orchestrated.carCards = mergeChatCarCardsPreferImages(
+                  orchestrated.carCards,
+                  bridged.carCards
+                );
+              }
+            } else if (isFollowUpPilot || bridged.realProviderNetwork) {
+              const fallbackCards = pilotSessionContext
+                ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
+                : [];
+              orchestrated = {
+                text: bridged.userVisibleText,
+                carCards:
+                  bridged.carCards && bridged.carCards.length > 0
+                    ? mergeChatCarCardsPreferImages(fallbackCards, bridged.carCards)
+                    : fallbackCards,
+                skipGemini: true,
+              };
             }
-            // v22.58 — keep cards and text on the same canonical server set
-            // v22.59 — never let image-less server cards overwrite complete local cards
-            if (bridged.carCards && bridged.carCards.length > 0) {
-              orchestrated.carCards = mergeChatCarCardsPreferImages(
-                orchestrated.carCards,
-                bridged.carCards
-              );
-            }
-          } else if (isFollowUpPilot || bridged.realProviderNetwork) {
-            const fallbackCards = pilotSessionContext
-              ? pilotSessionCardsToChatCarCards(pilotSessionContext.recentCarCards)
-              : [];
-            orchestrated = {
-              text: bridged.userVisibleText,
-              carCards:
-                bridged.carCards && bridged.carCards.length > 0
-                  ? mergeChatCarCardsPreferImages(fallbackCards, bridged.carCards)
-                  : fallbackCards,
-              skipGemini: true,
-            };
           }
         }
       }

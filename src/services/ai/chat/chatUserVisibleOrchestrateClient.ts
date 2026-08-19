@@ -2,7 +2,9 @@
  * v6.1L.2c — Client bridge to server user-visible orchestration (auth Bearer only).
  * Does not send UID in request body — server derives identity from verified token.
  */
-import { getFirebaseAuthHeaders } from "../../auth/firebaseAuthHeaders";
+import {
+  getFirebaseAuthHeaders,
+} from "../../auth/firebaseAuthHeaders";
 import type { PilotBuyerSessionContext } from "./chatPilotSessionContext";
 import type { ChatCarCardData } from "../../../types";
 import type { ExtractedCarFields } from "./sellIntentParser";
@@ -12,6 +14,31 @@ import {
 } from "./vehicleDiscoveryCriteriaParser";
 
 export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-orchestrate";
+
+export const MANDATORY_VEHICLE_SEARCH_BRIDGE_FAIL_MESSAGE =
+  "ขณะนี้เชื่อมต่อระบบค้นหาไม่สำเร็จครับ กรุณารีเฟรชหน้าแล้วลองเข้าสู่ระบบใหม่อีกครั้งนะครับ";
+
+export type BridgeDiagnosticReason =
+  | "bridge_attempted"
+  | "missing_verified_token"
+  | "server_non_pilot"
+  | "bridge_http_failure"
+  | "bridge_invalid_response"
+  | "bridge_success";
+
+export type ChatUserVisibleBridgeResult =
+  | {
+      status: "success";
+      diagnostic: "bridge_success" | "server_non_pilot";
+      data: ChatUserVisibleOrchestrateData;
+    }
+  | {
+      status: "failure";
+      diagnostic:
+        | "missing_verified_token"
+        | "bridge_http_failure"
+        | "bridge_invalid_response";
+    };
 
 export interface ChatUserVisibleOrchestrateData {
   sliceId: string;
@@ -97,6 +124,87 @@ function isAskSelectOrWhichCarBridge(text: string): boolean {
   );
 }
 
+function emitBridgeDiagnostic(reason: BridgeDiagnosticReason): void {
+  if (typeof window === "undefined") return;
+  try {
+  const prod =
+    typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { PROD?: boolean } }).env?.PROD === true;
+    if (prod) return;
+    console.debug("[chat-user-visible-bridge]", { reason });
+  } catch {
+    // Fail-open: diagnostics must never block chat.
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Normalize HeadersInit from getFirebaseAuthHeaders into fetch-ready string headers. */
+function normalizeFirebaseAuthHeadersForFetch(
+  headersInit: HeadersInit
+): Record<string, string> {
+  const headers = new Headers(headersInit);
+  const normalized: Record<string, string> = {
+    "Content-Type": headers.get("Content-Type") ?? "application/json",
+  };
+  const authorization = headers.get("Authorization");
+  if (authorization) {
+    normalized.Authorization = authorization;
+  }
+  return normalized;
+}
+
+async function acquireVerifiedAuthHeaders(): Promise<Record<string, string>> {
+  let normalized = normalizeFirebaseAuthHeadersForFetch(
+    await getFirebaseAuthHeaders({ forceRefresh: false })
+  );
+  if (normalized.Authorization) return normalized;
+  await sleep(250);
+  normalized = normalizeFirebaseAuthHeadersForFetch(
+    await getFirebaseAuthHeaders({ forceRefresh: true })
+  );
+  if (normalized.Authorization) return normalized;
+  await sleep(500);
+  return normalizeFirebaseAuthHeadersForFetch(
+    await getFirebaseAuthHeaders({ forceRefresh: true })
+  );
+}
+
+export type ChatUserVisibleBridgeDeps = {
+  getAuthHeaders?: () => Promise<Record<string, string>>;
+  fetchImpl?: typeof fetch;
+};
+
+function classifyServerBridgeDiagnostic(
+  data: ChatUserVisibleOrchestrateData
+): "bridge_success" | "server_non_pilot" {
+  const runtime = data.userVisibleRuntimeDiagnostic;
+  if (data.pilotPathActive || data.realProviderNetwork || runtime?.aiFirstPathActive) {
+    return "bridge_success";
+  }
+  if (data.fallbackToLegacy || !data.pilotPathActive) {
+    return "server_non_pilot";
+  }
+  return "bridge_success";
+}
+
+function buildOrchestrateRequestBody(input: {
+  userMessage: string;
+  attachedImageCount?: number;
+  pilotSessionContext?: PilotBuyerSessionContext;
+}): Record<string, unknown> {
+  const body: Record<string, unknown> = { userMessage: input.userMessage };
+  if (input.attachedImageCount !== undefined) {
+    body.attachedImageCount = input.attachedImageCount;
+  }
+  if (input.pilotSessionContext?.recentCarCards?.length) {
+    body.pilotSessionContext = input.pilotSessionContext;
+  }
+  return body;
+}
+
 /**
  * v22.73 — signed-in bridge precedence guard:
  * keep deterministic client text when bridge contradicts refusal/continuity intent.
@@ -132,6 +240,60 @@ export function shouldApplyBridgeUserVisibleText(
 }
 
 /**
+ * WP-V2U-04K — bounded token acquisition + explicit bridge result for mandatory Search.
+ */
+export async function resolveChatUserVisibleBridgeResult(
+  input: {
+    userMessage: string;
+    attachedImageCount?: number;
+    pilotSessionContext?: PilotBuyerSessionContext;
+  },
+  deps: ChatUserVisibleBridgeDeps = {}
+): Promise<ChatUserVisibleBridgeResult> {
+  emitBridgeDiagnostic("bridge_attempted");
+  const getAuthHeaders = deps.getAuthHeaders ?? acquireVerifiedAuthHeaders;
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const headers = await getAuthHeaders();
+  if (!headers.Authorization) {
+    emitBridgeDiagnostic("missing_verified_token");
+    return { status: "failure", diagnostic: "missing_verified_token" };
+  }
+
+  const requestHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...headers,
+  };
+  const body = buildOrchestrateRequestBody(input);
+
+  try {
+    const res = await fetchImpl(CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE, {
+      method: "POST",
+      headers: requestHeaders,
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401 || res.status === 403 || !res.ok) {
+      emitBridgeDiagnostic("bridge_http_failure");
+      return { status: "failure", diagnostic: "bridge_http_failure" };
+    }
+    const json = (await res.json()) as ChatUserVisibleOrchestrateResponse;
+    if (!json.success || !json.data) {
+      emitBridgeDiagnostic("bridge_invalid_response");
+      return { status: "failure", diagnostic: "bridge_invalid_response" };
+    }
+    if (!json.data.userVisibleText?.trim()) {
+      emitBridgeDiagnostic("bridge_invalid_response");
+      return { status: "failure", diagnostic: "bridge_invalid_response" };
+    }
+    const diagnostic = classifyServerBridgeDiagnostic(json.data);
+    emitBridgeDiagnostic(diagnostic);
+    return { status: "success", diagnostic, data: json.data };
+  } catch {
+    emitBridgeDiagnostic("bridge_http_failure");
+    return { status: "failure", diagnostic: "bridge_http_failure" };
+  }
+}
+
+/**
  * Request server orchestration bridge — returns null when unauthenticated or on transport error.
  */
 export async function fetchChatUserVisibleOrchestrate(input: {
@@ -139,42 +301,11 @@ export async function fetchChatUserVisibleOrchestrate(input: {
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
 }): Promise<ChatUserVisibleOrchestrateData | null> {
-  const headers = await getFirebaseAuthHeaders();
-  if (!("Authorization" in headers)) {
+  const result = await resolveChatUserVisibleBridgeResult(input);
+  if (result.status === "failure") {
     return null;
   }
-
-  const body: Record<string, unknown> = { userMessage: input.userMessage };
-  if (input.attachedImageCount !== undefined) {
-    body.attachedImageCount = input.attachedImageCount;
-  }
-  if (input.pilotSessionContext?.recentCarCards?.length) {
-    body.pilotSessionContext = input.pilotSessionContext;
-  }
-
-  try {
-    const res = await fetch(CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-    if (res.status === 401 || res.status === 403) {
-      return null;
-    }
-    if (!res.ok) {
-      return null;
-    }
-    const json = (await res.json()) as ChatUserVisibleOrchestrateResponse;
-    if (!json.success || !json.data) {
-      return null;
-    }
-    if (!json.data.userVisibleText?.trim()) {
-      return null;
-    }
-    return json.data;
-  } catch {
-    return null;
-  }
+  return result.data;
 }
 
 /**
