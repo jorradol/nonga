@@ -65,7 +65,19 @@ const SANITIZED_PROMPT =
 
 const EVENT_KEYS_BY_NAME: Record<string, ReadonlySet<string>> = {
   runtime_deps_outcome: new Set(["event", "kind", "reasonCode"]),
-  gemini_transport_outcome: new Set(["event", "phase", "kind", "errorClass", "providerErrorClass"]),
+  gemini_transport_outcome: new Set([
+    "event",
+    "phase",
+    "kind",
+    "errorClass",
+    "providerErrorClass",
+    "transportErrorCode",
+    "httpStatus",
+    "httpStatusClass",
+    "structuredCode",
+    "detailsReason",
+    "errorName",
+  ]),
   tool_execution_outcome: new Set(["event", "toolName", "status", "resultCount"]),
   coordinator_outcome: new Set([
     "event",
@@ -921,6 +933,8 @@ function testLoaderSafety(): void {
   assertTruthy("04S-R2 uses dotenv.parse", scriptSource.includes("parse as parseDotenv"));
 
   const tmpBefore = new Set(readdirSync(tmpdir()));
+  const envPath = resolve(".env");
+  const envExistedBefore = existsSync(envPath);
   const parsed = parseAllowlistedSecretsFromSource(syntheticValidMultilineEnvSource());
   const tmpAdded = readdirSync(tmpdir()).filter(
     (name) =>
@@ -928,7 +942,11 @@ function testLoaderSafety(): void {
       /04s|dotenv|service.account|credential|nonga-sa/i.test(name)
   );
   assertEqual("04S-R2 parser wrote no tmp files", tmpAdded, []);
-  assertFalsy("04S-R2 no worktree .env copy", existsSync(resolve(".env")));
+  if (envExistedBefore) {
+    assertTruthy("04S-R2 parser did not require creating a worktree .env copy", existsSync(envPath));
+  } else {
+    assertFalsy("04S-R2 no worktree .env copy", existsSync(envPath));
+  }
 
   assertEqual("04S-R2 multiline JSON parse valid", parsed.report.firebaseJsonParseValid, true);
   assertEqual("04S-R2 gemini key parse ready", parsed.report.geminiCredentialReady, true);
@@ -1120,6 +1138,8 @@ async function testR3BoundedGeminiErrorClassification(): Promise<void> {
   const leakSerialized = JSON.stringify(leakSink.events);
   assertFalsy("04S-R3 no leak token", leakSerialized.includes(leakToken));
   assertFalsy("04S-R3 no prompt in leak events", leakSerialized.includes(SANITIZED_PROMPT));
+  assertFalsy("04S-R3 no stack field", leakSerialized.includes('"stack"'));
+  assertFalsy("04S-R3 no headers field", leakSerialized.includes('"headers"'));
   assertNoForbiddenFields("04S-R3 leak events", leakSink.events);
 
   const withoutSink = await generateStructuredInitialTurn({
@@ -1169,6 +1189,12 @@ const CLOUD_OBS_LOG_KEYS = new Set([
   "kind",
   "reasonCode",
   "providerErrorClass",
+  "transportErrorCode",
+  "httpStatus",
+  "httpStatusClass",
+  "structuredCode",
+  "detailsReason",
+  "errorName",
   "toolName",
   "providerCallCount",
   "toolExecutionCount",
@@ -1247,11 +1273,11 @@ async function test04TCloudObservabilityWiring(): Promise<void> {
       throw { status: 401, message: "04t-raw-provider-message" };
     },
   };
-  const request = {
+  const request: ConversationTurnRequest = {
     conversationId: CONVERSATION_ID,
     messageId: MESSAGE_ID,
     userMessage: SANITIZED_PROMPT,
-    history: [] as const,
+    history: [],
   };
   const context = validatedContext();
 
@@ -1345,6 +1371,500 @@ async function test04TCloudObservabilityWiring(): Promise<void> {
   );
   assertTruthy(
     "04T legacy orchestrate route unchanged",
+    salesBrain.includes("handleChatUserVisibleOrchestratePost")
+  );
+}
+
+function geminiInvalidArgumentEnvelope(messageBody: string, detailsReason?: string): string {
+  return JSON.stringify({
+    error: {
+      code: 400,
+      message: messageBody,
+      status: "INVALID_ARGUMENT",
+      ...(detailsReason
+        ? { details: [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: detailsReason }] }
+        : {}),
+    },
+  });
+}
+
+function apiErrorLike(input: {
+  status?: number;
+  message?: string;
+  name?: string;
+}): { name: string; status?: number; message?: string } {
+  return {
+    name: input.name ?? "ApiError",
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    ...(input.message !== undefined ? { message: input.message } : {}),
+  };
+}
+
+async function assertInitialProviderDiagnostics(
+  label: string,
+  error: unknown,
+  expected: {
+    providerErrorClass: string;
+    publicCode?: string;
+    httpStatus?: number;
+    httpStatusClass?: string;
+    structuredCode?: string;
+    detailsReason?: string;
+    errorName?: string;
+    omitted?: readonly string[];
+  }
+): Promise<ConversationCoreRuntimeObservabilityEvent> {
+  const { events, sink } = createSink();
+  const result = await generateStructuredInitialTurn({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    contents: [{ role: "user", parts: [{ text: SANITIZED_PROMPT }] }],
+    allowedToolNames: ["marketplace.search"],
+    transport: throwingObjectTransport(error),
+    observabilitySink: sink,
+  });
+  assertEqual(`${label} public not ok`, result.ok, false);
+  if (result.ok === false) {
+    assertEqual(`${label} public code`, result.code, expected.publicCode ?? "provider-error");
+  }
+  const gemini = eventsNamed(events, "gemini_transport_outcome")[0];
+  assertEqual(`${label} kind`, gemini?.kind, "provider_error");
+  assertEqual(`${label} providerErrorClass`, gemini?.providerErrorClass, expected.providerErrorClass);
+  assertEqual(
+    `${label} classifier`,
+    classifyConversationCoreBoundedGeminiProviderError(error),
+    expected.providerErrorClass
+  );
+  assertEqual(
+    `${label} transportErrorCode`,
+    gemini?.transportErrorCode,
+    expected.publicCode ?? "provider-error"
+  );
+  if (expected.httpStatus !== undefined) {
+    assertEqual(`${label} httpStatus`, gemini?.httpStatus, expected.httpStatus);
+  }
+  if (expected.httpStatusClass !== undefined) {
+    assertEqual(`${label} httpStatusClass`, gemini?.httpStatusClass, expected.httpStatusClass);
+  }
+  if (expected.structuredCode !== undefined) {
+    assertEqual(`${label} structuredCode`, gemini?.structuredCode, expected.structuredCode);
+  } else {
+    assertEqual(`${label} structuredCode omitted`, gemini?.structuredCode, undefined);
+  }
+  if (expected.detailsReason !== undefined) {
+    assertEqual(`${label} detailsReason`, gemini?.detailsReason, expected.detailsReason);
+  } else {
+    assertEqual(`${label} detailsReason omitted`, gemini?.detailsReason, undefined);
+  }
+  if (expected.errorName !== undefined) {
+    assertEqual(`${label} errorName`, gemini?.errorName, expected.errorName);
+  }
+  const serialized = JSON.stringify(events);
+  assertFalsy(`${label} no prompt`, serialized.includes(SANITIZED_PROMPT));
+  for (const token of expected.omitted ?? []) {
+    assertFalsy(`${label} omits ${token.slice(0, 24)}`, serialized.includes(token));
+  }
+  assertNoForbiddenFields(`${label} keys`, events);
+  return gemini!;
+}
+
+async function test04WBoundedGeminiProviderDiagnostics(): Promise<void> {
+  const providerBody = "04w-provider-body-must-not-log";
+  const secretToken = "04w-secret-token-must-not-log";
+  const invalidArgumentMessage = geminiInvalidArgumentEnvelope(providerBody);
+
+  const invalidArgumentEvent = await assertInitialProviderDiagnostics(
+    "04W-1 ApiError 400 INVALID_ARGUMENT",
+    apiErrorLike({ status: 400, message: invalidArgumentMessage }),
+    {
+      providerErrorClass: "request_incompatible",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+      errorName: "ApiError",
+      omitted: [providerBody, secretToken, "stack", "API_KEY"],
+    }
+  );
+  assertEqual("04W-1 errorName", invalidArgumentEvent.errorName, "ApiError");
+
+  const envelopeOnly = await assertInitialProviderDiagnostics(
+    "04W-2 envelope only in message JSON",
+    apiErrorLike({ message: invalidArgumentMessage }),
+    {
+      providerErrorClass: "request_incompatible",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+      errorName: "ApiError",
+      omitted: [providerBody],
+    }
+  );
+  assertFalsy("04W-2 no message field", JSON.stringify(envelopeOnly).includes('"message"'));
+  assertFalsy("04W-2 no error envelope object", JSON.stringify(envelopeOnly).includes('"details"'));
+
+  const apiKeyInvalidMessage = geminiInvalidArgumentEnvelope(providerBody, "API_KEY_INVALID");
+  await assertInitialProviderDiagnostics(
+    "04W-3 API_KEY_INVALID beats 400",
+    apiErrorLike({ status: 400, message: apiKeyInvalidMessage }),
+    {
+      providerErrorClass: "authentication_failed",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+      detailsReason: "API_KEY_INVALID",
+      errorName: "ApiError",
+      omitted: [providerBody],
+    }
+  );
+  await assertInitialProviderDiagnostics(
+    "04W-3 API_KEY_INVALID nested details only",
+    { error: { details: [{ reason: "API_KEY_INVALID" }] } },
+    {
+      providerErrorClass: "authentication_failed",
+      detailsReason: "API_KEY_INVALID",
+    }
+  );
+
+  await assertInitialProviderClass("04W-4 auth 401", { status: 401 }, "authentication_failed");
+  await assertInitialProviderClass("04W-4 permission 403", { status: 403 }, "permission_denied");
+  await assertInitialProviderClass("04W-4 not found 404", { status: 404 }, "model_not_found");
+  await assertInitialProviderClass("04W-4 quota 429", { status: 429 }, "quota_exhausted");
+  await assertInitialProviderClass("04W-4 unavailable 500", { status: 500 }, "provider_unavailable");
+  await assertInitialProviderClass("04W-4 unavailable 502", { status: 502 }, "provider_unavailable");
+  await assertInitialProviderClass("04W-4 unavailable 503", { status: 503 }, "provider_unavailable");
+  await assertInitialProviderClass("04W-4 unavailable 504", { status: 504 }, "provider_unavailable");
+  await assertInitialProviderClass(
+    "04W-4 UNAUTHENTICATED",
+    { status: "UNAUTHENTICATED" },
+    "authentication_failed"
+  );
+  await assertInitialProviderClass(
+    "04W-4 PERMISSION_DENIED",
+    { code: "PERMISSION_DENIED" },
+    "permission_denied"
+  );
+  await assertInitialProviderClass(
+    "04W-4 RESOURCE_EXHAUSTED",
+    { code: "RESOURCE_EXHAUSTED" },
+    "quota_exhausted"
+  );
+  await assertInitialProviderClass("04W-4 NOT_FOUND", { code: "NOT_FOUND" }, "model_not_found");
+  await assertInitialProviderClass("04W-4 UNAVAILABLE", { code: "UNAVAILABLE" }, "provider_unavailable");
+  await assertInitialProviderClass("04W-4 INTERNAL", { code: "INTERNAL" }, "provider_unavailable");
+
+  await assertInitialProviderClass(
+    "04W-5 timeout name",
+    { name: "TimeoutError", code: "ETIMEDOUT" },
+    "timeout",
+    "provider-timeout"
+  );
+  await assertInitialProviderClass(
+    "04W-5 abort name",
+    { name: "AbortError", code: "ABORT_ERR" },
+    "timeout",
+    "provider-aborted"
+  );
+  await assertInitialProviderClass("04W-5 network", { code: "ECONNRESET" }, "network_error");
+  await assertInitialProviderClass(
+    "04W-5 DEADLINE_EXCEEDED",
+    { code: "DEADLINE_EXCEEDED" },
+    "timeout"
+  );
+  await assertInitialProviderClass("04W-5 ABORTED", { code: "ABORTED" }, "timeout");
+
+  await assertInitialProviderDiagnostics(
+    "04W-4 401 beats INVALID_ARGUMENT",
+    { status: 401, code: "INVALID_ARGUMENT" },
+    {
+      providerErrorClass: "authentication_failed",
+      httpStatus: 401,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+    }
+  );
+  await assertInitialProviderDiagnostics(
+    "04W-4 503 beats INVALID_ARGUMENT",
+    { status: 503, code: "INVALID_ARGUMENT" },
+    {
+      providerErrorClass: "provider_unavailable",
+      httpStatus: 503,
+      httpStatusClass: "5xx",
+      structuredCode: "INVALID_ARGUMENT",
+    }
+  );
+  await assertInitialProviderDiagnostics(
+    "04W-5 timeout beats 400",
+    { name: "TimeoutError", status: 400, code: "INVALID_ARGUMENT" },
+    {
+      providerErrorClass: "timeout",
+      publicCode: "provider-timeout",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+      errorName: "TimeoutError",
+    }
+  );
+
+  assertEqual(
+    "04W-6 null",
+    classifyConversationCoreBoundedGeminiProviderError(null),
+    "unknown_provider_error"
+  );
+  assertEqual(
+    "04W-6 undefined",
+    classifyConversationCoreBoundedGeminiProviderError(undefined),
+    "unknown_provider_error"
+  );
+  assertEqual(
+    "04W-6 number",
+    classifyConversationCoreBoundedGeminiProviderError(400),
+    "unknown_provider_error"
+  );
+  assertEqual(
+    "04W-6 non-json string",
+    classifyConversationCoreBoundedGeminiProviderError("provider exploded"),
+    "unknown_provider_error"
+  );
+  assertEqual(
+    "04W-6 malformed json",
+    classifyConversationCoreBoundedGeminiProviderError({
+      name: "ApiError",
+      message: "{not-json",
+    }),
+    "unknown_provider_error"
+  );
+  assertEqual(
+    "04W-6 json array",
+    classifyConversationCoreBoundedGeminiProviderError({
+      name: "ApiError",
+      message: "[1,2,3]",
+    }),
+    "unknown_provider_error"
+  );
+  const hostile = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error("04w-hostile-getter");
+      },
+    }
+  );
+  assertEqual(
+    "04W-6 hostile proxy",
+    classifyConversationCoreBoundedGeminiProviderError(hostile),
+    "unknown_provider_error"
+  );
+  const throwingMessage = {};
+  Object.defineProperty(throwingMessage, "message", {
+    get() {
+      throw new Error("04w-throwing-message");
+    },
+  });
+  assertEqual(
+    "04W-6 throwing message getter",
+    classifyConversationCoreBoundedGeminiProviderError(throwingMessage),
+    "unknown_provider_error"
+  );
+  const hostileTurn = await generateStructuredInitialTurn({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    contents: [{ role: "user", parts: [{ text: SANITIZED_PROMPT }] }],
+    allowedToolNames: ["marketplace.search"],
+    transport: throwingObjectTransport(hostile),
+    observabilitySink: createSink().sink,
+  });
+  assertEqual("04W-6 hostile transport not ok", hostileTurn.ok, false);
+  if (hostileTurn.ok === false) {
+    assertEqual("04W-6 hostile public code", hostileTurn.code, "provider-error");
+  }
+
+  const unknownReasonEvent = await assertInitialProviderDiagnostics(
+    "04W-7 unknown detailsReason dropped",
+    {
+      name: "ApiError",
+      status: 400,
+      message: geminiInvalidArgumentEnvelope(providerBody, "SOME_OTHER_REASON"),
+    },
+    {
+      providerErrorClass: "request_incompatible",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+      errorName: "ApiError",
+      omitted: [providerBody, "SOME_OTHER_REASON"],
+    }
+  );
+  assertEqual("04W-7 unknown reason omitted", unknownReasonEvent.detailsReason, undefined);
+
+  const unknownNameEvent = await assertInitialProviderDiagnostics(
+    "04W-7 unknown errorName dropped",
+    { name: "TotallyUnknownProviderError", status: 400 },
+    {
+      providerErrorClass: "request_incompatible",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+    }
+  );
+  assertEqual("04W-7 unknown name omitted", unknownNameEvent.errorName, undefined);
+
+  const mappedLeak = toConversationCoreRuntimeObservabilityLog({
+    requestCorrelationId: "corr-04w-leak",
+    raw: {
+      event: "gemini_transport_outcome",
+      phase: "initial",
+      kind: "provider_error",
+      providerErrorClass: "request_incompatible",
+      transportErrorCode: "provider-error",
+      httpStatus: 400,
+      httpStatusClass: "4xx",
+      structuredCode: "INVALID_ARGUMENT",
+      detailsReason: "API_KEY_INVALID",
+      errorName: "ApiError",
+      message: providerBody,
+      stack: `Error: ${secretToken}`,
+      prompt: SANITIZED_PROMPT,
+      apiKey: FAKE_API_KEY,
+      details: "UNBOUND",
+    } as ConversationCoreRuntimeObservabilityEvent,
+  });
+  assertTruthy("04W-7 mapper keeps bounded fields", Boolean(mappedLeak));
+  assertEqual("04W-7 mapper httpStatus", mappedLeak?.httpStatus, 400);
+  assertEqual("04W-7 mapper httpStatusClass", mappedLeak?.httpStatusClass, "4xx");
+  assertEqual("04W-7 mapper structuredCode", mappedLeak?.structuredCode, "INVALID_ARGUMENT");
+  assertEqual("04W-7 mapper detailsReason", mappedLeak?.detailsReason, "API_KEY_INVALID");
+  assertEqual("04W-7 mapper errorName", mappedLeak?.errorName, "ApiError");
+  const mappedSerialized = JSON.stringify(mappedLeak);
+  assertFalsy("04W-7 mapper omits provider body", mappedSerialized.includes(providerBody));
+  assertFalsy("04W-7 mapper omits secret token", mappedSerialized.includes(secretToken));
+  assertFalsy("04W-7 mapper omits prompt", mappedSerialized.includes(SANITIZED_PROMPT));
+  assertFalsy("04W-7 mapper omits api key", mappedSerialized.includes(FAKE_API_KEY));
+  assertFalsy("04W-7 mapper omits unbounded details", mappedSerialized.includes("UNBOUND"));
+  assertFalsy("04W-7 mapper omits stack", mappedSerialized.includes("stack"));
+  assertFalsy("04W-7 mapper omits message", mappedSerialized.includes(providerBody));
+
+  const dropped = toConversationCoreRuntimeObservabilityLog({
+    requestCorrelationId: "corr-04w-drop",
+    raw: {
+      event: "gemini_transport_outcome",
+      phase: "initial",
+      kind: "provider_error",
+      httpStatus: 900,
+      httpStatusClass: "9xx",
+      structuredCode: "NOT_A_REAL_CODE",
+      detailsReason: "RANDOM_REASON",
+      errorName: "EvilError",
+      transportErrorCode: "not-a-transport-code",
+    } as ConversationCoreRuntimeObservabilityEvent,
+  });
+  assertTruthy("04W-7 out-of-range still maps event", Boolean(dropped));
+  assertEqual("04W-7 drops httpStatus 900", dropped?.httpStatus, undefined);
+  assertEqual("04W-7 drops httpStatusClass 9xx", dropped?.httpStatusClass, undefined);
+  assertEqual("04W-7 drops structuredCode", dropped?.structuredCode, undefined);
+  assertEqual("04W-7 drops detailsReason", dropped?.detailsReason, undefined);
+  assertEqual("04W-7 drops errorName", dropped?.errorName, undefined);
+  assertEqual("04W-7 drops transportErrorCode", dropped?.transportErrorCode, undefined);
+
+  const inventory = createFakeInventoryRepository();
+  const request: ConversationTurnRequest = {
+    conversationId: CONVERSATION_ID,
+    messageId: MESSAGE_ID,
+    userMessage: SANITIZED_PROMPT,
+    history: [],
+  };
+  const context = validatedContext();
+  const invalidArgumentSeam: ConversationCoreGeminiToolTransportSdkSeam = {
+    async generateContent() {
+      throw apiErrorLike({ status: 400, message: invalidArgumentMessage });
+    },
+  };
+
+  const offLogs: string[] = [];
+  const offActivation = resolveConversationCoreLiveServerActivation({
+    readEnv: (key) => liveObservabilityEnv()[key],
+    inventoryRepository: inventory,
+    createSdkSeam: () => invalidArgumentSeam,
+    writeObservabilityLog: (line) => offLogs.push(line),
+    observabilityCorrelationId: "corr-04w-off",
+  });
+  assertTruthy("04W-8/9 flag unset activation ready", Boolean(offActivation));
+  const offResult = await runConversationCoreOrchestrator(request, context, offActivation);
+  assertEqual("04W-8 flag unset no logs", offLogs.length, 0);
+
+  const onLogs: string[] = [];
+  const onActivation = resolveConversationCoreLiveServerActivation({
+    readEnv: (key) =>
+      liveObservabilityEnv({
+        [NONGA_CONVERSATION_CORE_OBSERVABILITY_ENABLED_ENV]: "true",
+      })[key],
+    inventoryRepository: inventory,
+    createSdkSeam: () => invalidArgumentSeam,
+    writeObservabilityLog: (line) => onLogs.push(line),
+    observabilityCorrelationId: "corr-04w-on",
+  });
+  const onResult = await runConversationCoreOrchestrator(request, context, onActivation);
+  assertEqual("04W-9 public result unchanged", onResult, offResult);
+  assertEqual("04W-9 fail-closed route", onResult.route, "honest-unavailable");
+  if (onResult.route === "honest-unavailable") {
+    assertEqual("04W-9 fail-closed code", onResult.error.code, "core-not-ready");
+  }
+  assertTruthy("04W-8 emits logs", onLogs.length > 0);
+  assertTruthy(
+    "04W-8 event count bounded",
+    onLogs.length <= CONVERSATION_CORE_RUNTIME_OBSERVABILITY_MAX_EVENTS
+  );
+
+  const parsedLogs = parseObservabilityLogs(onLogs);
+  const geminiLog = parsedLogs.find((entry) => entry.stage === "gemini_initial");
+  assertEqual("04W-9 gemini class", geminiLog?.providerErrorClass, "request_incompatible");
+  assertEqual("04W-9 gemini httpStatus", geminiLog?.httpStatus, 400);
+  assertEqual("04W-9 gemini httpStatusClass", geminiLog?.httpStatusClass, "4xx");
+  assertEqual("04W-9 gemini structuredCode", geminiLog?.structuredCode, "INVALID_ARGUMENT");
+  assertEqual("04W-9 gemini errorName", geminiLog?.errorName, "ApiError");
+  const toolLog = parsedLogs.find((entry) => entry.stage === "tool_execution");
+  assertEqual("04W-10 no tool execution", toolLog, undefined);
+  const coordinatorLog = parsedLogs.find((entry) => entry.stage === "coordinator");
+  assertEqual("04W-10 coordinator unavailable", coordinatorLog?.kind, "unavailable");
+  assertEqual("04W-10 coordinator reason unchanged", coordinatorLog?.reasonCode, "invalid-tool-request");
+  assertEqual("04W-10 toolExecutionCount", coordinatorLog?.toolExecutionCount, 0);
+  assertEqual("04W-10 authoritativeResultCount", coordinatorLog?.authoritativeResultCount, 0);
+  const serializedLogs = JSON.stringify(parsedLogs);
+  assertFalsy("04W-7 logs omit provider body", serializedLogs.includes(providerBody));
+  assertFalsy("04W-7 logs omit prompt", serializedLogs.includes(SANITIZED_PROMPT));
+  assertFalsy("04W-7 logs omit fake key", serializedLogs.includes(FAKE_API_KEY));
+  for (const entry of parsedLogs) {
+    for (const key of Object.keys(entry)) {
+      assertTruthy(`04W-7 allowed log key ${key}`, CLOUD_OBS_LOG_KEYS.has(key));
+    }
+  }
+
+  const throwingLogs: string[] = [];
+  const throwingActivation = resolveConversationCoreLiveServerActivation({
+    readEnv: (key) =>
+      liveObservabilityEnv({
+        [NONGA_CONVERSATION_CORE_OBSERVABILITY_ENABLED_ENV]: "true",
+      })[key],
+    inventoryRepository: inventory,
+    createSdkSeam: () => invalidArgumentSeam,
+    writeObservabilityLog: () => {
+      throwingLogs.push("attempted");
+      throw new Error("04w-observability-write-failed");
+    },
+    observabilityCorrelationId: "corr-04w-throw",
+  });
+  const throwingResult = await runConversationCoreOrchestrator(
+    request,
+    context,
+    throwingActivation
+  );
+  assertEqual("04W-8 sink failure does not change result", throwingResult, offResult);
+  assertTruthy("04W-8 sink write attempted", throwingLogs.length > 0);
+
+  const salesBrain = readFileSync(
+    resolve("src/services/ai/salesBrainServerUserVisibleOrchestrationBridge.ts"),
+    "utf8"
+  );
+  assertTruthy(
+    "04W-9 legacy orchestrate route unchanged",
     salesBrain.includes("handleChatUserVisibleOrchestratePost")
   );
 }
@@ -1696,6 +2216,7 @@ async function main(): Promise<void> {
   }
   await testR3BoundedGeminiErrorClassification();
   await test04TCloudObservabilityWiring();
+  await test04WBoundedGeminiProviderDiagnostics();
 
   if (isLiveProbeEnabled()) {
     const live = await runSanitizedLiveProbe();

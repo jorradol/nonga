@@ -83,22 +83,58 @@ export const CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES = [
   "provider_unavailable",
   "timeout",
   "network_error",
+  "request_incompatible",
   "unknown_provider_error",
 ] as const;
 
 export type ConversationCoreBoundedGeminiProviderErrorClass =
   (typeof CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES)[number];
 
-const STRUCTURED_GOOGLE_CODES = new Set([
+export const CONVERSATION_CORE_BOUNDED_GEMINI_HTTP_STATUS_CLASSES = ["4xx", "5xx"] as const;
+
+export type ConversationCoreBoundedGeminiHttpStatusClass =
+  (typeof CONVERSATION_CORE_BOUNDED_GEMINI_HTTP_STATUS_CLASSES)[number];
+
+export const CONVERSATION_CORE_BOUNDED_GEMINI_STRUCTURED_CODES = [
+  "INVALID_ARGUMENT",
   "UNAUTHENTICATED",
   "PERMISSION_DENIED",
-  "RESOURCE_EXHAUSTED",
   "NOT_FOUND",
+  "RESOURCE_EXHAUSTED",
   "UNAVAILABLE",
   "INTERNAL",
-  "API_KEY_INVALID",
   "DEADLINE_EXCEEDED",
-]);
+  "ABORTED",
+] as const;
+
+export type ConversationCoreBoundedGeminiStructuredCode =
+  (typeof CONVERSATION_CORE_BOUNDED_GEMINI_STRUCTURED_CODES)[number];
+
+export const CONVERSATION_CORE_BOUNDED_GEMINI_DETAILS_REASONS = ["API_KEY_INVALID"] as const;
+
+export type ConversationCoreBoundedGeminiDetailsReason =
+  (typeof CONVERSATION_CORE_BOUNDED_GEMINI_DETAILS_REASONS)[number];
+
+export const CONVERSATION_CORE_BOUNDED_GEMINI_ERROR_NAMES = [
+  "ApiError",
+  "AbortError",
+  "TimeoutError",
+  "APIConnectionTimeoutError",
+  "APIUserAbortError",
+  "APIConnectionError",
+  "AuthenticationError",
+  "PermissionDeniedError",
+  "RateLimitError",
+  "NotFoundError",
+  "InternalServerError",
+] as const;
+
+export type ConversationCoreBoundedGeminiErrorName =
+  (typeof CONVERSATION_CORE_BOUNDED_GEMINI_ERROR_NAMES)[number];
+
+const STRUCTURED_GOOGLE_CODES = new Set<string>(CONVERSATION_CORE_BOUNDED_GEMINI_STRUCTURED_CODES);
+const DETAILS_REASONS = new Set<string>(CONVERSATION_CORE_BOUNDED_GEMINI_DETAILS_REASONS);
+const ALLOWLISTED_ERROR_NAMES = new Set<string>(CONVERSATION_CORE_BOUNDED_GEMINI_ERROR_NAMES);
 
 const NETWORK_SYSTEM_CODES = new Set([
   "ECONNRESET",
@@ -139,10 +175,14 @@ const STANDARD_CLASS_BY_NAME: Readonly<Record<string, ConversationCoreBoundedGem
     InternalServerError: "provider_unavailable",
   });
 
+const MAX_PROVIDER_ERROR_ENVELOPE_CHARS = 8192;
+
 type BoundedGeminiErrorSignals = {
   httpStatus?: number;
-  structuredCode?: string;
-  errorName?: string;
+  httpStatusClass?: ConversationCoreBoundedGeminiHttpStatusClass;
+  structuredCode?: ConversationCoreBoundedGeminiStructuredCode;
+  detailsReason?: ConversationCoreBoundedGeminiDetailsReason;
+  errorName?: ConversationCoreBoundedGeminiErrorName;
   systemCode?: string;
 };
 
@@ -150,14 +190,107 @@ function isBoundedIntegerStatus(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 100 && value <= 599;
 }
 
-function takeAllowlistedCode(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
+function toHttpStatusClass(status: number): ConversationCoreBoundedGeminiHttpStatusClass | undefined {
+  if (status >= 400 && status <= 499) {
+    return "4xx";
   }
-  if (STRUCTURED_GOOGLE_CODES.has(value) || NETWORK_SYSTEM_CODES.has(value)) {
-    return value;
+  if (status >= 500 && status <= 599) {
+    return "5xx";
   }
   return undefined;
+}
+
+function takeFromSet<T extends string>(value: unknown, allowed: ReadonlySet<string>): T | undefined {
+  return typeof value === "string" && allowed.has(value) ? (value as T) : undefined;
+}
+
+function readUnknown(record: object, key: string): unknown {
+  try {
+    return (record as Record<string, unknown>)[key];
+  } catch {
+    return undefined;
+  }
+}
+
+function parseGeminiApiErrorEnvelope(message: unknown): Pick<
+  BoundedGeminiErrorSignals,
+  "httpStatus" | "structuredCode" | "detailsReason"
+> {
+  if (typeof message !== "string" || message.length === 0 || message.length > MAX_PROVIDER_ERROR_ENVELOPE_CHARS) {
+    return {};
+  }
+  const trimmed = message.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const root = parsed as Record<string, unknown>;
+    const nested = readUnknown(root, "error");
+    const errorNode =
+      nested && typeof nested === "object" && !Array.isArray(nested)
+        ? (nested as Record<string, unknown>)
+        : root;
+    const result: Pick<BoundedGeminiErrorSignals, "httpStatus" | "structuredCode" | "detailsReason"> = {};
+    const httpStatus =
+      takeHttpStatus(readUnknown(errorNode, "code")) ?? takeHttpStatus(readUnknown(errorNode, "status"));
+    if (httpStatus !== undefined) {
+      result.httpStatus = httpStatus;
+    }
+    const structured =
+      takeFromSet<ConversationCoreBoundedGeminiStructuredCode>(
+        readUnknown(errorNode, "status"),
+        STRUCTURED_GOOGLE_CODES
+      ) ??
+      takeFromSet<ConversationCoreBoundedGeminiStructuredCode>(
+        readUnknown(errorNode, "code"),
+        STRUCTURED_GOOGLE_CODES
+      );
+    if (structured) {
+      result.structuredCode = structured;
+    }
+    const details = readUnknown(errorNode, "details");
+    if (Array.isArray(details)) {
+      for (const detail of details) {
+        if (!detail || typeof detail !== "object") {
+          continue;
+        }
+        const reason = takeFromSet<ConversationCoreBoundedGeminiDetailsReason>(
+          readUnknown(detail, "reason"),
+          DETAILS_REASONS
+        );
+        if (reason) {
+          result.detailsReason = reason;
+          break;
+        }
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function takeHttpStatus(value: unknown): number | undefined {
+  return isBoundedIntegerStatus(value) ? value : undefined;
+}
+
+function mergeEnvelope(
+  into: BoundedGeminiErrorSignals,
+  envelope: Pick<BoundedGeminiErrorSignals, "httpStatus" | "structuredCode" | "detailsReason">
+): void {
+  if (into.httpStatus === undefined && envelope.httpStatus !== undefined) {
+    into.httpStatus = envelope.httpStatus;
+  }
+  if (into.structuredCode === undefined && envelope.structuredCode !== undefined) {
+    into.structuredCode = envelope.structuredCode;
+  }
+  if (into.detailsReason === undefined && envelope.detailsReason !== undefined) {
+    into.detailsReason = envelope.detailsReason;
+  }
 }
 
 function collectBoundedGeminiErrorSignals(
@@ -168,64 +301,123 @@ function collectBoundedGeminiErrorSignals(
   if (depth > 2 || !error || typeof error !== "object") {
     return;
   }
-  const record = error as Record<string, unknown>;
-  if (into.httpStatus === undefined) {
-    if (isBoundedIntegerStatus(record.status)) {
-      into.httpStatus = record.status;
-    } else if (isBoundedIntegerStatus(record.statusCode)) {
-      into.httpStatus = record.statusCode;
-    } else if (isBoundedIntegerStatus(record.code)) {
-      into.httpStatus = record.code;
+  try {
+    const record = error as object;
+    if (into.httpStatus === undefined) {
+      const httpStatus =
+        takeHttpStatus(readUnknown(record, "status")) ??
+        takeHttpStatus(readUnknown(record, "statusCode")) ??
+        takeHttpStatus(readUnknown(record, "code"));
+      if (httpStatus !== undefined) {
+        into.httpStatus = httpStatus;
+      }
     }
-  }
-  if (into.structuredCode === undefined) {
-    const structured =
-      takeAllowlistedCode(record.code) ??
-      (typeof record.status === "string" ? takeAllowlistedCode(record.status) : undefined) ??
-      takeAllowlistedCode(record.reason);
-    if (structured && STRUCTURED_GOOGLE_CODES.has(structured)) {
-      into.structuredCode = structured;
+    if (into.structuredCode === undefined) {
+      const structured =
+        takeFromSet<ConversationCoreBoundedGeminiStructuredCode>(
+          readUnknown(record, "code"),
+          STRUCTURED_GOOGLE_CODES
+        ) ??
+        takeFromSet<ConversationCoreBoundedGeminiStructuredCode>(
+          readUnknown(record, "status"),
+          STRUCTURED_GOOGLE_CODES
+        );
+      if (structured) {
+        into.structuredCode = structured;
+      }
     }
-  }
-  if (into.systemCode === undefined && typeof record.code === "string") {
-    if (NETWORK_SYSTEM_CODES.has(record.code) || TIMEOUT_SYSTEM_CODES.has(record.code)) {
-      into.systemCode = record.code;
+    if (into.detailsReason === undefined) {
+      const topReason = takeFromSet<ConversationCoreBoundedGeminiDetailsReason>(
+        readUnknown(record, "reason"),
+        DETAILS_REASONS
+      );
+      if (topReason) {
+        into.detailsReason = topReason;
+      }
     }
-  }
-  if (into.errorName === undefined && typeof record.name === "string") {
-    if (
-      STANDARD_TIMEOUT_NAMES.has(record.name) ||
-      STANDARD_NETWORK_NAMES.has(record.name) ||
-      Object.prototype.hasOwnProperty.call(STANDARD_CLASS_BY_NAME, record.name)
-    ) {
-      into.errorName = record.name;
+    const systemCode = readUnknown(record, "code");
+    if (into.systemCode === undefined && typeof systemCode === "string") {
+      if (NETWORK_SYSTEM_CODES.has(systemCode) || TIMEOUT_SYSTEM_CODES.has(systemCode)) {
+        into.systemCode = systemCode;
+      }
     }
-  }
-  if (Array.isArray(record.details)) {
-    for (const detail of record.details) {
-      if (detail && typeof detail === "object") {
-        const reason = takeAllowlistedCode((detail as Record<string, unknown>).reason);
-        if (reason && STRUCTURED_GOOGLE_CODES.has(reason) && into.structuredCode === undefined) {
-          into.structuredCode = reason;
+    if (into.errorName === undefined) {
+      const errorName = takeFromSet<ConversationCoreBoundedGeminiErrorName>(
+        readUnknown(record, "name"),
+        ALLOWLISTED_ERROR_NAMES
+      );
+      if (errorName) {
+        into.errorName = errorName;
+      }
+    }
+    const details = readUnknown(record, "details");
+    if (Array.isArray(details)) {
+      for (const detail of details) {
+        if (!detail || typeof detail !== "object") {
+          continue;
+        }
+        if (into.detailsReason === undefined) {
+          const reason = takeFromSet<ConversationCoreBoundedGeminiDetailsReason>(
+            readUnknown(detail, "reason"),
+            DETAILS_REASONS
+          );
+          if (reason) {
+            into.detailsReason = reason;
+          }
+        }
+        if (into.structuredCode === undefined) {
+          const structured = takeFromSet<ConversationCoreBoundedGeminiStructuredCode>(
+            readUnknown(detail, "reason"),
+            STRUCTURED_GOOGLE_CODES
+          );
+          if (structured) {
+            into.structuredCode = structured;
+          }
         }
       }
     }
-  }
-  if (record.error && typeof record.error === "object" && !Array.isArray(record.error)) {
-    collectBoundedGeminiErrorSignals(record.error, into, depth + 1);
+    mergeEnvelope(into, parseGeminiApiErrorEnvelope(readUnknown(record, "message")));
+    const nestedError = readUnknown(record, "error");
+    if (nestedError && typeof nestedError === "object" && !Array.isArray(nestedError)) {
+      collectBoundedGeminiErrorSignals(nestedError, into, depth + 1);
+    }
+    const nestedCause = readUnknown(record, "cause");
+    if (nestedCause && typeof nestedCause === "object" && !Array.isArray(nestedCause)) {
+      collectBoundedGeminiErrorSignals(nestedCause, into, depth + 1);
+    }
+  } catch {
+    // Hostile getters/proxies must not fail Conversation Core.
   }
 }
 
-export function classifyConversationCoreBoundedGeminiProviderError(
-  error: unknown
-): ConversationCoreBoundedGeminiProviderErrorClass {
-  const signals: BoundedGeminiErrorSignals = {};
-  collectBoundedGeminiErrorSignals(error, signals, 0);
+function finalizeBoundedGeminiErrorSignals(signals: BoundedGeminiErrorSignals): BoundedGeminiErrorSignals {
+  if (signals.httpStatus !== undefined && signals.httpStatusClass === undefined) {
+    const statusClass = toHttpStatusClass(signals.httpStatus);
+    if (statusClass) {
+      signals.httpStatusClass = statusClass;
+    }
+  }
+  return signals;
+}
 
+function extractBoundedGeminiErrorSignals(error: unknown): BoundedGeminiErrorSignals {
+  const signals: BoundedGeminiErrorSignals = {};
+  try {
+    collectBoundedGeminiErrorSignals(error, signals, 0);
+  } catch {
+    return {};
+  }
+  return finalizeBoundedGeminiErrorSignals(signals);
+}
+
+function classifyFromBoundedGeminiErrorSignals(
+  signals: BoundedGeminiErrorSignals
+): ConversationCoreBoundedGeminiProviderErrorClass {
   if (
     (signals.errorName !== undefined && STANDARD_TIMEOUT_NAMES.has(signals.errorName)) ||
     (signals.systemCode !== undefined && TIMEOUT_SYSTEM_CODES.has(signals.systemCode)) ||
-    signals.structuredCode === "DEADLINE_EXCEEDED"
+    signals.structuredCode === "DEADLINE_EXCEEDED" ||
+    signals.structuredCode === "ABORTED"
   ) {
     return "timeout";
   }
@@ -238,11 +430,10 @@ export function classifyConversationCoreBoundedGeminiProviderError(
   if (signals.errorName !== undefined && STANDARD_CLASS_BY_NAME[signals.errorName]) {
     return STANDARD_CLASS_BY_NAME[signals.errorName];
   }
-  if (
-    signals.structuredCode === "UNAUTHENTICATED" ||
-    signals.structuredCode === "API_KEY_INVALID" ||
-    signals.httpStatus === 401
-  ) {
+  if (signals.detailsReason === "API_KEY_INVALID") {
+    return "authentication_failed";
+  }
+  if (signals.structuredCode === "UNAUTHENTICATED" || signals.httpStatus === 401) {
     return "authentication_failed";
   }
   if (signals.structuredCode === "PERMISSION_DENIED" || signals.httpStatus === 403) {
@@ -264,7 +455,20 @@ export function classifyConversationCoreBoundedGeminiProviderError(
   ) {
     return "provider_unavailable";
   }
+  if (signals.structuredCode === "INVALID_ARGUMENT" || signals.httpStatus === 400) {
+    return "request_incompatible";
+  }
   return "unknown_provider_error";
+}
+
+export function classifyConversationCoreBoundedGeminiProviderError(
+  error: unknown
+): ConversationCoreBoundedGeminiProviderErrorClass {
+  try {
+    return classifyFromBoundedGeminiErrorSignals(extractBoundedGeminiErrorSignals(error));
+  } catch {
+    return "unknown_provider_error";
+  }
 }
 
 export type ConversationCoreRuntimeObservabilityGeminiKind =
@@ -563,21 +767,26 @@ function resolveSingleFunctionCall(input: {
 }
 
 function mapProviderException(error: unknown): ConversationCoreGeminiToolTransportErrorCode {
-  if (error && typeof error === "object") {
-    const record = error as { name?: unknown; code?: unknown };
-    const name = typeof record.name === "string" ? record.name : "";
-    const code = typeof record.code === "string" ? record.code : "";
-    if (name === "AbortError" || code === "ABORT_ERR" || code === "ERR_CANCELED") {
-      return "provider-aborted";
+  try {
+    if (error && typeof error === "object") {
+      const name = readUnknown(error, "name");
+      const code = readUnknown(error, "code");
+      const nameText = typeof name === "string" ? name : "";
+      const codeText = typeof code === "string" ? code : "";
+      if (nameText === "AbortError" || codeText === "ABORT_ERR" || codeText === "ERR_CANCELED") {
+        return "provider-aborted";
+      }
+      if (
+        nameText === "TimeoutError" ||
+        codeText === "ETIMEDOUT" ||
+        codeText === "ERR_TIMEOUT" ||
+        codeText === "timeout"
+      ) {
+        return "provider-timeout";
+      }
     }
-    if (
-      name === "TimeoutError" ||
-      code === "ETIMEDOUT" ||
-      code === "ERR_TIMEOUT" ||
-      code === "timeout"
-    ) {
-      return "provider-timeout";
-    }
+  } catch {
+    return "provider-error";
   }
   return "provider-error";
 }
@@ -634,6 +843,7 @@ async function invokeTransport(input: {
       readonly ok: false;
       readonly code: ConversationCoreGeminiToolTransportErrorCode;
       readonly providerErrorClass: ConversationCoreBoundedGeminiProviderErrorClass;
+      readonly diagnostics: BoundedGeminiErrorSignals;
     }
 > {
   const controller = new AbortController();
@@ -662,10 +872,26 @@ async function invokeTransport(input: {
     if (!controller.signal.aborted) {
       controller.abort();
     }
+    let code: ConversationCoreGeminiToolTransportErrorCode = "provider-error";
+    let diagnostics: BoundedGeminiErrorSignals = {};
+    let providerErrorClass: ConversationCoreBoundedGeminiProviderErrorClass = "unknown_provider_error";
+    try {
+      code = mapProviderException(error);
+    } catch {
+      code = "provider-error";
+    }
+    try {
+      diagnostics = extractBoundedGeminiErrorSignals(error);
+      providerErrorClass = classifyFromBoundedGeminiErrorSignals(diagnostics);
+    } catch {
+      diagnostics = {};
+      providerErrorClass = "unknown_provider_error";
+    }
     return {
       ok: false as const,
-      code: mapProviderException(error),
-      providerErrorClass: classifyConversationCoreBoundedGeminiProviderError(error),
+      code,
+      providerErrorClass,
+      diagnostics,
     };
   }
 }
@@ -870,21 +1096,39 @@ function emitGeminiTransportOutcome(
   phase: "initial" | "follow_up",
   kind: ConversationCoreRuntimeObservabilityGeminiKind,
   errorClass?: ConversationCoreGeminiToolTransportErrorCode,
-  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass
+  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass,
+  diagnostics?: BoundedGeminiErrorSignals
 ): void {
+  const isProviderError =
+    errorClass !== undefined && GEMINI_PROVIDER_ERROR_CLASSES.has(errorClass);
   emitConversationCoreRuntimeObservability(sink, {
     event: "gemini_transport_outcome",
     phase,
     kind,
     ...(errorClass ? { errorClass } : {}),
+    ...(isProviderError && errorClass ? { transportErrorCode: errorClass } : {}),
     ...(providerErrorClass ? { providerErrorClass } : {}),
+    ...(isProviderError && diagnostics?.httpStatus !== undefined
+      ? { httpStatus: diagnostics.httpStatus }
+      : {}),
+    ...(isProviderError && diagnostics?.httpStatusClass
+      ? { httpStatusClass: diagnostics.httpStatusClass }
+      : {}),
+    ...(isProviderError && diagnostics?.structuredCode
+      ? { structuredCode: diagnostics.structuredCode }
+      : {}),
+    ...(isProviderError && diagnostics?.detailsReason
+      ? { detailsReason: diagnostics.detailsReason }
+      : {}),
+    ...(isProviderError && diagnostics?.errorName ? { errorName: diagnostics.errorName } : {}),
   });
 }
 
 function finishInitialTurn(
   sink: ConversationCoreRuntimeObservabilitySink | undefined,
   result: ConversationCoreGeminiToolTransportResult<ConversationCoreGeminiStructuredInitialTurnSuccess>,
-  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass
+  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass,
+  diagnostics?: BoundedGeminiErrorSignals
 ): ConversationCoreGeminiToolTransportResult<ConversationCoreGeminiStructuredInitialTurnSuccess> {
   if (result.ok === false) {
     emitGeminiTransportOutcome(
@@ -892,7 +1136,8 @@ function finishInitialTurn(
       "initial",
       classifyGeminiTransportKind(result.code),
       result.code,
-      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? providerErrorClass : undefined
+      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? providerErrorClass : undefined,
+      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? diagnostics : undefined
     );
     return result;
   }
@@ -907,7 +1152,8 @@ function finishInitialTurn(
 function finishFollowUp(
   sink: ConversationCoreRuntimeObservabilitySink | undefined,
   result: ConversationCoreGeminiToolTransportResult<string>,
-  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass
+  providerErrorClass?: ConversationCoreBoundedGeminiProviderErrorClass,
+  diagnostics?: BoundedGeminiErrorSignals
 ): ConversationCoreGeminiToolTransportResult<string> {
   if (result.ok === false) {
     emitGeminiTransportOutcome(
@@ -915,7 +1161,8 @@ function finishFollowUp(
       "follow_up",
       classifyGeminiTransportKind(result.code),
       result.code,
-      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? providerErrorClass : undefined
+      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? providerErrorClass : undefined,
+      GEMINI_PROVIDER_ERROR_CLASSES.has(result.code) ? diagnostics : undefined
     );
     return result;
   }
@@ -954,7 +1201,12 @@ export async function generateStructuredInitialTurn(
     },
   });
   if (transportResult.ok === false) {
-    return finishInitialTurn(sink, freezeFail(transportResult.code), transportResult.providerErrorClass);
+    return finishInitialTurn(
+      sink,
+      freezeFail(transportResult.code),
+      transportResult.providerErrorClass,
+      transportResult.diagnostics
+    );
   }
   if (!isPlainObject(transportResult.value)) {
     return finishInitialTurn(sink, freezeFail("malformed-response"));
@@ -1030,7 +1282,12 @@ export async function generateFinalAnswerFromToolResult(
     },
   });
   if (transportResult.ok === false) {
-    return finishFollowUp(sink, freezeFail(transportResult.code), transportResult.providerErrorClass);
+    return finishFollowUp(
+      sink,
+      freezeFail(transportResult.code),
+      transportResult.providerErrorClass,
+      transportResult.diagnostics
+    );
   }
   if (!isPlainObject(transportResult.value)) {
     return finishFollowUp(sink, freezeFail("malformed-response"));

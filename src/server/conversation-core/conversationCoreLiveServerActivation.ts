@@ -28,7 +28,12 @@ import {
   resolveConversationCoreGeminiConfig,
 } from "./conversationCoreGeminiConfig";
 import {
+  CONVERSATION_CORE_BOUNDED_GEMINI_DETAILS_REASONS,
+  CONVERSATION_CORE_BOUNDED_GEMINI_ERROR_NAMES,
+  CONVERSATION_CORE_BOUNDED_GEMINI_HTTP_STATUS_CLASSES,
   CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES,
+  CONVERSATION_CORE_BOUNDED_GEMINI_STRUCTURED_CODES,
+  CONVERSATION_CORE_GEMINI_TOOL_TRANSPORT_ERROR_CODES,
   createConversationCoreGeminiToolTransportSdkSeam,
   type ConversationCoreGeminiToolTransportSdkSeam,
   type ConversationCoreRuntimeObservabilityEvent,
@@ -79,6 +84,24 @@ const OBSERVABILITY_ROUTES = new Set(["completed", "honest_unavailable"]);
 
 const OBSERVABILITY_PROVIDER_ERROR_CLASSES = new Set<string>(
   CONVERSATION_CORE_BOUNDED_GEMINI_PROVIDER_ERROR_CLASSES
+);
+
+const OBSERVABILITY_HTTP_STATUS_CLASSES = new Set<string>(
+  CONVERSATION_CORE_BOUNDED_GEMINI_HTTP_STATUS_CLASSES
+);
+
+const OBSERVABILITY_STRUCTURED_CODES = new Set<string>(
+  CONVERSATION_CORE_BOUNDED_GEMINI_STRUCTURED_CODES
+);
+
+const OBSERVABILITY_DETAILS_REASONS = new Set<string>(
+  CONVERSATION_CORE_BOUNDED_GEMINI_DETAILS_REASONS
+);
+
+const OBSERVABILITY_ERROR_NAMES = new Set<string>(CONVERSATION_CORE_BOUNDED_GEMINI_ERROR_NAMES);
+
+const OBSERVABILITY_TRANSPORT_ERROR_CODES = new Set<string>(
+  CONVERSATION_CORE_GEMINI_TOOL_TRANSPORT_ERROR_CODES
 );
 
 const BOUNDED_REASON_CODE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
@@ -168,6 +191,12 @@ function takeBoundedCount(value: unknown): number | undefined {
     : undefined;
 }
 
+function takeBoundedHttpStatus(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 100 && value <= 599
+    ? value
+    : undefined;
+}
+
 function mapObservabilityStage(
   raw: ConversationCoreRuntimeObservabilityEvent
 ): string | undefined {
@@ -229,6 +258,39 @@ export function toConversationCoreRuntimeObservabilityLog(input: {
   );
   if (providerErrorClass) {
     payload.providerErrorClass = providerErrorClass;
+  }
+  const transportErrorCode = takeBoundedString(
+    input.raw.transportErrorCode,
+    OBSERVABILITY_TRANSPORT_ERROR_CODES
+  );
+  if (transportErrorCode) {
+    payload.transportErrorCode = transportErrorCode;
+  }
+  const httpStatus = takeBoundedHttpStatus(input.raw.httpStatus);
+  if (httpStatus !== undefined) {
+    payload.httpStatus = httpStatus;
+  }
+  const httpStatusClass = takeBoundedString(
+    input.raw.httpStatusClass,
+    OBSERVABILITY_HTTP_STATUS_CLASSES
+  );
+  if (httpStatusClass) {
+    payload.httpStatusClass = httpStatusClass;
+  }
+  const structuredCode = takeBoundedString(
+    input.raw.structuredCode,
+    OBSERVABILITY_STRUCTURED_CODES
+  );
+  if (structuredCode) {
+    payload.structuredCode = structuredCode;
+  }
+  const detailsReason = takeBoundedString(input.raw.detailsReason, OBSERVABILITY_DETAILS_REASONS);
+  if (detailsReason) {
+    payload.detailsReason = detailsReason;
+  }
+  const errorName = takeBoundedString(input.raw.errorName, OBSERVABILITY_ERROR_NAMES);
+  if (errorName) {
+    payload.errorName = errorName;
   }
   const toolName = takeBoundedString(input.raw.toolName, OBSERVABILITY_TOOLS);
   if (toolName) {
