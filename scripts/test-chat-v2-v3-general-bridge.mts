@@ -1,5 +1,5 @@
 /**
- * WP-NVB-01 / WP-NVB-01R1 — V.2 → V.3 General Conversation Bridge targeted tests.
+ * WP-NVB-01 / WP-NVB-01R1 / WP-NVB-01R2 — V.2 → V.3 General Conversation Bridge targeted tests.
  * Run: .\node_modules\.bin\tsx.cmd scripts/test-chat-v2-v3-general-bridge.mts
  * Mock/deterministic only — no live Gemini or network.
  */
@@ -44,6 +44,13 @@ import {
   NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV,
   NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV,
 } from "../src/server/conversation-core/index.ts";
+import {
+  shouldInvokeAuthenticatedGeneralConversationServerBridge,
+  shouldInvokeAuthenticatedVehicleSearchServerBridge,
+  shouldInvokeBuyerConversationServerBridge,
+} from "../src/services/ai/buyerAiFirstConversationPath.ts";
+import type { SalesBrainUserRole } from "../src/services/ai/salesBrainTypes.ts";
+import type { AuthRole } from "../src/utils/rbac.ts";
 
 let passCount = 0;
 let lastV3RawRequest: Record<string, unknown> | null = null;
@@ -112,12 +119,12 @@ function readEnvFrom(values: Record<string, string | undefined>) {
   return (key: string) => values[key];
 }
 
-function authContext(uid = PILOT_UID): ServerAuthContext {
+function authContext(uid = PILOT_UID, role: AuthRole = "member"): ServerAuthContext {
   return {
     uid,
     email: "redacted@example.test",
     displayName: "Redacted Pilot",
-    role: "member",
+    role,
     status: "active",
     memberships: [],
     provider: "firebase",
@@ -165,6 +172,7 @@ function createMockReq(body: Record<string, unknown>): Request {
 
 async function runHandler(input: {
   uid?: string;
+  role?: AuthRole;
   body: Record<string, unknown>;
   env?: Record<string, string | undefined>;
   authError?: ServerAuthError;
@@ -185,7 +193,7 @@ async function runHandler(input: {
       if (input.authError) {
         throw input.authError;
       }
-      return authContext(input.uid);
+      return authContext(input.uid, input.role);
     },
     runLegacyOrchestration: () => {
       counters.legacy += 1;
@@ -232,6 +240,10 @@ const clientSource = readFileSync(
   "utf8"
 );
 const useChatSource = readFileSync("src/hooks/chat/useChat.ts", "utf8");
+const buyerPathSource = readFileSync(
+  "src/services/ai/buyerAiFirstConversationPath.ts",
+  "utf8"
+);
 
 console.log("=== WP-NVB-01R1 V.2 → V.3 General Conversation Bridge ===\n");
 
@@ -645,6 +657,278 @@ assertEqual(
     ),
   }).selected,
   true
+);
+
+console.log("\n--- R2: Owner-admin general submission (client hop; V.3 is trusted UID) ---");
+
+const generalHopInput = {
+  isSignedIn: true,
+  userMessage: GENERAL_MESSAGE,
+  isSellerListingAction: false,
+  isSellIntent: false,
+} as const;
+
+assertTruthy(
+  "R2-1: signed-in buyer general hop remains allowed",
+  shouldInvokeAuthenticatedGeneralConversationServerBridge({
+    ...generalHopInput,
+    userRole: "buyer",
+  })
+);
+assertTruthy(
+  "R2-1b: buyer-only helper still allows buyer",
+  shouldInvokeBuyerConversationServerBridge({
+    ...generalHopInput,
+    userRole: "buyer",
+  })
+);
+
+assertTruthy(
+  "R2-2: signed-in admin general hop is allowed",
+  shouldInvokeAuthenticatedGeneralConversationServerBridge({
+    ...generalHopInput,
+    userRole: "admin",
+  })
+);
+assertFalsy(
+  "R2-2b: buyer-only helper still excludes admin",
+  shouldInvokeBuyerConversationServerBridge({
+    ...generalHopInput,
+    userRole: "admin",
+  })
+);
+
+{
+  const adminPilot = await runHandler({
+    uid: PILOT_UID,
+    role: "admin",
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-3: admin dedicated-pilot UID flag ON v3 once", adminPilot.counters.v3, 1);
+  assertEqual("R2-4: admin dedicated-pilot UID flag ON legacy never", adminPilot.counters.legacy, 0);
+}
+
+{
+  const adminNonPilot = await runHandler({
+    uid: NON_PILOT_UID,
+    role: "admin",
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-5: admin not on dedicated allowlist v3 never", adminNonPilot.counters.v3, 0);
+  assertEqual(
+    "R2-6: admin not on dedicated allowlist follows non-selected legacy",
+    adminNonPilot.counters.legacy,
+    1
+  );
+}
+
+{
+  const guest = await runHandler({
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+    authError: new ServerAuthError(401, "Missing Firebase ID token"),
+  });
+  assertEqual("R2-7: guest v3 never", guest.counters.v3, 0);
+  assertFalsy(
+    "R2-7b: guest client hop not permitted",
+    shouldInvokeAuthenticatedGeneralConversationServerBridge({
+      isSignedIn: false,
+      userRole: "buyer",
+      userMessage: GENERAL_MESSAGE,
+    })
+  );
+}
+
+const unsupportedRoles: readonly SalesBrainUserRole[] = ["dealer", "seller", "superadmin"];
+for (const userRole of unsupportedRoles) {
+  assertFalsy(
+    `R2-8: unsupported role ${userRole} client hop not permitted`,
+    shouldInvokeAuthenticatedGeneralConversationServerBridge({
+      ...generalHopInput,
+      userRole,
+    })
+  );
+}
+
+{
+  const forgedRole = await runHandler({
+    uid: NON_PILOT_UID,
+    role: "member",
+    body: {
+      userMessage: GENERAL_MESSAGE,
+      userRole: "admin",
+      role: "admin",
+      clientRole: "admin",
+    },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-9: forged client role cannot replace trusted UID v3 never", forgedRole.counters.v3, 0);
+  assertEqual("R2-9b: forged client role follows non-selected legacy", forgedRole.counters.legacy, 1);
+}
+
+{
+  const roleMatchUidMismatch = await runHandler({
+    uid: NON_PILOT_UID,
+    role: "admin",
+    body: { userMessage: GENERAL_MESSAGE, userRole: "admin" },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual(
+    "R2-10: matching client role nonmatching trusted UID v3 never",
+    roleMatchUidMismatch.counters.v3,
+    0
+  );
+}
+
+{
+  const search = await runHandler({
+    uid: PILOT_UID,
+    role: "admin",
+    body: { userMessage: SEARCH_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-11: admin search intent outside general bridge", search.counters.v3, 0);
+  assertTruthy(
+    "R2-11b: search client eligibility unchanged for signed-in",
+    shouldInvokeAuthenticatedVehicleSearchServerBridge({
+      isSignedIn: true,
+      userMessage: SEARCH_MESSAGE,
+    })
+  );
+}
+
+{
+  const inventory = await runHandler({
+    uid: PILOT_UID,
+    role: "admin",
+    body: { userMessage: INVENTORY_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-12: admin inventory intent outside general bridge", inventory.counters.v3, 0);
+}
+
+assertEqual(
+  "R2-13: finance blocked lane outside general bridge",
+  resolveChatV2V3GeneralBridgeRouting({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: FINANCE_MESSAGE,
+    readEnv: readEnvFrom(
+      generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" })
+    ),
+  }).kind,
+  "not-selected"
+);
+assertEqual(
+  "R2-13b: selection blocked lane outside general bridge",
+  resolveChatV2V3GeneralBridgeRouting({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: SELECTION_MESSAGE,
+    readEnv: readEnvFrom(
+      generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" })
+    ),
+  }).kind,
+  "not-selected"
+);
+
+{
+  const highRiskAdmin = await runHandler({
+    uid: PILOT_UID,
+    role: "admin",
+    body: { userMessage: HIGH_RISK_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-14: high-risk read-only admin pilot v3 once", highRiskAdmin.counters.v3, 1);
+  assertEqual("R2-14b: high-risk read-only admin pilot legacy never", highRiskAdmin.counters.legacy, 0);
+}
+
+{
+  const killAdmin = await runHandler({
+    uid: PILOT_UID,
+    role: "admin",
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({
+      [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true",
+      [NONGA_AI_EMERGENCY_KILL_SWITCH_ENV]: "true",
+    }),
+  });
+  assertEqual("R2-15: selected admin kill v3 never", killAdmin.counters.v3, 0);
+  assertEqual("R2-15b: selected admin kill legacy never", killAdmin.counters.legacy, 0);
+  assertEqual(
+    "R2-15c: selected admin kill fail-closed",
+    asSuccess(killAdmin.body).data?.userVisibleText,
+    CHAT_V3_USER_FACING_UNAVAILABLE
+  );
+}
+
+{
+  const adminFail = await runHandler({
+    uid: PILOT_UID,
+    role: "admin",
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+    runV3: async () => ({
+      success: false,
+      errorCode: "provider_failure",
+      message: CHAT_V3_USER_FACING_UNAVAILABLE,
+    }),
+  });
+  assertEqual("R2-16: selected admin v3 error legacy never", adminFail.counters.legacy, 0);
+}
+
+assertEqual("R2-17: history max messages still 12", GENERAL_BRIDGE_MAX_HISTORY_MESSAGES, 12);
+assertEqual("R2-17b: history max chars still 2000", GENERAL_BRIDGE_MAX_MESSAGE_CHARS, 2000);
+assertEqual("R2-17c: history total chars still 8000", GENERAL_BRIDGE_MAX_TOTAL_HISTORY_CHARS, 8000);
+
+assertFalsy(
+  "R2-18: no client UID allowlist in useChat",
+  useChatSource.includes("NONGA_CHAT_V2_V3_GENERAL_PILOT_UIDS")
+);
+assertFalsy(
+  "R2-18b: no client UID allowlist in general hop helper",
+  /NONGA_CHAT_V2_V3_GENERAL_PILOT_UIDS/.test(buyerPathSource)
+);
+assertTruthy(
+  "R2-18c: useChat uses authenticated general hop predicate",
+  useChatSource.includes("shouldInvokeAuthenticatedGeneralConversationServerBridge")
+);
+
+assertFalsy("R2-19: no Gemini initial function-calling in bridge", bridgeSource.includes("functionCall"));
+assertTruthy(
+  "R2-20: bridge blocks authoritative tools on general path",
+  bridgeSource.includes("hasDisallowedAuthoritativeTools")
+);
+assertFalsy("R2-20b: no functionCall payload construction", /functionCall\s*:/.test(bridgeSource));
+assertFalsy(
+  "R2-20c: no business-tool executor on general hop helper",
+  /marketplace\.search|inventory\.fetch/.test(buyerPathSource)
+);
+
+{
+  const buyerPilot = await runHandler({
+    uid: PILOT_UID,
+    role: "member",
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  assertEqual("R2-21: buyer regression v3 once", buyerPilot.counters.v3, 1);
+  assertEqual("R2-21b: buyer regression legacy never", buyerPilot.counters.legacy, 0);
+}
+
+assertTruthy(
+  "R2 static: V.3 selection remains authenticatedActorRef",
+  /evaluateChatV2V3GeneralBridgePilotEligibility[\s\S]*authenticatedActorRef/.test(
+    bridgeSource
+  )
+);
+assertFalsy(
+  "R2 static: hop helper does not treat client role as V.3 authorization",
+  /client role authorizes/i.test(buyerPathSource)
+);
+assertFalsy(
+  "R2 static: useChat does not treat client role as V.3 authorization",
+  /client role authorizes/i.test(useChatSource)
 );
 
 console.log(`\n=== ${passCount} passed ===`);

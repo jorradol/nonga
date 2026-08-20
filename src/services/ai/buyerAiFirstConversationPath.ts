@@ -171,3 +171,28 @@ export function shouldInvokeBuyerConversationServerBridge(input: {
   if (input.isSellerListingAction || input.isSellIntent) return false;
   return true;
 }
+
+const AUTHENTICATED_GENERAL_CONVERSATION_SERVER_BRIDGE_ROLES =
+  new Set<SalesBrainUserRole>(["buyer", "admin"]);
+
+/**
+ * WP-NVB-01R2 — Client hop onto the authenticated orchestrate route for general
+ * consultative turns. Buyer behavior is unchanged; signed-in admin may also hop.
+ * This does not authorize V.3. Server selection uses trusted authenticated UID
+ * and the dedicated server pilot allowlist only. Search/Inventory eligibility
+ * remains `shouldInvokeAuthenticatedVehicleSearchServerBridge`.
+ */
+export function shouldInvokeAuthenticatedGeneralConversationServerBridge(input: {
+  isSignedIn: boolean;
+  userRole: SalesBrainUserRole;
+  userMessage: string;
+  isSellerListingAction?: boolean;
+  isSellIntent?: boolean;
+}): boolean {
+  if (!input.isSignedIn || !input.userMessage.trim()) return false;
+  if (!AUTHENTICATED_GENERAL_CONVERSATION_SERVER_BRIDGE_ROLES.has(input.userRole)) {
+    return false;
+  }
+  if (input.isSellerListingAction || input.isSellIntent) return false;
+  return true;
+}

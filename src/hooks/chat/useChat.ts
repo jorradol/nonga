@@ -20,8 +20,8 @@ import {
   type ChatUserVisibleOrchestrateData,
 } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
 import {
+  shouldInvokeAuthenticatedGeneralConversationServerBridge,
   shouldInvokeAuthenticatedVehicleSearchServerBridge,
-  shouldInvokeBuyerConversationServerBridge,
 } from "../../services/ai/buyerAiFirstConversationPath";
 import {
   resolvePilotSessionContextForFollowUp,
@@ -1788,7 +1788,7 @@ export function useChat() {
         orchestrated = mandatoryOrchestrated;
       } else {
         const shouldCallUserVisibleBridge =
-          shouldInvokeBuyerConversationServerBridge({
+          shouldInvokeAuthenticatedGeneralConversationServerBridge({
             isSignedIn,
             userRole: salesBrainUserRole,
             userMessage: trimmed,
