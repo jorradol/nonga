@@ -71,6 +71,10 @@ import {
   type ChatV2V3GeneralConversationRunner,
 } from "./chat/chatV2V3GeneralConversationBridge";
 import { CHAT_V3_USER_FACING_UNAVAILABLE } from "./chat-v3/chatV3ConversationContracts";
+import {
+  CHAT_V3_GENERAL_CONVERSATION_BRAIN,
+  type ChatV3GeneralConversationBrainStatus,
+} from "./chat/chatV2V3GeneralBridgeClientApply";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -137,6 +141,13 @@ export interface RedactedUserVisibleOrchestrationPayload {
   carCardCount: number;
   hasMoreCars?: boolean;
   isDraftPreview?: boolean;
+  /**
+   * WP-NVB-02E — Server-owned V.3 General Bridge discriminator.
+   * Set only when General Bridge is selected. Never derived from userRole
+   * or request body. Not realProviderNetwork.
+   */
+  conversationBrain?: typeof CHAT_V3_GENERAL_CONVERSATION_BRAIN;
+  conversationBrainStatus?: ChatV3GeneralConversationBrainStatus;
   /** v6.8D — redacted real-provider diagnostics (no secret values) */
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
@@ -209,6 +220,17 @@ function buildRedactedPayload(
     carCardCount: orchestrated?.carCards?.length ?? 0,
     hasMoreCars: orchestrated?.hasMoreCars,
     isDraftPreview: orchestrated?.isDraftPreview,
+  };
+}
+
+function withGeneralBridgeConversationBrain(
+  payload: RedactedUserVisibleOrchestrationPayload,
+  status: ChatV3GeneralConversationBrainStatus
+): RedactedUserVisibleOrchestrationPayload {
+  return {
+    ...payload,
+    conversationBrain: CHAT_V3_GENERAL_CONVERSATION_BRAIN,
+    conversationBrainStatus: status,
   };
 }
 
@@ -978,6 +1000,7 @@ function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
   const pilotSessionContext = sanitizePilotSessionContext(body?.pilotSessionContext);
   const conversationHistory =
     body?.conversationHistory !== undefined ? body.conversationHistory : undefined;
+  // WP-NVB-02E — conversationBrain is server-owned; request body cannot set it.
   return {
     userMessage,
     attachedImageCount,
@@ -1078,11 +1101,14 @@ export async function handleChatUserVisibleOrchestratePost(
         };
         result = {
           orchestrated,
-          payload: buildRedactedPayload(orchestrated, unavailableText, false, false),
+          payload: withGeneralBridgeConversationBrain(
+            buildRedactedPayload(orchestrated, unavailableText, false, false),
+            "failed-closed"
+          ),
         };
       } else if (generalBridgeRouting.kind === "selected") {
         skipRealProvider = true;
-        const generalOutcome = await executeChatV2V3GeneralBridgeTurn({
+        const generalBridgeTurn = await executeChatV2V3GeneralBridgeTurn({
           authenticatedActorRef: auth.uid,
           userMessage,
           conversationHistory: sanitizeBoundedGeneralBridgeHistory(
@@ -1095,19 +1121,24 @@ export async function handleChatUserVisibleOrchestratePost(
           now: deps.now,
         });
         const userVisibleText =
-          generalOutcome.kind === "success" ||
-          generalOutcome.kind === "failed-closed" ||
-          generalOutcome.kind === "kill-switch-fail-closed"
-            ? generalOutcome.userVisibleText
+          generalBridgeTurn.kind === "success" ||
+          generalBridgeTurn.kind === "failed-closed" ||
+          generalBridgeTurn.kind === "kill-switch-fail-closed"
+            ? generalBridgeTurn.userVisibleText
             : CHAT_V3_USER_FACING_UNAVAILABLE;
         const orchestrated: OrchestratedChatReply = {
           text: userVisibleText,
           carCards: [],
           skipGemini: true,
         };
+        const conversationBrainStatus: ChatV3GeneralConversationBrainStatus =
+          generalBridgeTurn.kind === "success" ? "success" : "failed-closed";
         result = {
           orchestrated,
-          payload: buildRedactedPayload(orchestrated, userVisibleText, false, false),
+          payload: withGeneralBridgeConversationBrain(
+            buildRedactedPayload(orchestrated, userVisibleText, false, false),
+            conversationBrainStatus
+          ),
         };
       } else {
         const runLegacy =

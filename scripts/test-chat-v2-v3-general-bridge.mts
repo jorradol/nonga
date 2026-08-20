@@ -931,4 +931,151 @@ assertFalsy(
   /client role authorizes/i.test(useChatSource)
 );
 
+console.log("\n--- WP-NVB-02E: Server-owned conversationBrain marker ---");
+
+{
+  const selected = await runHandler({
+    uid: PILOT_UID,
+    body: { userMessage: GENERAL_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  const data = asSuccess(selected.body).data as
+    | { conversationBrain?: string; conversationBrainStatus?: string }
+    | undefined;
+  assertEqual("02E: selected marker brain", data?.conversationBrain, "chat-v3-general");
+  assertEqual("02E: selected marker outcome success", data?.conversationBrainStatus, "success");
+  assertFalsy(
+    "02E: selected payload has no raw UID",
+    JSON.stringify(selected.body).includes(PILOT_UID)
+  );
+}
+
+{
+  const failed = await runHandler({
+    uid: PILOT_UID,
+    body: { userMessage: HIGH_RISK_MESSAGE },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+    runV3: async () => ({
+      success: false,
+      errorCode: "provider_failure",
+      message: CHAT_V3_USER_FACING_UNAVAILABLE,
+    }),
+  });
+  const data = asSuccess(failed.body).data as
+    | { conversationBrain?: string; conversationBrainStatus?: string }
+    | undefined;
+  assertEqual("02E: failed-closed marker brain", data?.conversationBrain, "chat-v3-general");
+  assertEqual(
+    "02E: failed-closed marker outcome",
+    data?.conversationBrainStatus,
+    "failed-closed"
+  );
+  assertEqual("02E: failed-closed v3 once", failed.counters.v3, 1);
+  assertEqual("02E: failed-closed legacy never", failed.counters.legacy, 0);
+}
+
+{
+  const search = await runHandler({
+    uid: PILOT_UID,
+    body: {
+      userMessage: SEARCH_MESSAGE,
+      conversationBrain: "chat-v3-general",
+      conversationBrainStatus: "success",
+    },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  const data = asSuccess(search.body).data as
+    | { conversationBrain?: string; conversationBrainStatus?: string }
+    | undefined;
+  assertEqual("02E: Search has no brain marker", data?.conversationBrain, undefined);
+  assertEqual("02E: Search has no brain outcome", data?.conversationBrainStatus, undefined);
+  assertEqual("02E: Search still legacy", search.counters.legacy, 1);
+  assertEqual("02E: Search still no v3", search.counters.v3, 0);
+}
+
+{
+  const legacy = await runHandler({
+    uid: PILOT_UID,
+    body: {
+      userMessage: GENERAL_MESSAGE,
+      conversationBrain: "chat-v3-general",
+      conversationBrainStatus: "success",
+    },
+    env: generalBridgeEnv(),
+  });
+  const data = asSuccess(legacy.body).data as
+    | { conversationBrain?: string; conversationBrainStatus?: string }
+    | undefined;
+  assertEqual("02E: Legacy has no brain marker", data?.conversationBrain, undefined);
+  assertEqual("02E: injected body cannot set marker", data?.conversationBrainStatus, undefined);
+  assertEqual("02E: disabled bridge still legacy", legacy.counters.legacy, 1);
+}
+
+{
+  const selectedInject = await runHandler({
+    uid: PILOT_UID,
+    body: {
+      userMessage: GENERAL_MESSAGE,
+      conversationBrain: "not-v3",
+      conversationBrainStatus: "failed-closed",
+    },
+    env: generalBridgeEnv({ [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true" }),
+  });
+  const data = asSuccess(selectedInject.body).data as
+    | { conversationBrain?: string; conversationBrainStatus?: string }
+    | undefined;
+  assertEqual(
+    "02E: request body cannot override selected brain",
+    data?.conversationBrain,
+    "chat-v3-general"
+  );
+  assertEqual(
+    "02E: request body cannot override selected outcome",
+    data?.conversationBrainStatus,
+    "success"
+  );
+}
+
+{
+  const kill = await runHandler({
+    uid: PILOT_UID,
+    body: { userMessage: HIGH_RISK_MESSAGE },
+    env: generalBridgeEnv({
+      [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true",
+      [NONGA_AI_EMERGENCY_KILL_SWITCH_ENV]: "true",
+    }),
+  });
+  const data = asSuccess(kill.body).data as
+    | { conversationBrain?: string; conversationBrainStatus?: string }
+    | undefined;
+  assertEqual("02E: kill-switch selected-path marker", data?.conversationBrain, "chat-v3-general");
+  assertEqual("02E: kill-switch outcome failed-closed", data?.conversationBrainStatus, "failed-closed");
+}
+
+{
+  const coreMatch = handlerSource.match(
+    /if \(coreRouting\.kind === "conversation-core"\) \{[\s\S]*?const generalBridgeRouting/
+  );
+  assertTruthy("02E: core branch located", Boolean(coreMatch?.[0]));
+  assertFalsy(
+    "02E: Core path does not attach V.3 brain",
+    Boolean(coreMatch?.[0]?.includes("withGeneralBridgeConversationBrain"))
+  );
+}
+
+assertTruthy(
+  "02E: handler attaches brain only via helper",
+  handlerSource.includes("withGeneralBridgeConversationBrain")
+);
+assertTruthy(
+  "02E: parseOrchestrateBody ignores client brain",
+  handlerSource.includes("conversationBrain is server-owned")
+);
+assertFalsy(
+  "02E: handler does not fabricate realProviderNetwork true for V.3",
+  /withGeneralBridgeConversationBrain[\s\S]{0,400}realProviderNetwork:\s*true/.test(
+    handlerSource
+  )
+);
+
 console.log(`\n=== ${passCount} passed ===`);

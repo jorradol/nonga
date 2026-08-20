@@ -46,6 +46,7 @@ import {
 } from "./chatV3HighRiskResponseValidator";
 import { buildChatV3SystemInstruction } from "./chatV3SystemInstruction";
 import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize";
+import { normalizeChatV3UnsupportedDurableMemoryClaims } from "./chatV3MemoryClaimNormalizer";
 import type { FinanceCalcResult } from "../../../utils/financeCalculator";
 
 export interface RunChatV3ConversationOptions {
@@ -168,9 +169,10 @@ export async function runChatV3Conversation(
   // WP-V3-11 — input safety assessment (does not mutate user message).
   const safetyAssessment = assessChatV3Safety(request.message);
   if (safetyAssessment.shouldShortCircuit && safetyAssessment.safeReply) {
-    const content = normalizeChatV3AssistantTypography(
-      safetyAssessment.safeReply,
-      { userMessage: request.message }
+    const content = normalizeChatV3UnsupportedDurableMemoryClaims(
+      normalizeChatV3AssistantTypography(safetyAssessment.safeReply, {
+        userMessage: request.message,
+      })
     );
     return {
       success: true,
@@ -367,7 +369,7 @@ export async function runChatV3Conversation(
       conversationId: request.conversationId,
       messageId:
         options.createMessageId?.() ?? defaultMessageId(now),
-      content,
+      content: normalizeChatV3UnsupportedDurableMemoryClaims(content),
       expertModeHint: request.expertMode,
       providerId,
     },

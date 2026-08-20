@@ -19,6 +19,7 @@ import {
   shouldApplyBridgeUserVisibleText,
   type ChatUserVisibleOrchestrateData,
 } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
+import { resolveChatV2V3GeneralBridgeClientApply } from "../../services/ai/chat/chatV2V3GeneralBridgeClientApply";
 import {
   shouldInvokeAuthenticatedGeneralConversationServerBridge,
   shouldInvokeAuthenticatedVehicleSearchServerBridge,
@@ -1807,7 +1808,27 @@ export function useChat() {
             pilotSessionContext,
             conversationHistory: conversationHistoryForBridge,
           });
-          if (bridged?.userVisibleText?.trim()) {
+          const v3Apply = resolveChatV2V3GeneralBridgeClientApply({
+            userMessage: trimmed,
+            generalHopAttempted: true,
+            hopStatus: bridged ? "success" : "failure",
+            userVisibleText: bridged?.userVisibleText,
+            conversationBrain: bridged?.conversationBrain,
+            conversationBrainStatus: bridged?.conversationBrainStatus,
+            localOrchestrated: orchestrated,
+            isFollowUpPilot,
+            realProviderNetwork: bridged?.realProviderNetwork,
+          });
+          if (
+            v3Apply.action === "adopt-v3" ||
+            v3Apply.action === "high-risk-fail-closed"
+          ) {
+            orchestrated = {
+              text: v3Apply.text,
+              carCards: [],
+              skipGemini: true,
+            };
+          } else if (bridged?.userVisibleText?.trim()) {
             if (orchestrated) {
               if (
                 shouldApplyBridgeUserVisibleText({

@@ -12,6 +12,11 @@ import {
   isMonthlyAffordabilityDiscovery,
   isVehicleDiscoveryIntent,
 } from "./vehicleDiscoveryCriteriaParser";
+import {
+  parseServerOwnedChatV3GeneralConversationBrain,
+  type ChatV3GeneralConversationBrain,
+  type ChatV3GeneralConversationBrainStatus,
+} from "./chatV2V3GeneralBridgeClientApply";
 
 export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 
@@ -64,6 +69,12 @@ export interface ChatUserVisibleOrchestrateData {
   draftFields?: ExtractedCarFields;
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
+  /**
+   * WP-NVB-02E — accepted only when Server sent exact literals.
+   * Malformed values are stripped and ignored.
+   */
+  conversationBrain?: ChatV3GeneralConversationBrain;
+  conversationBrainStatus?: ChatV3GeneralConversationBrainStatus;
   userVisibleRuntimeDiagnostic?: {
     runtimeMode: string;
     provider: string;
@@ -195,6 +206,26 @@ function classifyServerBridgeDiagnostic(
     return "server_non_pilot";
   }
   return "bridge_success";
+}
+
+/** Accept only exact Server-owned V.3 General Bridge literals. */
+function withSanitizedConversationBrain(
+  data: ChatUserVisibleOrchestrateData
+): ChatUserVisibleOrchestrateData {
+  const parsed = parseServerOwnedChatV3GeneralConversationBrain(data);
+  const {
+    conversationBrain: _ignoredBrain,
+    conversationBrainStatus: _ignoredStatus,
+    ...rest
+  } = data;
+  if (!parsed) {
+    return rest;
+  }
+  return {
+    ...rest,
+    conversationBrain: parsed.conversationBrain,
+    conversationBrainStatus: parsed.conversationBrainStatus,
+  };
 }
 
 function buildOrchestrateRequestBody(input: {
@@ -332,9 +363,10 @@ export async function resolveChatUserVisibleBridgeResult(
       emitBridgeDiagnostic("bridge_invalid_response");
       return { status: "failure", diagnostic: "bridge_invalid_response" };
     }
-    const diagnostic = classifyServerBridgeDiagnostic(json.data);
+    const data = withSanitizedConversationBrain(json.data);
+    const diagnostic = classifyServerBridgeDiagnostic(data);
     emitBridgeDiagnostic(diagnostic);
-    return { status: "success", diagnostic, data: json.data };
+    return { status: "success", diagnostic, data };
   } catch {
     emitBridgeDiagnostic("bridge_http_failure");
     return { status: "failure", diagnostic: "bridge_http_failure" };
@@ -373,6 +405,8 @@ export async function applyChatUserVisibleServerBridge(input: {
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
   carCards?: ChatCarCardData[];
+  conversationBrain?: ChatV3GeneralConversationBrain;
+  conversationBrainStatus?: ChatV3GeneralConversationBrainStatus;
 } | null> {
   const data = await fetchChatUserVisibleOrchestrate({
     userMessage: input.userMessage,
@@ -393,6 +427,12 @@ export async function applyChatUserVisibleServerBridge(input: {
     realProviderGateReason: data.realProviderGateReason,
     ...(Array.isArray(data.carCards) && data.carCards.length > 0
       ? { carCards: data.carCards }
+      : {}),
+    ...(data.conversationBrain
+      ? {
+          conversationBrain: data.conversationBrain,
+          conversationBrainStatus: data.conversationBrainStatus,
+        }
       : {}),
   };
 }
