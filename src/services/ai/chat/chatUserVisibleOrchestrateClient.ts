@@ -15,6 +15,13 @@ import {
 
 export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 
+export interface ChatUserVisibleConversationHistoryTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export const CHAT_USER_VISIBLE_CONVERSATION_HISTORY_MAX_MESSAGES = 12;
+
 export const MANDATORY_VEHICLE_SEARCH_BRIDGE_FAIL_MESSAGE =
   "ขณะนี้เชื่อมต่อระบบค้นหาไม่สำเร็จครับ กรุณารีเฟรชหน้าแล้วลองเข้าสู่ระบบใหม่อีกครั้งนะครับ";
 
@@ -194,6 +201,7 @@ function buildOrchestrateRequestBody(input: {
   userMessage: string;
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
+  conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
 }): Record<string, unknown> {
   const body: Record<string, unknown> = { userMessage: input.userMessage };
   if (input.attachedImageCount !== undefined) {
@@ -202,7 +210,46 @@ function buildOrchestrateRequestBody(input: {
   if (input.pilotSessionContext?.recentCarCards?.length) {
     body.pilotSessionContext = input.pilotSessionContext;
   }
+  if (input.conversationHistory && input.conversationHistory.length > 0) {
+    body.conversationHistory = input.conversationHistory.map((turn) => ({
+      role: turn.role,
+      content: turn.content,
+    }));
+  }
   return body;
+}
+
+/**
+ * Build bounded untrusted conversation history from current-session messages only.
+ * Server re-sanitizes; client must not send system/tool roles or auth metadata.
+ */
+export function buildConversationHistoryForGeneralBridge(input: {
+  messages: ReadonlyArray<{ sender: string; text: string }>;
+  currentUserMessage: string;
+}): ChatUserVisibleConversationHistoryTurn[] {
+  const turns: ChatUserVisibleConversationHistoryTurn[] = [];
+  for (const message of input.messages) {
+    const content = String(message.text ?? "").trim();
+    if (!content) continue;
+    const sender = String(message.sender ?? "").trim().toLowerCase();
+    if (sender === "user") {
+      turns.push({ role: "user", content });
+    } else if (sender === "ai" || sender === "assistant") {
+      turns.push({ role: "assistant", content });
+    }
+  }
+
+  const normalizedCurrent = String(input.currentUserMessage ?? "").trim();
+  while (turns.length > 0) {
+    const last = turns[turns.length - 1];
+    if (last.role === "user" && last.content === normalizedCurrent) {
+      turns.pop();
+    } else {
+      break;
+    }
+  }
+
+  return turns.slice(-CHAT_USER_VISIBLE_CONVERSATION_HISTORY_MAX_MESSAGES);
 }
 
 /**
@@ -247,6 +294,7 @@ export async function resolveChatUserVisibleBridgeResult(
     userMessage: string;
     attachedImageCount?: number;
     pilotSessionContext?: PilotBuyerSessionContext;
+    conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
   },
   deps: ChatUserVisibleBridgeDeps = {}
 ): Promise<ChatUserVisibleBridgeResult> {
@@ -300,6 +348,7 @@ export async function fetchChatUserVisibleOrchestrate(input: {
   userMessage: string;
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
+  conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
 }): Promise<ChatUserVisibleOrchestrateData | null> {
   const result = await resolveChatUserVisibleBridgeResult(input);
   if (result.status === "failure") {
@@ -317,6 +366,7 @@ export async function applyChatUserVisibleServerBridge(input: {
   attachedImageCount?: number;
   orchestratedText: string;
   pilotSessionContext?: PilotBuyerSessionContext;
+  conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
 }): Promise<{
   userVisibleText: string;
   pilotPathActive: boolean;
@@ -328,6 +378,7 @@ export async function applyChatUserVisibleServerBridge(input: {
     userMessage: input.userMessage,
     attachedImageCount: input.attachedImageCount,
     pilotSessionContext: input.pilotSessionContext,
+    conversationHistory: input.conversationHistory,
   });
   if (!data) {
     return null;

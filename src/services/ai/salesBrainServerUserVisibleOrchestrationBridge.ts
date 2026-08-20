@@ -64,6 +64,13 @@ import {
   type ChatUserVisibleConversationCoreRunner,
 } from "../../server/conversation-core/conversationCoreChatUserVisiblePilotBridge";
 import { hashPiiForLog } from "../../utils/piiLogRedaction";
+import {
+  executeChatV2V3GeneralBridgeTurn,
+  resolveChatV2V3GeneralBridgeRouting,
+  sanitizeBoundedGeneralBridgeHistory,
+  type ChatV2V3GeneralConversationRunner,
+} from "./chat/chatV2V3GeneralConversationBridge";
+import { CHAT_V3_USER_FACING_UNAVAILABLE } from "./chat-v3/chatV3ConversationContracts";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -952,6 +959,7 @@ function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
   userMessage: string;
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
+  conversationHistory?: unknown;
 } | { error: string } {
   const userMessage = String(body?.userMessage ?? "").trim();
   if (!userMessage) {
@@ -968,10 +976,13 @@ function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
     }
   }
   const pilotSessionContext = sanitizePilotSessionContext(body?.pilotSessionContext);
+  const conversationHistory =
+    body?.conversationHistory !== undefined ? body.conversationHistory : undefined;
   return {
     userMessage,
     attachedImageCount,
     ...(pilotSessionContext ? { pilotSessionContext } : {}),
+    ...(conversationHistory !== undefined ? { conversationHistory } : {}),
   };
 }
 
@@ -991,6 +1002,7 @@ export interface ChatUserVisibleOrchestrateHandlerDeps {
   ) => UserVisibleOrchestrationBridgeResult;
   applyRealProvider?: typeof maybeApplyUserVisibleRealProvider;
   runConversationCore?: ChatUserVisibleConversationCoreRunner;
+  runChatV3GeneralBridge?: ChatV2V3GeneralConversationRunner;
 }
 
 export async function handleChatUserVisibleOrchestratePost(
@@ -1007,7 +1019,8 @@ export async function handleChatUserVisibleOrchestratePost(
       res.status(400).json({ success: false, message: parsed.error });
       return;
     }
-    const { userMessage, attachedImageCount, pilotSessionContext } = parsed;
+    const { userMessage, attachedImageCount, pilotSessionContext, conversationHistory } =
+      parsed;
     const inventory = await deps.loadChatInventory();
     const bridgeEnvironment = resolveBridgeEnvironment();
     const readEnv = deps.readEnv ?? ((key: string) => process.env[key]);
@@ -1049,16 +1062,65 @@ export async function handleChatUserVisibleOrchestratePost(
         ),
       };
     } else {
-      const runLegacy =
-        deps.runLegacyOrchestration ?? orchestrateUserVisibleChatForTrustedAuth;
-      result = runLegacy({
-        auth,
+      const generalBridgeRouting = resolveChatV2V3GeneralBridgeRouting({
+        authenticatedActorRef: auth.uid,
         userMessage,
-        attachedImageCount,
-        inventory,
-        env: envSnapshot,
-        pilotSessionContext,
+        readEnv,
       });
+
+      if (generalBridgeRouting.kind === "kill-switch-fail-closed") {
+        skipRealProvider = true;
+        const unavailableText = CHAT_V3_USER_FACING_UNAVAILABLE;
+        const orchestrated: OrchestratedChatReply = {
+          text: unavailableText,
+          carCards: [],
+          skipGemini: true,
+        };
+        result = {
+          orchestrated,
+          payload: buildRedactedPayload(orchestrated, unavailableText, false, false),
+        };
+      } else if (generalBridgeRouting.kind === "selected") {
+        skipRealProvider = true;
+        const generalOutcome = await executeChatV2V3GeneralBridgeTurn({
+          authenticatedActorRef: auth.uid,
+          userMessage,
+          conversationHistory: sanitizeBoundedGeneralBridgeHistory(
+            conversationHistory,
+            userMessage
+          ),
+          readEnv,
+          environment: bridgeEnvironment,
+          runChatV3Conversation: deps.runChatV3GeneralBridge,
+          now: deps.now,
+        });
+        const userVisibleText =
+          generalOutcome.kind === "success" ||
+          generalOutcome.kind === "failed-closed" ||
+          generalOutcome.kind === "kill-switch-fail-closed"
+            ? generalOutcome.userVisibleText
+            : CHAT_V3_USER_FACING_UNAVAILABLE;
+        const orchestrated: OrchestratedChatReply = {
+          text: userVisibleText,
+          carCards: [],
+          skipGemini: true,
+        };
+        result = {
+          orchestrated,
+          payload: buildRedactedPayload(orchestrated, userVisibleText, false, false),
+        };
+      } else {
+        const runLegacy =
+          deps.runLegacyOrchestration ?? orchestrateUserVisibleChatForTrustedAuth;
+        result = runLegacy({
+          auth,
+          userMessage,
+          attachedImageCount,
+          inventory,
+          env: envSnapshot,
+          pilotSessionContext,
+        });
+      }
     }
 
     const {

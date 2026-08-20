@@ -13,6 +13,7 @@ import {
 } from "../../services/ai/chat/chatSearchOrchestrator";
 import {
   applyChatUserVisibleServerBridge,
+  buildConversationHistoryForGeneralBridge,
   MANDATORY_VEHICLE_SEARCH_BRIDGE_FAIL_MESSAGE,
   resolveChatUserVisibleBridgeResult,
   shouldApplyBridgeUserVisibleText,
@@ -1755,11 +1756,17 @@ export function useChat() {
           isSellIntent: isSellIntent(trimmed),
         });
 
+      const conversationHistoryForBridge = buildConversationHistoryForGeneralBridge({
+        messages: historyAfterUser,
+        currentUserMessage: trimmed,
+      });
+
       if (isMandatoryVehicleSearchBridge) {
         const bridgeResult = await resolveChatUserVisibleBridgeResult({
           userMessage: trimmed,
           attachedImageCount: hasImages ? imageAttachments.length : undefined,
           pilotSessionContext,
+          conversationHistory: conversationHistoryForBridge,
         });
         const publishMandatoryBridgeFailure = async () => {
           const { replyText, carCards } =
@@ -1798,6 +1805,7 @@ export function useChat() {
             attachedImageCount: hasImages ? imageAttachments.length : undefined,
             orchestratedText: orchestrated?.text ?? "",
             pilotSessionContext,
+            conversationHistory: conversationHistoryForBridge,
           });
           if (bridged?.userVisibleText?.trim()) {
             if (orchestrated) {
