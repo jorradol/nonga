@@ -8,6 +8,7 @@ import {
   CHAT_V3_ASSIST_FALLBACK,
   CHAT_V3_COLLISION_FALLBACK,
   CHAT_V3_EPB_FALLBACK,
+  CHAT_V3_PR_FALLBACK,
   CHAT_V3_VAT_FALLBACK,
   resolveChatV3HighRiskFallback,
   validateChatV3HighRiskResponse,
@@ -1013,6 +1014,79 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log("\n=== WP-NVB-03R — P/R unsupported outcome ===");
+  {
+    const positives: Array<[string, string]> = [
+      [
+        "อย่าเข้าเกียร์ P ขณะเคลื่อนที่ เพราะล้อจะล็อก",
+        "definite wheel-lock claim tied to P/R",
+      ],
+      [
+        "เข้าเกียร์ R ขณะขับแล้วรถจะหมุน",
+        "car-spin claim tied to P/R",
+      ],
+      [
+        "การเข้าเกียร์ P/R จะทำลายเกียร์แน่นอน",
+        "guaranteed transmission-destruction claim",
+      ],
+      [
+        "อย่าเข้า P/R เพราะอาจทำให้เกียร์พังจนล้อล็อกและรถหมุน",
+        "modal causal chain lock and spin",
+      ],
+      [
+        "Don't shift to P or R while moving because the wheels will lock and the car will spin",
+        "mixed Thai/English P/R lock-spin chain",
+      ],
+    ];
+    for (const [sample, label] of positives) {
+      assert(
+        hasClass(sample, "TRANSMISSION_PR_UNSUPPORTED_OUTCOME"),
+        `flags P/R outcome: ${label}`
+      );
+    }
+
+    const prNegatives: Array<[string, string]> = [
+      [
+        "ห้ามเลือกเกียร์ P/R ขณะรถยังเคลื่อนที่ ให้ลดความเร็วอย่างควบคุม",
+        "simple prohibition against P/R while moving",
+      ],
+      [
+        "ห้ามเข้า P/R ขณะเคลื่อนที่ ผลที่เกิดต่างกันตามยี่ห้อ รุ่น และระบบเกียร์",
+        "system-dependent explanation",
+      ],
+      [
+        "ห้ามเลือกเกียร์ P/R ขณะเคลื่อนที่ ยืนยันไม่ได้ว่าจะทำให้ล้อล็อกหรือรถหมุน เพราะระบบรถแต่ละคันต่างกัน",
+        "safe negation cannot confirm lock/spin",
+      ],
+      [
+        "ไม่แนะนำให้ดับเครื่องขณะเคลื่อนที่ เพราะแรงช่วยอาจลดลงตามระบบรถ ห้ามเลือกเกียร์ P/R ขณะเคลื่อนที่",
+        "engine-off assist warning kept separate",
+      ],
+      [
+        "เกียร์ P ใช้ตอนจอดนิ่ง ส่วนเกียร์ R ใช้ถอยหลังเมื่อรถหยุดแล้ว",
+        "ordinary P/R discussion without a fixed outcome claim",
+      ],
+    ];
+    for (const [sample, label] of prNegatives) {
+      assert(
+        !hasClass(sample, "TRANSMISSION_PR_UNSUPPORTED_OUTCOME"),
+        `does not flag P/R outcome: ${label}`
+      );
+    }
+
+    const prFb = resolveChatV3HighRiskFallback([
+      "TRANSMISSION_PR_UNSUPPORTED_OUTCOME",
+    ]);
+    assert(prFb === CHAT_V3_PR_FALLBACK, "P/R fallback is dedicated and bounded");
+    assert(
+      /ห้ามเลือกเกียร์ P หรือ R ขณะรถยังเคลื่อนที่/.test(prFb) &&
+        /ต่างกันตามยี่ห้อ/.test(prFb) &&
+        /ยืนยันไม่ได้ว่าจะทำให้ล้อล็อกหรือรถหมุน/.test(prFb) &&
+        !/จนล้อล็อกและรถหมุน/.test(prFb),
+      "P/R fallback keeps the prohibition without the lock/spin chain"
+    );
+  }
+
   console.log("\n=== Correction instruction + fallback copy ===");
   {
     const instruction = buildChatV3HighRiskCorrectionInstruction({
@@ -1049,8 +1123,8 @@ async function main(): Promise<void> {
       "collision fallback wins when mixed with other remaining risks"
     );
     assert(
-      !/VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|ASSIST_SYSTEM_ABSOLUTE_FAILURE|systemInstruction|GEMINI_API_KEY|WP-V3-14/.test(
-        `${vatFb}\n${epbFb}\n${assistFb}\n${hitFb}`
+      !/VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|ASSIST_SYSTEM_ABSOLUTE_FAILURE|TRANSMISSION_PR_UNSUPPORTED_OUTCOME|systemInstruction|GEMINI_API_KEY|WP-V3-14/.test(
+        `${vatFb}\n${epbFb}\n${assistFb}\n${hitFb}\n${CHAT_V3_PR_FALLBACK}`
       ),
       "fallbacks omit risk-class names and internal detail"
     );

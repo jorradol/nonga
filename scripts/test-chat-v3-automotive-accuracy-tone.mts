@@ -145,6 +145,10 @@ console.log("\n=== 4.4 Brake sink emergency ===");
     detectChatV3AccuracyTopics("ถ้ารถเบรกจมระหว่างขับ ลุงควรทำอย่างไร")
   );
   assert(
+    /ห้ามอธิบายว่า P\/R จะทำให้ล้อล็อก/.test(accuracy),
+    "Accuracy forbids P/R lock/spin as a fixed outcome"
+  );
+  assert(
     /1\.\s*ตั้งสติ[\s\S]*9\.\s*หลังหยุด/.test(guide) &&
       !/1\.\s*ตั้งสติ/.test(accuracy),
     "numbered event-order skeleton stays in Safety Layer, not Accuracy"

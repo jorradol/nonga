@@ -10,6 +10,8 @@
  * not a single Owner-browser sentence.
  * WP-V3-14O expands EPB_UNIVERSAL_PROCEDURE to catch cross-model / majority
  * hold-switch capability claims, not only absolute stop guarantees.
+ * WP-NVB-03R adds TRANSMISSION_PR_UNSUPPORTED_OUTCOME for P/R lock/spin/
+ * guaranteed-damage claims while preserving the moving P/R prohibition.
  * Correction (max 1) and fallbacks are owned by the conversation service.
  */
 
@@ -17,7 +19,8 @@ export type ChatV3HighRiskClass =
   | "VAT_ABSOLUTE_GENERALIZATION"
   | "EPB_UNIVERSAL_PROCEDURE"
   | "INTENTIONAL_COLLISION_ADVICE"
-  | "ASSIST_SYSTEM_ABSOLUTE_FAILURE";
+  | "ASSIST_SYSTEM_ABSOLUTE_FAILURE"
+  | "TRANSMISSION_PR_UNSUPPORTED_OUTCOME";
 
 export interface ChatV3HighRiskFinding {
   riskClass: ChatV3HighRiskClass;
@@ -46,6 +49,7 @@ export interface ChatV3HighRiskGuardMetadata {
 const RISK_ORDER: ChatV3HighRiskClass[] = [
   "INTENTIONAL_COLLISION_ADVICE",
   "ASSIST_SYSTEM_ABSOLUTE_FAILURE",
+  "TRANSMISSION_PR_UNSUPPORTED_OUTCOME",
   "VAT_ABSOLUTE_GENERALIZATION",
   "EPB_UNIVERSAL_PROCEDURE",
 ];
@@ -888,6 +892,57 @@ function detectAssistSystemAbsoluteFailure(assistantContent: string): boolean {
   return false;
 }
 
+function foldPrText(text: string): string {
+  return String(text ?? "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[*_`#\[\]]/g, " ")
+    .replace(/^[\s>-]+/gm, " ")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/\s+/g, " ")
+    .replace(/([ก-๙])\s+(?=[ก-๙])/g, "$1")
+    .trim();
+}
+
+const PR_SELECT_RE =
+  /(?:เกียร์|เข้า|เลือก|เปลี่ยน(?:ไป)?(?:ที่)?|ใส่|shift(?:ing)?\s+(?:to|into)|select(?:ing)?)\s*(?:P\s*(?:\/|,|หรือ|or)\s*R|P\/R|P หรือ R|[PR]\b|park|reverse)|P\/R|P\s+or\s+R|เข้าเกียร์\s*[PR]|เกียร์\s*[PR]\b|\b(?:park|reverse)\s+gear\b/i;
+
+const PR_OUTCOME_RE =
+  /ล้อล็อก|ล้อ.{0,8}ล็อก|ล็อกล้อ|wheels?.{0,16}lock|lock(?:s|ed)?.{0,16}wheels?|รถหมุน|หมุนคว้าง|รถจะหมุน|car.{0,16}spin|เกียร์พัง|ทำลายเกียร์|เกียร์เสียหาย|destroys?.{0,16}transmission|transmission.{0,24}(?:fail|destroy|break|damage)|guaranteed.{0,20}transmission/i;
+
+const PR_CAUSAL_RE =
+  /ทำให้|จน(?:กระทั่ง)?|จะทำให้|อาจทำให้|เพราะ|จำเป็น|แน่นอน|ทุกคัน|will|would|cause|because|until|แล้ว|necessarily|guaranteed/i;
+
+const PR_SAFE_NEGATION_BEFORE =
+  /(?:ยืนยันไม่ได้|ไม่สามารถยืนยัน|ห้ามกล่าวว่า|ห้ามอ้างว่า|ไม่ได้แปลว่า|ไม่ใช่ว่าจะทำให้|cannot\s+confirm|cannot\s+be\s+confirmed|does\s+not\s+mean|do\s+not\s+(?:claim|assert)|not\s+true\s+that).{0,80}$/i;
+
+/**
+ * TRANSMISSION_PR_UNSUPPORTED_OUTCOME: P/R selection tied to a lock/spin/
+ * guaranteed-damage chain. Safe prohibition and safe negation do not match.
+ */
+function detectTransmissionPrUnsupportedOutcome(assistantContent: string): boolean {
+  const text = foldPrText(assistantContent);
+  if (!text || !PR_SELECT_RE.test(text)) return false;
+  const outcomeRe = new RegExp(PR_OUTCOME_RE.source, "gi");
+  let match: RegExpExecArray | null = outcomeRe.exec(text);
+  while (match) {
+    const start = Math.max(0, match.index - 120);
+    const end = Math.min(text.length, match.index + match[0].length + 40);
+    const window = text.slice(start, end);
+    if (PR_SELECT_RE.test(window) && PR_CAUSAL_RE.test(window)) {
+      const before = text.slice(start, match.index);
+      if (!PR_SAFE_NEGATION_BEFORE.test(before)) {
+        const prefix = text.slice(Math.max(0, match.index - 28), match.index);
+        if (!DIRECT_NEGATION_BEFORE.test(prefix) && !NEGATION_INSIDE_MATCH.test(match[0])) {
+          return true;
+        }
+      }
+    }
+    match = outcomeRe.exec(text);
+  }
+  return false;
+}
+
 let lastGuardMetadata: ChatV3HighRiskGuardMetadata = emptyGuardMetadata();
 
 function emptyGuardMetadata(): ChatV3HighRiskGuardMetadata {
@@ -953,6 +1008,10 @@ export function validateChatV3HighRiskResponse(
     findings.push({ riskClass: "ASSIST_SYSTEM_ABSOLUTE_FAILURE" });
   }
 
+  if (detectTransmissionPrUnsupportedOutcome(text)) {
+    findings.push({ riskClass: "TRANSMISSION_PR_UNSUPPORTED_OUTCOME" });
+  }
+
   return { ok: findings.length === 0, findings };
 }
 
@@ -1006,6 +1065,18 @@ export function buildChatV3HighRiskCorrectionInstruction(input: {
     );
   }
 
+  if (classes.includes("TRANSMISSION_PR_UNSUPPORTED_OUTCOME")) {
+    facts.push(
+      "TRANSMISSION_PR_UNSUPPORTED_OUTCOME:",
+      "- คงคำห้ามเลือกเกียร์ P หรือ R ขณะรถยังเคลื่อนที่",
+      "- ถอนคำอธิบายว่าจะทำให้ล้อล็อก รถหมุน หรือเกียร์พังเป็นผลตายตัว",
+      "- ระบุว่าผลที่เกิดต่างกันตามยี่ห้อ รุ่น และระบบเกียร์",
+      "- อาจกล่าวได้เพียงว่าอาจทำให้ควบคุมยากขึ้นหรือมีผลต่อเกียร์ โดยไม่ทำนายกลไกเดียว",
+      "- แยกเหตุผลเรื่องดับเครื่องและแรงช่วย ออกจากเรื่อง P/R",
+      "- รักษาลำดับควบคุมรถที่ปลอดภัย และห้ามเพิ่ม Tool"
+    );
+  }
+
   if (classes.includes("INTENTIONAL_COLLISION_ADVICE")) {
     facts.push(
       "INTENTIONAL_COLLISION_ADVICE:",
@@ -1032,6 +1103,9 @@ export const CHAT_V3_COLLISION_FALLBACK =
 export const CHAT_V3_ASSIST_FALLBACK =
   "แรงช่วยพวงมาลัยหรือแรงช่วยเบรกอาจลดลงหรือหายไป ทั้งนี้ขึ้นกับระบบรถ ผู้ขับอาจต้องออกแรงหมุนพวงมาลัยหรือเหยียบเบรกมากขึ้น ไม่ใช่ว่าพวงมาลัยจะเลี้ยวไม่ได้ทันที และห้ามเหมารวมว่าระบบไฟฟ้า ไฮดรอลิก หรือสุญญากาศให้ผลเหมือนกันทุกคัน ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่ ให้ถอนคันเร่ง ประคองทิศทาง เตือนรถรอบข้าง ลดความเร็วตามระบบรถ และหาพื้นที่ปลอดภัย หลังหยุดแล้วห้ามขับต่อ ให้เรียกรถยกหรือความช่วยเหลือ";
 
+export const CHAT_V3_PR_FALLBACK =
+  "ห้ามเลือกเกียร์ P หรือ R ขณะรถยังเคลื่อนที่ เพราะอาจทำให้ควบคุมยากขึ้นหรือมีผลต่อเกียร์ แต่ผลที่เกิดต่างกันตามยี่ห้อ รุ่น และระบบเกียร์ ยืนยันไม่ได้ว่าจะทำให้ล้อล็อกหรือรถหมุน ให้ลดความเร็วอย่างควบคุม ถอนคันเร่ง ประคองทิศทาง เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย หลังหยุดห้ามขับต่อ ให้เรียกรถยก";
+
 export const CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID = "chat-v3-high-risk-fallback";
 
 /**
@@ -1051,6 +1125,9 @@ export function resolveChatV3HighRiskFallback(
   }
   if (classes.includes("ASSIST_SYSTEM_ABSOLUTE_FAILURE")) {
     parts.push(CHAT_V3_ASSIST_FALLBACK);
+  }
+  if (classes.includes("TRANSMISSION_PR_UNSUPPORTED_OUTCOME")) {
+    parts.push(CHAT_V3_PR_FALLBACK);
   }
   if (classes.includes("EPB_UNIVERSAL_PROCEDURE")) {
     parts.push(CHAT_V3_EPB_FALLBACK);

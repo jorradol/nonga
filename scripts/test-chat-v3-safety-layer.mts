@@ -171,6 +171,11 @@ async function main(): Promise<void> {
     "brake-failure event-order skeleton precedes caveats and forbids P/R while moving"
   );
   assert(
+    /ห้ามกล่าวว่าการเข้าเกียร์ P\/R/.test(brakeGuide) &&
+      !/ล้อล็อก/.test(brakeGuide.split("\n").find((line) => /^\s*6\./.test(line)) ?? ""),
+    "Safety Layer forbids P/R lock/spin as a universal causal explanation"
+  );
+  assert(
     /1\.\s*ตั้งสติ[\s\S]*9\.\s*หลังหยุด/.test(brakeGuide),
     "Safety Layer retains the complete nine-step numbered sequence"
   );

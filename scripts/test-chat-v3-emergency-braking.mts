@@ -105,6 +105,23 @@ assert(
 );
 assert(/P\/R/.test(combined), "P/R is forbidden while moving");
 assert(
+  /ห้ามกล่าวว่าการเข้าเกียร์ P\/R/.test(combined) &&
+    /ล้อล็อก/.test(combined) &&
+    /ต่างกันตามระบบรถ/.test(combined),
+  "P/R lock/spin/damage is forbidden as a prescribed universal cause"
+);
+{
+  const step6 =
+    safety.split("\n").find((line) => /^\s*6\./.test(line)) ?? "";
+  assert(
+    /P\/R/.test(step6) &&
+      /ดับเครื่อง/.test(step6) &&
+      !/ล้อล็อก/.test(step6) &&
+      !/รถหมุน/.test(step6),
+    "step 6 separates engine-off/P/R prohibition from lock/spin mechanism"
+  );
+}
+assert(
   /อย่างระมัดระวัง/.test(combined) && /คู่มือรถคันนั้น/.test(combined),
   "EPB remains conditional to the vehicle system and manual"
 );

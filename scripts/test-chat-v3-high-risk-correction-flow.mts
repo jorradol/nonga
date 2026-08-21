@@ -12,6 +12,7 @@ import {
   CHAT_V3_COLLISION_FALLBACK,
   CHAT_V3_EPB_FALLBACK,
   CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID,
+  CHAT_V3_PR_FALLBACK,
   CHAT_V3_VAT_FALLBACK,
   getLastChatV3HighRiskGuardMetadata,
 } from "../src/services/ai/chat-v3/chatV3HighRiskResponseValidator.ts";
@@ -56,6 +57,10 @@ const SAFE_EPB =
   "เบรกจอดไฟฟ้าต่างกันตามรุ่น บางรุ่นอาจรองรับการดึงสวิตช์ค้าง แต่ต้องดูคู่มือ ไม่รับรองผล ให้ถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย";
 const SAFE_ASSIST =
   "แรงช่วยพวงมาลัยหรือแรงช่วยเบรกอาจลดลงหรือหายไปตามระบบรถ อาจต้องออกแรงมากขึ้น ไม่ใช่ว่าพวงมาลัยเลี้ยวไม่ได้ทันที ไม่แนะนำให้ดับเครื่องขณะรถยังเคลื่อนที่ ให้ถอนคันเร่ง ประคองรถ เตือนรถรอบข้าง และหาพื้นที่ปลอดภัย หลังหยุดห้ามขับต่อ ให้เรียกรถยก";
+const SAFE_PR =
+  "ห้ามเลือกเกียร์ P หรือ R ขณะรถยังเคลื่อนที่ ผลที่เกิดต่างกันตามระบบเกียร์ ยืนยันไม่ได้ว่าจะทำให้ล้อล็อกหรือรถหมุน ให้ลดความเร็วอย่างควบคุม ถอนคันเร่ง ประคองทิศทาง และหาพื้นที่ปลอดภัย";
+const PR_UNSAFE =
+  "อย่าเข้าเกียร์ P/R ขณะเคลื่อนที่ เพราะอาจทำให้เกียร์พังจนล้อล็อกและรถหมุน";
 const OWNER_VAT_T1 =
   "ถ้าตัวเลขค่างวดในใบเสนอราคาเท่ากับค่างวดดิบ แสดงว่ายังไม่รวม VAT คุณลุงต้องบวกเพิ่มอีก 7% คูณ 1.07 ถึงจะเป็นยอดจริง";
 const OWNER_ASSIST_T3 =
@@ -130,7 +135,7 @@ async function runWith(
 }
 
 function leaksInternal(text: string): boolean {
-  return /VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|ASSIST_SYSTEM_ABSOLUTE_FAILURE|systemInstruction|GEMINI_API_KEY|NONGA_AI_|WP-V3-14|chatV3HighRisk/.test(
+  return /VAT_ABSOLUTE_GENERALIZATION|EPB_UNIVERSAL_PROCEDURE|INTENTIONAL_COLLISION_ADVICE|ASSIST_SYSTEM_ABSOLUTE_FAILURE|TRANSMISSION_PR_UNSUPPORTED_OUTCOME|systemInstruction|GEMINI_API_KEY|NONGA_AI_|WP-V3-14|chatV3HighRisk/.test(
     text
   );
 }
@@ -807,6 +812,61 @@ async function main(): Promise<void> {
         "unrelated Chat V.3 replies are not rewritten"
       );
     }
+  }
+
+  section("WP-NVB-03R — P/R unsupported outcome flow");
+  {
+    let correctionInstruction = "";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [PR_UNSAFE, SAFE_PR, extra],
+      onGenerate(callIndex, request) {
+        if (callIndex === 1) correctionInstruction = request.systemInstruction;
+      },
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const meta = getLastChatV3HighRiskGuardMetadata();
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "P/R original triggers exactly one correction");
+    assert(
+      meta.riskClasses.includes("TRANSMISSION_PR_UNSUPPORTED_OUTCOME") &&
+        meta.correctionAttempted === true &&
+        meta.correctionAccepted === true &&
+        meta.fallbackUsed === false,
+      "P/R risk enters the existing one-slot correction"
+    );
+    assert(
+      correctionInstruction.includes("TRANSMISSION_PR_UNSUPPORTED_OUTCOME") &&
+        correctionInstruction.includes("คงคำห้ามเลือกเกียร์ P หรือ R"),
+      "P/R correction instruction names the class and keeps the prohibition"
+    );
+    assert(
+      sent === SAFE_PR &&
+        /ห้ามเลือกเกียร์ P หรือ R ขณะรถยังเคลื่อนที่/.test(sent) &&
+        !/จนล้อล็อกและรถหมุน/.test(sent) &&
+        !leaksInternal(sent),
+      "corrected P/R answer removes the unsupported mechanism and keeps the prohibition"
+    );
+  }
+
+  {
+    const stillUnsafe = "เข้า P แล้วล้อจะล็อก รถจะหมุนแน่นอน";
+    const extra = "should-not-run";
+    const provider = createScriptedProvider({
+      replies: [PR_UNSAFE, stillUnsafe, extra],
+    });
+    const result = await runWith(BRAKE_ASK, provider);
+    const sent = visibleContent(result);
+    assert(provider.calls === 2, "P/R still-unsafe correction does not call a third time");
+    assert(
+      result.success === true &&
+        result.data.providerId === CHAT_V3_HIGH_RISK_FALLBACK_PROVIDER_ID &&
+        sent === CHAT_V3_PR_FALLBACK &&
+        /ห้ามเลือกเกียร์ P หรือ R ขณะรถยังเคลื่อนที่/.test(sent) &&
+        !/จนล้อล็อกและรถหมุน/.test(sent) &&
+        !leaksInternal(sent),
+      "failed P/R correction uses the safe P/R fallback"
+    );
   }
 
   const networkAfter = getChatV3GeminiSdkNetworkCallCount();
