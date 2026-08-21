@@ -77,7 +77,12 @@ import {
   type ChatV2V3SearchGroundingTurnOutcome,
 } from "./chat/chatV2V3SearchGroundingBridge";
 import type { SearchDisplayOrderClassification } from "./chat/chatV2V3SearchGroundingCompose";
-import { CHAT_V3_USER_FACING_UNAVAILABLE } from "./chat-v3/chatV3ConversationContracts";
+import {
+  CHAT_V3_USER_FACING_UNAVAILABLE,
+  type SearchCompositionFallbackReason,
+  type SearchCompositionStructuredOutputParseStatus,
+  type SearchCompositionValidationCode,
+} from "./chat-v3/chatV3ConversationContracts";
 import {
   CHAT_V3_GENERAL_CONVERSATION_BRAIN,
   type ChatV3GeneralConversationBrainStatus,
@@ -134,6 +139,10 @@ export interface UserVisibleRuntimeLaneEvidence {
   displayOrderClassification?: SearchDisplayOrderClassification;
   structuredOrderValid?: boolean;
   searchFailureClassification: "none" | string;
+  searchCompositionFallbackReason?: SearchCompositionFallbackReason;
+  structuredOutputParseStatus?: SearchCompositionStructuredOutputParseStatus;
+  searchCompositionTextPresent?: boolean;
+  searchCompositionValidationCode?: SearchCompositionValidationCode;
 }
 
 export interface UserVisibleRuntimeAttributionDiagnostic {
@@ -176,6 +185,10 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   structuredOrderValid?: boolean;
   searchFailureClassification?: "none" | string;
   skipGemini?: boolean;
+  searchCompositionFallbackReason?: SearchCompositionFallbackReason;
+  structuredOutputParseStatus?: SearchCompositionStructuredOutputParseStatus;
+  searchCompositionTextPresent?: boolean;
+  searchCompositionValidationCode?: SearchCompositionValidationCode;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
@@ -682,6 +695,29 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
             : {}),
           ...(lane.structuredOrderValid != null
             ? { structuredOrderValid: lane.structuredOrderValid }
+            : {}),
+          ...(lane.searchCompositionFallbackReason
+            ? {
+                searchCompositionFallbackReason:
+                  lane.searchCompositionFallbackReason,
+              }
+            : {}),
+          ...(lane.structuredOutputParseStatus
+            ? {
+                structuredOutputParseStatus: lane.structuredOutputParseStatus,
+              }
+            : {}),
+          ...(lane.searchCompositionTextPresent != null
+            ? {
+                searchCompositionTextPresent:
+                  lane.searchCompositionTextPresent,
+              }
+            : {}),
+          ...(lane.searchCompositionValidationCode
+            ? {
+                searchCompositionValidationCode:
+                  lane.searchCompositionValidationCode,
+              }
             : {}),
         }
       : {}),
@@ -1247,6 +1283,29 @@ function searchLaneEvidenceFromTurn(
     displayOrderClassification: searchTurn.displayOrderClassification,
     structuredOrderValid: searchTurn.structuredOrderValid,
     searchFailureClassification: "none",
+    ...(searchTurn.searchCompositionFallbackReason
+      ? {
+          searchCompositionFallbackReason:
+            searchTurn.searchCompositionFallbackReason,
+        }
+      : {}),
+    ...(searchTurn.structuredOutputParseStatus
+      ? {
+          structuredOutputParseStatus: searchTurn.structuredOutputParseStatus,
+        }
+      : {}),
+    ...(searchTurn.searchCompositionTextPresent != null
+      ? {
+          searchCompositionTextPresent:
+            searchTurn.searchCompositionTextPresent,
+        }
+      : {}),
+    ...(searchTurn.searchCompositionValidationCode
+      ? {
+          searchCompositionValidationCode:
+            searchTurn.searchCompositionValidationCode,
+        }
+      : {}),
   };
 }
 

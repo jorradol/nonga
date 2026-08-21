@@ -4,7 +4,13 @@
  * Tool execution + at most one V.3 grounded composition. No Legacy after selection.
  */
 import { classifyConversationCoreLane } from "../../../server/conversation-core/conversationCoreLaneClassifier";
-import { CHAT_V3_USER_FACING_UNAVAILABLE } from "../chat-v3/chatV3ConversationContracts";
+import {
+  CHAT_V3_USER_FACING_UNAVAILABLE,
+  readChatV3SearchCompositionBoundaryDiagnostic,
+  type SearchCompositionFallbackReason,
+  type SearchCompositionStructuredOutputParseStatus,
+  type SearchCompositionValidationCode,
+} from "../chat-v3/chatV3ConversationContracts";
 import {
   runChatV3Conversation,
   type RunChatV3ConversationOptions,
@@ -91,6 +97,10 @@ export type ChatV2V3SearchGroundingTurnOutcome =
       readonly validatedToolResultListingIdCount: number;
       readonly marketplaceSearchExecutionCount: 0 | 1;
       readonly inventoryFetchExecutionCount: 0;
+      readonly searchCompositionFallbackReason?: SearchCompositionFallbackReason;
+      readonly structuredOutputParseStatus?: SearchCompositionStructuredOutputParseStatus;
+      readonly searchCompositionTextPresent?: boolean;
+      readonly searchCompositionValidationCode?: SearchCompositionValidationCode;
     }
   | {
       readonly kind: "failed-closed";
@@ -260,6 +270,13 @@ function failClosedOutcome(input: {
   };
 }
 
+type SearchCompositionDiagnosticFields = {
+  readonly searchCompositionFallbackReason: SearchCompositionFallbackReason;
+  readonly structuredOutputParseStatus: SearchCompositionStructuredOutputParseStatus;
+  readonly searchCompositionTextPresent: boolean;
+  readonly searchCompositionValidationCode: SearchCompositionValidationCode;
+};
+
 function successOutcome(input: {
   readonly text: string;
   readonly carCards: readonly ChatCarCardData[];
@@ -268,6 +285,7 @@ function successOutcome(input: {
   readonly structuredOrderValid: boolean;
   readonly validatedToolResultListingIdCount: number;
   readonly marketplaceSearchExecutionCount: 0 | 1;
+  readonly diagnostic?: SearchCompositionDiagnosticFields;
 }): ChatV2V3SearchGroundingTurnOutcome {
   return {
     kind: "success",
@@ -281,12 +299,14 @@ function successOutcome(input: {
     validatedToolResultListingIdCount: input.validatedToolResultListingIdCount,
     marketplaceSearchExecutionCount: input.marketplaceSearchExecutionCount,
     inventoryFetchExecutionCount: 0,
+    ...(input.diagnostic ?? {}),
   };
 }
 
 function noMatchOutcome(
   text = SEARCH_GROUNDING_NO_MATCH_TEXT,
-  marketplaceSearchExecutionCount: 0 | 1 = 0
+  marketplaceSearchExecutionCount: 0 | 1 = 0,
+  diagnostic?: SearchCompositionDiagnosticFields
 ): ChatV2V3SearchGroundingTurnOutcome {
   return successOutcome({
     text,
@@ -296,6 +316,7 @@ function noMatchOutcome(
     structuredOrderValid: true,
     validatedToolResultListingIdCount: 0,
     marketplaceSearchExecutionCount,
+    ...(diagnostic ? { diagnostic } : {}),
   });
 }
 
@@ -304,6 +325,133 @@ function extractOrderedListingIds(
 ): readonly string[] | undefined {
   if (!response.success) return undefined;
   return response.data.searchComposition?.orderedListingIds;
+}
+
+function providerErrorFallbackReason(
+  errorCode: string | undefined
+): SearchCompositionFallbackReason {
+  if (
+    errorCode === "provider_failure" ||
+    errorCode === "provider_unavailable" ||
+    errorCode === "provider_timeout" ||
+    errorCode === "provider_rejected"
+  ) {
+    return "provider-failure";
+  }
+  if (errorCode === "unsafe_output") return "unsafe-output";
+  return "unknown-bounded";
+}
+
+function mapCompositionValidation(reason: string): {
+  readonly fallbackReason: SearchCompositionFallbackReason;
+  readonly validationCode: SearchCompositionValidationCode;
+} {
+  if (reason === "marketplace-total-claim") {
+    return {
+      fallbackReason: "composition-total-claim-invalid",
+      validationCode: "marketplace-total-claim",
+    };
+  }
+  if (reason === "incorrect-count") {
+    return {
+      fallbackReason: "composition-count-claim-invalid",
+      validationCode: "incorrect-count",
+    };
+  }
+  if (reason === "displayed-count-mismatch") {
+    return {
+      fallbackReason: "composition-count-claim-invalid",
+      validationCode: "displayed-count-mismatch",
+    };
+  }
+  if (
+    reason === "cross-listing-price" ||
+    reason === "cross-listing-mileage" ||
+    reason === "omitted-mileage-stated" ||
+    reason === "omitted-transmission-stated" ||
+    reason === "omitted-body-stated"
+  ) {
+    return {
+      fallbackReason: "composition-grounding-fact-invalid",
+      validationCode: reason,
+    };
+  }
+  if (reason === "empty-text") {
+    return {
+      fallbackReason: "missing-success-text",
+      validationCode: "empty-text",
+    };
+  }
+  return {
+    fallbackReason: "composition-validation-failed",
+    validationCode: "unknown-bounded",
+  };
+}
+
+function resolveMissingOrLeakedDiagnostic(input: {
+  readonly response: ChatV3ConversationResponse | null;
+  readonly leaked: boolean;
+  readonly successTextPresent: boolean;
+}): SearchCompositionDiagnosticFields {
+  const boundary = readChatV3SearchCompositionBoundaryDiagnostic(input.response);
+  if (input.leaked) {
+    return {
+      searchCompositionFallbackReason: "structured-output-envelope-leak",
+      structuredOutputParseStatus:
+        boundary?.structuredOutputParseStatus ?? "envelope-leak",
+      searchCompositionTextPresent: input.successTextPresent,
+      searchCompositionValidationCode: "none",
+    };
+  }
+  if (boundary) {
+    return {
+      searchCompositionFallbackReason: boundary.searchCompositionFallbackReason,
+      structuredOutputParseStatus: boundary.structuredOutputParseStatus,
+      searchCompositionTextPresent: boundary.searchCompositionTextPresent,
+      searchCompositionValidationCode: "none",
+    };
+  }
+  if (!input.response) {
+    return {
+      searchCompositionFallbackReason: "provider-failure",
+      structuredOutputParseStatus: "absent",
+      searchCompositionTextPresent: false,
+      searchCompositionValidationCode: "none",
+    };
+  }
+  const response = input.response;
+  if (response.success === false) {
+    return {
+      searchCompositionFallbackReason: providerErrorFallbackReason(
+        response.errorCode
+      ),
+      structuredOutputParseStatus: "absent",
+      searchCompositionTextPresent: false,
+      searchCompositionValidationCode: "none",
+    };
+  }
+  return {
+    searchCompositionFallbackReason: "missing-success-text",
+    structuredOutputParseStatus: "absent",
+    searchCompositionTextPresent: false,
+    searchCompositionValidationCode: "none",
+  };
+}
+
+function acceptedCompositionDiagnostic(
+  response: ChatV3ConversationResponse | null
+): SearchCompositionDiagnosticFields {
+  const boundary = readChatV3SearchCompositionBoundaryDiagnostic(response);
+  return {
+    searchCompositionFallbackReason: "none",
+    structuredOutputParseStatus:
+      boundary?.structuredOutputParseStatus ??
+      (response && extractOrderedListingIds(response) !== undefined
+        ? "structured"
+        : "plain-text"),
+    searchCompositionTextPresent: true,
+    searchCompositionValidationCode: "none",
+  };
 }
 
 function resolveGroundedSearchDisplay(input: {
@@ -320,7 +468,12 @@ function resolveGroundedSearchDisplay(input: {
     Boolean(successText) && looksLikeSearchGroundingJsonEnvelope(successText ?? "");
 
   if (!successText || leaked) {
-    if (zero) return noMatchOutcome(input.deterministic, 1);
+    const diagnostic = resolveMissingOrLeakedDiagnostic({
+      response: input.response,
+      leaked,
+      successTextPresent: Boolean(successText),
+    });
+    if (zero) return noMatchOutcome(input.deterministic, 1, diagnostic);
     return successOutcome({
       text: input.deterministic,
       carCards: input.canonicalCards,
@@ -329,6 +482,7 @@ function resolveGroundedSearchDisplay(input: {
       structuredOrderValid: false,
       validatedToolResultListingIdCount: validatedCount,
       marketplaceSearchExecutionCount,
+      diagnostic,
     });
   }
 
@@ -336,8 +490,17 @@ function resolveGroundedSearchDisplay(input: {
     text: successText,
     packet: input.packet,
   });
-  if (!grounded.ok) {
-    if (zero) return noMatchOutcome(input.deterministic, 1);
+  if (grounded.ok === false) {
+    const mapped = mapCompositionValidation(grounded.reason);
+    const diagnostic: SearchCompositionDiagnosticFields = {
+      searchCompositionFallbackReason: mapped.fallbackReason,
+      structuredOutputParseStatus:
+        readChatV3SearchCompositionBoundaryDiagnostic(input.response)
+          ?.structuredOutputParseStatus ?? "structured",
+      searchCompositionTextPresent: true,
+      searchCompositionValidationCode: mapped.validationCode,
+    };
+    if (zero) return noMatchOutcome(input.deterministic, 1, diagnostic);
     return successOutcome({
       text: input.deterministic,
       carCards: input.canonicalCards,
@@ -346,6 +509,7 @@ function resolveGroundedSearchDisplay(input: {
       structuredOrderValid: false,
       validatedToolResultListingIdCount: validatedCount,
       marketplaceSearchExecutionCount,
+      diagnostic,
     });
   }
 
@@ -355,6 +519,7 @@ function resolveGroundedSearchDisplay(input: {
       : undefined,
     returnedListingIds: input.packet.returnedListingIds,
   });
+  const accepted = acceptedCompositionDiagnostic(input.response);
 
   if (zero) {
     return successOutcome({
@@ -365,6 +530,7 @@ function resolveGroundedSearchDisplay(input: {
       structuredOrderValid: orderCheck.ok,
       validatedToolResultListingIdCount: 0,
       marketplaceSearchExecutionCount,
+      diagnostic: accepted,
     });
   }
 
@@ -380,6 +546,7 @@ function resolveGroundedSearchDisplay(input: {
       structuredOrderValid: true,
       validatedToolResultListingIdCount: validatedCount,
       marketplaceSearchExecutionCount,
+      diagnostic: accepted,
     });
   }
 
@@ -391,6 +558,7 @@ function resolveGroundedSearchDisplay(input: {
     structuredOrderValid: false,
     validatedToolResultListingIdCount: validatedCount,
     marketplaceSearchExecutionCount,
+    diagnostic: accepted,
   });
 }
 

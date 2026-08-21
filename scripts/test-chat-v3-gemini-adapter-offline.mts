@@ -8,7 +8,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildChatV3SystemInstruction } from "../src/services/ai/chat-v3/chatV3SystemInstruction.ts";
 import { runChatV3Conversation } from "../src/services/ai/chat-v3/chatV3ConversationService.ts";
-import { CHAT_V3_USER_FACING_UNAVAILABLE } from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
+import {
+  CHAT_V3_USER_FACING_UNAVAILABLE,
+  readChatV3SearchCompositionBoundaryDiagnostic,
+} from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
 import {
   assertFakeProviderBlockedInProduction,
   CHAT_V3_GEMINI_PROVIDER_ID,
@@ -513,6 +516,15 @@ async function main(): Promise<void> {
     "Search request uses Search schema, not buyer finalAnswerTh"
   );
   assert(searchGenerateCount === 1, "Search composition makes one provider call");
+  assert(
+    readChatV3SearchCompositionBoundaryDiagnostic(searchRun)
+      ?.searchCompositionFallbackReason === "none",
+    "Valid Search composition boundary reason is none"
+  );
+  assert(
+    !JSON.stringify(searchRun).includes("searchCompositionFallbackReason"),
+    "Successful Search public JSON omits fallback reason"
+  );
 
   resetLastFakeChatV3GeminiRequest();
   const generalClient = createFakeChatV3GeminiClient({
@@ -544,6 +556,96 @@ async function main(): Promise<void> {
   assert(
     generalRun.success === true && generalRun.data.searchComposition == null,
     "General success omits Search metadata"
+  );
+  assert(
+    readChatV3SearchCompositionBoundaryDiagnostic(generalRun) == null,
+    "General conversation has no Search boundary diagnostic"
+  );
+
+  resetLastFakeChatV3GeminiRequest();
+  const invalidJsonClient = createFakeChatV3GeminiClient({
+    text: '{"replyText":',
+  });
+  const invalidJsonAdapter = createRealGeminiChatV3Provider({
+    bypassLiveEnableGateForTests: true,
+    geminiClient: invalidJsonClient,
+    readEnv: testReadEnv(enabledGeminiEnv()),
+  });
+  const invalidJsonRun = await runChatV3Conversation({
+    rawRequest: {
+      conversationId: "conv-search-invalid-json",
+      message: "ช่วยหารถเก๋ง Toyota",
+      history: [],
+      expertMode: "BUYING",
+    },
+    environment: "test",
+    provider: invalidJsonAdapter,
+    searchGroundingComposition: true,
+  });
+  assert(invalidJsonRun.success === false, "Invalid Search JSON remains unsafe_output failure");
+  assert(
+    invalidJsonRun.success === false && invalidJsonRun.errorCode === "unsafe_output",
+    "Invalid Search JSON still uses unsafe_output"
+  );
+  assert(
+    invalidJsonRun.success === false &&
+      invalidJsonRun.message === CHAT_V3_USER_FACING_UNAVAILABLE,
+    "Invalid Search JSON keeps the same user-facing unavailable message"
+  );
+  const invalidPublic = JSON.parse(JSON.stringify(invalidJsonRun)) as Record<string, unknown>;
+  assert(
+    JSON.stringify(Object.keys(invalidPublic).sort()) ===
+      JSON.stringify(["errorCode", "message", "success"].sort()),
+    "Public conversation JSON exposes only success/errorCode/message"
+  );
+  assert(
+    !JSON.stringify(invalidPublic).includes("searchCompositionFallbackReason"),
+    "Public conversation JSON omits Search fallback reason"
+  );
+  assert(
+    !JSON.stringify(invalidPublic).includes("replyText"),
+    "Public conversation JSON omits raw replyText"
+  );
+  const invalidBoundary = readChatV3SearchCompositionBoundaryDiagnostic(invalidJsonRun);
+  assert(
+    invalidBoundary?.searchCompositionFallbackReason ===
+      "structured-output-invalid-json",
+    "Search boundary classifies invalid JSON"
+  );
+  assert(
+    invalidBoundary?.structuredOutputParseStatus === "invalid-json",
+    "Search boundary parse status is invalid-json"
+  );
+
+  resetLastFakeChatV3GeminiRequest();
+  const schemaMismatchClient = createFakeChatV3GeminiClient({
+    text: JSON.stringify({ orderedListingIds: ["listing-1"] }),
+  });
+  const schemaMismatchAdapter = createRealGeminiChatV3Provider({
+    bypassLiveEnableGateForTests: true,
+    geminiClient: schemaMismatchClient,
+    readEnv: testReadEnv(enabledGeminiEnv()),
+  });
+  const schemaMismatchRun = await runChatV3Conversation({
+    rawRequest: {
+      conversationId: "conv-search-schema-mismatch",
+      message: "ช่วยหารถเก๋ง Toyota",
+      history: [],
+      expertMode: "BUYING",
+    },
+    environment: "test",
+    provider: schemaMismatchAdapter,
+    searchGroundingComposition: true,
+  });
+  assert(
+    schemaMismatchRun.success === false &&
+      schemaMismatchRun.errorCode === "unsafe_output",
+    "Schema mismatch still returns unsafe_output"
+  );
+  assert(
+    readChatV3SearchCompositionBoundaryDiagnostic(schemaMismatchRun)
+      ?.searchCompositionFallbackReason === "structured-output-schema-mismatch",
+    "Search boundary classifies schema mismatch"
   );
 
   section("Summary");

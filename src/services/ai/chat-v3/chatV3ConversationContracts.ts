@@ -97,6 +97,111 @@ export type ChatV3ConversationResponse =
   | ChatV3ConversationSuccessResponse
   | ChatV3ConversationErrorResponse;
 
+/**
+ * WP-NVB-03N — Search-only composition fallback reason.
+ * Bounded enums only. Never raw provider text, JSON, listing IDs, or PII.
+ */
+export const SEARCH_COMPOSITION_FALLBACK_REASONS = [
+  "none",
+  "provider-failure",
+  "structured-output-invalid-json",
+  "structured-output-schema-mismatch",
+  "structured-output-envelope-leak",
+  "missing-success-text",
+  "composition-validation-failed",
+  "composition-count-claim-invalid",
+  "composition-grounding-fact-invalid",
+  "composition-total-claim-invalid",
+  "unsafe-output",
+  "unknown-bounded",
+] as const;
+
+export type SearchCompositionFallbackReason =
+  (typeof SEARCH_COMPOSITION_FALLBACK_REASONS)[number];
+
+export const SEARCH_COMPOSITION_STRUCTURED_OUTPUT_PARSE_STATUSES = [
+  "not-applicable",
+  "absent",
+  "invalid-json",
+  "schema-mismatch",
+  "envelope-leak",
+  "structured",
+  "plain-text",
+] as const;
+
+export type SearchCompositionStructuredOutputParseStatus =
+  (typeof SEARCH_COMPOSITION_STRUCTURED_OUTPUT_PARSE_STATUSES)[number];
+
+export const SEARCH_COMPOSITION_VALIDATION_CODES = [
+  "none",
+  "empty-text",
+  "marketplace-total-claim",
+  "incorrect-count",
+  "displayed-count-mismatch",
+  "cross-listing-price",
+  "cross-listing-mileage",
+  "omitted-mileage-stated",
+  "omitted-transmission-stated",
+  "omitted-body-stated",
+  "unknown-bounded",
+] as const;
+
+export type SearchCompositionValidationCode =
+  (typeof SEARCH_COMPOSITION_VALIDATION_CODES)[number];
+
+/** Search-only conversation-service boundary diagnostic. Not part of the public HTTP JSON. */
+export interface ChatV3SearchCompositionBoundaryDiagnostic {
+  readonly searchCompositionFallbackReason: SearchCompositionFallbackReason;
+  readonly structuredOutputParseStatus: SearchCompositionStructuredOutputParseStatus;
+  readonly searchCompositionTextPresent: boolean;
+}
+
+const SEARCH_COMPOSITION_BOUNDARY_DIAGNOSTICS = new WeakMap<
+  ChatV3ConversationResponse,
+  ChatV3SearchCompositionBoundaryDiagnostic
+>();
+
+const SEARCH_COMPOSITION_FALLBACK_REASON_SET = new Set<string>(
+  SEARCH_COMPOSITION_FALLBACK_REASONS
+);
+const SEARCH_COMPOSITION_PARSE_STATUS_SET = new Set<string>(
+  SEARCH_COMPOSITION_STRUCTURED_OUTPUT_PARSE_STATUSES
+);
+
+function isSearchCompositionBoundaryDiagnostic(
+  value: unknown
+): value is ChatV3SearchCompositionBoundaryDiagnostic {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    SEARCH_COMPOSITION_FALLBACK_REASON_SET.has(
+      String(record.searchCompositionFallbackReason ?? "")
+    ) &&
+    SEARCH_COMPOSITION_PARSE_STATUS_SET.has(
+      String(record.structuredOutputParseStatus ?? "")
+    ) &&
+    typeof record.searchCompositionTextPresent === "boolean"
+  );
+}
+
+export function attachChatV3SearchCompositionBoundaryDiagnostic(
+  response: ChatV3ConversationResponse,
+  diagnostic: ChatV3SearchCompositionBoundaryDiagnostic
+): ChatV3ConversationResponse {
+  SEARCH_COMPOSITION_BOUNDARY_DIAGNOSTICS.set(response, diagnostic);
+  return response;
+}
+
+export function readChatV3SearchCompositionBoundaryDiagnostic(
+  response: ChatV3ConversationResponse | null | undefined
+): ChatV3SearchCompositionBoundaryDiagnostic | undefined {
+  if (!response) return undefined;
+  const diagnostic = SEARCH_COMPOSITION_BOUNDARY_DIAGNOSTICS.get(response);
+  return isSearchCompositionBoundaryDiagnostic(diagnostic)
+    ? diagnostic
+    : undefined;
+}
+
 export interface ChatV3ValidatedConversationRequest {
   conversationId: string;
   message: string;

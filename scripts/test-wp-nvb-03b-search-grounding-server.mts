@@ -37,6 +37,8 @@ import {
 import { CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN } from "../src/services/ai/chat/chatV2V3SearchGroundingClientApply.ts";
 import { CHAT_V3_USER_FACING_UNAVAILABLE } from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
 import type { ChatV3ConversationResponse } from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
+import { runChatV3Conversation } from "../src/services/ai/chat-v3/chatV3ConversationService.ts";
+import type { ChatV3ProviderAdapter } from "../src/services/ai/chat-v3/chatV3ProviderAdapter.ts";
 import {
   handleChatUserVisibleOrchestratePost,
   type UserVisibleOrchestrationBridgeResult,
@@ -805,6 +807,49 @@ const FOUR_CARS: ChatInventoryCar[] = [
 const PATH_C_REPLY =
   "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 4 คันในรอบนี้ครับ เริ่มจาก Toyota Vios ปี 2020 แล้วตามด้วย Toyota Altis, Toyota Yaris และ Toyota Camry";
 const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
+let expectedDeterministicFourText = "";
+
+function fakeSearchProvider(content: string): ChatV3ProviderAdapter {
+  return {
+    id: "fake-search-diag",
+    generate: async () => ({
+      ok: true,
+      providerId: "fake-search-diag",
+      content,
+    }),
+  };
+}
+
+function failingSearchProvider(): ChatV3ProviderAdapter {
+  return {
+    id: "fake-search-diag",
+    generate: async () => ({
+      ok: false,
+      providerId: "fake-search-diag",
+      reason: "provider_failure",
+      message: "unavailable",
+    }),
+  };
+}
+
+function executeSearchWithProvider(
+  provider: ChatV3ProviderAdapter,
+  inventory: readonly ChatInventoryCar[] = FOUR_CARS
+) {
+  return executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: (options) =>
+      runChatV3Conversation({
+        ...options,
+        provider,
+        allowFakeProvider: true,
+      }),
+  });
+}
 
 {
   const canonical = ["id-a", "id-b", "id-c", "id-d"];
@@ -916,6 +961,9 @@ const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
     assertEqual("path-c: listing count 4", turn.carCards.length, 4);
     assertEqual("path-c: set unchanged", [...turn.carCards.map((c) => c.id)].sort(), [...PATH_C_ORDER].sort());
     assertEqual("path-c: no deterministic fallback", turn.usedDeterministicFallback, false);
+    assertEqual("path-c: fallback reason none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("path-c: validation none", turn.searchCompositionValidationCode, "none");
+    assertEqual("path-c: text present", turn.searchCompositionTextPresent, true);
     const byId = new Map(FOUR_CARS.map((item) => [item.id, item]));
     for (const card of turn.carCards) {
       const source = byId.get(card.id);
@@ -944,6 +992,8 @@ const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
     assertEqual("dup-ids: canonical order", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
     assertEqual("dup-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
     assertEqual("dup-ids: not deterministic", turn.usedDeterministicFallback, false);
+    assertEqual("dup-ids: fallback reason none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("dup-ids: not fallback classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
   }
 }
 
@@ -1021,6 +1071,12 @@ const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
     assertFalsy("json-leak: no raw json", looksLikeSearchGroundingJsonEnvelope(turn.userVisibleText));
     assertNotIncludes("json-leak: no orderedListingIds key", turn.userVisibleText, "orderedListingIds");
     assertEqual("json-leak: canonical cards", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertEqual(
+      "json-leak: fallback reason envelope",
+      turn.searchCompositionFallbackReason,
+      "structured-output-envelope-leak"
+    );
+    expectedDeterministicFourText = turn.userVisibleText;
   }
 }
 
@@ -1039,6 +1095,8 @@ const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
     assertEqual("zero-result: classification", turn.displayOrderClassification, "zero-result");
     assertEqual("zero-result: valid empty", turn.structuredOrderValid, true);
     assertEqual("zero-result: no cards", turn.carCards.length, 0);
+    assertEqual("zero-result: fallback reason none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("zero-result: not deterministic-fallback class", turn.displayOrderClassification, "zero-result");
   }
 }
 
@@ -1128,6 +1186,10 @@ const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
     assertEqual("attr search: classification", parsed.displayOrderClassification, "structured-accepted");
     assertEqual("attr search: structured valid", parsed.structuredOrderValid, true);
     assertEqual("attr search: failure none", parsed.searchFailureClassification, "none");
+    assertEqual("attr search: fallback reason none", parsed.searchCompositionFallbackReason, "none");
+    assertEqual("attr search: parse status structured", parsed.structuredOutputParseStatus, "structured");
+    assertEqual("attr search: text present", parsed.searchCompositionTextPresent, true);
+    assertEqual("attr search: validation none", parsed.searchCompositionValidationCode, "none");
     assertEqual("attr search: skipGemini", parsed.skipGemini, true);
     assertFalsy("attr search: no raw id-a", JSON.stringify(parsed).includes("id-a"));
     assertFalsy("attr search: no PATH_C_REPLY", JSON.stringify(parsed).includes("Vios"));
@@ -1165,6 +1227,10 @@ const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
     assertEqual("attr general: inventory 0", parsed.inventoryFetchExecutionCount, 0);
     assertEqual("attr general: composition not attempted", parsed.groundedV3CompositionAttempted, false);
     assertEqual("attr general: gemini fc 0", parsed.geminiInitialFunctionCallingAttemptCount, 0);
+    assertEqual("attr general: fallback reason absent", parsed.searchCompositionFallbackReason, undefined);
+    assertEqual("attr general: parse status absent", parsed.structuredOutputParseStatus, undefined);
+    assertEqual("attr general: text present absent", parsed.searchCompositionTextPresent, undefined);
+    assertEqual("attr general: validation absent", parsed.searchCompositionValidationCode, undefined);
     assertFalsy("attr general: no listing ids", /id-[abcd]/.test(JSON.stringify(parsed)));
   } finally {
     console.log = originalLog;
@@ -1192,6 +1258,175 @@ assertFalsy(
     ["id-b", "id-a"]
   );
   assertEqual("permute helper order", cards.map((c) => c.id), ["id-b", "id-a"]);
+}
+
+function assertSearchDiagPrivacy(serialized: string, label: string): void {
+  assertFalsy(`${label}: no listing id-a`, serialized.includes("id-a"));
+  assertFalsy(`${label}: no Vios`, serialized.includes("Vios"));
+  assertFalsy(`${label}: no UID`, serialized.includes(PILOT_UID));
+  assertFalsy(`${label}: no replyText key`, serialized.includes("replyText"));
+  assertFalsy(`${label}: no orderedListingIds key`, serialized.includes("orderedListingIds"));
+  assertFalsy(`${label}: no email`, serialized.includes("@"));
+}
+
+{
+  const turn = await executeSearchWithProvider(failingSearchProvider());
+  assertEqual("diag provider-failure: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag provider-failure: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("diag provider-failure: reason", turn.searchCompositionFallbackReason, "provider-failure");
+    assertEqual("diag provider-failure: parse absent", turn.structuredOutputParseStatus, "absent");
+    assertEqual("diag provider-failure: text present", turn.searchCompositionTextPresent, false);
+    assertEqual("diag provider-failure: cards canonical", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertEqual("diag provider-failure: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(fakeSearchProvider('{"replyText":'));
+  assertEqual("diag invalid-json: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag invalid-json: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("diag invalid-json: reason", turn.searchCompositionFallbackReason, "structured-output-invalid-json");
+    assertEqual("diag invalid-json: parse", turn.structuredOutputParseStatus, "invalid-json");
+    assertEqual("diag invalid-json: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+    assertEqual("diag invalid-json: cards canonical", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(
+    fakeSearchProvider(JSON.stringify({ orderedListingIds: PATH_C_ORDER }))
+  );
+  assertEqual("diag schema-mismatch: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag schema-mismatch: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("diag schema-mismatch: reason", turn.searchCompositionFallbackReason, "structured-output-schema-mismatch");
+    assertEqual("diag schema-mismatch: parse", turn.structuredOutputParseStatus, "schema-mismatch");
+    assertEqual("diag schema-mismatch: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+  }
+}
+
+{
+  const nested = JSON.stringify({
+    replyText: JSON.stringify({
+      replyText: PATH_C_REPLY,
+      orderedListingIds: PATH_C_ORDER,
+    }),
+    orderedListingIds: PATH_C_ORDER,
+  });
+  const turn = await executeSearchWithProvider(fakeSearchProvider(nested));
+  assertEqual("diag envelope-unwrap: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag envelope-unwrap: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("diag envelope-unwrap: reason", turn.searchCompositionFallbackReason, "structured-output-envelope-leak");
+    assertEqual("diag envelope-unwrap: parse", turn.structuredOutputParseStatus, "envelope-leak");
+    assertEqual("diag envelope-unwrap: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+    assertFalsy("diag envelope-unwrap: no raw json", looksLikeSearchGroundingJsonEnvelope(turn.userVisibleText));
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(fakeSearchProvider("   "));
+  assertEqual("diag missing-text: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag missing-text: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("diag missing-text: reason", turn.searchCompositionFallbackReason, "missing-success-text");
+    assertEqual("diag missing-text: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(
+    fakeSearchProvider(
+      JSON.stringify({
+        replyText: "ในตลาดมีทั้งหมด 120 คันครับ",
+        orderedListingIds: PATH_C_ORDER,
+      })
+    )
+  );
+  assertEqual("diag composition-total: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag composition-total: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("diag composition-total: reason", turn.searchCompositionFallbackReason, "composition-total-claim-invalid");
+    assertEqual("diag composition-total: code", turn.searchCompositionValidationCode, "marketplace-total-claim");
+    assertEqual("diag composition-total: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+    assertNotIncludes("diag composition-total: no ทั้งหมด in fallback", turn.userVisibleText, "ทั้งหมด");
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(
+    fakeSearchProvider(
+      JSON.stringify({
+        replyText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ",
+        orderedListingIds: PATH_C_ORDER,
+      })
+    )
+  );
+  assertEqual("diag composition-count: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag composition-count: reason", turn.searchCompositionFallbackReason, "composition-count-claim-invalid");
+    assertEqual("diag composition-count: code", turn.searchCompositionValidationCode, "incorrect-count");
+    assertEqual("diag composition-count: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(
+    fakeSearchProvider(
+      JSON.stringify({
+        replyText: PATH_C_REPLY,
+        orderedListingIds: PATH_C_ORDER,
+      })
+    )
+  );
+  assertEqual("diag valid-structured: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag valid-structured: classification", turn.displayOrderClassification, "structured-accepted");
+    assertEqual("diag valid-structured: reason", turn.searchCompositionFallbackReason, "none");
+    assertEqual("diag valid-structured: parse", turn.structuredOutputParseStatus, "structured");
+    assertEqual("diag valid-structured: text kept", turn.userVisibleText, PATH_C_REPLY);
+    assertEqual("diag valid-structured: ordered cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("diag valid-structured: not deterministic", turn.usedDeterministicFallback, false);
+  }
+}
+
+{
+  const originalLog = console.log;
+  const logs: string[] = [];
+  console.log = (...args: unknown[]) => {
+    const line = args.map((item) => String(item)).join(" ");
+    logs.push(line);
+    originalLog.apply(console, args);
+  };
+  try {
+    const hop = await runHandler({
+      uid: PILOT_UID,
+      body: { userMessage: ACCEPTANCE_QUERY },
+      env: enabledEnv,
+      inventory: FOUR_CARS,
+      runV3: (options) =>
+        runChatV3Conversation({
+          ...options,
+          provider: fakeSearchProvider('{"replyText":'),
+          allowFakeProvider: true,
+        }),
+    });
+    const data = asSuccess(hop.body).data;
+    assertEqual("http invalid-json: search marker", data?.conversationBrain, CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN);
+    assertEqual("http invalid-json: canonical cards", (data?.carCards ?? []).map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertEqual("http invalid-json: user text", data?.userVisibleText, expectedDeterministicFourText);
+    const attr = logs.find((line) => line.includes("user_visible_runtime_attribution"));
+    assertTruthy("http invalid-json: attribution event", Boolean(attr));
+    const parsed = JSON.parse(attr ?? "{}") as Record<string, unknown>;
+    assertEqual("http invalid-json: outcome", parsed.groundedV3CompositionOutcome, "deterministic-fallback");
+    assertEqual("http invalid-json: reason", parsed.searchCompositionFallbackReason, "structured-output-invalid-json");
+    assertEqual("http invalid-json: parse", parsed.structuredOutputParseStatus, "invalid-json");
+    assertSearchDiagPrivacy(JSON.stringify(parsed), "http invalid-json attr");
+  } finally {
+    console.log = originalLog;
+  }
 }
 
 console.log(`\nWP-NVB-03B server tests passed: ${passCount}`);

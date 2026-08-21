@@ -7,9 +7,11 @@
 import {
   CHAT_V3_CONVERSATION_SLICE_ID,
   CHAT_V3_USER_FACING_UNAVAILABLE,
+  attachChatV3SearchCompositionBoundaryDiagnostic,
   validateChatV3ConversationRequest,
   type ChatV3ConversationErrorCode,
   type ChatV3ConversationResponse,
+  type ChatV3SearchCompositionBoundaryDiagnostic,
   type ChatV3ValidatedConversationRequest,
 } from "./chatV3ConversationContracts";
 import {
@@ -152,35 +154,109 @@ function financeCheckFor(
   return validateChatV3FinanceConsistency(content, trustedFinance);
 }
 
+function withSearchCompositionBoundaryDiagnostic(
+  searchComposition: boolean,
+  response: ChatV3ConversationResponse,
+  diagnostic: ChatV3SearchCompositionBoundaryDiagnostic
+): ChatV3ConversationResponse {
+  if (!searchComposition) return response;
+  return attachChatV3SearchCompositionBoundaryDiagnostic(response, diagnostic);
+}
+
+/**
+ * Classify unwrap json-leak into a bounded stage. Diagnostic only; does not
+ * change the existing unsafe_output return.
+ */
+function classifySearchCompositionJsonLeak(
+  raw: string
+): ChatV3SearchCompositionBoundaryDiagnostic {
+  const trimmed = String(raw ?? "")
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return {
+      searchCompositionFallbackReason: trimmed.startsWith("{")
+        ? "structured-output-invalid-json"
+        : "unknown-bounded",
+      structuredOutputParseStatus: trimmed.startsWith("{")
+        ? "invalid-json"
+        : "absent",
+      searchCompositionTextPresent: false,
+    };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return {
+      searchCompositionFallbackReason: "structured-output-schema-mismatch",
+      structuredOutputParseStatus: "schema-mismatch",
+      searchCompositionTextPresent: false,
+    };
+  }
+  const replyTextRaw = (parsed as Record<string, unknown>).replyText;
+  if (typeof replyTextRaw !== "string" || !replyTextRaw.trim()) {
+    return {
+      searchCompositionFallbackReason: "structured-output-schema-mismatch",
+      structuredOutputParseStatus: "schema-mismatch",
+      searchCompositionTextPresent: false,
+    };
+  }
+  return {
+    searchCompositionFallbackReason: "structured-output-envelope-leak",
+    structuredOutputParseStatus: "envelope-leak",
+    searchCompositionTextPresent: false,
+  };
+}
+
 export async function runChatV3Conversation(
   options: RunChatV3ConversationOptions
 ): Promise<ChatV3ConversationResponse> {
   resetChatV3HighRiskGuardMetadata();
   const readEnv = options.readEnv ?? ((key: string) => process.env[key]);
   const now = options.now?.() ?? Date.now();
+  const searchComposition = options.searchGroundingComposition === true;
 
   if (isChatV3KillSwitchActive(readEnv)) {
-    return {
-      success: false,
-      errorCode: "kill_switch",
-      message: CHAT_V3_USER_FACING_UNAVAILABLE,
-    };
+    return withSearchCompositionBoundaryDiagnostic(
+      searchComposition,
+      {
+        success: false,
+        errorCode: "kill_switch",
+        message: CHAT_V3_USER_FACING_UNAVAILABLE,
+      },
+      {
+        searchCompositionFallbackReason: "unknown-bounded",
+        structuredOutputParseStatus: "absent",
+        searchCompositionTextPresent: false,
+      }
+    );
   }
 
   const validated = validateChatV3ConversationRequest(options.rawRequest);
   if (validated.ok === false) {
-    return {
-      success: false,
-      errorCode: validated.errorCode,
-      message: validated.message,
-    };
+    return withSearchCompositionBoundaryDiagnostic(
+      searchComposition,
+      {
+        success: false,
+        errorCode: validated.errorCode,
+        message: validated.message,
+      },
+      {
+        searchCompositionFallbackReason: "unknown-bounded",
+        structuredOutputParseStatus: "absent",
+        searchCompositionTextPresent: false,
+      }
+    );
   }
 
   const request: ChatV3ValidatedConversationRequest = validated.value;
   const searchVehicleContext =
     options.searchGroundingVehicleContext ?? request.vehicleContext ?? null;
   const searchAppendix = String(options.searchGroundingAppendix ?? "").trim();
-  const searchComposition = options.searchGroundingComposition === true;
 
   // WP-V3-11 — input safety assessment (does not mutate user message).
   const safetyAssessment = assessChatV3Safety(request.message);
@@ -190,17 +266,25 @@ export async function runChatV3Conversation(
         userMessage: request.message,
       })
     );
-    return {
-      success: true,
-      data: {
-        sliceId: CHAT_V3_CONVERSATION_SLICE_ID,
-        conversationId: request.conversationId,
-        messageId: options.createMessageId?.() ?? defaultMessageId(now),
-        content,
-        expertModeHint: request.expertMode,
-        providerId: "chat-v3-safety-layer",
+    return withSearchCompositionBoundaryDiagnostic(
+      searchComposition,
+      {
+        success: true,
+        data: {
+          sliceId: CHAT_V3_CONVERSATION_SLICE_ID,
+          conversationId: request.conversationId,
+          messageId: options.createMessageId?.() ?? defaultMessageId(now),
+          content,
+          expertModeHint: request.expertMode,
+          providerId: "chat-v3-safety-layer",
+        },
       },
-    };
+      {
+        searchCompositionFallbackReason: "none",
+        structuredOutputParseStatus: "not-applicable",
+        searchCompositionTextPresent: true,
+      }
+    );
   }
 
   const provider =
@@ -238,34 +322,57 @@ export async function runChatV3Conversation(
         : {}),
     });
   } catch {
-    return {
-      success: false,
-      errorCode: "provider_failure",
-      message: CHAT_V3_USER_FACING_UNAVAILABLE,
-    };
+    return withSearchCompositionBoundaryDiagnostic(
+      searchComposition,
+      {
+        success: false,
+        errorCode: "provider_failure",
+        message: CHAT_V3_USER_FACING_UNAVAILABLE,
+      },
+      {
+        searchCompositionFallbackReason: "provider-failure",
+        structuredOutputParseStatus: "absent",
+        searchCompositionTextPresent: false,
+      }
+    );
   }
 
   if (!providerResult.ok) {
-    return {
-      success: false,
-      errorCode: mapProviderFailureToErrorCode(providerResult.reason),
-      message: CHAT_V3_USER_FACING_UNAVAILABLE,
-    };
+    return withSearchCompositionBoundaryDiagnostic(
+      searchComposition,
+      {
+        success: false,
+        errorCode: mapProviderFailureToErrorCode(providerResult.reason),
+        message: CHAT_V3_USER_FACING_UNAVAILABLE,
+      },
+      {
+        searchCompositionFallbackReason: "provider-failure",
+        structuredOutputParseStatus: "absent",
+        searchCompositionTextPresent: false,
+      }
+    );
   }
 
   let providerContent = providerResult.content;
   let searchCompositionMetadata: ChatV3SearchCompositionMetadata | undefined;
+  let searchParseStatus: ChatV3SearchCompositionBoundaryDiagnostic["structuredOutputParseStatus"] =
+    "not-applicable";
   if (searchComposition) {
     const unwrapped = unwrapSearchGroundingProviderContent(providerResult.content);
     if (unwrapped.kind === "json-leak") {
-      return {
-        success: false,
-        errorCode: "unsafe_output",
-        message: CHAT_V3_USER_FACING_UNAVAILABLE,
-      };
+      return withSearchCompositionBoundaryDiagnostic(
+        true,
+        {
+          success: false,
+          errorCode: "unsafe_output",
+          message: CHAT_V3_USER_FACING_UNAVAILABLE,
+        },
+        classifySearchCompositionJsonLeak(providerResult.content)
+      );
     }
     if (unwrapped.kind === "structured") {
       providerContent = unwrapped.replyText;
+      searchParseStatus = "structured";
       if (unwrapped.orderedListingIds !== undefined) {
         searchCompositionMetadata = {
           orderedListingIds: unwrapped.orderedListingIds,
@@ -273,16 +380,30 @@ export async function runChatV3Conversation(
       }
     } else {
       providerContent = unwrapped.text;
+      searchParseStatus = "plain-text";
     }
   }
 
   const outputSafety = applyChatV3SafetyBoundary(providerContent);
   if (outputSafety.ok === false) {
-    return {
-      success: false,
-      errorCode: outputSafety.errorCode,
-      message: outputSafety.message,
-    };
+    const empty = !String(providerContent ?? "").trim();
+    return withSearchCompositionBoundaryDiagnostic(
+      searchComposition,
+      {
+        success: false,
+        errorCode: outputSafety.errorCode,
+        message: outputSafety.message,
+      },
+      {
+        searchCompositionFallbackReason: empty
+          ? "missing-success-text"
+          : "unsafe-output",
+        structuredOutputParseStatus: searchComposition
+          ? searchParseStatus
+          : "not-applicable",
+        searchCompositionTextPresent: false,
+      }
+    );
   }
 
   // WP-V3-10D/14A — assistant-only formatting repair (does not touch user message).
@@ -417,19 +538,27 @@ export async function runChatV3Conversation(
     }
   }
 
-  return {
-    success: true,
-    data: {
-      sliceId: CHAT_V3_CONVERSATION_SLICE_ID,
-      conversationId: request.conversationId,
-      messageId:
-        options.createMessageId?.() ?? defaultMessageId(now),
-      content: normalizeChatV3UnsupportedDurableMemoryClaims(content),
-      expertModeHint: request.expertMode,
-      providerId,
-      ...(searchCompositionMetadata
-        ? { searchComposition: searchCompositionMetadata }
-        : {}),
+  return withSearchCompositionBoundaryDiagnostic(
+    searchComposition,
+    {
+      success: true,
+      data: {
+        sliceId: CHAT_V3_CONVERSATION_SLICE_ID,
+        conversationId: request.conversationId,
+        messageId:
+          options.createMessageId?.() ?? defaultMessageId(now),
+        content: normalizeChatV3UnsupportedDurableMemoryClaims(content),
+        expertModeHint: request.expertMode,
+        providerId,
+        ...(searchCompositionMetadata
+          ? { searchComposition: searchCompositionMetadata }
+          : {}),
+      },
     },
-  };
+    {
+      searchCompositionFallbackReason: "none",
+      structuredOutputParseStatus: searchParseStatus,
+      searchCompositionTextPresent: true,
+    }
+  );
 }

@@ -540,6 +540,10 @@ function testSearchLaneEvidencePrivacy() {
       displayOrderClassification: "structured-accepted",
       structuredOrderValid: true,
       searchFailureClassification: "none",
+      searchCompositionFallbackReason: "none",
+      structuredOutputParseStatus: "structured",
+      searchCompositionTextPresent: true,
+      searchCompositionValidationCode: "none",
     },
   });
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
@@ -551,11 +555,18 @@ function testSearchLaneEvidencePrivacy() {
   ok("search lane no gemini fc", diagnostic.geminiInitialFunctionCallingAttemptCount === 0);
   ok("search lane composition attempted", diagnostic.groundedV3CompositionAttempted === true);
   ok("search lane classification", diagnostic.displayOrderClassification === "structured-accepted");
+  ok("search lane fallback reason none", diagnostic.searchCompositionFallbackReason === "none");
+  ok("search lane parse structured", diagnostic.structuredOutputParseStatus === "structured");
+  ok("search lane text present", diagnostic.searchCompositionTextPresent === true);
+  ok("search lane validation none", diagnostic.searchCompositionValidationCode === "none");
   ok("search lane skipGemini", diagnostic.skipGemini === true);
   ok("search lane no legacy after search", diagnostic.legacyFallbackAfterSearchSelection === false);
   assertNoSensitiveLeakage(serialized, "search-lane");
   ok("search lane serialized has no listing id keys", !serialized.includes("orderedListingIds"));
   ok("search lane serialized event", serialized.includes("user_visible_runtime_attribution"));
+  ok("search lane serialized fallback reason", serialized.includes("searchCompositionFallbackReason"));
+  ok("search lane serialized no replyText", !serialized.includes("replyText"));
+  ok("search lane serialized no UID", !serialized.includes(FULL_UID));
 }
 
 function testGeneralLaneEvidenceZeros() {
@@ -591,8 +602,65 @@ function testGeneralLaneEvidenceZeros() {
   ok("general lane marketplace zero", diagnostic.marketplaceSearchExecutionCount === 0);
   ok("general lane inventory zero", diagnostic.inventoryFetchExecutionCount === 0);
   ok("general lane composition not attempted", diagnostic.groundedV3CompositionAttempted === false);
+  ok(
+    "general lane fallback reason absent",
+    diagnostic.searchCompositionFallbackReason == null
+  );
+  ok("general lane parse status absent", diagnostic.structuredOutputParseStatus == null);
+  ok("general lane text present absent", diagnostic.searchCompositionTextPresent == null);
+  ok("general lane validation absent", diagnostic.searchCompositionValidationCode == null);
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
   assertNoSensitiveLeakage(serialized, "general-lane");
+  ok("general lane serialized omits fallback reason", !serialized.includes("searchCompositionFallbackReason"));
+}
+
+function testSearchFallbackReasonBoundedSerialization() {
+  const diagnostic = buildUserVisibleRuntimeAttributionDiagnostic({
+    requestCorrelationId: "corr-search-fallback",
+    payload: basePayload({
+      conversationBrain: "chat-v3-search-grounded",
+      conversationBrainStatus: "success",
+      skipGemini: true,
+      fallbackToLegacy: false,
+      carCardCount: 4,
+    }),
+    userMessage: USER_MESSAGE,
+    firebaseUid: FULL_UID,
+    userRole: "buyer",
+    environment: "staging",
+    env: AI_FIRST_ENV,
+    laneEvidence: {
+      routingLane: "search",
+      businessToolName: "marketplace.search",
+      marketplaceSearchExecutionCount: 1,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: true,
+      groundedV3CompositionOutcome: "deterministic-fallback",
+      legacyFallbackAfterSearchSelection: false,
+      validatedToolResultListingIdCount: 4,
+      orderedCardCount: 4,
+      displayedCardCount: 4,
+      displayOrderClassification: "deterministic-fallback",
+      structuredOrderValid: false,
+      searchFailureClassification: "none",
+      searchCompositionFallbackReason: "structured-output-invalid-json",
+      structuredOutputParseStatus: "invalid-json",
+      searchCompositionTextPresent: false,
+      searchCompositionValidationCode: "none",
+    },
+  });
+  const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
+  ok(
+    "fallback reason recorded",
+    diagnostic.searchCompositionFallbackReason === "structured-output-invalid-json"
+  );
+  ok("fallback serialized reason", serialized.includes("structured-output-invalid-json"));
+  ok("fallback serialized parse", serialized.includes("invalid-json"));
+  assertNoSensitiveLeakage(serialized, "search-fallback");
+  ok("fallback no replyText", !serialized.includes("replyText"));
+  ok("fallback no UID", !serialized.includes(FULL_UID));
+  ok("fallback no listing ids", !serialized.includes("id-a"));
 }
 
 async function main() {
@@ -606,6 +674,7 @@ async function main() {
   testDiagnosticSerialization();
   testSearchLaneEvidencePrivacy();
   testGeneralLaneEvidenceZeros();
+  testSearchFallbackReasonBoundedSerialization();
   console.log("\n=== Runtime Attribution Diagnostic Contract complete ===");
 }
 
