@@ -17,7 +17,13 @@ import {
   buildDeterministicSearchGroundingSummary,
   buildSearchGroundingPacket,
   explicitBodyClassFromSourceField,
+  looksLikeSearchGroundingJsonEnvelope,
+  orderSearchGroundingCarCards,
+  SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS,
+  SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA,
+  unwrapSearchGroundingProviderContent,
   validateSearchGroundingComposition,
+  validateSearchGroundingOrderedListingIds,
 } from "../src/services/ai/chat/chatV2V3SearchGroundingCompose.ts";
 import {
   evaluateChatV2V3SearchGroundingPilotEligibility,
@@ -44,7 +50,7 @@ import {
   NONGA_CONVERSATION_CORE_PILOT_UIDS_ENV,
   NONGA_CONVERSATION_CORE_TOOLS_ENABLED_ENV,
 } from "../src/server/conversation-core/index.ts";
-import { NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV } from "../src/services/ai/chat/chatV2V3GeneralConversationBridge.ts";
+import { NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV, NONGA_CHAT_V2_V3_GENERAL_PILOT_UIDS_ENV } from "../src/services/ai/chat/chatV2V3GeneralConversationBridge.ts";
 import type { ChatInventoryCar } from "../src/services/ai/chat/marketplaceChatSearch.ts";
 import type { AuthRole } from "../src/utils/rbac.ts";
 import { validateToolResult } from "../src/services/conversation-core/toolEnvelope.ts";
@@ -191,7 +197,10 @@ const MIXED_INVENTORY: ChatInventoryCar[] = [
   }),
 ];
 
-function v3Success(content: string): ChatV3ConversationResponse {
+function v3Success(
+  content: string,
+  searchComposition?: { readonly orderedListingIds: readonly string[] }
+): ChatV3ConversationResponse {
   return {
     success: true,
     data: {
@@ -201,6 +210,7 @@ function v3Success(content: string): ChatV3ConversationResponse {
       content,
       expertModeHint: "BUYING",
       providerId: "fake-v3",
+      ...(searchComposition ? { searchComposition } : {}),
     },
   };
 }
@@ -785,5 +795,403 @@ assertNotIncludes("no Core orchestrator", bridgeSource, "runConversationCoreOrch
 assertNotIncludes("no Core execution service", bridgeSource, "runConversationCoreExecutionService");
 assertNotIncludes("no tryOrchestrateChatReplyCore", bridgeSource, "tryOrchestrateChatReplyCore");
 assertEqual("page size locked to 10", SEARCH_GROUNDING_PAGE_SIZE, 10);
+
+const FOUR_CARS: ChatInventoryCar[] = [
+  car({ id: "id-a", model: "Altis", year: 2018, price: 350_000 }),
+  car({ id: "id-b", model: "Yaris", year: 2019, price: 360_000 }),
+  car({ id: "id-c", model: "Vios", year: 2020, price: 370_000 }),
+  car({ id: "id-d", model: "Camry", year: 2017, price: 390_000 }),
+];
+const PATH_C_REPLY =
+  "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 4 คันในรอบนี้ครับ เริ่มจาก Toyota Vios ปี 2020 แล้วตามด้วย Toyota Altis, Toyota Yaris และ Toyota Camry";
+const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
+
+{
+  const canonical = ["id-a", "id-b", "id-c", "id-d"];
+  assertEqual(
+    "order validator: permutation accepted",
+    validateSearchGroundingOrderedListingIds({
+      orderedListingIds: PATH_C_ORDER,
+      returnedListingIds: canonical,
+    }).ok,
+    true
+  );
+  assertEqual(
+    "order validator: duplicate degrades",
+    validateSearchGroundingOrderedListingIds({
+      orderedListingIds: ["id-a", "id-a", "id-b", "id-c"],
+      returnedListingIds: canonical,
+    }).ok,
+    false
+  );
+  assertEqual(
+    "order validator: unknown id degrades",
+    validateSearchGroundingOrderedListingIds({
+      orderedListingIds: ["id-a", "id-b", "id-c", "id-extra"],
+      returnedListingIds: canonical,
+    }).ok,
+    false
+  );
+  assertEqual(
+    "order validator: missing id degrades",
+    validateSearchGroundingOrderedListingIds({
+      orderedListingIds: ["id-c", "id-a", "id-b"],
+      returnedListingIds: canonical,
+    }).ok,
+    false
+  );
+  assertEqual(
+    "order validator: max 10",
+    SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS,
+    10
+  );
+  assertEqual(
+    "order validator: 11 ids rejected",
+    validateSearchGroundingOrderedListingIds({
+      orderedListingIds: Array.from({ length: 11 }, (_, i) => `id-${i}`),
+      returnedListingIds: Array.from({ length: 11 }, (_, i) => `id-${i}`),
+    }).ok,
+    false
+  );
+  assertEqual(
+    "order validator: zero-result empty permutation",
+    validateSearchGroundingOrderedListingIds({
+      orderedListingIds: [],
+      returnedListingIds: [],
+    }).ok,
+    true
+  );
+}
+
+{
+  const leak = unwrapSearchGroundingProviderContent(
+    JSON.stringify({
+      replyText: PATH_C_REPLY,
+      orderedListingIds: PATH_C_ORDER,
+    })
+  );
+  assertEqual("unwrap: structured kind", leak.kind, "structured");
+  if (leak.kind === "structured") {
+    assertEqual("unwrap: replyText preserved", leak.replyText, PATH_C_REPLY);
+    assertEqual("unwrap: ordered ids", [...(leak.orderedListingIds ?? [])], [...PATH_C_ORDER]);
+  }
+  assertEqual(
+    "unwrap: malformed json is leak",
+    unwrapSearchGroundingProviderContent('{"replyText":').kind,
+    "json-leak"
+  );
+  assertEqual(
+    "unwrap: plain thai is plain-text",
+    unwrapSearchGroundingProviderContent(PATH_C_REPLY).kind,
+    "plain-text"
+  );
+  assertTruthy(
+    "unwrap: envelope detector",
+    looksLikeSearchGroundingJsonEnvelope(
+      JSON.stringify({ replyText: "x", orderedListingIds: [] })
+    )
+  );
+}
+
+{
+  let v3Calls = 0;
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => {
+      v3Calls += 1;
+      return v3Success(PATH_C_REPLY, { orderedListingIds: PATH_C_ORDER });
+    },
+  });
+  assertEqual("path-c: generate once", v3Calls, 1);
+  assertEqual("path-c: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("path-c: classification accepted", turn.displayOrderClassification, "structured-accepted");
+    assertEqual("path-c: structured valid", turn.structuredOrderValid, true);
+    assertEqual("path-c: card order follows structured ids", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("path-c: reply text unchanged", turn.userVisibleText, PATH_C_REPLY);
+    assertEqual("path-c: listing count 4", turn.carCards.length, 4);
+    assertEqual("path-c: set unchanged", [...turn.carCards.map((c) => c.id)].sort(), [...PATH_C_ORDER].sort());
+    assertEqual("path-c: no deterministic fallback", turn.usedDeterministicFallback, false);
+    const byId = new Map(FOUR_CARS.map((item) => [item.id, item]));
+    for (const card of turn.carCards) {
+      const source = byId.get(card.id);
+      assertEqual(`path-c: card ${card.id} brand`, card.brand, source?.brand);
+      assertEqual(`path-c: card ${card.id} model`, card.model, source?.model);
+      assertEqual(`path-c: card ${card.id} year`, card.year, source?.year);
+      assertEqual(`path-c: card ${card.id} price`, card.price, source?.price);
+    }
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3Success(PATH_C_REPLY, { orderedListingIds: ["id-a", "id-a", "id-b", "id-c"] }),
+  });
+  assertEqual("dup-ids: success degraded", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("dup-ids: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("dup-ids: not valid", turn.structuredOrderValid, false);
+    assertEqual("dup-ids: canonical order", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertEqual("dup-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
+    assertEqual("dup-ids: not deterministic", turn.usedDeterministicFallback, false);
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3Success(PATH_C_REPLY, { orderedListingIds: ["id-c", "id-a", "id-b", "id-extra"] }),
+  });
+  assertEqual("unknown-ids: success degraded", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("unknown-ids: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertFalsy("unknown-ids: no extra card", turn.carCards.some((c) => c.id === "id-extra"));
+    assertEqual("unknown-ids: canonical four", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertEqual("unknown-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3Success(PATH_C_REPLY, { orderedListingIds: ["id-c", "id-a", "id-b"] }),
+  });
+  assertEqual("missing-ids: success degraded", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("missing-ids: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("missing-ids: canonical four", turn.carCards.length, 4);
+    assertEqual("missing-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => v3Success(PATH_C_REPLY),
+  });
+  assertEqual("plain-text: degraded canonical", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("plain-text: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("plain-text: toolresult order", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertEqual("plain-text: text kept", turn.userVisibleText, PATH_C_REPLY);
+  }
+}
+
+{
+  const rawJson = JSON.stringify({
+    replyText: PATH_C_REPLY,
+    orderedListingIds: PATH_C_ORDER,
+  });
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => v3Success(rawJson),
+  });
+  assertEqual("json-leak: still success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("json-leak: deterministic", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("json-leak: used deterministic", turn.usedDeterministicFallback, true);
+    assertFalsy("json-leak: no raw json", looksLikeSearchGroundingJsonEnvelope(turn.userVisibleText));
+    assertNotIncludes("json-leak: no orderedListingIds key", turn.userVisibleText, "orderedListingIds");
+    assertEqual("json-leak: canonical cards", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3Success(SEARCH_GROUNDING_NO_MATCH_TEXT, { orderedListingIds: [] }),
+  });
+  assertEqual("zero-result: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero-result: classification", turn.displayOrderClassification, "zero-result");
+    assertEqual("zero-result: valid empty", turn.structuredOrderValid, true);
+    assertEqual("zero-result: no cards", turn.carCards.length, 0);
+  }
+}
+
+{
+  const tenOnly = toyotaSedanPage(10);
+  const emptyLaterCriteria = parseServerDirectedSearchCriteria("ดูเพิ่ม", [
+    { role: "user", content: ACCEPTANCE_QUERY },
+    { role: "assistant", content: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 10 คันในรอบนี้ครับ" },
+    { role: "user", content: "ดูเพิ่ม" },
+    { role: "assistant", content: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 0 คันในรอบนี้ครับ" },
+  ], 2026);
+  assertEqual("empty-later: keeps brand", emptyLaterCriteria.brand, "Toyota");
+  assertEqual("empty-later: keeps body", emptyLaterCriteria.bodyClass, "sedan");
+  assertEqual("empty-later: pageIndex 2", emptyLaterCriteria.pageIndex, 2);
+  const emptyLater = await runServerDirectedMarketplaceMatch({
+    requestId: "search-req-empty-later",
+    conversationId: "search-conv-empty-later",
+    criteria: emptyLaterCriteria,
+    inventory: tenOnly,
+  });
+  assertEqual("empty-later: zero ids", emptyLater.matchedListingIds.length, 0);
+  const emptyTurn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: "ดูเพิ่ม",
+    conversationHistory: [
+      { role: "user", content: ACCEPTANCE_QUERY },
+      { role: "assistant", content: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 10 คันในรอบนี้ครับ" },
+      { role: "user", content: "ดูเพิ่ม" },
+      { role: "assistant", content: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 0 คันในรอบนี้ครับ" },
+    ],
+    inventory: tenOnly,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => v3Success(SEARCH_GROUNDING_NO_MATCH_TEXT, { orderedListingIds: [] }),
+  });
+  assertEqual("empty-later turn: success", emptyTurn.kind, "success");
+  if (emptyTurn.kind === "success") {
+    assertEqual("empty-later turn: zero cards", emptyTurn.carCards.length, 0);
+    assertEqual("empty-later turn: zero-result", emptyTurn.displayOrderClassification, "zero-result");
+    assertNotIncludes("empty-later turn: no marketplace total", emptyTurn.userVisibleText, "ทั้งหมด");
+    assertNotIncludes("empty-later turn: no ทั้งตลาด", emptyTurn.userVisibleText, "ทั้งตลาด");
+  }
+}
+
+{
+    const originalLog = console.log;
+    const logs: string[] = [];
+    console.log = (...args: unknown[]) => {
+      const line = args.map((item) => String(item)).join(" ");
+      logs.push(line);
+      originalLog.apply(console, args);
+    };
+  try {
+    const hop = await runHandler({
+      uid: PILOT_UID,
+      body: { userMessage: ACCEPTANCE_QUERY },
+      env: enabledEnv,
+      inventory: FOUR_CARS,
+      runV3: async () => v3Success(PATH_C_REPLY, { orderedListingIds: PATH_C_ORDER }),
+    });
+    const data = asSuccess(hop.body).data;
+    assertEqual("http path-c: search marker", data?.conversationBrain, CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN);
+    assertEqual("http path-c: ordered cards", (data?.carCards ?? []).map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("http path-c: legacy never", hop.counters.legacy, 0);
+    assertEqual("http path-c: search v3 once", hop.counters.searchV3, 1);
+    assertEqual("http path-c: real provider never", hop.counters.realProvider, 0);
+    assertFalsy(
+      "http path-c: no orderedListingIds field",
+      data != null && "orderedListingIds" in data
+    );
+    const attr = logs.find((line) => line.includes("user_visible_runtime_attribution"));
+    assertTruthy("http path-c: attribution event", Boolean(attr));
+    const parsed = JSON.parse(attr ?? "{}") as Record<string, unknown>;
+    assertEqual("attr search: routingLane", parsed.routingLane, "search");
+    assertEqual("attr search: conversationBrain", parsed.conversationBrain, CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN);
+    assertEqual("attr search: conversationBrainStatus", parsed.conversationBrainStatus, "success");
+    assertEqual("attr search: businessToolName", parsed.businessToolName, "marketplace.search");
+    assertEqual("attr search: marketplace count", parsed.marketplaceSearchExecutionCount, 1);
+    assertEqual("attr search: inventory count", parsed.inventoryFetchExecutionCount, 0);
+    assertEqual("attr search: gemini fc count", parsed.geminiInitialFunctionCallingAttemptCount, 0);
+    assertEqual("attr search: composition attempted", parsed.groundedV3CompositionAttempted, true);
+    assertEqual("attr search: composition outcome", parsed.groundedV3CompositionOutcome, "success");
+    assertEqual("attr search: no legacy after search", parsed.legacyFallbackAfterSearchSelection, false);
+    assertEqual("attr search: validated count", parsed.validatedToolResultListingIdCount, 4);
+    assertEqual("attr search: ordered count", parsed.orderedCardCount, 4);
+    assertEqual("attr search: displayed count", parsed.displayedCardCount, 4);
+    assertEqual("attr search: classification", parsed.displayOrderClassification, "structured-accepted");
+    assertEqual("attr search: structured valid", parsed.structuredOrderValid, true);
+    assertEqual("attr search: failure none", parsed.searchFailureClassification, "none");
+    assertEqual("attr search: skipGemini", parsed.skipGemini, true);
+    assertFalsy("attr search: no raw id-a", JSON.stringify(parsed).includes("id-a"));
+    assertFalsy("attr search: no PATH_C_REPLY", JSON.stringify(parsed).includes("Vios"));
+    assertFalsy("attr search: no UID", JSON.stringify(parsed).includes(PILOT_UID));
+  } finally {
+    console.log = originalLog;
+  }
+}
+
+{
+    const originalLog = console.log;
+    const logs: string[] = [];
+    console.log = (...args: unknown[]) => {
+      const line = args.map((item) => String(item)).join(" ");
+      logs.push(line);
+      originalLog.apply(console, args);
+    };
+  try {
+    const hop = await runHandler({
+      uid: PILOT_UID,
+      body: { userMessage: GENERAL_MESSAGE },
+      env: searchEnv({
+        [NONGA_CHAT_V2_V3_SEARCH_GROUNDING_ENABLED_ENV]: "true",
+        [NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV]: "true",
+        [NONGA_CHAT_V2_V3_GENERAL_PILOT_UIDS_ENV]: PILOT_UID,
+      }),
+    });
+    assertEqual("attr general: search never", hop.counters.searchV3, 0);
+    const attr = logs.find((line) => line.includes("user_visible_runtime_attribution"));
+    assertTruthy("attr general: event present", Boolean(attr));
+    const parsed = JSON.parse(attr ?? "{}") as Record<string, unknown>;
+    assertEqual("attr general: routingLane", parsed.routingLane, "general");
+    assertEqual("attr general: tool none", parsed.businessToolName, "none");
+    assertEqual("attr general: marketplace 0", parsed.marketplaceSearchExecutionCount, 0);
+    assertEqual("attr general: inventory 0", parsed.inventoryFetchExecutionCount, 0);
+    assertEqual("attr general: composition not attempted", parsed.groundedV3CompositionAttempted, false);
+    assertEqual("attr general: gemini fc 0", parsed.geminiInitialFunctionCallingAttemptCount, 0);
+    assertFalsy("attr general: no listing ids", /id-[abcd]/.test(JSON.stringify(parsed)));
+  } finally {
+    console.log = originalLog;
+  }
+}
+
+assertEqual(
+  "schema is Search-only object",
+  SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("replyText") &&
+    SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("orderedListingIds") &&
+    SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.additionalProperties === false,
+  true
+);
+assertFalsy(
+  "schema does not reuse finalAnswerTh",
+  JSON.stringify(SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA).includes("finalAnswerTh")
+);
+
+{
+  const cards = orderSearchGroundingCarCards(
+    [
+      { id: "id-a", brand: "A", model: "1", year: 2018, price: 1, mileage: 0, bodyClass: "sedan", bodyClassLabel: "Sedan", hasImage: false, detailPath: "/cars/id-a", matchKind: "exact" },
+      { id: "id-b", brand: "B", model: "2", year: 2019, price: 2, mileage: 0, bodyClass: "sedan", bodyClassLabel: "Sedan", hasImage: false, detailPath: "/cars/id-b", matchKind: "exact" },
+    ],
+    ["id-b", "id-a"]
+  );
+  assertEqual("permute helper order", cards.map((c) => c.id), ["id-b", "id-a"]);
+}
 
 console.log(`\nWP-NVB-03B server tests passed: ${passCount}`);

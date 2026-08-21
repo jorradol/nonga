@@ -66,6 +66,11 @@ export type ChatV3ConversationErrorCode =
   | "unsafe_output"
   | "internal_error";
 
+/** Search-only Path C metadata. Omitted for General Conversation. */
+export interface ChatV3SearchCompositionMetadata {
+  readonly orderedListingIds: readonly string[];
+}
+
 export interface ChatV3ConversationSuccessData {
   sliceId: typeof CHAT_V3_CONVERSATION_SLICE_ID;
   conversationId: string;
@@ -73,6 +78,8 @@ export interface ChatV3ConversationSuccessData {
   content: string;
   expertModeHint: ChatV3RuntimeExpertMode;
   providerId: string;
+  /** Internal Search Grounding only. Never a public HTTP listing-ID dump. */
+  searchComposition?: ChatV3SearchCompositionMetadata;
 }
 
 export interface ChatV3ConversationSuccessResponse {

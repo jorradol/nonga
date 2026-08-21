@@ -32,10 +32,24 @@ export interface ChatV3GeminiContentTurn {
   parts: ChatV3GeminiContentPart[];
 }
 
+export type ChatV3GeminiResponseMimeType = "application/json";
+
+export interface ChatV3GeminiJsonSchema {
+  type: "object" | "string" | "array" | "number" | "boolean";
+  properties?: Record<string, ChatV3GeminiJsonSchema>;
+  items?: ChatV3GeminiJsonSchema;
+  required?: readonly string[];
+  additionalProperties?: boolean;
+  description?: string;
+}
+
 export interface ChatV3GeminiGenerateRequest {
   model: string;
   systemInstruction: string;
   contents: ChatV3GeminiContentTurn[];
+  /** Search Grounding structured envelope only. Omitted for General Conversation. */
+  responseMimeType?: ChatV3GeminiResponseMimeType;
+  responseSchema?: ChatV3GeminiJsonSchema;
 }
 
 export interface ChatV3GeminiGenerateResult {
@@ -202,6 +216,12 @@ export function createFakeChatV3GeminiClient(
           role: turn.role,
           parts: turn.parts.map((part) => ({ text: part.text })),
         })),
+        ...(request.responseMimeType
+          ? { responseMimeType: request.responseMimeType }
+          : {}),
+        ...(request.responseSchema
+          ? { responseSchema: request.responseSchema }
+          : {}),
       };
 
       if (behavior === "timeout") {
@@ -242,6 +262,12 @@ export function createSdkChatV3GeminiClient(apiKey: string): ChatV3GeminiClient 
         })),
         config: {
           systemInstruction: request.systemInstruction,
+          ...(request.responseMimeType
+            ? { responseMimeType: request.responseMimeType }
+            : {}),
+          ...(request.responseSchema
+            ? { responseSchema: request.responseSchema }
+            : {}),
         },
       });
       return { text: extractChatV3GeminiResponseText(response) };

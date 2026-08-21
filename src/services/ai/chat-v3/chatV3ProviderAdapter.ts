@@ -15,6 +15,7 @@ import {
   resolveChatV3GeminiModel,
   type ChatV3EnvReader,
   type ChatV3GeminiClient,
+  type ChatV3GeminiJsonSchema,
 } from "./chatV3GeminiClient";
 
 export { CHAT_V3_GEMINI_API_KEY_ENV };
@@ -44,6 +45,9 @@ export interface ChatV3ProviderRequest {
   history: ChatV3HistoryTurn[];
   expertMode: ChatV3RuntimeExpertMode;
   systemInstruction: string;
+  /** Search Grounding structured envelope only. Omitted for General Conversation. */
+  responseMimeType?: "application/json";
+  responseSchema?: ChatV3GeminiJsonSchema;
 }
 
 export interface ChatV3ProviderSuccess {
@@ -134,6 +138,10 @@ export function createFakeChatV3Provider(
         history: input.history.map((turn) => ({ ...turn })),
         expertMode: input.expertMode,
         systemInstruction: input.systemInstruction,
+        ...(input.responseMimeType
+          ? { responseMimeType: input.responseMimeType }
+          : {}),
+        ...(input.responseSchema ? { responseSchema: input.responseSchema } : {}),
       };
 
       if (behavior === "timeout") {
@@ -305,6 +313,10 @@ export function createRealGeminiChatV3Provider(
           model,
           systemInstruction: input.systemInstruction,
           contents,
+          ...(input.responseMimeType
+            ? { responseMimeType: input.responseMimeType }
+            : {}),
+          ...(input.responseSchema ? { responseSchema: input.responseSchema } : {}),
         });
         const text = String(result?.text ?? "").trim();
         if (!text) {

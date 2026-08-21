@@ -283,6 +283,10 @@ export function buildSearchGroundingAppendix(packet: SearchGroundingPacket): str
     "แยกงบผู้ใช้ออกจากราคาประกาศ",
     "ห้ามอ้างว่าบันทึกความจำถาวรแล้ว",
     "ถ้าข้อเท็จจริงไม่มีในรายการ ห้ามพูดถึงข้อเท็จจริงนั้น",
+    "ส่งผลลัพธ์เป็น JSON ตาม schema เท่านั้น: replyText คือข้อความภาษาไทยที่ผู้ใช้เห็น และ orderedListingIds คือลำดับการแสดงผล",
+    "orderedListingIds ต้องใช้เฉพาะ id จาก trustedListings ให้ครบทุกคัน ไม่ซ้ำ และห้ามเพิ่มคันที่ไม่มีในรายการ",
+    "เรียง orderedListingIds ให้ตรงกับลำดับที่นำเสนอรถใน replyText",
+    "ห้ามใส่รหัสประกาศดิบใน replyText",
     `trustedListings=${JSON.stringify(listings)}`,
   ].join("\n");
 }
@@ -421,4 +425,167 @@ function windowAroundMatch(text: string, pattern: RegExp): string {
   const start = Math.max(0, match.index - 24);
   const end = Math.min(text.length, match.index + match[0].length + 48);
   return text.slice(start, end);
+}
+
+/** Search-only Gemini JSON schema. Do not reuse the buyer structured-output field. */
+export const SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    replyText: { type: "string" as const },
+    orderedListingIds: {
+      type: "array" as const,
+      items: { type: "string" as const },
+    },
+  },
+  required: ["replyText", "orderedListingIds"],
+  additionalProperties: false,
+};
+
+export const SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS = 10;
+
+export type SearchDisplayOrderClassification =
+  | "structured-accepted"
+  | "canonical-toolresult-degraded"
+  | "deterministic-fallback"
+  | "zero-result"
+  | "failed-closed";
+
+export type SearchGroundingProviderUnwrap =
+  | {
+      readonly kind: "structured";
+      readonly replyText: string;
+      readonly orderedListingIds: readonly string[] | undefined;
+    }
+  | { readonly kind: "plain-text"; readonly text: string }
+  | { readonly kind: "json-leak" };
+
+function stripSearchGroundingJsonFence(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+export function looksLikeSearchGroundingJsonEnvelope(text: string): boolean {
+  const trimmed = stripSearchGroundingJsonFence(String(text ?? ""));
+  if (!trimmed.startsWith("{")) return false;
+  return (
+    /"replyText"\s*:/.test(trimmed) ||
+    /"orderedListingIds"\s*:/.test(trimmed) ||
+    trimmed.endsWith("}")
+  );
+}
+
+function asStringArray(value: unknown): readonly string[] | undefined {
+  if (value == null) return undefined;
+  if (!Array.isArray(value)) return undefined;
+  if (!value.every((item) => typeof item === "string")) return undefined;
+  return value;
+}
+
+export function unwrapSearchGroundingProviderContent(
+  raw: string
+): SearchGroundingProviderUnwrap {
+  const trimmed = stripSearchGroundingJsonFence(String(raw ?? ""));
+  if (!trimmed) {
+    return { kind: "plain-text", text: "" };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    if (trimmed.startsWith("{")) {
+      return { kind: "json-leak" };
+    }
+    return { kind: "plain-text", text: trimmed };
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { kind: "json-leak" };
+  }
+
+  const record = parsed as Record<string, unknown>;
+  const replyTextRaw = record.replyText;
+  if (typeof replyTextRaw !== "string" || !replyTextRaw.trim()) {
+    return { kind: "json-leak" };
+  }
+  const replyText = replyTextRaw.trim();
+  if (looksLikeSearchGroundingJsonEnvelope(replyText)) {
+    return { kind: "json-leak" };
+  }
+
+  const orderedListingIds =
+    "orderedListingIds" in record
+      ? asStringArray(record.orderedListingIds)
+      : undefined;
+
+  return {
+    kind: "structured",
+    replyText,
+    orderedListingIds:
+      "orderedListingIds" in record ? orderedListingIds ?? undefined : undefined,
+  };
+}
+
+export function validateSearchGroundingOrderedListingIds(input: {
+  readonly orderedListingIds: readonly string[] | undefined;
+  readonly returnedListingIds: readonly string[];
+}):
+  | { readonly ok: true; readonly orderedListingIds: readonly string[] }
+  | { readonly ok: false; readonly reason: string } {
+  const ordered = input.orderedListingIds;
+  const returned = input.returnedListingIds;
+  if (ordered == null) {
+    return { ok: false, reason: "missing-ordered-ids" };
+  }
+  if (ordered.length > SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS) {
+    return { ok: false, reason: "exceeds-max-10" };
+  }
+  if (ordered.length !== returned.length) {
+    return { ok: false, reason: "count-mismatch" };
+  }
+  const seen = new Set<string>();
+  for (const id of ordered) {
+    if (typeof id !== "string" || !id.trim()) {
+      return { ok: false, reason: "invalid-id" };
+    }
+    if (seen.has(id)) {
+      return { ok: false, reason: "duplicate-id" };
+    }
+    seen.add(id);
+  }
+  const returnedSet = new Set(returned);
+  for (const id of ordered) {
+    if (!returnedSet.has(id)) {
+      return { ok: false, reason: "unknown-id" };
+    }
+  }
+  if (seen.size !== returnedSet.size) {
+    return { ok: false, reason: "omitted-id" };
+  }
+  for (const id of returned) {
+    if (!seen.has(id)) {
+      return { ok: false, reason: "omitted-id" };
+    }
+  }
+  return { ok: true, orderedListingIds: ordered };
+}
+
+export function orderSearchGroundingCarCards(
+  carCards: readonly ChatCarCardData[],
+  orderedListingIds: readonly string[]
+): ChatCarCardData[] {
+  const byId = new Map<string, ChatCarCardData>();
+  for (const card of carCards) {
+    byId.set(card.id, card);
+  }
+  const ordered: ChatCarCardData[] = [];
+  for (const id of orderedListingIds) {
+    const card = byId.get(id);
+    if (card) ordered.push(card);
+  }
+  return ordered;
 }

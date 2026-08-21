@@ -74,7 +74,9 @@ import {
   executeChatV2V3SearchGroundingTurn,
   resolveChatV2V3SearchGroundingRouting,
   type ChatV2V3SearchGroundingRunner,
+  type ChatV2V3SearchGroundingTurnOutcome,
 } from "./chat/chatV2V3SearchGroundingBridge";
+import type { SearchDisplayOrderClassification } from "./chat/chatV2V3SearchGroundingCompose";
 import { CHAT_V3_USER_FACING_UNAVAILABLE } from "./chat-v3/chatV3ConversationContracts";
 import {
   CHAT_V3_GENERAL_CONVERSATION_BRAIN,
@@ -102,6 +104,38 @@ const POST_INVOKE_REAL_PROVIDER_GATE_REASONS = new Set([
 export type UserVisibleRuntimeTextSource = "orchestrator" | "provider" | "fallback";
 export type UserVisibleRuntimeSafetyResult = "accepted" | "rejected" | "not_run";
 
+export type UserVisibleRuntimeRoutingLane =
+  | "search"
+  | "general"
+  | "conversation-core"
+  | "legacy"
+  | "kill-switch";
+
+export type UserVisibleRuntimeBusinessToolName = "marketplace.search" | "none";
+
+export type UserVisibleRuntimeGroundedV3CompositionOutcome =
+  | "success"
+  | "deterministic-fallback"
+  | "failed-closed"
+  | "not-applicable";
+
+export interface UserVisibleRuntimeLaneEvidence {
+  routingLane: UserVisibleRuntimeRoutingLane;
+  businessToolName: UserVisibleRuntimeBusinessToolName;
+  marketplaceSearchExecutionCount: 0 | 1;
+  inventoryFetchExecutionCount: 0 | 1;
+  geminiInitialFunctionCallingAttemptCount: 0 | 1;
+  groundedV3CompositionAttempted: boolean;
+  groundedV3CompositionOutcome: UserVisibleRuntimeGroundedV3CompositionOutcome;
+  legacyFallbackAfterSearchSelection: boolean;
+  validatedToolResultListingIdCount?: number;
+  orderedCardCount?: number;
+  displayedCardCount?: number;
+  displayOrderClassification?: SearchDisplayOrderClassification;
+  structuredOrderValid?: boolean;
+  searchFailureClassification: "none" | string;
+}
+
 export interface UserVisibleRuntimeAttributionDiagnostic {
   sliceId: string;
   requestCorrelationId: string;
@@ -125,6 +159,23 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   capturedAt: string;
   /** One-way SHA-256 of verified auth.uid. Diagnostic only; never authorize from this. */
   verifiedActorFingerprint?: string;
+  routingLane?: UserVisibleRuntimeRoutingLane;
+  conversationBrain?: string;
+  conversationBrainStatus?: string;
+  businessToolName?: UserVisibleRuntimeBusinessToolName;
+  marketplaceSearchExecutionCount?: 0 | 1;
+  inventoryFetchExecutionCount?: 0 | 1;
+  geminiInitialFunctionCallingAttemptCount?: 0 | 1;
+  groundedV3CompositionAttempted?: boolean;
+  groundedV3CompositionOutcome?: UserVisibleRuntimeGroundedV3CompositionOutcome;
+  legacyFallbackAfterSearchSelection?: boolean;
+  validatedToolResultListingIdCount?: number;
+  orderedCardCount?: number;
+  displayedCardCount?: number;
+  displayOrderClassification?: SearchDisplayOrderClassification;
+  structuredOrderValid?: boolean;
+  searchFailureClassification?: "none" | string;
+  skipGemini?: boolean;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
@@ -501,6 +552,7 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
   capturedAt?: string;
   /** Server-derived hashPiiForLog(auth.uid) after verified auth. Absent when unauthenticated. */
   verifiedActorFingerprint?: string | null;
+  laneEvidence?: UserVisibleRuntimeLaneEvidence;
 }): UserVisibleRuntimeAttributionDiagnostic {
   const readEnv = (key: string) => input.env?.[key];
   const aiFirstPathActive =
@@ -572,6 +624,7 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     input.verifiedActorFingerprint.trim() !== ""
       ? input.verifiedActorFingerprint
       : undefined;
+  const lane = input.laneEvidence;
 
   return {
     sliceId: USER_VISIBLE_RUNTIME_ATTRIBUTION_SLICE_ID,
@@ -600,6 +653,45 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
     gateAuthPath: allowlistEval.authPath,
     capturedAt: input.capturedAt ?? new Date().toISOString(),
     ...(verifiedActorFingerprint ? { verifiedActorFingerprint } : {}),
+    ...(lane
+      ? {
+          routingLane: lane.routingLane,
+          businessToolName: lane.businessToolName,
+          marketplaceSearchExecutionCount: lane.marketplaceSearchExecutionCount,
+          inventoryFetchExecutionCount: lane.inventoryFetchExecutionCount,
+          geminiInitialFunctionCallingAttemptCount:
+            lane.geminiInitialFunctionCallingAttemptCount,
+          groundedV3CompositionAttempted: lane.groundedV3CompositionAttempted,
+          groundedV3CompositionOutcome: lane.groundedV3CompositionOutcome,
+          legacyFallbackAfterSearchSelection: lane.legacyFallbackAfterSearchSelection,
+          searchFailureClassification: lane.searchFailureClassification,
+          ...(lane.validatedToolResultListingIdCount != null
+            ? {
+                validatedToolResultListingIdCount:
+                  lane.validatedToolResultListingIdCount,
+              }
+            : {}),
+          ...(lane.orderedCardCount != null
+            ? { orderedCardCount: lane.orderedCardCount }
+            : {}),
+          ...(lane.displayedCardCount != null
+            ? { displayedCardCount: lane.displayedCardCount }
+            : {}),
+          ...(lane.displayOrderClassification
+            ? { displayOrderClassification: lane.displayOrderClassification }
+            : {}),
+          ...(lane.structuredOrderValid != null
+            ? { structuredOrderValid: lane.structuredOrderValid }
+            : {}),
+        }
+      : {}),
+    ...(input.payload.conversationBrain
+      ? { conversationBrain: input.payload.conversationBrain }
+      : {}),
+    ...(input.payload.conversationBrainStatus
+      ? { conversationBrainStatus: input.payload.conversationBrainStatus }
+      : {}),
+    skipGemini: input.payload.skipGemini === true,
   };
 }
 
@@ -1053,6 +1145,111 @@ export interface ChatUserVisibleOrchestrateHandlerDeps {
   runChatV3SearchGrounding?: ChatV2V3SearchGroundingRunner;
 }
 
+function generalLaneEvidence(): UserVisibleRuntimeLaneEvidence {
+  return {
+    routingLane: "general",
+    businessToolName: "none",
+    marketplaceSearchExecutionCount: 0,
+    inventoryFetchExecutionCount: 0,
+    geminiInitialFunctionCallingAttemptCount: 0,
+    groundedV3CompositionAttempted: false,
+    groundedV3CompositionOutcome: "not-applicable",
+    legacyFallbackAfterSearchSelection: false,
+    orderedCardCount: 0,
+    displayedCardCount: 0,
+    searchFailureClassification: "none",
+  };
+}
+
+function searchLaneEvidenceFromTurn(
+  searchTurn: ChatV2V3SearchGroundingTurnOutcome
+): UserVisibleRuntimeLaneEvidence {
+  if (searchTurn.kind === "not-selected") {
+    return {
+      routingLane: "search",
+      businessToolName: "none",
+      marketplaceSearchExecutionCount: 0,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: false,
+      groundedV3CompositionOutcome: "failed-closed",
+      legacyFallbackAfterSearchSelection: false,
+      orderedCardCount: 0,
+      displayedCardCount: 0,
+      displayOrderClassification: "failed-closed",
+      structuredOrderValid: false,
+      searchFailureClassification: searchTurn.reason || "not-selected",
+    };
+  }
+  if (searchTurn.kind === "kill-switch-fail-closed") {
+    return {
+      routingLane: "kill-switch",
+      businessToolName: "none",
+      marketplaceSearchExecutionCount: 0,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: false,
+      groundedV3CompositionOutcome: "failed-closed",
+      legacyFallbackAfterSearchSelection: false,
+      validatedToolResultListingIdCount: 0,
+      orderedCardCount: 0,
+      displayedCardCount: 0,
+      displayOrderClassification: "failed-closed",
+      structuredOrderValid: false,
+      searchFailureClassification: "kill-switch",
+    };
+  }
+  if (searchTurn.kind === "failed-closed") {
+    return {
+      routingLane: "search",
+      businessToolName:
+        searchTurn.marketplaceSearchExecutionCount === 1
+          ? "marketplace.search"
+          : "none",
+      marketplaceSearchExecutionCount: searchTurn.marketplaceSearchExecutionCount,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: false,
+      groundedV3CompositionOutcome: "failed-closed",
+      legacyFallbackAfterSearchSelection: false,
+      validatedToolResultListingIdCount:
+        searchTurn.validatedToolResultListingIdCount,
+      orderedCardCount: 0,
+      displayedCardCount: 0,
+      displayOrderClassification: "failed-closed",
+      structuredOrderValid: false,
+      searchFailureClassification: searchTurn.errorCode ?? "failed-closed",
+    };
+  }
+  const compositionAttempted = searchTurn.marketplaceSearchExecutionCount === 1;
+  const compositionOutcome: UserVisibleRuntimeGroundedV3CompositionOutcome =
+    !compositionAttempted
+      ? "not-applicable"
+      : searchTurn.usedDeterministicFallback
+        ? "deterministic-fallback"
+        : "success";
+  return {
+    routingLane: "search",
+    businessToolName:
+      searchTurn.marketplaceSearchExecutionCount === 1
+        ? "marketplace.search"
+        : "none",
+    marketplaceSearchExecutionCount: searchTurn.marketplaceSearchExecutionCount,
+    inventoryFetchExecutionCount: 0,
+    geminiInitialFunctionCallingAttemptCount: 0,
+    groundedV3CompositionAttempted: compositionAttempted,
+    groundedV3CompositionOutcome: compositionOutcome,
+    legacyFallbackAfterSearchSelection: false,
+    validatedToolResultListingIdCount:
+      searchTurn.validatedToolResultListingIdCount,
+    orderedCardCount: searchTurn.carCards.length,
+    displayedCardCount: searchTurn.carCards.length,
+    displayOrderClassification: searchTurn.displayOrderClassification,
+    structuredOrderValid: searchTurn.structuredOrderValid,
+    searchFailureClassification: "none",
+  };
+}
+
 export async function handleChatUserVisibleOrchestratePost(
   req: Request,
   res: Response,
@@ -1089,6 +1286,17 @@ export async function handleChatUserVisibleOrchestratePost(
 
     let result: UserVisibleOrchestrationBridgeResult;
     let skipRealProvider = false;
+    let laneEvidence: UserVisibleRuntimeLaneEvidence = {
+      routingLane: "legacy",
+      businessToolName: "none",
+      marketplaceSearchExecutionCount: 0,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: false,
+      groundedV3CompositionOutcome: "not-applicable",
+      legacyFallbackAfterSearchSelection: false,
+      searchFailureClassification: "none",
+    };
 
     if (searchGroundingRouting.kind === "kill-switch-fail-closed") {
       skipRealProvider = true;
@@ -1106,6 +1314,18 @@ export async function handleChatUserVisibleOrchestratePost(
           "failed-closed"
         ),
       };
+      laneEvidence = searchLaneEvidenceFromTurn({
+        kind: "kill-switch-fail-closed",
+        userVisibleText: unavailableText,
+        carCards: [],
+        hasMoreCars: false,
+        conversationBrainStatus: "failed-closed",
+        displayOrderClassification: "failed-closed",
+        structuredOrderValid: false,
+        validatedToolResultListingIdCount: 0,
+        marketplaceSearchExecutionCount: 0,
+        inventoryFetchExecutionCount: 0,
+      });
     } else if (searchGroundingRouting.kind === "selected") {
       skipRealProvider = true;
       const searchTurn = await executeChatV2V3SearchGroundingTurn({
@@ -1118,6 +1338,7 @@ export async function handleChatUserVisibleOrchestratePost(
         runChatV3Conversation: deps.runChatV3SearchGrounding,
         now: deps.now,
       });
+      laneEvidence = searchLaneEvidenceFromTurn(searchTurn);
       if (searchTurn.kind === "not-selected") {
         const unavailableText = CHAT_V3_USER_FACING_UNAVAILABLE;
         const orchestrated: OrchestratedChatReply = {
@@ -1175,6 +1396,19 @@ export async function handleChatUserVisibleOrchestratePost(
           false
         ),
       };
+      laneEvidence = {
+        routingLane: "conversation-core",
+        businessToolName: "none",
+        marketplaceSearchExecutionCount: 0,
+        inventoryFetchExecutionCount: 0,
+        geminiInitialFunctionCallingAttemptCount: 0,
+        groundedV3CompositionAttempted: false,
+        groundedV3CompositionOutcome: "not-applicable",
+        legacyFallbackAfterSearchSelection: false,
+        orderedCardCount: orchestrated.carCards?.length ?? 0,
+        displayedCardCount: orchestrated.carCards?.length ?? 0,
+        searchFailureClassification: "none",
+      };
     } else {
       const generalBridgeRouting = resolveChatV2V3GeneralBridgeRouting({
         authenticatedActorRef: auth.uid,
@@ -1196,6 +1430,12 @@ export async function handleChatUserVisibleOrchestratePost(
             buildRedactedPayload(orchestrated, unavailableText, false, false),
             "failed-closed"
           ),
+        };
+        laneEvidence = {
+          ...generalLaneEvidence(),
+          routingLane: "kill-switch",
+          groundedV3CompositionOutcome: "failed-closed",
+          searchFailureClassification: "kill-switch",
         };
       } else if (generalBridgeRouting.kind === "selected") {
         skipRealProvider = true;
@@ -1231,6 +1471,7 @@ export async function handleChatUserVisibleOrchestratePost(
             conversationBrainStatus
           ),
         };
+        laneEvidence = generalLaneEvidence();
       } else {
         const runLegacy =
           deps.runLegacyOrchestration ?? orchestrateUserVisibleChatForTrustedAuth;
@@ -1242,6 +1483,17 @@ export async function handleChatUserVisibleOrchestratePost(
           env: envSnapshot,
           pilotSessionContext,
         });
+        laneEvidence = {
+          routingLane: "legacy",
+          businessToolName: "none",
+          marketplaceSearchExecutionCount: 0,
+          inventoryFetchExecutionCount: 0,
+          geminiInitialFunctionCallingAttemptCount: 0,
+          groundedV3CompositionAttempted: false,
+          groundedV3CompositionOutcome: "not-applicable",
+          legacyFallbackAfterSearchSelection: false,
+          searchFailureClassification: "none",
+        };
       }
     }
 
@@ -1269,6 +1521,16 @@ export async function handleChatUserVisibleOrchestratePost(
         environment: bridgeEnvironment,
         env: envSnapshot,
       });
+      laneEvidence = {
+        ...laneEvidence,
+        geminiInitialFunctionCallingAttemptCount:
+          result.payload.realProviderNetwork === true ||
+          POST_INVOKE_REAL_PROVIDER_GATE_REASONS.has(
+            String(result.payload.realProviderGateReason ?? "")
+          )
+            ? 1
+            : 0,
+      };
     }
 
     const payloadWithMaskedGate = withMaskedUserVisibleGateDiagnostic({
@@ -1305,6 +1567,7 @@ export async function handleChatUserVisibleOrchestratePost(
         env: process.env as Record<string, string | undefined>,
         capturedAt: evidenceCapturedAt,
         verifiedActorFingerprint: hashPiiForLog(auth.uid),
+        laneEvidence,
       })
     );
 

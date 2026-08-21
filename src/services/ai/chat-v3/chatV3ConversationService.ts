@@ -49,6 +49,11 @@ import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize"
 import { normalizeChatV3UnsupportedDurableMemoryClaims } from "./chatV3MemoryClaimNormalizer";
 import type { FinanceCalcResult } from "../../../utils/financeCalculator";
 import type { ChatV3AutomotiveVehicleContext } from "./chatV3AutomotiveReasoning";
+import {
+  SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA,
+  unwrapSearchGroundingProviderContent,
+} from "../chat/chatV2V3SearchGroundingCompose";
+import type { ChatV3SearchCompositionMetadata } from "./chatV3ConversationContracts";
 
 export interface RunChatV3ConversationOptions {
   rawRequest: unknown;
@@ -225,6 +230,12 @@ export async function runChatV3Conversation(
       history: request.history,
       expertMode: request.expertMode,
       systemInstruction,
+      ...(searchComposition
+        ? {
+            responseMimeType: "application/json" as const,
+            responseSchema: SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA,
+          }
+        : {}),
     });
   } catch {
     return {
@@ -242,7 +253,30 @@ export async function runChatV3Conversation(
     };
   }
 
-  const outputSafety = applyChatV3SafetyBoundary(providerResult.content);
+  let providerContent = providerResult.content;
+  let searchCompositionMetadata: ChatV3SearchCompositionMetadata | undefined;
+  if (searchComposition) {
+    const unwrapped = unwrapSearchGroundingProviderContent(providerResult.content);
+    if (unwrapped.kind === "json-leak") {
+      return {
+        success: false,
+        errorCode: "unsafe_output",
+        message: CHAT_V3_USER_FACING_UNAVAILABLE,
+      };
+    }
+    if (unwrapped.kind === "structured") {
+      providerContent = unwrapped.replyText;
+      if (unwrapped.orderedListingIds !== undefined) {
+        searchCompositionMetadata = {
+          orderedListingIds: unwrapped.orderedListingIds,
+        };
+      }
+    } else {
+      providerContent = unwrapped.text;
+    }
+  }
+
+  const outputSafety = applyChatV3SafetyBoundary(providerContent);
   if (outputSafety.ok === false) {
     return {
       success: false,
@@ -393,6 +427,9 @@ export async function runChatV3Conversation(
       content: normalizeChatV3UnsupportedDurableMemoryClaims(content),
       expertModeHint: request.expertMode,
       providerId,
+      ...(searchCompositionMetadata
+        ? { searchComposition: searchCompositionMetadata }
+        : {}),
     },
   };
 }

@@ -158,6 +158,37 @@ assertEqual(
 }
 
 {
+  const orderedCards: ChatCarCardData[] = [
+    { ...SEARCH_CARDS[0], id: "idC", detailPath: "/cars/idC", model: "Vios" },
+    { ...SEARCH_CARDS[0], id: "idA", detailPath: "/cars/idA", model: "Altis" },
+    { ...SEARCH_CARDS[0], id: "idB", detailPath: "/cars/idB", model: "Yaris" },
+    { ...SEARCH_CARDS[0], id: "idD", detailPath: "/cars/idD", model: "Camry" },
+  ];
+  const adopted = resolveChatV2V3SearchGroundingClientApply({
+    searchHopAttempted: true,
+    hopStatus: "success",
+    conversationBrain: CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN,
+    conversationBrainStatus: "success",
+    userVisibleText: "structured-order-text",
+    carCards: orderedCards,
+    hasMoreCars: false,
+    localOrchestrated: {
+      text: "local-legacy-text",
+      carCards: LOCAL_LEGACY_CARDS,
+    },
+  });
+  assertEqual("apply: path-c adopt-search", adopted.action, "adopt-search");
+  if (adopted.action === "adopt-search") {
+    assertEqual(
+      "apply: preserves received non-toolresult order",
+      adopted.carCards.map((card) => card.id),
+      ["idC", "idA", "idB", "idD"]
+    );
+    assertEqual("apply: path-c stop legacy merge", adopted.stopLegacyMerge, true);
+  }
+}
+
+{
   const empty = resolveChatV2V3SearchGroundingClientApply({
     searchHopAttempted: true,
     hopStatus: "success",

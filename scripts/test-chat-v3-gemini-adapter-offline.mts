@@ -457,6 +457,95 @@ async function main(): Promise<void> {
     "expert mode does not change provider model"
   );
 
+  section("Search-only Path C structured schema");
+
+  resetLastFakeChatV3GeminiRequest();
+  let searchGenerateCount = 0;
+  const searchJson = JSON.stringify({
+    replyText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ",
+    orderedListingIds: ["listing-1"],
+  });
+  const searchClient = createFakeChatV3GeminiClient({ text: searchJson });
+  const countingSearchClient = {
+    id: searchClient.id,
+    generateContent: async (
+      request: Parameters<typeof searchClient.generateContent>[0]
+    ) => {
+      searchGenerateCount += 1;
+      return searchClient.generateContent(request);
+    },
+  };
+  const searchAdapter = createRealGeminiChatV3Provider({
+    bypassLiveEnableGateForTests: true,
+    geminiClient: countingSearchClient,
+    readEnv: testReadEnv(enabledGeminiEnv()),
+  });
+  const searchRun = await runChatV3Conversation({
+    rawRequest: {
+      conversationId: "conv-search-schema",
+      message: "ช่วยหารถเก๋ง Toyota",
+      history: [],
+      expertMode: "BUYING",
+    },
+    environment: "test",
+    provider: searchAdapter,
+    searchGroundingComposition: true,
+    searchGroundingAppendix: "trustedListings=[]",
+  });
+  const searchReq = getLastFakeChatV3GeminiRequest();
+  assert(searchRun.success === true, "Search composition succeeds after JSON unwrap");
+  assert(
+    searchRun.success === true &&
+      searchRun.data.content === "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ",
+    "Search visible content is replyText, not raw JSON"
+  );
+  assert(
+    searchRun.success === true &&
+      JSON.stringify(searchRun.data.searchComposition?.orderedListingIds) ===
+        JSON.stringify(["listing-1"]),
+    "Search metadata carries orderedListingIds"
+  );
+  assert(searchReq?.responseMimeType === "application/json", "Search request uses JSON mime");
+  assert(
+    Boolean(searchReq?.responseSchema) &&
+      JSON.stringify(searchReq?.responseSchema).includes("orderedListingIds") &&
+      !JSON.stringify(searchReq?.responseSchema).includes("finalAnswerTh"),
+    "Search request uses Search schema, not buyer finalAnswerTh"
+  );
+  assert(searchGenerateCount === 1, "Search composition makes one provider call");
+
+  resetLastFakeChatV3GeminiRequest();
+  const generalClient = createFakeChatV3GeminiClient({
+    text: "คำตอบทั่วไปจาก Gemini",
+  });
+  const generalAdapter = createRealGeminiChatV3Provider({
+    bypassLiveEnableGateForTests: true,
+    geminiClient: generalClient,
+    readEnv: testReadEnv(enabledGeminiEnv()),
+  });
+  const generalRun = await runChatV3Conversation({
+    rawRequest: {
+      conversationId: "conv-general-schema",
+      message: "รถไฟฟ้ากับรถน้ำมัน ใช้ต่างกันยังไง",
+      history: [],
+      expertMode: "AUTO",
+    },
+    environment: "test",
+    provider: generalAdapter,
+  });
+  const generalReq = getLastFakeChatV3GeminiRequest();
+  assert(generalRun.success === true, "General conversation still succeeds as plain text");
+  assert(
+    generalRun.success === true && generalRun.data.content.includes("คำตอบทั่วไป"),
+    "General visible content remains prose"
+  );
+  assert(generalReq?.responseMimeType == null, "General request has no JSON mime");
+  assert(generalReq?.responseSchema == null, "General request has no Search schema");
+  assert(
+    generalRun.success === true && generalRun.data.searchComposition == null,
+    "General success omits Search metadata"
+  );
+
   section("Summary");
   console.log(`Passed: ${passed}`);
   console.log(`Failed: ${failed}`);

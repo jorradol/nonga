@@ -158,6 +158,22 @@ async function main(): Promise<void> {
       ),
     "brake-sink emergency forbids pump-brake formula and covers control steps"
   );
+  const brakeGuide = String(brakeMotion.instructionGuidance ?? "");
+  const calmIdx = brakeGuide.indexOf("ตั้งสติ");
+  const caveatIdx = Math.min(
+    brakeGuide.indexOf("สุญญากาศ") >= 0 ? brakeGuide.indexOf("สุญญากาศ") : brakeGuide.length,
+    brakeGuide.indexOf("แรงช่วยพวงมาลัย") >= 0
+      ? brakeGuide.indexOf("แรงช่วยพวงมาลัย")
+      : brakeGuide.length
+  );
+  assert(
+    calmIdx >= 0 && calmIdx < caveatIdx && /P\/R/.test(brakeGuide),
+    "brake-failure event-order skeleton precedes caveats and forbids P/R while moving"
+  );
+  assert(
+    /1\.\s*ตั้งสติ[\s\S]*9\.\s*หลังหยุด/.test(brakeGuide),
+    "Safety Layer retains the complete nine-step numbered sequence"
+  );
 
   const fire = assessChatV3Safety("รถมีควันและเริ่มมีไฟลุกจากห้องเครื่อง");
   assert(

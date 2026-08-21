@@ -510,6 +510,91 @@ function testStagingAuthenticatedOnlyDeniedAttribution() {
   );
 }
 
+function testSearchLaneEvidencePrivacy() {
+  const diagnostic = buildUserVisibleRuntimeAttributionDiagnostic({
+    requestCorrelationId: "corr-search-lane",
+    payload: basePayload({
+      conversationBrain: "chat-v3-search-grounded",
+      conversationBrainStatus: "success",
+      skipGemini: true,
+      fallbackToLegacy: false,
+      carCardCount: 4,
+    }),
+    userMessage: USER_MESSAGE,
+    firebaseUid: FULL_UID,
+    userRole: "buyer",
+    environment: "staging",
+    env: AI_FIRST_ENV,
+    laneEvidence: {
+      routingLane: "search",
+      businessToolName: "marketplace.search",
+      marketplaceSearchExecutionCount: 1,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: true,
+      groundedV3CompositionOutcome: "success",
+      legacyFallbackAfterSearchSelection: false,
+      validatedToolResultListingIdCount: 4,
+      orderedCardCount: 4,
+      displayedCardCount: 4,
+      displayOrderClassification: "structured-accepted",
+      structuredOrderValid: true,
+      searchFailureClassification: "none",
+    },
+  });
+  const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
+  ok("search lane routingLane", diagnostic.routingLane === "search");
+  ok("search lane brain marker", diagnostic.conversationBrain === "chat-v3-search-grounded");
+  ok("search lane tool name", diagnostic.businessToolName === "marketplace.search");
+  ok("search lane marketplace count", diagnostic.marketplaceSearchExecutionCount === 1);
+  ok("search lane inventory zero", diagnostic.inventoryFetchExecutionCount === 0);
+  ok("search lane no gemini fc", diagnostic.geminiInitialFunctionCallingAttemptCount === 0);
+  ok("search lane composition attempted", diagnostic.groundedV3CompositionAttempted === true);
+  ok("search lane classification", diagnostic.displayOrderClassification === "structured-accepted");
+  ok("search lane skipGemini", diagnostic.skipGemini === true);
+  ok("search lane no legacy after search", diagnostic.legacyFallbackAfterSearchSelection === false);
+  assertNoSensitiveLeakage(serialized, "search-lane");
+  ok("search lane serialized has no listing id keys", !serialized.includes("orderedListingIds"));
+  ok("search lane serialized event", serialized.includes("user_visible_runtime_attribution"));
+}
+
+function testGeneralLaneEvidenceZeros() {
+  const diagnostic = buildUserVisibleRuntimeAttributionDiagnostic({
+    requestCorrelationId: "corr-general-lane",
+    payload: basePayload({
+      conversationBrain: "chat-v3-general",
+      conversationBrainStatus: "success",
+      skipGemini: true,
+      carCardCount: 0,
+    }),
+    userMessage: USER_MESSAGE,
+    firebaseUid: FULL_UID,
+    userRole: "buyer",
+    environment: "staging",
+    env: AI_FIRST_ENV,
+    laneEvidence: {
+      routingLane: "general",
+      businessToolName: "none",
+      marketplaceSearchExecutionCount: 0,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: false,
+      groundedV3CompositionOutcome: "not-applicable",
+      legacyFallbackAfterSearchSelection: false,
+      orderedCardCount: 0,
+      displayedCardCount: 0,
+      searchFailureClassification: "none",
+    },
+  });
+  ok("general lane routingLane", diagnostic.routingLane === "general");
+  ok("general lane tool none", diagnostic.businessToolName === "none");
+  ok("general lane marketplace zero", diagnostic.marketplaceSearchExecutionCount === 0);
+  ok("general lane inventory zero", diagnostic.inventoryFetchExecutionCount === 0);
+  ok("general lane composition not attempted", diagnostic.groundedV3CompositionAttempted === false);
+  const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
+  assertNoSensitiveLeakage(serialized, "general-lane");
+}
+
 async function main() {
   console.log("=== Runtime Attribution Diagnostic Contract ===\n");
   await testProviderSuccess();
@@ -519,6 +604,8 @@ async function main() {
   testCompareGroundingMerge();
   testStagingAuthenticatedOnlyDeniedAttribution();
   testDiagnosticSerialization();
+  testSearchLaneEvidencePrivacy();
+  testGeneralLaneEvidenceZeros();
   console.log("\n=== Runtime Attribution Diagnostic Contract complete ===");
 }
 

@@ -6,7 +6,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { detectChatV3AccuracyTopics } from "../src/services/ai/chat-v3/chatV3AutomotiveAccuracyGuidance.ts";
+import {
+  buildChatV3AutomotiveAccuracyGuidanceBlock,
+  detectChatV3AccuracyTopics,
+} from "../src/services/ai/chat-v3/chatV3AutomotiveAccuracyGuidance.ts";
 import { buildChatV3FinanceAssumptionBlock } from "../src/services/ai/chat-v3/chatV3AutomotiveFinanceBlock.ts";
 import { composeChatV3AutomotiveReasoningBlocks } from "../src/services/ai/chat-v3/chatV3AutomotiveReasoning.ts";
 import { buildChatV3SystemInstruction } from "../src/services/ai/chat-v3/chatV3SystemInstruction.ts";
@@ -126,6 +129,31 @@ console.log("\n=== 4.4 Brake sink emergency ===");
       /ดับเครื่อง/.test(guide) &&
       /ถอนคันเร่ง|ประคองทิศทาง|ไฟฉุกเฉิน|เบรกจอด/.test(guide),
     "emergency brake guidance covers control steps without pump-brake formula"
+  );
+  const calmIdx = guide.indexOf("ตั้งสติ");
+  const accelIdx = guide.indexOf("ถอนคันเร่ง");
+  const caveatIdx = Math.min(
+    guide.indexOf("สุญญากาศ") >= 0 ? guide.indexOf("สุญญากาศ") : guide.length,
+    guide.indexOf("แรงช่วยพวงมาลัย") >= 0 ? guide.indexOf("แรงช่วยพวงมาลัย") : guide.length
+  );
+  assert(
+    calmIdx >= 0 && accelIdx >= 0 && calmIdx < caveatIdx && accelIdx < caveatIdx,
+    "event-order control steps precede technical caveats"
+  );
+  assert(/P\/R/.test(guide), "forbids selecting P/R while moving");
+  const accuracy = buildChatV3AutomotiveAccuracyGuidanceBlock(
+    detectChatV3AccuracyTopics("ถ้ารถเบรกจมระหว่างขับ ลุงควรทำอย่างไร")
+  );
+  assert(
+    /1\.\s*ตั้งสติ[\s\S]*9\.\s*หลังหยุด/.test(guide) &&
+      !/1\.\s*ตั้งสติ/.test(accuracy),
+    "numbered event-order skeleton stays in Safety Layer, not Accuracy"
+  );
+  assert(
+    /ใช้ลำดับเหตุการณ์ของ Safety Layer/.test(accuracy) &&
+      /ห้ามดับเครื่องหรือเลือกเกียร์ P\/R/.test(accuracy) &&
+      /ห้ามแนะนำการขับชนวัตถุ/.test(accuracy),
+    "Accuracy brake topic keeps concise complementary constraints"
   );
 }
 

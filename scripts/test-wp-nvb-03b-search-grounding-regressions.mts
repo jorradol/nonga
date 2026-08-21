@@ -277,4 +277,29 @@ assertNotIncludes("client does not send appendix", files.client, "searchGroundin
 assertNotIncludes("no real UID in search modules", selectedPath, "firebaseUid:");
 assertNotIncludes("no GEMINI_API_KEY in search modules", selectedPath, "GEMINI_API_KEY");
 
+const generalBridgeSrc = readFileSync(
+  "src/services/ai/chat/chatV2V3GeneralConversationBridge.ts",
+  "utf8"
+);
+assertNotIncludes(
+  "General bridge does not request Search composition",
+  generalBridgeSrc,
+  "searchGroundingComposition"
+);
+assertNotIncludes(
+  "General bridge does not attach Search JSON schema",
+  generalBridgeSrc,
+  "SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA"
+);
+assertTruthy(
+  "V.3 Search schema is gated on searchGroundingComposition",
+  files.v3Service.includes("searchGroundingComposition") &&
+    files.v3Service.includes("SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA")
+);
+assertTruthy(
+  "Search schema is not buyer finalAnswerTh",
+  files.compose.includes("SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA") &&
+    !files.compose.includes("finalAnswerTh")
+);
+
 console.log(`\nWP-NVB-03B regression guards passed: ${passCount}`);

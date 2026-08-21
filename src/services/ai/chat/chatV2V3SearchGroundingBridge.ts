@@ -32,7 +32,12 @@ import {
   buildSearchGroundingAppendix,
   buildSearchGroundingPacket,
   buildSearchGroundingVehicleContext,
+  looksLikeSearchGroundingJsonEnvelope,
+  orderSearchGroundingCarCards,
   validateSearchGroundingComposition,
+  validateSearchGroundingOrderedListingIds,
+  type SearchDisplayOrderClassification,
+  type SearchGroundingPacket,
 } from "./chatV2V3SearchGroundingCompose";
 import {
   CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN,
@@ -68,6 +73,11 @@ export type ChatV2V3SearchGroundingTurnOutcome =
       readonly carCards: readonly [];
       readonly hasMoreCars: false;
       readonly conversationBrainStatus: "failed-closed";
+      readonly displayOrderClassification: "failed-closed";
+      readonly structuredOrderValid: false;
+      readonly validatedToolResultListingIdCount: 0;
+      readonly marketplaceSearchExecutionCount: 0;
+      readonly inventoryFetchExecutionCount: 0;
     }
   | {
       readonly kind: "success";
@@ -76,6 +86,11 @@ export type ChatV2V3SearchGroundingTurnOutcome =
       readonly hasMoreCars: false;
       readonly conversationBrainStatus: "success";
       readonly usedDeterministicFallback: boolean;
+      readonly displayOrderClassification: SearchDisplayOrderClassification;
+      readonly structuredOrderValid: boolean;
+      readonly validatedToolResultListingIdCount: number;
+      readonly marketplaceSearchExecutionCount: 0 | 1;
+      readonly inventoryFetchExecutionCount: 0;
     }
   | {
       readonly kind: "failed-closed";
@@ -84,6 +99,11 @@ export type ChatV2V3SearchGroundingTurnOutcome =
       readonly hasMoreCars: false;
       readonly conversationBrainStatus: "failed-closed";
       readonly errorCode?: string;
+      readonly displayOrderClassification: "failed-closed";
+      readonly structuredOrderValid: false;
+      readonly validatedToolResultListingIdCount: number;
+      readonly marketplaceSearchExecutionCount: 0 | 1;
+      readonly inventoryFetchExecutionCount: 0;
     };
 
 export type ChatV2V3SearchGroundingRunner = (
@@ -220,14 +240,23 @@ function extractSuccessText(response: ChatV3ConversationResponse): string | null
   return content.length > 0 ? content : null;
 }
 
-function failClosedOutcome(errorCode?: string): ChatV2V3SearchGroundingTurnOutcome {
+function failClosedOutcome(input: {
+  readonly errorCode?: string;
+  readonly marketplaceSearchExecutionCount?: 0 | 1;
+  readonly validatedToolResultListingIdCount?: number;
+}): ChatV2V3SearchGroundingTurnOutcome {
   return {
     kind: "failed-closed",
     userVisibleText: CHAT_V3_USER_FACING_UNAVAILABLE,
     carCards: [],
     hasMoreCars: false,
     conversationBrainStatus: "failed-closed",
-    ...(errorCode ? { errorCode } : {}),
+    displayOrderClassification: "failed-closed",
+    structuredOrderValid: false,
+    validatedToolResultListingIdCount: input.validatedToolResultListingIdCount ?? 0,
+    marketplaceSearchExecutionCount: input.marketplaceSearchExecutionCount ?? 0,
+    inventoryFetchExecutionCount: 0,
+    ...(input.errorCode ? { errorCode: input.errorCode } : {}),
   };
 }
 
@@ -235,6 +264,10 @@ function successOutcome(input: {
   readonly text: string;
   readonly carCards: readonly ChatCarCardData[];
   readonly usedDeterministicFallback: boolean;
+  readonly displayOrderClassification: SearchDisplayOrderClassification;
+  readonly structuredOrderValid: boolean;
+  readonly validatedToolResultListingIdCount: number;
+  readonly marketplaceSearchExecutionCount: 0 | 1;
 }): ChatV2V3SearchGroundingTurnOutcome {
   return {
     kind: "success",
@@ -243,14 +276,121 @@ function successOutcome(input: {
     hasMoreCars: false,
     conversationBrainStatus: "success",
     usedDeterministicFallback: input.usedDeterministicFallback,
+    displayOrderClassification: input.displayOrderClassification,
+    structuredOrderValid: input.structuredOrderValid,
+    validatedToolResultListingIdCount: input.validatedToolResultListingIdCount,
+    marketplaceSearchExecutionCount: input.marketplaceSearchExecutionCount,
+    inventoryFetchExecutionCount: 0,
   };
 }
 
-function noMatchOutcome(text = SEARCH_GROUNDING_NO_MATCH_TEXT): ChatV2V3SearchGroundingTurnOutcome {
+function noMatchOutcome(
+  text = SEARCH_GROUNDING_NO_MATCH_TEXT,
+  marketplaceSearchExecutionCount: 0 | 1 = 0
+): ChatV2V3SearchGroundingTurnOutcome {
   return successOutcome({
     text,
     carCards: [],
     usedDeterministicFallback: true,
+    displayOrderClassification: "zero-result",
+    structuredOrderValid: true,
+    validatedToolResultListingIdCount: 0,
+    marketplaceSearchExecutionCount,
+  });
+}
+
+function extractOrderedListingIds(
+  response: ChatV3ConversationResponse
+): readonly string[] | undefined {
+  if (!response.success) return undefined;
+  return response.data.searchComposition?.orderedListingIds;
+}
+
+function resolveGroundedSearchDisplay(input: {
+  readonly response: ChatV3ConversationResponse | null;
+  readonly packet: SearchGroundingPacket;
+  readonly canonicalCards: readonly ChatCarCardData[];
+  readonly deterministic: string;
+}): ChatV2V3SearchGroundingTurnOutcome {
+  const zero = input.packet.displayedCount === 0;
+  const marketplaceSearchExecutionCount = 1 as const;
+  const validatedCount = input.packet.returnedCount;
+  const successText = input.response ? extractSuccessText(input.response) : null;
+  const leaked =
+    Boolean(successText) && looksLikeSearchGroundingJsonEnvelope(successText ?? "");
+
+  if (!successText || leaked) {
+    if (zero) return noMatchOutcome(input.deterministic, 1);
+    return successOutcome({
+      text: input.deterministic,
+      carCards: input.canonicalCards,
+      usedDeterministicFallback: true,
+      displayOrderClassification: "deterministic-fallback",
+      structuredOrderValid: false,
+      validatedToolResultListingIdCount: validatedCount,
+      marketplaceSearchExecutionCount,
+    });
+  }
+
+  const grounded = validateSearchGroundingComposition({
+    text: successText,
+    packet: input.packet,
+  });
+  if (!grounded.ok) {
+    if (zero) return noMatchOutcome(input.deterministic, 1);
+    return successOutcome({
+      text: input.deterministic,
+      carCards: input.canonicalCards,
+      usedDeterministicFallback: true,
+      displayOrderClassification: "deterministic-fallback",
+      structuredOrderValid: false,
+      validatedToolResultListingIdCount: validatedCount,
+      marketplaceSearchExecutionCount,
+    });
+  }
+
+  const orderCheck = validateSearchGroundingOrderedListingIds({
+    orderedListingIds: input.response
+      ? extractOrderedListingIds(input.response)
+      : undefined,
+    returnedListingIds: input.packet.returnedListingIds,
+  });
+
+  if (zero) {
+    return successOutcome({
+      text: successText,
+      carCards: [],
+      usedDeterministicFallback: false,
+      displayOrderClassification: "zero-result",
+      structuredOrderValid: orderCheck.ok,
+      validatedToolResultListingIdCount: 0,
+      marketplaceSearchExecutionCount,
+    });
+  }
+
+  if (orderCheck.ok) {
+    return successOutcome({
+      text: successText,
+      carCards: orderSearchGroundingCarCards(
+        input.canonicalCards,
+        orderCheck.orderedListingIds
+      ),
+      usedDeterministicFallback: false,
+      displayOrderClassification: "structured-accepted",
+      structuredOrderValid: true,
+      validatedToolResultListingIdCount: validatedCount,
+      marketplaceSearchExecutionCount,
+    });
+  }
+
+  return successOutcome({
+    text: successText,
+    carCards: input.canonicalCards,
+    usedDeterministicFallback: false,
+    displayOrderClassification: "canonical-toolresult-degraded",
+    structuredOrderValid: false,
+    validatedToolResultListingIdCount: validatedCount,
+    marketplaceSearchExecutionCount,
   });
 }
 
@@ -292,6 +432,11 @@ export async function executeChatV2V3SearchGroundingTurn(input: {
       carCards: [],
       hasMoreCars: false,
       conversationBrainStatus: "failed-closed",
+      displayOrderClassification: "failed-closed",
+      structuredOrderValid: false,
+      validatedToolResultListingIdCount: 0,
+      marketplaceSearchExecutionCount: 0,
+      inventoryFetchExecutionCount: 0,
     };
   }
 
@@ -315,7 +460,8 @@ export async function executeChatV2V3SearchGroundingTurn(input: {
         : criteria.unsupportedReasons.length > 0 &&
             !criteria.unsupportedReasons.includes("no-supported-criterion")
           ? SEARCH_GROUNDING_UNSUPPORTED_TEXT
-          : SEARCH_GROUNDING_NO_MATCH_TEXT
+          : SEARCH_GROUNDING_NO_MATCH_TEXT,
+      0
     );
   }
 
@@ -334,11 +480,17 @@ export async function executeChatV2V3SearchGroundingTurn(input: {
   });
 
   if (match.outcome.kind !== "completed") {
-    return failClosedOutcome("malformed_tool_result");
+    return failClosedOutcome({
+      errorCode: "malformed_tool_result",
+      marketplaceSearchExecutionCount: 1,
+    });
   }
   const toolResult = match.toolResult;
   if (!toolResult || toolResult.status !== "ok" || !toolResult.data) {
-    return failClosedOutcome(toolResult?.errorCode ?? "search_tool_failed");
+    return failClosedOutcome({
+      errorCode: toolResult?.errorCode ?? "search_tool_failed",
+      marketplaceSearchExecutionCount: 1,
+    });
   }
 
   const packetResult = buildSearchGroundingPacket({
@@ -349,49 +501,16 @@ export async function executeChatV2V3SearchGroundingTurn(input: {
     inventory: input.inventory,
   });
   if (!packetResult.ok) {
-    return failClosedOutcome("unmapped-listing");
+    return failClosedOutcome({
+      errorCode: "unmapped-listing",
+      marketplaceSearchExecutionCount: 1,
+    });
   }
 
   const { packet, carCards } = packetResult;
   const deterministic = buildDeterministicSearchGroundingSummary(packet);
-
-  if (packet.displayedCount === 0) {
-    const runner = input.runChatV3Conversation ?? runChatV3Conversation;
-    try {
-      const response = await runner({
-        rawRequest: buildServerOwnedV3Request({
-          authenticatedActorRef: input.authenticatedActorRef,
-          userMessage: input.userMessage,
-          history,
-        }),
-        environment: mapBridgeEnvironment(input.environment),
-        readEnv: input.readEnv,
-        now: input.now,
-        searchGroundingAppendix: buildSearchGroundingAppendix(packet),
-        searchGroundingVehicleContext: buildSearchGroundingVehicleContext(packet),
-        searchGroundingComposition: true,
-      });
-      const successText = extractSuccessText(response);
-      if (successText) {
-        const grounded = validateSearchGroundingComposition({
-          text: successText,
-          packet,
-        });
-        if (grounded.ok) {
-          return successOutcome({
-            text: successText,
-            carCards: [],
-            usedDeterministicFallback: false,
-          });
-        }
-      }
-    } catch {
-      // Deterministic no-match summary after valid zero-result.
-    }
-    return noMatchOutcome(deterministic);
-  }
-
   const runner = input.runChatV3Conversation ?? runChatV3Conversation;
+
   try {
     const response = await runner({
       rawRequest: buildServerOwnedV3Request({
@@ -406,29 +525,20 @@ export async function executeChatV2V3SearchGroundingTurn(input: {
       searchGroundingVehicleContext: buildSearchGroundingVehicleContext(packet),
       searchGroundingComposition: true,
     });
-    const successText = extractSuccessText(response);
-    if (successText) {
-      const grounded = validateSearchGroundingComposition({
-        text: successText,
-        packet,
-      });
-      if (grounded.ok) {
-        return successOutcome({
-          text: successText,
-          carCards,
-          usedDeterministicFallback: false,
-        });
-      }
-    }
+    return resolveGroundedSearchDisplay({
+      response,
+      packet,
+      canonicalCards: carCards,
+      deterministic,
+    });
   } catch {
-    // Keep trusted cards and use deterministic ToolResult-derived summary.
+    return resolveGroundedSearchDisplay({
+      response: null,
+      packet,
+      canonicalCards: carCards,
+      deterministic,
+    });
   }
-
-  return successOutcome({
-    text: deterministic,
-    carCards,
-    usedDeterministicFallback: true,
-  });
 }
 
 export { CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN };

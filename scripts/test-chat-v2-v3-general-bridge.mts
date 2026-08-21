@@ -278,6 +278,7 @@ assertFalsy(
 );
 
 {
+  resetLastFakeChatV3ProviderRequest();
   const pilotGeneral = await runHandler({
     uid: PILOT_UID,
     body: { userMessage: GENERAL_MESSAGE },
@@ -285,6 +286,15 @@ assertFalsy(
   });
   assertEqual("NVB-01: pilot general v3 once", pilotGeneral.counters.v3, 1);
   assertEqual("NVB-01: pilot general legacy never", pilotGeneral.counters.legacy, 0);
+  const generalCaptured = getLastFakeChatV3ProviderRequest();
+  assertFalsy(
+    "NVB-01: General request has no Search JSON mime",
+    Boolean(generalCaptured?.responseMimeType)
+  );
+  assertFalsy(
+    "NVB-01: General request has no Search JSON schema",
+    Boolean(generalCaptured?.responseSchema)
+  );
 }
 
 {

@@ -89,6 +89,57 @@ assert(
   "engine-off is not a default in-motion step"
 );
 
+const calmIdx = combined.indexOf("ตั้งสติ");
+const accelIdx = combined.indexOf("ถอนคันเร่ง");
+const warnIdx = combined.indexOf("เตือนรถรอบข้าง");
+const caveatIdx = combined.indexOf("สุญญากาศ");
+assert(
+  calmIdx >= 0 &&
+    accelIdx >= 0 &&
+    warnIdx >= 0 &&
+    caveatIdx >= 0 &&
+    calmIdx < caveatIdx &&
+    accelIdx < caveatIdx &&
+    warnIdx < caveatIdx,
+  "event-order skeleton is present and control steps precede technical caveats"
+);
+assert(/P\/R/.test(combined), "P/R is forbidden while moving");
+assert(
+  /อย่างระมัดระวัง/.test(combined) && /คู่มือรถคันนั้น/.test(combined),
+  "EPB remains conditional to the vehicle system and manual"
+);
+
+const numberedSkeleton =
+  /1\.\s*ตั้งสติ[\s\S]*2\.\s*ถอนคันเร่ง[\s\S]*3\.\s*เตือนรถรอบข้าง[\s\S]*4\.[\s\S]*5\.[\s\S]*6\.[\s\S]*7\.[\s\S]*8\.[\s\S]*9\.\s*หลังหยุด/;
+assert(
+  numberedSkeleton.test(safety),
+  "full nine-step numbered sequence remains in Safety Layer only"
+);
+assert(
+  !numberedSkeleton.test(accuracy) && !/1\.\s*ตั้งสติ/.test(accuracy),
+  "Accuracy keeps concise constraints and does not restate the numbered sequence"
+);
+assert(
+  !numberedSkeleton.test(composed.turnAddendum) &&
+    !/1\.\s*ตั้งสติ/.test(composed.turnAddendum),
+  "composed automotive addendum does not include the numbered Safety skeleton"
+);
+assert(
+  /ใช้ลำดับเหตุการณ์ของ Safety Layer/.test(accuracy) &&
+    /ห้ามทวนลำดับเต็มซ้ำ/.test(accuracy) &&
+    /ห้ามดับเครื่องหรือเลือกเกียร์ P\/R/.test(accuracy) &&
+    /ห้ามแนะนำการขับชนวัตถุ/.test(accuracy) &&
+    /หลังหยุดห้ามขับต่อ/.test(accuracy),
+  "Accuracy retains complementary hard-gate constraints"
+);
+assert(
+  /ใช้ลำดับเหตุการณ์ของ Safety Layer/.test(composed.turnAddendum) &&
+    /ห้ามทวนลำดับเต็มซ้ำ/.test(composed.turnAddendum) &&
+    /P\/R/.test(composed.turnAddendum) &&
+    /ห้ามชนวัตถุ/.test(composed.turnAddendum),
+  "Domain retains complementary hard-gate constraints without a full walkthrough"
+);
+
 assert(
   getChatV3GeminiSdkNetworkCallCount() === 0,
   "no Gemini SDK network calls"
