@@ -82,6 +82,7 @@ import {
   type SearchCompositionFallbackReason,
   type SearchCompositionStructuredOutputParseStatus,
   type SearchCompositionValidationCode,
+  type SearchPresentationMode,
 } from "./chat-v3/chatV3ConversationContracts";
 import {
   CHAT_V3_GENERAL_CONVERSATION_BRAIN,
@@ -143,6 +144,7 @@ export interface UserVisibleRuntimeLaneEvidence {
   structuredOutputParseStatus?: SearchCompositionStructuredOutputParseStatus;
   searchCompositionTextPresent?: boolean;
   searchCompositionValidationCode?: SearchCompositionValidationCode;
+  searchPresentationMode?: SearchPresentationMode;
 }
 
 export interface UserVisibleRuntimeAttributionDiagnostic {
@@ -189,6 +191,7 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   structuredOutputParseStatus?: SearchCompositionStructuredOutputParseStatus;
   searchCompositionTextPresent?: boolean;
   searchCompositionValidationCode?: SearchCompositionValidationCode;
+  searchPresentationMode?: SearchPresentationMode;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
@@ -718,6 +721,9 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
                 searchCompositionValidationCode:
                   lane.searchCompositionValidationCode,
               }
+            : {}),
+          ...(lane.searchPresentationMode
+            ? { searchPresentationMode: lane.searchPresentationMode }
             : {}),
         }
       : {}),
@@ -1305,6 +1311,9 @@ function searchLaneEvidenceFromTurn(
           searchCompositionValidationCode:
             searchTurn.searchCompositionValidationCode,
         }
+      : {}),
+    ...(searchTurn.searchPresentationMode
+      ? { searchPresentationMode: searchTurn.searchPresentationMode }
       : {}),
   };
 }

@@ -197,8 +197,16 @@ function classifySearchCompositionJsonLeak(
       searchCompositionTextPresent: false,
     };
   }
-  const replyTextRaw = (parsed as Record<string, unknown>).replyText;
-  if (typeof replyTextRaw !== "string" || !replyTextRaw.trim()) {
+  const record = parsed as Record<string, unknown>;
+  const introRaw = record.introText;
+  if (typeof introRaw !== "string" || !introRaw.trim()) {
+    return {
+      searchCompositionFallbackReason: "structured-output-schema-mismatch",
+      structuredOutputParseStatus: "schema-mismatch",
+      searchCompositionTextPresent: false,
+    };
+  }
+  if (!Array.isArray(record.vehicleAnalyses) || typeof record.closingText !== "string") {
     return {
       searchCompositionFallbackReason: "structured-output-schema-mismatch",
       structuredOutputParseStatus: "schema-mismatch",
@@ -371,13 +379,28 @@ export async function runChatV3Conversation(
       );
     }
     if (unwrapped.kind === "structured") {
-      providerContent = unwrapped.replyText;
+      const introText = normalizeChatV3AssistantTypography(unwrapped.introText, {
+        userMessage: request.message,
+      });
+      const closingText = normalizeChatV3AssistantTypography(unwrapped.closingText, {
+        userMessage: request.message,
+      });
+      const vehicleAnalyses = unwrapped.vehicleAnalyses.map((item) => ({
+        listingId: item.listingId,
+        analysisText: normalizeChatV3AssistantTypography(item.analysisText, {
+          userMessage: request.message,
+        }),
+      }));
+      providerContent = [introText, ...vehicleAnalyses.map((item) => item.analysisText), closingText]
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0)
+        .join("\n\n");
       searchParseStatus = "structured";
-      if (unwrapped.orderedListingIds !== undefined) {
-        searchCompositionMetadata = {
-          orderedListingIds: unwrapped.orderedListingIds,
-        };
-      }
+      searchCompositionMetadata = {
+        introText,
+        vehicleAnalyses,
+        closingText,
+      };
     } else {
       providerContent = unwrapped.text;
       searchParseStatus = "plain-text";

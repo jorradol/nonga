@@ -544,6 +544,7 @@ function testSearchLaneEvidencePrivacy() {
       structuredOutputParseStatus: "structured",
       searchCompositionTextPresent: true,
       searchCompositionValidationCode: "none",
+      searchPresentationMode: "vehicle-sections",
     },
   });
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
@@ -559,13 +560,17 @@ function testSearchLaneEvidencePrivacy() {
   ok("search lane parse structured", diagnostic.structuredOutputParseStatus === "structured");
   ok("search lane text present", diagnostic.searchCompositionTextPresent === true);
   ok("search lane validation none", diagnostic.searchCompositionValidationCode === "none");
+  ok("search lane presentation vehicle-sections", diagnostic.searchPresentationMode === "vehicle-sections");
   ok("search lane skipGemini", diagnostic.skipGemini === true);
   ok("search lane no legacy after search", diagnostic.legacyFallbackAfterSearchSelection === false);
   assertNoSensitiveLeakage(serialized, "search-lane");
   ok("search lane serialized has no listing id keys", !serialized.includes("orderedListingIds"));
+  ok("search lane serialized no vehicleAnalyses", !serialized.includes("vehicleAnalyses"));
   ok("search lane serialized event", serialized.includes("user_visible_runtime_attribution"));
   ok("search lane serialized fallback reason", serialized.includes("searchCompositionFallbackReason"));
+  ok("search lane serialized presentation", serialized.includes("vehicle-sections"));
   ok("search lane serialized no replyText", !serialized.includes("replyText"));
+  ok("search lane serialized no introText", !serialized.includes("introText"));
   ok("search lane serialized no UID", !serialized.includes(FULL_UID));
 }
 
@@ -609,6 +614,7 @@ function testGeneralLaneEvidenceZeros() {
   ok("general lane parse status absent", diagnostic.structuredOutputParseStatus == null);
   ok("general lane text present absent", diagnostic.searchCompositionTextPresent == null);
   ok("general lane validation absent", diagnostic.searchCompositionValidationCode == null);
+  ok("general lane presentation absent", diagnostic.searchPresentationMode == null);
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
   assertNoSensitiveLeakage(serialized, "general-lane");
   ok("general lane serialized omits fallback reason", !serialized.includes("searchCompositionFallbackReason"));
@@ -648,6 +654,7 @@ function testSearchFallbackReasonBoundedSerialization() {
       structuredOutputParseStatus: "invalid-json",
       searchCompositionTextPresent: false,
       searchCompositionValidationCode: "none",
+      searchPresentationMode: "readable-fallback",
     },
   });
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
@@ -659,6 +666,8 @@ function testSearchFallbackReasonBoundedSerialization() {
   ok("fallback serialized parse", serialized.includes("invalid-json"));
   assertNoSensitiveLeakage(serialized, "search-fallback");
   ok("fallback no replyText", !serialized.includes("replyText"));
+  ok("fallback no introText", !serialized.includes("introText"));
+  ok("fallback serialized presentation", serialized.includes("readable-fallback"));
   ok("fallback no UID", !serialized.includes(FULL_UID));
   ok("fallback no listing ids", !serialized.includes("id-a"));
 }

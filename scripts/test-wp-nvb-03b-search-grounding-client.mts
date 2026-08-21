@@ -185,6 +185,7 @@ assertEqual(
       ["idC", "idA", "idB", "idD"]
     );
     assertEqual("apply: path-c stop legacy merge", adopted.stopLegacyMerge, true);
+    assertEqual("apply: preserves four-card array", adopted.carCards.length, 4);
   }
 }
 

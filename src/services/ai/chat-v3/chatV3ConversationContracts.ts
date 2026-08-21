@@ -66,10 +66,29 @@ export type ChatV3ConversationErrorCode =
   | "unsafe_output"
   | "internal_error";
 
-/** Search-only Path C metadata. Omitted for General Conversation. */
-export interface ChatV3SearchCompositionMetadata {
-  readonly orderedListingIds: readonly string[];
+/** Search-only Path C vehicle analysis. Internal composition only. */
+export interface ChatV3SearchVehicleAnalysis {
+  readonly listingId: string;
+  readonly analysisText: string;
 }
+
+/**
+ * Search-only Path C metadata. Omitted for General Conversation.
+ * Never a public HTTP listing-ID dump.
+ */
+export interface ChatV3SearchCompositionMetadata {
+  readonly introText: string;
+  readonly vehicleAnalyses: readonly ChatV3SearchVehicleAnalysis[];
+  readonly closingText: string;
+}
+
+export const SEARCH_PRESENTATION_MODES = [
+  "vehicle-sections",
+  "zero-result",
+  "readable-fallback",
+] as const;
+
+export type SearchPresentationMode = (typeof SEARCH_PRESENTATION_MODES)[number];
 
 export interface ChatV3ConversationSuccessData {
   sliceId: typeof CHAT_V3_CONVERSATION_SLICE_ID;
@@ -143,6 +162,9 @@ export const SEARCH_COMPOSITION_VALIDATION_CODES = [
   "omitted-mileage-stated",
   "omitted-transmission-stated",
   "omitted-body-stated",
+  "invalid-listing-ids",
+  "identity-rename",
+  "unsupported-listing-claim",
   "unknown-bounded",
 ] as const;
 

@@ -238,23 +238,150 @@ export function buildSearchGroundingPacket(input: {
   return { ok: true, packet, carCards };
 }
 
+export interface SearchVehicleAnalysis {
+  readonly listingId: string;
+  readonly analysisText: string;
+}
+
+export interface SearchVehicleSectionsOutput {
+  readonly introText: string;
+  readonly vehicleAnalyses: readonly SearchVehicleAnalysis[];
+  readonly closingText: string;
+}
+
+export const SEARCH_READABLE_FALLBACK_NOTICE =
+  "ระบบสามารถแสดงข้อเท็จจริงที่ตรวจแล้วของประกาศได้ แต่การวิเคราะห์โดยละเอียดจากเอไม่พร้อมใช้งานชั่วคราวครับ";
+
+export const SEARCH_ZERO_RESULT_NO_MATCH_CUE =
+  /ไม่พบ|ยังไม่พบ|ไม่มี(?:รถ)?ที่ตรง|ไม่ตรงตามเงื่อนไข/;
+
 function formatBaht(price: number): string {
   return `${price.toLocaleString("th-TH")} บาท`;
+}
+
+export function normalizeSearchNarrativeWhitespace(text: string): string {
+  return String(text ?? "").replace(/\s+/g, " ").trim();
+}
+
+function escapeHtmlLayoutChars(text: string): string {
+  return text.replace(/[<>]/g, (ch) => (ch === "<" ? "&lt;" : "&gt;"));
+}
+
+function escapeInlineMarkdownControls(text: string): string {
+  return text.replace(/[\\`*_\[\]()#!|{}~]/g, (ch) => `\\${ch}`);
+}
+
+function neutralizeLeadingBlockMarkup(text: string): string {
+  return text
+    .replace(/^(\d{1,2})\.\s+/, "$1\\. ")
+    .replace(/^([-+])\s+/, "\\$1 ");
+}
+
+/** Provider intro/analysis/closing enter Server Markdown only through this seam. */
+export function prepareSearchNarrativeForMarkdown(text: string): string {
+  const collapsed = normalizeSearchNarrativeWhitespace(text);
+  if (!collapsed) return "";
+  return neutralizeLeadingBlockMarkup(
+    escapeInlineMarkdownControls(escapeHtmlLayoutChars(collapsed))
+  );
+}
+
+function escapeTrustedMarkdownFragment(text: string): string {
+  return escapeInlineMarkdownControls(escapeHtmlLayoutChars(String(text ?? "")));
+}
+
+export function formatTrustedVehicleTitle(
+  listing: SearchGroundingListingFacts
+): string {
+  return escapeTrustedMarkdownFragment(
+    `${listing.year} ${listing.brand} ${listing.model}`.trim()
+  );
+}
+
+export function formatTrustedPrice(price: number): string {
+  return formatBaht(price);
+}
+
+export function formatTrustedMileage(mileage: number | undefined): string {
+  if (mileage == null) return "ไม่ระบุในประกาศ";
+  return `${mileage.toLocaleString("th-TH")} กม.`;
+}
+
+function renderTrustedVehicleSection(input: {
+  readonly index: number;
+  readonly listing: SearchGroundingListingFacts;
+  readonly analysisText?: string;
+}): string {
+  const lines = [
+    `${input.index}. **${formatTrustedVehicleTitle(input.listing)}**`,
+    "",
+    `- **ราคา:** ${formatTrustedPrice(input.listing.price)}`,
+    `- **เลขไมล์:** ${formatTrustedMileage(input.listing.mileage)}`,
+  ];
+  const analysis = prepareSearchNarrativeForMarkdown(input.analysisText ?? "");
+  if (analysis) {
+    lines.push(`- **มุมมองของเอ:** ${analysis}`);
+  }
+  return lines.join("\n");
+}
+
+function joinMarkdownBlocks(blocks: readonly string[]): string {
+  return blocks
+    .map((block) => String(block ?? "").trim())
+    .filter((block) => block.length > 0)
+    .join("\n\n");
+}
+
+export function renderSearchVehicleSectionsMarkdown(input: {
+  readonly introText: string;
+  readonly closingText: string;
+  readonly orderedListings: readonly SearchGroundingListingFacts[];
+  readonly analysesByListingId: ReadonlyMap<string, string>;
+}): string {
+  const sections = input.orderedListings.map((listing, index) =>
+    renderTrustedVehicleSection({
+      index: index + 1,
+      listing,
+      analysisText: input.analysesByListingId.get(listing.id),
+    })
+  );
+  return joinMarkdownBlocks([
+    prepareSearchNarrativeForMarkdown(input.introText),
+    ...sections,
+    prepareSearchNarrativeForMarkdown(input.closingText),
+  ]);
+}
+
+export function renderReadableSearchFallbackMarkdown(
+  packet: SearchGroundingPacket,
+  orderedListings: readonly SearchGroundingListingFacts[] = packet.displayedListings
+): string {
+  if (orderedListings.length === 0) {
+    return "ไม่พบรถที่ตรงตามเงื่อนไขที่ระบุในรอบนี้ครับ";
+  }
+  const sections = orderedListings.map((listing, index) =>
+    renderTrustedVehicleSection({
+      index: index + 1,
+      listing,
+    })
+  );
+  return joinMarkdownBlocks([SEARCH_READABLE_FALLBACK_NOTICE, ...sections]);
+}
+
+export function renderZeroResultSearchMarkdown(input: {
+  readonly introText: string;
+  readonly closingText?: string;
+}): string {
+  return joinMarkdownBlocks([
+    prepareSearchNarrativeForMarkdown(input.introText),
+    prepareSearchNarrativeForMarkdown(input.closingText ?? ""),
+  ]);
 }
 
 export function buildDeterministicSearchGroundingSummary(
   packet: SearchGroundingPacket
 ): string {
-  if (packet.displayedCount === 0) {
-    return "ไม่พบรถที่ตรงตามเงื่อนไขที่ระบุในรอบนี้ครับ";
-  }
-  const lines = packet.displayedListings.map((listing, index) => {
-    return `${index + 1}. ${listing.year} ${listing.brand} ${listing.model} — ${formatBaht(listing.price)}`;
-  });
-  return [
-    `พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว ${packet.displayedCount} คันในรอบนี้ครับ`,
-    ...lines,
-  ].join("\n");
+  return renderReadableSearchFallbackMarkdown(packet);
 }
 
 export function buildSearchGroundingAppendix(packet: SearchGroundingPacket): string {
@@ -283,10 +410,12 @@ export function buildSearchGroundingAppendix(packet: SearchGroundingPacket): str
     "แยกงบผู้ใช้ออกจากราคาประกาศ",
     "ห้ามอ้างว่าบันทึกความจำถาวรแล้ว",
     "ถ้าข้อเท็จจริงไม่มีในรายการ ห้ามพูดถึงข้อเท็จจริงนั้น",
-    "ส่งผลลัพธ์เป็น JSON ตาม schema เท่านั้น: replyText คือข้อความภาษาไทยที่ผู้ใช้เห็น และ orderedListingIds คือลำดับการแสดงผล",
-    "orderedListingIds ต้องใช้เฉพาะ id จาก trustedListings ให้ครบทุกคัน ไม่ซ้ำ และห้ามเพิ่มคันที่ไม่มีในรายการ",
-    "เรียง orderedListingIds ให้ตรงกับลำดับที่นำเสนอรถใน replyText",
-    "ห้ามใส่รหัสประกาศดิบใน replyText",
+    "ส่งผลลัพธ์เป็น JSON ตาม schema เท่านั้น",
+    "introText คือบทนำภาษาไทยตามธรรมชาติ ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
+    "vehicleAnalyses คือลำดับการแสดงผลเดียว ทั้งหัวข้อรถและการ์ด ต้องใช้ listingId จาก trustedListings ให้ครบทุกคัน ไม่ซ้ำ ไม่เกิน 10 และห้ามเพิ่มคันที่ไม่มีในรายการ",
+    "analysisText ของแต่ละคันเป็นการวิเคราะห์ประกอบการตัดสินใจ ห้ามตั้งชื่อรถใหม่ ห้ามเปลี่ยนรุ่นย่อย ห้ามระบุราคาหรือเลขไมล์ซ้ำเป็นข้อเท็จจริง และห้ามแต่งสเปกที่ไม่มีใน trustedListings",
+    "closingText คือบทปิดหรือคำแนะนำตามธรรมชาติ ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
+    "เมื่อ displayedCount เป็น 0 ให้ส่ง vehicleAnalyses เป็นอาเรย์ว่าง พร้อม introText ที่บอกตามจริงว่าไม่พบรถที่ตรงในรอบนี้ โดยไม่กล่าวว่าตลาดทั้งหมดว่าง",
     `trustedListings=${JSON.stringify(listings)}`,
   ].join("\n");
 }
@@ -395,12 +524,12 @@ export function validateSearchGroundingComposition(input: {
     );
     const window = windowAroundMatch(text, identityRe);
     if (!window) continue;
-    if (listing.mileage == null && /\d[\d,]*\s*(?:กม|กิโลเมตร)/.test(window)) {
+    if (listing.mileage == null && extractListingMileageClaims(window).length > 0) {
       return { ok: false, reason: "omitted-mileage-stated" };
     }
     if (
       !listing.transmission &&
-      /เกียร์|ออโต้|อัตโนมัติ|ธรรมดา|แมนนวล/.test(window)
+      (mentionsAutomaticTransmission(window) || mentionsManualTransmission(window))
     ) {
       return { ok: false, reason: "omitted-transmission-stated" };
     }
@@ -413,6 +542,217 @@ export function validateSearchGroundingComposition(input: {
   }
 
   return { ok: true };
+}
+
+function textContainsRawListingId(
+  text: string,
+  listingIds: readonly string[]
+): boolean {
+  const haystack = String(text ?? "");
+  for (const id of listingIds) {
+    if (id && haystack.includes(id)) return true;
+  }
+  return false;
+}
+
+function countTrustedIdentitiesInText(
+  text: string,
+  listings: readonly SearchGroundingListingFacts[]
+): number {
+  const haystack = String(text ?? "");
+  let count = 0;
+  for (const listing of listings) {
+    const identityRe = new RegExp(
+      `${escapeRegExp(listing.brand)}.{0,24}${escapeRegExp(listing.model)}`,
+      "i"
+    );
+    if (identityRe.test(haystack)) count += 1;
+  }
+  return count;
+}
+
+function analysisRenamesTrustedModel(
+  analysisText: string,
+  listing: SearchGroundingListingFacts
+): boolean {
+  const model = listing.model.trim();
+  if (!model) return false;
+  const extraRe = new RegExp(
+    `${escapeRegExp(model)}\\s+([A-Za-z][A-Za-z0-9-]{1,24})`,
+    "i"
+  );
+  const match = extraRe.exec(analysisText);
+  if (!match) return false;
+  const extra = match[1] ?? "";
+  if (!extra) return false;
+  return !model.toLowerCase().includes(extra.toLowerCase());
+}
+
+const LISTING_PRICE_CUE_RE = /ราคา(?:ขาย)?|ค่าตัว/;
+const LISTING_MILEAGE_CUE_RE = /เลขไมล์|ไมล์รถ|วิ่งมา|ระยะทางสะสม/;
+const MANUAL_TRANSMISSION_RE =
+  /เกียร์\s*(?:ธรรมดา|แมนนวล|manual)|เกียร์กระปุก|manual\s+(?:transmission|gear)|transmission\s*manual/i;
+const AUTOMATIC_TRANSMISSION_RE =
+  /เกียร์\s*(?:ออโต้|อัตโนมัติ|auto)|อัตโนมัติ|\bautomatic\b|ออโต้/i;
+
+function extractCuedAmounts(
+  text: string,
+  unitPattern: string,
+  cue: RegExp
+): number[] {
+  const amounts: number[] = [];
+  const pattern = new RegExp(`(\\d[\\d,]*)\\s*(?:${unitPattern})`, "g");
+  let match: RegExpExecArray | null = pattern.exec(text);
+  while (match) {
+    const index = match.index ?? 0;
+    const lookbehind = text.slice(Math.max(0, index - 28), index);
+    const lookahead = text.slice(
+      index + match[0].length,
+      index + match[0].length + 16
+    );
+    if (cue.test(lookbehind) || cue.test(lookahead)) {
+      const value = Number(String(match[1]).replace(/,/g, ""));
+      if (Number.isFinite(value)) amounts.push(value);
+    }
+    match = pattern.exec(text);
+  }
+  return amounts;
+}
+
+function extractListingPriceClaims(text: string): number[] {
+  return extractCuedAmounts(text, "บาท", LISTING_PRICE_CUE_RE);
+}
+
+function extractListingMileageClaims(text: string): number[] {
+  return extractCuedAmounts(text, "(?:กม|กิโลเมตร)", LISTING_MILEAGE_CUE_RE);
+}
+
+function mentionsManualTransmission(text: string): boolean {
+  return MANUAL_TRANSMISSION_RE.test(text);
+}
+
+function mentionsAutomaticTransmission(text: string): boolean {
+  return AUTOMATIC_TRANSMISSION_RE.test(text);
+}
+
+function analysisConflictsWithTrustedFacts(
+  analysisText: string,
+  listing: SearchGroundingListingFacts
+): boolean {
+  const prices = extractListingPriceClaims(analysisText);
+  for (const price of prices) {
+    if (price !== listing.price) return true;
+  }
+  const mileages = extractListingMileageClaims(analysisText);
+  for (const mileage of mileages) {
+    if (listing.mileage == null || mileage !== listing.mileage) return true;
+  }
+  const transmission = String(listing.transmission ?? "").toLowerCase();
+  const mentionsAuto = mentionsAutomaticTransmission(analysisText);
+  const mentionsManual = mentionsManualTransmission(analysisText);
+  if (transmission) {
+    const isAuto = /auto|ออโต้|อัตโนมัติ/.test(transmission);
+    const isManual = /manual|ธรรมดา|แมนนวล/.test(transmission);
+    if (isAuto && mentionsManual && !mentionsAuto) return true;
+    if (isManual && mentionsAuto && !mentionsManual) return true;
+  } else if (mentionsAuto || mentionsManual) {
+    return true;
+  }
+  return false;
+}
+
+const UNSUPPORTED_LISTING_CLAIM_RE =
+  /ไม่เคยชน|ประวัติ(?:ซ่อม|ศูนย์|เจ้าของ)|อุบัติเหตุ|เจ้าของเดียว|รถศูนย์|เลขไมล์แท้|รับรองสภาพ|กม\.\s*\/\s*ลิตร|km\s*\/\s*l/i;
+
+export function validateSearchVehicleSections(input: {
+  readonly sections: SearchVehicleSectionsOutput;
+  readonly packet: SearchGroundingPacket;
+}):
+  | {
+      readonly ok: true;
+      readonly orderedListingIds: readonly string[];
+    }
+  | { readonly ok: false; readonly reason: string } {
+  const intro = normalizeSearchNarrativeWhitespace(input.sections.introText);
+  const closing = normalizeSearchNarrativeWhitespace(input.sections.closingText);
+  const analyses = input.sections.vehicleAnalyses;
+  const listingIds = input.packet.returnedListingIds;
+
+  if (!Array.isArray(analyses)) {
+    return { ok: false, reason: "invalid-listing-ids" };
+  }
+  if (!intro) {
+    return { ok: false, reason: "empty-text" };
+  }
+
+  const orderCheck = validateSearchGroundingOrderedListingIds({
+    orderedListingIds: analyses.map((item) => item.listingId),
+    returnedListingIds: listingIds,
+  });
+  if (!orderCheck.ok) {
+    return { ok: false, reason: "invalid-listing-ids" };
+  }
+
+  if (
+    textContainsRawListingId(intro, listingIds) ||
+    textContainsRawListingId(closing, listingIds)
+  ) {
+    return { ok: false, reason: "unsupported-listing-claim" };
+  }
+  if (countTrustedIdentitiesInText(intro, input.packet.displayedListings) >= 2) {
+    return { ok: false, reason: "unsupported-listing-claim" };
+  }
+  if (countTrustedIdentitiesInText(closing, input.packet.displayedListings) >= 2) {
+    return { ok: false, reason: "unsupported-listing-claim" };
+  }
+
+  if (input.packet.displayedCount === 0) {
+    if (analyses.length !== 0) {
+      return { ok: false, reason: "invalid-listing-ids" };
+    }
+    if (!SEARCH_ZERO_RESULT_NO_MATCH_CUE.test(intro)) {
+      return { ok: false, reason: "empty-text" };
+    }
+  }
+
+  const factsById = new Map(
+    input.packet.displayedListings.map((listing) => [listing.id, listing])
+  );
+  const analysisParts: string[] = [];
+  for (const item of analyses) {
+    const analysisText = normalizeSearchNarrativeWhitespace(item.analysisText);
+    if (!analysisText) {
+      return { ok: false, reason: "empty-text" };
+    }
+    if (textContainsRawListingId(analysisText, listingIds)) {
+      return { ok: false, reason: "unsupported-listing-claim" };
+    }
+    const listing = factsById.get(item.listingId);
+    if (!listing) {
+      return { ok: false, reason: "invalid-listing-ids" };
+    }
+    if (analysisRenamesTrustedModel(analysisText, listing)) {
+      return { ok: false, reason: "identity-rename" };
+    }
+    if (analysisConflictsWithTrustedFacts(analysisText, listing)) {
+      return { ok: false, reason: "unsupported-listing-claim" };
+    }
+    if (UNSUPPORTED_LISTING_CLAIM_RE.test(analysisText)) {
+      return { ok: false, reason: "unsupported-listing-claim" };
+    }
+    analysisParts.push(analysisText);
+  }
+
+  const composed = [intro, ...analysisParts, closing].filter(Boolean).join("\n\n");
+  const grounded = validateSearchGroundingComposition({
+    text: composed,
+    packet: input.packet,
+  });
+  if (grounded.ok === false) {
+    return { ok: false, reason: grounded.reason };
+  }
+
+  return { ok: true, orderedListingIds: orderCheck.orderedListingIds };
 }
 
 function escapeRegExp(value: string): string {
@@ -431,13 +771,22 @@ function windowAroundMatch(text: string, pattern: RegExp): string {
 export const SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA = {
   type: "object" as const,
   properties: {
-    replyText: { type: "string" as const },
-    orderedListingIds: {
+    introText: { type: "string" as const },
+    vehicleAnalyses: {
       type: "array" as const,
-      items: { type: "string" as const },
+      items: {
+        type: "object" as const,
+        properties: {
+          listingId: { type: "string" as const },
+          analysisText: { type: "string" as const },
+        },
+        required: ["listingId", "analysisText"],
+        additionalProperties: false,
+      },
     },
+    closingText: { type: "string" as const },
   },
-  required: ["replyText", "orderedListingIds"],
+  required: ["introText", "vehicleAnalyses", "closingText"],
   additionalProperties: false,
 };
 
@@ -445,7 +794,6 @@ export const SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS = 10;
 
 export type SearchDisplayOrderClassification =
   | "structured-accepted"
-  | "canonical-toolresult-degraded"
   | "deterministic-fallback"
   | "zero-result"
   | "failed-closed";
@@ -453,8 +801,9 @@ export type SearchDisplayOrderClassification =
 export type SearchGroundingProviderUnwrap =
   | {
       readonly kind: "structured";
-      readonly replyText: string;
-      readonly orderedListingIds: readonly string[] | undefined;
+      readonly introText: string;
+      readonly vehicleAnalyses: readonly SearchVehicleAnalysis[];
+      readonly closingText: string;
     }
   | { readonly kind: "plain-text"; readonly text: string }
   | { readonly kind: "json-leak" };
@@ -472,17 +821,32 @@ export function looksLikeSearchGroundingJsonEnvelope(text: string): boolean {
   const trimmed = stripSearchGroundingJsonFence(String(text ?? ""));
   if (!trimmed.startsWith("{")) return false;
   return (
+    /"introText"\s*:/.test(trimmed) ||
+    /"vehicleAnalyses"\s*:/.test(trimmed) ||
+    /"closingText"\s*:/.test(trimmed) ||
     /"replyText"\s*:/.test(trimmed) ||
     /"orderedListingIds"\s*:/.test(trimmed) ||
     trimmed.endsWith("}")
   );
 }
 
-function asStringArray(value: unknown): readonly string[] | undefined {
-  if (value == null) return undefined;
+function parseVehicleAnalyses(
+  value: unknown
+): readonly SearchVehicleAnalysis[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  if (!value.every((item) => typeof item === "string")) return undefined;
-  return value;
+  const parsed: SearchVehicleAnalysis[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
+    const record = item as Record<string, unknown>;
+    if (typeof record.listingId !== "string" || typeof record.analysisText !== "string") {
+      return undefined;
+    }
+    parsed.push({
+      listingId: record.listingId,
+      analysisText: record.analysisText,
+    });
+  }
+  return parsed;
 }
 
 export function unwrapSearchGroundingProviderContent(
@@ -508,25 +872,36 @@ export function unwrapSearchGroundingProviderContent(
   }
 
   const record = parsed as Record<string, unknown>;
-  const replyTextRaw = record.replyText;
-  if (typeof replyTextRaw !== "string" || !replyTextRaw.trim()) {
+  const introRaw = record.introText;
+  const closingRaw = record.closingText;
+  const analyses = parseVehicleAnalyses(record.vehicleAnalyses);
+  if (typeof introRaw !== "string" || !introRaw.trim()) {
     return { kind: "json-leak" };
   }
-  const replyText = replyTextRaw.trim();
-  if (looksLikeSearchGroundingJsonEnvelope(replyText)) {
+  if (typeof closingRaw !== "string") {
     return { kind: "json-leak" };
   }
-
-  const orderedListingIds =
-    "orderedListingIds" in record
-      ? asStringArray(record.orderedListingIds)
-      : undefined;
+  if (analyses == null) {
+    return { kind: "json-leak" };
+  }
+  const introText = introRaw.trim();
+  const closingText = closingRaw.trim();
+  if (
+    looksLikeSearchGroundingJsonEnvelope(introText) ||
+    looksLikeSearchGroundingJsonEnvelope(closingText) ||
+    analyses.some((item) => looksLikeSearchGroundingJsonEnvelope(item.analysisText))
+  ) {
+    return { kind: "json-leak" };
+  }
 
   return {
     kind: "structured",
-    replyText,
-    orderedListingIds:
-      "orderedListingIds" in record ? orderedListingIds ?? undefined : undefined,
+    introText,
+    vehicleAnalyses: analyses.map((item) => ({
+      listingId: item.listingId,
+      analysisText: item.analysisText.trim(),
+    })),
+    closingText,
   };
 }
 
@@ -572,6 +947,22 @@ export function validateSearchGroundingOrderedListingIds(input: {
     }
   }
   return { ok: true, orderedListingIds: ordered };
+}
+
+export function orderSearchGroundingListings(
+  listings: readonly SearchGroundingListingFacts[],
+  orderedListingIds: readonly string[]
+): SearchGroundingListingFacts[] {
+  const byId = new Map<string, SearchGroundingListingFacts>();
+  for (const listing of listings) {
+    byId.set(listing.id, listing);
+  }
+  const ordered: SearchGroundingListingFacts[] = [];
+  for (const id of orderedListingIds) {
+    const listing = byId.get(id);
+    if (listing) ordered.push(listing);
+  }
+  return ordered;
 }
 
 export function orderSearchGroundingCarCards(

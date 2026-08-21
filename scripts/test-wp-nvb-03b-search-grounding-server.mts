@@ -21,7 +21,9 @@ import {
   orderSearchGroundingCarCards,
   SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS,
   SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA,
+  SEARCH_READABLE_FALLBACK_NOTICE,
   unwrapSearchGroundingProviderContent,
+  prepareSearchNarrativeForMarkdown,
   validateSearchGroundingComposition,
   validateSearchGroundingOrderedListingIds,
 } from "../src/services/ai/chat/chatV2V3SearchGroundingCompose.ts";
@@ -36,7 +38,10 @@ import {
 } from "../src/services/ai/chat/chatV2V3SearchGroundingBridge.ts";
 import { CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN } from "../src/services/ai/chat/chatV2V3SearchGroundingClientApply.ts";
 import { CHAT_V3_USER_FACING_UNAVAILABLE } from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
-import type { ChatV3ConversationResponse } from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
+import type {
+  ChatV3ConversationResponse,
+  ChatV3SearchCompositionMetadata,
+} from "../src/services/ai/chat-v3/chatV3ConversationContracts.ts";
 import { runChatV3Conversation } from "../src/services/ai/chat-v3/chatV3ConversationService.ts";
 import type { ChatV3ProviderAdapter } from "../src/services/ai/chat-v3/chatV3ProviderAdapter.ts";
 import {
@@ -201,7 +206,7 @@ const MIXED_INVENTORY: ChatInventoryCar[] = [
 
 function v3Success(
   content: string,
-  searchComposition?: { readonly orderedListingIds: readonly string[] }
+  searchComposition?: ChatV3SearchCompositionMetadata
 ): ChatV3ConversationResponse {
   return {
     success: true,
@@ -807,7 +812,135 @@ const FOUR_CARS: ChatInventoryCar[] = [
 const PATH_C_REPLY =
   "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 4 คันในรอบนี้ครับ เริ่มจาก Toyota Vios ปี 2020 แล้วตามด้วย Toyota Altis, Toyota Yaris และ Toyota Camry";
 const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
+const PATH_C_INTRO = "เจอรถเก๋งที่ตรวจแล้วในรอบนี้ 4 คันครับ ไล่ดูทีละคันได้เลย";
+const PATH_C_INTRO_ALT = "จากรอบนี้มีรถเก๋งให้เทียบ 4 คันครับ ไล่จากตัวเลือกที่น่าดูก่อน";
+const PATH_C_CLOSING =
+  "แนะนำเทียบปี ราคา และเลขไมล์จากข้อมูลที่ตรวจแล้ว แล้วค่อยนัดดูรถจริงครับ";
+const PATH_C_CLOSING_ALT =
+  "ถ้ายังตัดสินใจไม่ได้ เทียบคันที่ปีใหม่กว่ากับคันที่งบเหลือมากกว่าได้ครับ";
+const PATH_C_ANALYSES: ChatV3SearchCompositionMetadata["vehicleAnalyses"] = [
+  {
+    listingId: "id-c",
+    analysisText: "คันนี้ปีใหม่กว่าในชุดนี้ เหมาะถ้าโฟกัสความใหม่ของรถเก๋งใช้ในเมือง",
+  },
+  {
+    listingId: "id-a",
+    analysisText: "คันนี้อยู่ในช่วงงบและน่าเทียบถ้าต้องการสมดุลราคากับการใช้งานทั่วไป",
+  },
+  {
+    listingId: "id-b",
+    analysisText: "คันนี้เป็นตัวเลือกสำรองถ้าอยากได้รถเก๋งขนาดเล็กกว่าในชุดนี้",
+  },
+  {
+    listingId: "id-d",
+    analysisText: "คันนี้เด่นเรื่องความใหญ่ของตัวรถในชุดนี้ แต่ควรเทียบงบก่อนตัดสินใจ",
+  },
+];
 let expectedDeterministicFourText = "";
+
+function pathCComposition(
+  overrides: Partial<ChatV3SearchCompositionMetadata> = {}
+): ChatV3SearchCompositionMetadata {
+  return {
+    introText: PATH_C_INTRO,
+    vehicleAnalyses: PATH_C_ANALYSES,
+    closingText: PATH_C_CLOSING,
+    ...overrides,
+  };
+}
+
+function v3StructuredSuccess(
+  composition: ChatV3SearchCompositionMetadata = pathCComposition()
+): ChatV3ConversationResponse {
+  const content = [
+    composition.introText,
+    ...composition.vehicleAnalyses.map((item) => item.analysisText),
+    composition.closingText,
+  ]
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .join("\n\n");
+  return v3Success(content, composition);
+}
+
+function pathCProviderJson(
+  overrides: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    introText: PATH_C_INTRO,
+    vehicleAnalyses: PATH_C_ANALYSES,
+    closingText: PATH_C_CLOSING,
+    ...overrides,
+  });
+}
+
+function analysesForIds(
+  ids: readonly string[],
+  text = "คันนี้เป็นตัวเลือกที่เทียบได้จากข้อมูลที่ตรวจแล้วในรอบนี้"
+): ChatV3SearchCompositionMetadata["vehicleAnalyses"] {
+  return ids.map((listingId) => ({ listingId, analysisText: text }));
+}
+
+function assertNoCompetingMarkdownLayout(label: string, text: string): void {
+  assertFalsy(`${label}: no ATX heading line`, /(^|\n)#{1,6}\s/.test(text));
+  assertFalsy(`${label}: no blockquote line`, /(^|\n)>/.test(text));
+  assertFalsy(`${label}: no code fence line`, /(^|\n)```/.test(text));
+  assertFalsy(`${label}: no raw HTML tag`, /<(?:div|script|img|br|p|a)\b/i.test(text));
+  assertFalsy(`${label}: no markdown image`, /!\[[^\]]*\]\s*\(/.test(text));
+  assertFalsy(`${label}: no markdown link`, /\[[^\]]+\]\s*\(/.test(text));
+  const lines = text.split("\n");
+  const extraNumbered = lines.filter(
+    (line) => /^\d+\.\s+/.test(line) && !/^\d+\.\s+\*\*/.test(line)
+  );
+  const extraBullets = lines.filter(
+    (line) =>
+      /^[-+]\s+/.test(line) &&
+      !line.startsWith("- **ราคา:**") &&
+      !line.startsWith("- **เลขไมล์:**") &&
+      !line.startsWith("- **มุมมองของเอ:**")
+  );
+  assertEqual(`${label}: no extra numbered lines`, extraNumbered, []);
+  assertEqual(`${label}: no extra bullet lines`, extraBullets, []);
+}
+
+function assertSeparatedVehicleSections(
+  label: string,
+  text: string,
+  cars: readonly ChatInventoryCar[],
+  order: readonly string[]
+): void {
+  const paragraphs = text.split(/\n\s*\n/);
+  const identities = order.map((id) => {
+    const item = cars.find((carItem) => carItem.id === id);
+    return `${item?.year} ${item?.brand} ${item?.model}`;
+  });
+  for (let index = 0; index < identities.length; index += 1) {
+    const heading = `${index + 1}. **${identities[index]}**`;
+    assertIncludes(`${label}: section ${index + 1} heading`, text, heading);
+    const item = cars.find((carItem) => carItem.id === order[index]);
+    assertIncludes(
+      `${label}: section ${index + 1} trusted price`,
+      text,
+      `**ราคา:** ${item?.price.toLocaleString("th-TH")} บาท`
+    );
+    if (item?.mileage) {
+      assertIncludes(
+        `${label}: section ${index + 1} trusted mileage`,
+        text,
+        `**เลขไมล์:** ${item.mileage.toLocaleString("th-TH")} กม.`
+      );
+    }
+  }
+  assertEqual(
+    `${label}: not one dense paragraph`,
+    identities.every((identity) => paragraphs.some((block) => identities.every((other) => block.includes(other)))),
+    false
+  );
+  assertFalsy(
+    `${label}: no raw listing id`,
+    order.some((id) => text.includes(id))
+  );
+}
 
 function fakeSearchProvider(content: string): ChatV3ProviderAdapter {
   return {
@@ -909,20 +1042,20 @@ function executeSearchWithProvider(
 }
 
 {
-  const leak = unwrapSearchGroundingProviderContent(
-    JSON.stringify({
-      replyText: PATH_C_REPLY,
-      orderedListingIds: PATH_C_ORDER,
-    })
-  );
+  const leak = unwrapSearchGroundingProviderContent(pathCProviderJson());
   assertEqual("unwrap: structured kind", leak.kind, "structured");
   if (leak.kind === "structured") {
-    assertEqual("unwrap: replyText preserved", leak.replyText, PATH_C_REPLY);
-    assertEqual("unwrap: ordered ids", [...(leak.orderedListingIds ?? [])], [...PATH_C_ORDER]);
+    assertEqual("unwrap: introText preserved", leak.introText, PATH_C_INTRO);
+    assertEqual("unwrap: closingText preserved", leak.closingText, PATH_C_CLOSING);
+    assertEqual(
+      "unwrap: analysis order",
+      leak.vehicleAnalyses.map((item) => item.listingId),
+      [...PATH_C_ORDER]
+    );
   }
   assertEqual(
     "unwrap: malformed json is leak",
-    unwrapSearchGroundingProviderContent('{"replyText":').kind,
+    unwrapSearchGroundingProviderContent('{"introText":').kind,
     "json-leak"
   );
   assertEqual(
@@ -930,10 +1063,17 @@ function executeSearchWithProvider(
     unwrapSearchGroundingProviderContent(PATH_C_REPLY).kind,
     "plain-text"
   );
+  assertEqual(
+    "unwrap: legacy replyText schema is leak",
+    unwrapSearchGroundingProviderContent(
+      JSON.stringify({ replyText: PATH_C_REPLY, orderedListingIds: PATH_C_ORDER })
+    ).kind,
+    "json-leak"
+  );
   assertTruthy(
     "unwrap: envelope detector",
     looksLikeSearchGroundingJsonEnvelope(
-      JSON.stringify({ replyText: "x", orderedListingIds: [] })
+      JSON.stringify({ introText: "x", vehicleAnalyses: [], closingText: "" })
     )
   );
 }
@@ -948,22 +1088,28 @@ function executeSearchWithProvider(
     environment: "local",
     runChatV3Conversation: async () => {
       v3Calls += 1;
-      return v3Success(PATH_C_REPLY, { orderedListingIds: PATH_C_ORDER });
+      return v3StructuredSuccess();
     },
   });
   assertEqual("path-c: generate once", v3Calls, 1);
   assertEqual("path-c: success", turn.kind, "success");
   if (turn.kind === "success") {
     assertEqual("path-c: classification accepted", turn.displayOrderClassification, "structured-accepted");
+    assertEqual("path-c: presentation vehicle-sections", turn.searchPresentationMode, "vehicle-sections");
     assertEqual("path-c: structured valid", turn.structuredOrderValid, true);
     assertEqual("path-c: card order follows structured ids", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
-    assertEqual("path-c: reply text unchanged", turn.userVisibleText, PATH_C_REPLY);
     assertEqual("path-c: listing count 4", turn.carCards.length, 4);
     assertEqual("path-c: set unchanged", [...turn.carCards.map((c) => c.id)].sort(), [...PATH_C_ORDER].sort());
     assertEqual("path-c: no deterministic fallback", turn.usedDeterministicFallback, false);
     assertEqual("path-c: fallback reason none", turn.searchCompositionFallbackReason, "none");
     assertEqual("path-c: validation none", turn.searchCompositionValidationCode, "none");
     assertEqual("path-c: text present", turn.searchCompositionTextPresent, true);
+    assertIncludes("path-c: provider intro", turn.userVisibleText, PATH_C_INTRO);
+    assertIncludes("path-c: provider closing", turn.userVisibleText, PATH_C_CLOSING);
+    assertIncludes("path-c: first analysis under vehicle", turn.userVisibleText, PATH_C_ANALYSES[0].analysisText);
+    assertNotIncludes("path-c: no dense free-form list", turn.userVisibleText, PATH_C_REPLY);
+    assertNotIncludes("path-c: no svg", turn.userVisibleText, "svg");
+    assertSeparatedVehicleSections("path-c", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
     const byId = new Map(FOUR_CARS.map((item) => [item.id, item]));
     for (const card of turn.carCards) {
       const source = byId.get(card.id);
@@ -983,17 +1129,23 @@ function executeSearchWithProvider(
     readEnv: readEnvFrom(enabledEnv),
     environment: "local",
     runChatV3Conversation: async () =>
-      v3Success(PATH_C_REPLY, { orderedListingIds: ["id-a", "id-a", "id-b", "id-c"] }),
+      v3StructuredSuccess(
+        pathCComposition({
+          vehicleAnalyses: analysesForIds(["id-a", "id-a", "id-b", "id-c"]),
+        })
+      ),
   });
-  assertEqual("dup-ids: success degraded", turn.kind, "success");
+  assertEqual("dup-ids: success fallback", turn.kind, "success");
   if (turn.kind === "success") {
-    assertEqual("dup-ids: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("dup-ids: classification", turn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("dup-ids: presentation readable-fallback", turn.searchPresentationMode, "readable-fallback");
     assertEqual("dup-ids: not valid", turn.structuredOrderValid, false);
     assertEqual("dup-ids: canonical order", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
-    assertEqual("dup-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
-    assertEqual("dup-ids: not deterministic", turn.usedDeterministicFallback, false);
-    assertEqual("dup-ids: fallback reason none", turn.searchCompositionFallbackReason, "none");
-    assertEqual("dup-ids: not fallback classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("dup-ids: used deterministic", turn.usedDeterministicFallback, true);
+    assertEqual("dup-ids: fallback reason", turn.searchCompositionFallbackReason, "composition-validation-failed");
+    assertIncludes("dup-ids: fallback notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+    assertNotIncludes("dup-ids: no invented analysis", turn.userVisibleText, "มุมมองของเอ");
+    assertSeparatedVehicleSections("dup-ids", turn.userVisibleText, FOUR_CARS, ["id-a", "id-b", "id-c", "id-d"]);
   }
 }
 
@@ -1005,14 +1157,18 @@ function executeSearchWithProvider(
     readEnv: readEnvFrom(enabledEnv),
     environment: "local",
     runChatV3Conversation: async () =>
-      v3Success(PATH_C_REPLY, { orderedListingIds: ["id-c", "id-a", "id-b", "id-extra"] }),
+      v3StructuredSuccess(
+        pathCComposition({
+          vehicleAnalyses: analysesForIds(["id-c", "id-a", "id-b", "id-extra"]),
+        })
+      ),
   });
-  assertEqual("unknown-ids: success degraded", turn.kind, "success");
+  assertEqual("unknown-ids: success fallback", turn.kind, "success");
   if (turn.kind === "success") {
-    assertEqual("unknown-ids: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("unknown-ids: classification", turn.displayOrderClassification, "deterministic-fallback");
     assertFalsy("unknown-ids: no extra card", turn.carCards.some((c) => c.id === "id-extra"));
     assertEqual("unknown-ids: canonical four", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
-    assertEqual("unknown-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
+    assertNotIncludes("unknown-ids: no extra id in text", turn.userVisibleText, "id-extra");
   }
 }
 
@@ -1024,13 +1180,17 @@ function executeSearchWithProvider(
     readEnv: readEnvFrom(enabledEnv),
     environment: "local",
     runChatV3Conversation: async () =>
-      v3Success(PATH_C_REPLY, { orderedListingIds: ["id-c", "id-a", "id-b"] }),
+      v3StructuredSuccess(
+        pathCComposition({
+          vehicleAnalyses: analysesForIds(["id-c", "id-a", "id-b"]),
+        })
+      ),
   });
-  assertEqual("missing-ids: success degraded", turn.kind, "success");
+  assertEqual("missing-ids: success fallback", turn.kind, "success");
   if (turn.kind === "success") {
-    assertEqual("missing-ids: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("missing-ids: classification", turn.displayOrderClassification, "deterministic-fallback");
     assertEqual("missing-ids: canonical four", turn.carCards.length, 4);
-    assertEqual("missing-ids: text kept", turn.userVisibleText, PATH_C_REPLY);
+    assertEqual("missing-ids: presentation readable-fallback", turn.searchPresentationMode, "readable-fallback");
   }
 }
 
@@ -1043,19 +1203,17 @@ function executeSearchWithProvider(
     environment: "local",
     runChatV3Conversation: async () => v3Success(PATH_C_REPLY),
   });
-  assertEqual("plain-text: degraded canonical", turn.kind, "success");
+  assertEqual("plain-text: readable fallback", turn.kind, "success");
   if (turn.kind === "success") {
-    assertEqual("plain-text: classification", turn.displayOrderClassification, "canonical-toolresult-degraded");
+    assertEqual("plain-text: classification", turn.displayOrderClassification, "deterministic-fallback");
     assertEqual("plain-text: toolresult order", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
-    assertEqual("plain-text: text kept", turn.userVisibleText, PATH_C_REPLY);
+    assertIncludes("plain-text: fallback notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+    assertNotIncludes("plain-text: no free-form list", turn.userVisibleText, PATH_C_REPLY);
   }
 }
 
 {
-  const rawJson = JSON.stringify({
-    replyText: PATH_C_REPLY,
-    orderedListingIds: PATH_C_ORDER,
-  });
+  const rawJson = pathCProviderJson();
   const turn = await executeChatV2V3SearchGroundingTurn({
     authenticatedActorRef: PILOT_UID,
     userMessage: ACCEPTANCE_QUERY,
@@ -1070,12 +1228,14 @@ function executeSearchWithProvider(
     assertEqual("json-leak: used deterministic", turn.usedDeterministicFallback, true);
     assertFalsy("json-leak: no raw json", looksLikeSearchGroundingJsonEnvelope(turn.userVisibleText));
     assertNotIncludes("json-leak: no orderedListingIds key", turn.userVisibleText, "orderedListingIds");
+    assertNotIncludes("json-leak: no vehicleAnalyses key", turn.userVisibleText, "vehicleAnalyses");
     assertEqual("json-leak: canonical cards", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
     assertEqual(
       "json-leak: fallback reason envelope",
       turn.searchCompositionFallbackReason,
       "structured-output-envelope-leak"
     );
+    assertIncludes("json-leak: readable sections", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
     expectedDeterministicFourText = turn.userVisibleText;
   }
 }
@@ -1088,15 +1248,21 @@ function executeSearchWithProvider(
     readEnv: readEnvFrom(enabledEnv),
     environment: "local",
     runChatV3Conversation: async () =>
-      v3Success(SEARCH_GROUNDING_NO_MATCH_TEXT, { orderedListingIds: [] }),
+      v3StructuredSuccess({
+        introText: SEARCH_GROUNDING_NO_MATCH_TEXT,
+        vehicleAnalyses: [],
+        closingText: "",
+      }),
   });
   assertEqual("zero-result: success", turn.kind, "success");
   if (turn.kind === "success") {
     assertEqual("zero-result: classification", turn.displayOrderClassification, "zero-result");
+    assertEqual("zero-result: presentation", turn.searchPresentationMode, "zero-result");
     assertEqual("zero-result: valid empty", turn.structuredOrderValid, true);
     assertEqual("zero-result: no cards", turn.carCards.length, 0);
     assertEqual("zero-result: fallback reason none", turn.searchCompositionFallbackReason, "none");
     assertEqual("zero-result: not deterministic-fallback class", turn.displayOrderClassification, "zero-result");
+    assertNotIncludes("zero-result: no numbered section", turn.userVisibleText, "1. **");
   }
 }
 
@@ -1130,7 +1296,12 @@ function executeSearchWithProvider(
     inventory: tenOnly,
     readEnv: readEnvFrom(enabledEnv),
     environment: "local",
-    runChatV3Conversation: async () => v3Success(SEARCH_GROUNDING_NO_MATCH_TEXT, { orderedListingIds: [] }),
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: SEARCH_GROUNDING_NO_MATCH_TEXT,
+        vehicleAnalyses: [],
+        closingText: "",
+      }),
   });
   assertEqual("empty-later turn: success", emptyTurn.kind, "success");
   if (emptyTurn.kind === "success") {
@@ -1155,7 +1326,7 @@ function executeSearchWithProvider(
       body: { userMessage: ACCEPTANCE_QUERY },
       env: enabledEnv,
       inventory: FOUR_CARS,
-      runV3: async () => v3Success(PATH_C_REPLY, { orderedListingIds: PATH_C_ORDER }),
+      runV3: async () => v3StructuredSuccess(),
     });
     const data = asSuccess(hop.body).data;
     assertEqual("http path-c: search marker", data?.conversationBrain, CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN);
@@ -1166,6 +1337,14 @@ function executeSearchWithProvider(
     assertFalsy(
       "http path-c: no orderedListingIds field",
       data != null && "orderedListingIds" in data
+    );
+    assertFalsy(
+      "http path-c: no vehicleAnalyses field",
+      data != null && "vehicleAnalyses" in data
+    );
+    assertFalsy(
+      "http path-c: no introText field",
+      data != null && "introText" in data
     );
     const attr = logs.find((line) => line.includes("user_visible_runtime_attribution"));
     assertTruthy("http path-c: attribution event", Boolean(attr));
@@ -1184,6 +1363,7 @@ function executeSearchWithProvider(
     assertEqual("attr search: ordered count", parsed.orderedCardCount, 4);
     assertEqual("attr search: displayed count", parsed.displayedCardCount, 4);
     assertEqual("attr search: classification", parsed.displayOrderClassification, "structured-accepted");
+    assertEqual("attr search: presentation", parsed.searchPresentationMode, "vehicle-sections");
     assertEqual("attr search: structured valid", parsed.structuredOrderValid, true);
     assertEqual("attr search: failure none", parsed.searchFailureClassification, "none");
     assertEqual("attr search: fallback reason none", parsed.searchCompositionFallbackReason, "none");
@@ -1239,14 +1419,19 @@ function executeSearchWithProvider(
 
 assertEqual(
   "schema is Search-only object",
-  SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("replyText") &&
-    SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("orderedListingIds") &&
+  SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("introText") &&
+    SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("vehicleAnalyses") &&
+    SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.required.includes("closingText") &&
     SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA.additionalProperties === false,
   true
 );
 assertFalsy(
   "schema does not reuse finalAnswerTh",
   JSON.stringify(SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA).includes("finalAnswerTh")
+);
+assertFalsy(
+  "schema does not keep replyText",
+  JSON.stringify(SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA).includes("replyText")
 );
 
 {
@@ -1266,6 +1451,10 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
   assertFalsy(`${label}: no UID`, serialized.includes(PILOT_UID));
   assertFalsy(`${label}: no replyText key`, serialized.includes("replyText"));
   assertFalsy(`${label}: no orderedListingIds key`, serialized.includes("orderedListingIds"));
+  assertFalsy(`${label}: no introText key`, serialized.includes("introText"));
+  assertFalsy(`${label}: no vehicleAnalyses key`, serialized.includes("vehicleAnalyses"));
+  assertFalsy(`${label}: no analysisText key`, serialized.includes("analysisText"));
+  assertFalsy(`${label}: no closingText key`, serialized.includes("closingText"));
   assertFalsy(`${label}: no email`, serialized.includes("@"));
 }
 
@@ -1283,14 +1472,17 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
 }
 
 {
-  const turn = await executeSearchWithProvider(fakeSearchProvider('{"replyText":'));
+  const turn = await executeSearchWithProvider(fakeSearchProvider('{"introText":'));
   assertEqual("diag invalid-json: success", turn.kind, "success");
   if (turn.kind === "success") {
     assertEqual("diag invalid-json: classification", turn.displayOrderClassification, "deterministic-fallback");
     assertEqual("diag invalid-json: reason", turn.searchCompositionFallbackReason, "structured-output-invalid-json");
     assertEqual("diag invalid-json: parse", turn.structuredOutputParseStatus, "invalid-json");
+    assertEqual("diag invalid-json: presentation", turn.searchPresentationMode, "readable-fallback");
     assertEqual("diag invalid-json: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
     assertEqual("diag invalid-json: cards canonical", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
+    assertIncludes("diag invalid-json: readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+    assertNotIncludes("diag invalid-json: no commentary", turn.userVisibleText, "มุมมองของเอ");
   }
 }
 
@@ -1309,11 +1501,9 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
 
 {
   const nested = JSON.stringify({
-    replyText: JSON.stringify({
-      replyText: PATH_C_REPLY,
-      orderedListingIds: PATH_C_ORDER,
-    }),
-    orderedListingIds: PATH_C_ORDER,
+    introText: pathCProviderJson(),
+    vehicleAnalyses: PATH_C_ANALYSES,
+    closingText: PATH_C_CLOSING,
   });
   const turn = await executeSearchWithProvider(fakeSearchProvider(nested));
   assertEqual("diag envelope-unwrap: success", turn.kind, "success");
@@ -1339,9 +1529,8 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
 {
   const turn = await executeSearchWithProvider(
     fakeSearchProvider(
-      JSON.stringify({
-        replyText: "ในตลาดมีทั้งหมด 120 คันครับ",
-        orderedListingIds: PATH_C_ORDER,
+      pathCProviderJson({
+        introText: "ในตลาดมีทั้งหมด 120 คันครับ",
       })
     )
   );
@@ -1358,9 +1547,8 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
 {
   const turn = await executeSearchWithProvider(
     fakeSearchProvider(
-      JSON.stringify({
-        replyText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ",
-        orderedListingIds: PATH_C_ORDER,
+      pathCProviderJson({
+        introText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ",
       })
     )
   );
@@ -1374,21 +1562,18 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
 
 {
   const turn = await executeSearchWithProvider(
-    fakeSearchProvider(
-      JSON.stringify({
-        replyText: PATH_C_REPLY,
-        orderedListingIds: PATH_C_ORDER,
-      })
-    )
+    fakeSearchProvider(pathCProviderJson())
   );
   assertEqual("diag valid-structured: success", turn.kind, "success");
   if (turn.kind === "success") {
     assertEqual("diag valid-structured: classification", turn.displayOrderClassification, "structured-accepted");
     assertEqual("diag valid-structured: reason", turn.searchCompositionFallbackReason, "none");
     assertEqual("diag valid-structured: parse", turn.structuredOutputParseStatus, "structured");
-    assertEqual("diag valid-structured: text kept", turn.userVisibleText, PATH_C_REPLY);
+    assertEqual("diag valid-structured: presentation", turn.searchPresentationMode, "vehicle-sections");
+    assertIncludes("diag valid-structured: intro kept", turn.userVisibleText, PATH_C_INTRO);
     assertEqual("diag valid-structured: ordered cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
     assertEqual("diag valid-structured: not deterministic", turn.usedDeterministicFallback, false);
+    assertSeparatedVehicleSections("diag valid-structured", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
   }
 }
 
@@ -1409,7 +1594,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
       runV3: (options) =>
         runChatV3Conversation({
           ...options,
-          provider: fakeSearchProvider('{"replyText":'),
+          provider: fakeSearchProvider('{"introText":'),
           allowFakeProvider: true,
         }),
     });
@@ -1427,6 +1612,302 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
   } finally {
     console.log = originalLog;
   }
+}
+
+{
+  const altTurn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess(
+        pathCComposition({
+          introText: PATH_C_INTRO_ALT,
+          closingText: PATH_C_CLOSING_ALT,
+          vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+            listingId: item.listingId,
+            analysisText: `${item.analysisText} ดูต่อได้จากข้อเท็จจริงที่ตรวจแล้ว`,
+          })),
+        })
+      ),
+  });
+  assertEqual("wording: success", altTurn.kind, "success");
+  if (altTurn.kind === "success") {
+    assertEqual("wording: accepted", altTurn.displayOrderClassification, "structured-accepted");
+    assertIncludes("wording: alt intro", altTurn.userVisibleText, PATH_C_INTRO_ALT);
+    assertIncludes("wording: alt closing", altTurn.userVisibleText, PATH_C_CLOSING_ALT);
+    assertNotIncludes("wording: renderer does not force first intro", altTurn.userVisibleText, PATH_C_INTRO);
+  }
+}
+
+{
+  const corolla = car({
+    id: "id-corolla",
+    brand: "Toyota",
+    model: "Corolla",
+    year: 2019,
+    price: 420_000,
+    mileage: 70_000,
+    transmission: "auto",
+  });
+  const renameTurn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [corolla],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: "เจอรถเก๋งที่ตรวจแล้วในรอบนี้ 1 คันครับ",
+        vehicleAnalyses: [
+          {
+            listingId: "id-corolla",
+            analysisText: "คันนี้เป็น Corolla Altis ที่น่าสนใจและเกียร์ธรรมดา ราคา 999,000 บาท",
+          },
+        ],
+        closingText: "แนะนำดูข้อเท็จจริงที่ตรวจแล้วก่อนตัดสินใจครับ",
+      }),
+  });
+  assertEqual("rename: success fallback", renameTurn.kind, "success");
+  if (renameTurn.kind === "success") {
+    assertEqual("rename: not structured-accepted", renameTurn.displayOrderClassification, "deterministic-fallback");
+    assertEqual("rename: presentation", renameTurn.searchPresentationMode, "readable-fallback");
+    assertEqual("rename: validation", renameTurn.searchCompositionValidationCode, "identity-rename");
+    assertIncludes("rename: trusted Corolla title", renameTurn.userVisibleText, "**2019 Toyota Corolla**");
+    assertNotIncludes("rename: no Altis in trusted title", renameTurn.userVisibleText, "Corolla Altis");
+    assertIncludes("rename: trusted price", renameTurn.userVisibleText, "420,000 บาท");
+    assertNotIncludes("rename: no invented price", renameTurn.userVisibleText, "999,000");
+    assertNotIncludes("rename: no commentary", renameTurn.userVisibleText, "มุมมองของเอ");
+    assertEqual("rename: card model", renameTurn.carCards[0]?.model, "Corolla");
+    assertEqual("rename: card price", renameTurn.carCards[0]?.price, 420_000);
+  }
+}
+
+{
+  const bmwIntro =
+    "ในรอบนี้ยังไม่พบรถที่ตรงตามเงื่อนไขที่ระบุครับ งบ 500 บาทสำหรับ BMW น่าจะต่ำกว่าช่วงราคาที่เอค้นได้ ถ้าอยากให้ค้นต่อ ลองบอกราคาที่ปรับได้ไหมครับ";
+  const bmwTurn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: "ช่วยหารถเก๋ง BMW เกียร์ออโต้ ราคาไม่เกิน 500 บาท",
+    inventory: MIXED_INVENTORY,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: bmwIntro,
+        vehicleAnalyses: [],
+        closingText: "ถ้าอยากให้ค้นต่อ ลองบอกราคาที่ปรับได้ไหมครับ",
+      }),
+  });
+  assertEqual("bmw-500: success", bmwTurn.kind, "success");
+  if (bmwTurn.kind === "success") {
+    assertEqual("bmw-500: zero-result", bmwTurn.displayOrderClassification, "zero-result");
+    assertEqual("bmw-500: presentation", bmwTurn.searchPresentationMode, "zero-result");
+    assertEqual("bmw-500: no cards", bmwTurn.carCards.length, 0);
+    assertIncludes("bmw-500: conversational intro", bmwTurn.userVisibleText, bmwIntro);
+    assertNotIncludes("bmw-500: no numbered section", bmwTurn.userVisibleText, "1. **");
+    assertNotIncludes("bmw-500: no marketplace empty claim", bmwTurn.userVisibleText, "ทั้งหมด");
+  }
+}
+
+{
+  assertEqual(
+    "r1 prepare: keeps svg word",
+    prepareSearchNarrativeForMarkdown("คันนี้เหมาะกับใช้ในเมือง svg ครับ"),
+    "คันนี้เหมาะกับใช้ในเมือง svg ครับ"
+  );
+  assertEqual(
+    "r1 prepare: collapses breaks and keeps Thai",
+    prepareSearchNarrativeForMarkdown("เหมาะกับใช้ในเมือง\n\tและเดินทางใกล้"),
+    "เหมาะกับใช้ในเมือง และเดินทางใกล้"
+  );
+  assertNotIncludes(
+    "r1 prepare: heading markers escaped",
+    prepareSearchNarrativeForMarkdown("### หัวข้อ"),
+    "### "
+  );
+}
+
+{
+  const markdownNoise = [
+    "### หัวข้อ",
+    "- รายการย่อย",
+    "1. รายการเลข",
+    "> อ้างอิง",
+    "[ลิงก์](https://example.test)",
+    "![รูป](https://example.test/car.png)",
+    "```code```",
+    "<div>html</div>",
+  ].join("\n");
+  const layoutTurn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: FOUR_CARS,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess(
+        pathCComposition({
+          introText: `### หัวข้อแนะนำ\n${PATH_C_INTRO}`,
+          closingText: `> ปิดท้าย\n${PATH_C_CLOSING}`,
+          vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+            listingId: item.listingId,
+            analysisText:
+              index === 0
+                ? `${item.analysisText} svg\n${markdownNoise}`
+                : item.analysisText,
+          })),
+        })
+      ),
+  });
+  assertEqual("r1 layout: success", layoutTurn.kind, "success");
+  if (layoutTurn.kind === "success") {
+    assertEqual("r1 layout: accepted", layoutTurn.displayOrderClassification, "structured-accepted");
+    assertIncludes("r1 layout: natural intro survives", layoutTurn.userVisibleText, PATH_C_INTRO);
+    assertIncludes("r1 layout: heading words survive", layoutTurn.userVisibleText, "หัวข้อแนะนำ");
+    assertIncludes("r1 layout: analysis Thai survives", layoutTurn.userVisibleText, "เหมาะถ้าโฟกัสความใหม่");
+    assertIncludes("r1 layout: svg word not stripped", layoutTurn.userVisibleText, "svg");
+    assertSeparatedVehicleSections("r1 layout", layoutTurn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
+    assertNoCompetingMarkdownLayout("r1 layout", layoutTurn.userVisibleText);
+    assertEqual("r1 layout: card order", layoutTurn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertNotIncludes("r1 layout: no vehicleAnalyses key", layoutTurn.userVisibleText, "vehicleAnalyses");
+    assertNotIncludes("r1 layout: no raw json brace dump", layoutTurn.userVisibleText, '"listingId"');
+    assertFalsy(
+      "r1 layout: no raw listing ids",
+      PATH_C_ORDER.some((id) => layoutTurn.userVisibleText.includes(id))
+    );
+  }
+}
+
+{
+  const punctCar = car({
+    id: "id-punct",
+    brand: "Toyota*",
+    model: "Altis*GT",
+    year: 2018,
+    price: 350_000,
+    mileage: 80_000,
+    transmission: "auto",
+  });
+  const punctTurn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [punctCar],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: "เจอรถเก๋งที่ตรวจแล้วในรอบนี้ 1 คันครับ",
+        vehicleAnalyses: [
+          {
+            listingId: "id-punct",
+            analysisText: "คันนี้เหมาะกับใช้ในเมืองจากข้อมูลที่ตรวจแล้ว",
+          },
+        ],
+        closingText: "แนะนำดูข้อเท็จจริงที่ตรวจแล้วก่อนตัดสินใจครับ",
+      }),
+  });
+  assertEqual("r1 title: success", punctTurn.kind, "success");
+  if (punctTurn.kind === "success") {
+    assertEqual("r1 title: accepted", punctTurn.displayOrderClassification, "structured-accepted");
+    assertIncludes("r1 title: escaped heading", punctTurn.userVisibleText, "1. **2018 Toyota\\* Altis\\*GT**");
+    assertIncludes("r1 title: brand recognizable", punctTurn.userVisibleText, "Toyota");
+    assertIncludes("r1 title: model recognizable", punctTurn.userVisibleText, "Altis");
+    assertNotIncludes("r1 title: unescaped star does not break bold", punctTurn.userVisibleText, "**2018 Toyota*");
+    assertEqual("r1 title: card brand unchanged", punctTurn.carCards[0]?.brand, "Toyota*");
+    assertEqual("r1 title: card model unchanged", punctTurn.carCards[0]?.model, "Altis*GT");
+    assertEqual("r1 title: card price unchanged", punctTurn.carCards[0]?.price, 350_000);
+  }
+}
+
+{
+  const factCar = car({
+    id: "id-fact",
+    model: "Altis",
+    year: 2018,
+    price: 350_000,
+    mileage: 80_000,
+    transmission: "auto",
+  });
+  async function factTurn(analysisText: string) {
+    return executeChatV2V3SearchGroundingTurn({
+      authenticatedActorRef: PILOT_UID,
+      userMessage: ACCEPTANCE_QUERY,
+      inventory: [factCar],
+      readEnv: readEnvFrom(enabledEnv),
+      environment: "local",
+      runChatV3Conversation: async () =>
+        v3StructuredSuccess({
+          introText: "เจอรถเก๋งที่ตรวจแล้วในรอบนี้ 1 คันครับ",
+          vehicleAnalyses: [{ listingId: "id-fact", analysisText }],
+          closingText: "แนะนำดูข้อเท็จจริงที่ตรวจแล้วก่อนตัดสินใจครับ",
+        }),
+    });
+  }
+
+  const ordinary = await factTurn("คันนี้เป็นตัวเลือกธรรมดา เหมาะกับใช้ในเมือง");
+  assertEqual("r1 gear ordinary: success", ordinary.kind, "success");
+  if (ordinary.kind === "success") {
+    assertEqual("r1 gear ordinary: accepted", ordinary.displayOrderClassification, "structured-accepted");
+    assertIncludes("r1 gear ordinary: wording kept", ordinary.userVisibleText, "ตัวเลือกธรรมดา");
+  }
+
+  const manualClaim = await factTurn("คันนี้เป็นเกียร์ธรรมดา เหมาะกับใช้ในเมือง");
+  assertEqual("r1 gear conflict: success fallback", manualClaim.kind, "success");
+  if (manualClaim.kind === "success") {
+    assertEqual("r1 gear conflict: fallback", manualClaim.displayOrderClassification, "deterministic-fallback");
+    assertEqual("r1 gear conflict: validation", manualClaim.searchCompositionValidationCode, "unsupported-listing-claim");
+    assertNotIncludes("r1 gear conflict: no invented commentary", manualClaim.userVisibleText, "เกียร์ธรรมดา");
+  }
+
+  const budget = await factTurn("คันนี้ควรเผื่องบซ่อมและบำรุงไว้ประมาณ 15,000 บาท");
+  assertEqual("r1 price budget: success", budget.kind, "success");
+  if (budget.kind === "success") {
+    assertEqual("r1 price budget: accepted", budget.displayOrderClassification, "structured-accepted");
+    assertIncludes("r1 price budget: trusted price unchanged", budget.userVisibleText, "350,000 บาท");
+    assertIncludes("r1 price budget: commentary kept", budget.userVisibleText, "15,000 บาท");
+  }
+
+  const salePrice = await factTurn("คันนี้ราคาขาย 999,000 บาท จากข้อมูลที่ดูแล้ว");
+  assertEqual("r1 price conflict: success fallback", salePrice.kind, "success");
+  if (salePrice.kind === "success") {
+    assertEqual("r1 price conflict: fallback", salePrice.displayOrderClassification, "deterministic-fallback");
+    assertEqual("r1 price conflict: validation", salePrice.searchCompositionValidationCode, "unsupported-listing-claim");
+    assertIncludes("r1 price conflict: trusted price remains", salePrice.userVisibleText, "350,000 บาท");
+    assertNotIncludes("r1 price conflict: invented sale price omitted", salePrice.userVisibleText, "999,000");
+  }
+
+  const dailyKm = await factTurn("ถ้าใช้ในเมืองวันละ 40 กม. ก็ถือว่าเหมาะกับการใช้งานทั่วไป");
+  assertEqual("r1 mileage daily: success", dailyKm.kind, "success");
+  if (dailyKm.kind === "success") {
+    assertEqual("r1 mileage daily: accepted", dailyKm.displayOrderClassification, "structured-accepted");
+    assertIncludes("r1 mileage daily: trusted mileage unchanged", dailyKm.userVisibleText, "80,000 กม.");
+    assertIncludes("r1 mileage daily: commentary kept", dailyKm.userVisibleText, "40 กม.");
+  }
+
+  const odometer = await factTurn("คันนี้เลขไมล์ 12,345 กม. ซึ่งควรเช็กกับข้อเท็จจริงที่ตรวจแล้ว");
+  assertEqual("r1 mileage conflict: success fallback", odometer.kind, "success");
+  if (odometer.kind === "success") {
+    assertEqual("r1 mileage conflict: fallback", odometer.displayOrderClassification, "deterministic-fallback");
+    assertEqual("r1 mileage conflict: validation", odometer.searchCompositionValidationCode, "unsupported-listing-claim");
+    assertIncludes("r1 mileage conflict: trusted mileage remains", odometer.userVisibleText, "80,000 กม.");
+    assertNotIncludes("r1 mileage conflict: invented odometer omitted", odometer.userVisibleText, "12,345");
+  }
+}
+
+{
+  const composeSrc = readFileSync(
+    "src/services/ai/chat/chatV2V3SearchGroundingCompose.ts",
+    "utf8"
+  );
+  const serviceSrc = readFileSync(
+    "src/services/ai/chat-v3/chatV3ConversationService.ts",
+    "utf8"
+  );
+  assertNotIncludes("compose template has no literal svg", composeSrc, "svg");
+  assertNotIncludes("conversation service has no literal svg", serviceSrc, "svg");
 }
 
 console.log(`\nWP-NVB-03B server tests passed: ${passCount}`);

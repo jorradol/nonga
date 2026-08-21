@@ -297,9 +297,15 @@ assertTruthy(
     files.v3Service.includes("SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA")
 );
 assertTruthy(
-  "Search schema is not buyer finalAnswerTh",
-  files.compose.includes("SEARCH_GROUNDING_STRUCTURED_OUTPUT_JSON_SCHEMA") &&
+  "Search schema uses vehicleAnalyses not replyText",
+  files.compose.includes("vehicleAnalyses") &&
+    files.compose.includes("introText") &&
     !files.compose.includes("finalAnswerTh")
+);
+assertNotIncludes(
+  "unreachable canonical-toolresult-degraded classification removed",
+  files.compose,
+  "canonical-toolresult-degraded"
 );
 
 console.log(`\nWP-NVB-03B regression guards passed: ${passCount}`);

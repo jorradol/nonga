@@ -10,6 +10,7 @@ import {
   type SearchCompositionFallbackReason,
   type SearchCompositionStructuredOutputParseStatus,
   type SearchCompositionValidationCode,
+  type SearchPresentationMode,
 } from "../chat-v3/chatV3ConversationContracts";
 import {
   runChatV3Conversation,
@@ -40,10 +41,13 @@ import {
   buildSearchGroundingVehicleContext,
   looksLikeSearchGroundingJsonEnvelope,
   orderSearchGroundingCarCards,
-  validateSearchGroundingComposition,
-  validateSearchGroundingOrderedListingIds,
+  orderSearchGroundingListings,
+  renderSearchVehicleSectionsMarkdown,
+  renderZeroResultSearchMarkdown,
+  validateSearchVehicleSections,
   type SearchDisplayOrderClassification,
   type SearchGroundingPacket,
+  type SearchVehicleSectionsOutput,
 } from "./chatV2V3SearchGroundingCompose";
 import {
   CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN,
@@ -101,6 +105,7 @@ export type ChatV2V3SearchGroundingTurnOutcome =
       readonly structuredOutputParseStatus?: SearchCompositionStructuredOutputParseStatus;
       readonly searchCompositionTextPresent?: boolean;
       readonly searchCompositionValidationCode?: SearchCompositionValidationCode;
+      readonly searchPresentationMode?: SearchPresentationMode;
     }
   | {
       readonly kind: "failed-closed";
@@ -275,6 +280,7 @@ type SearchCompositionDiagnosticFields = {
   readonly structuredOutputParseStatus: SearchCompositionStructuredOutputParseStatus;
   readonly searchCompositionTextPresent: boolean;
   readonly searchCompositionValidationCode: SearchCompositionValidationCode;
+  readonly searchPresentationMode?: SearchPresentationMode;
 };
 
 function successOutcome(input: {
@@ -316,15 +322,39 @@ function noMatchOutcome(
     structuredOrderValid: true,
     validatedToolResultListingIdCount: 0,
     marketplaceSearchExecutionCount,
-    ...(diagnostic ? { diagnostic } : {}),
+    ...(diagnostic
+      ? {
+          diagnostic: {
+            ...diagnostic,
+            searchPresentationMode: diagnostic.searchPresentationMode ?? "zero-result",
+          },
+        }
+      : {
+          diagnostic: {
+            searchCompositionFallbackReason: "none",
+            structuredOutputParseStatus: "not-applicable",
+            searchCompositionTextPresent: false,
+            searchCompositionValidationCode: "none",
+            searchPresentationMode: "zero-result",
+          },
+        }),
   });
 }
 
-function extractOrderedListingIds(
+function extractSearchVehicleSections(
   response: ChatV3ConversationResponse
-): readonly string[] | undefined {
+): SearchVehicleSectionsOutput | undefined {
   if (!response.success) return undefined;
-  return response.data.searchComposition?.orderedListingIds;
+  const metadata = response.data.searchComposition;
+  if (!metadata) return undefined;
+  if (typeof metadata.introText !== "string") return undefined;
+  if (typeof metadata.closingText !== "string") return undefined;
+  if (!Array.isArray(metadata.vehicleAnalyses)) return undefined;
+  return {
+    introText: metadata.introText,
+    vehicleAnalyses: metadata.vehicleAnalyses,
+    closingText: metadata.closingText,
+  };
 }
 
 function providerErrorFallbackReason(
@@ -380,6 +410,24 @@ function mapCompositionValidation(reason: string): {
     return {
       fallbackReason: "missing-success-text",
       validationCode: "empty-text",
+    };
+  }
+  if (reason === "invalid-listing-ids") {
+    return {
+      fallbackReason: "composition-validation-failed",
+      validationCode: "invalid-listing-ids",
+    };
+  }
+  if (reason === "identity-rename") {
+    return {
+      fallbackReason: "composition-grounding-fact-invalid",
+      validationCode: "identity-rename",
+    };
+  }
+  if (reason === "unsupported-listing-claim") {
+    return {
+      fallbackReason: "composition-grounding-fact-invalid",
+      validationCode: "unsupported-listing-claim",
     };
   }
   return {
@@ -446,12 +494,19 @@ function acceptedCompositionDiagnostic(
     searchCompositionFallbackReason: "none",
     structuredOutputParseStatus:
       boundary?.structuredOutputParseStatus ??
-      (response && extractOrderedListingIds(response) !== undefined
+      (response && extractSearchVehicleSections(response) !== undefined
         ? "structured"
         : "plain-text"),
     searchCompositionTextPresent: true,
     searchCompositionValidationCode: "none",
   };
+}
+
+function withPresentationMode(
+  diagnostic: SearchCompositionDiagnosticFields,
+  mode: SearchPresentationMode
+): SearchCompositionDiagnosticFields {
+  return { ...diagnostic, searchPresentationMode: mode };
 }
 
 function resolveGroundedSearchDisplay(input: {
@@ -466,14 +521,18 @@ function resolveGroundedSearchDisplay(input: {
   const successText = input.response ? extractSuccessText(input.response) : null;
   const leaked =
     Boolean(successText) && looksLikeSearchGroundingJsonEnvelope(successText ?? "");
+  const sections = input.response
+    ? extractSearchVehicleSections(input.response)
+    : undefined;
 
-  if (!successText || leaked) {
-    const diagnostic = resolveMissingOrLeakedDiagnostic({
-      response: input.response,
-      leaked,
-      successTextPresent: Boolean(successText),
-    });
-    if (zero) return noMatchOutcome(input.deterministic, 1, diagnostic);
+  const readableFallback = (
+    diagnostic: SearchCompositionDiagnosticFields
+  ): ChatV2V3SearchGroundingTurnOutcome => {
+    const withMode = withPresentationMode(
+      diagnostic,
+      zero ? "zero-result" : "readable-fallback"
+    );
+    if (zero) return noMatchOutcome(input.deterministic, 1, withMode);
     return successOutcome({
       text: input.deterministic,
       carCards: input.canonicalCards,
@@ -482,80 +541,89 @@ function resolveGroundedSearchDisplay(input: {
       structuredOrderValid: false,
       validatedToolResultListingIdCount: validatedCount,
       marketplaceSearchExecutionCount,
-      diagnostic,
+      diagnostic: withMode,
+    });
+  };
+
+  if (!successText || leaked) {
+    return readableFallback(
+      resolveMissingOrLeakedDiagnostic({
+        response: input.response,
+        leaked,
+        successTextPresent: Boolean(successText),
+      })
+    );
+  }
+
+  if (!sections) {
+    return readableFallback({
+      searchCompositionFallbackReason: "composition-validation-failed",
+      structuredOutputParseStatus:
+        readChatV3SearchCompositionBoundaryDiagnostic(input.response)
+          ?.structuredOutputParseStatus ?? "plain-text",
+      searchCompositionTextPresent: true,
+      searchCompositionValidationCode: "invalid-listing-ids",
     });
   }
 
-  const grounded = validateSearchGroundingComposition({
-    text: successText,
+  const validated = validateSearchVehicleSections({
+    sections,
     packet: input.packet,
   });
-  if (grounded.ok === false) {
-    const mapped = mapCompositionValidation(grounded.reason);
-    const diagnostic: SearchCompositionDiagnosticFields = {
+  if (validated.ok === false) {
+    const mapped = mapCompositionValidation(validated.reason);
+    return readableFallback({
       searchCompositionFallbackReason: mapped.fallbackReason,
       structuredOutputParseStatus:
         readChatV3SearchCompositionBoundaryDiagnostic(input.response)
           ?.structuredOutputParseStatus ?? "structured",
       searchCompositionTextPresent: true,
       searchCompositionValidationCode: mapped.validationCode,
-    };
-    if (zero) return noMatchOutcome(input.deterministic, 1, diagnostic);
-    return successOutcome({
-      text: input.deterministic,
-      carCards: input.canonicalCards,
-      usedDeterministicFallback: true,
-      displayOrderClassification: "deterministic-fallback",
-      structuredOrderValid: false,
-      validatedToolResultListingIdCount: validatedCount,
-      marketplaceSearchExecutionCount,
-      diagnostic,
     });
   }
 
-  const orderCheck = validateSearchGroundingOrderedListingIds({
-    orderedListingIds: input.response
-      ? extractOrderedListingIds(input.response)
-      : undefined,
-    returnedListingIds: input.packet.returnedListingIds,
-  });
-  const accepted = acceptedCompositionDiagnostic(input.response);
+  const accepted = withPresentationMode(
+    acceptedCompositionDiagnostic(input.response),
+    zero ? "zero-result" : "vehicle-sections"
+  );
 
   if (zero) {
     return successOutcome({
-      text: successText,
+      text: renderZeroResultSearchMarkdown({
+        introText: sections.introText,
+        closingText: sections.closingText,
+      }),
       carCards: [],
       usedDeterministicFallback: false,
       displayOrderClassification: "zero-result",
-      structuredOrderValid: orderCheck.ok,
+      structuredOrderValid: true,
       validatedToolResultListingIdCount: 0,
       marketplaceSearchExecutionCount,
       diagnostic: accepted,
     });
   }
 
-  if (orderCheck.ok) {
-    return successOutcome({
-      text: successText,
-      carCards: orderSearchGroundingCarCards(
-        input.canonicalCards,
-        orderCheck.orderedListingIds
-      ),
-      usedDeterministicFallback: false,
-      displayOrderClassification: "structured-accepted",
-      structuredOrderValid: true,
-      validatedToolResultListingIdCount: validatedCount,
-      marketplaceSearchExecutionCount,
-      diagnostic: accepted,
-    });
-  }
-
+  const orderedListings = orderSearchGroundingListings(
+    input.packet.displayedListings,
+    validated.orderedListingIds
+  );
+  const analysesByListingId = new Map(
+    sections.vehicleAnalyses.map((item) => [item.listingId, item.analysisText])
+  );
   return successOutcome({
-    text: successText,
-    carCards: input.canonicalCards,
+    text: renderSearchVehicleSectionsMarkdown({
+      introText: sections.introText,
+      closingText: sections.closingText,
+      orderedListings,
+      analysesByListingId,
+    }),
+    carCards: orderSearchGroundingCarCards(
+      input.canonicalCards,
+      validated.orderedListingIds
+    ),
     usedDeterministicFallback: false,
-    displayOrderClassification: "canonical-toolresult-degraded",
-    structuredOrderValid: false,
+    displayOrderClassification: "structured-accepted",
+    structuredOrderValid: true,
     validatedToolResultListingIdCount: validatedCount,
     marketplaceSearchExecutionCount,
     diagnostic: accepted,

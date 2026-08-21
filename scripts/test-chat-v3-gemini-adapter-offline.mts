@@ -465,8 +465,11 @@ async function main(): Promise<void> {
   resetLastFakeChatV3GeminiRequest();
   let searchGenerateCount = 0;
   const searchJson = JSON.stringify({
-    replyText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ",
-    orderedListingIds: ["listing-1"],
+    introText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ",
+    vehicleAnalyses: [
+      { listingId: "listing-1", analysisText: "คันนี้เทียบได้จากข้อมูลที่ตรวจแล้วในรอบนี้" },
+    ],
+    closingText: "แนะนำดูข้อเท็จจริงที่ตรวจแล้วก่อนตัดสินใจครับ",
   });
   const searchClient = createFakeChatV3GeminiClient({ text: searchJson });
   const countingSearchClient = {
@@ -499,20 +502,27 @@ async function main(): Promise<void> {
   assert(searchRun.success === true, "Search composition succeeds after JSON unwrap");
   assert(
     searchRun.success === true &&
-      searchRun.data.content === "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ",
-    "Search visible content is replyText, not raw JSON"
+      searchRun.data.content.includes("พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ"),
+    "Search visible content is unwrapped intro/analysis, not raw JSON"
   );
   assert(
     searchRun.success === true &&
-      JSON.stringify(searchRun.data.searchComposition?.orderedListingIds) ===
-        JSON.stringify(["listing-1"]),
-    "Search metadata carries orderedListingIds"
+      searchRun.data.searchComposition?.introText ===
+        "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 1 คันในรอบนี้ครับ" &&
+      JSON.stringify(
+        (searchRun.data.searchComposition?.vehicleAnalyses ?? []).map(
+          (item) => item.listingId
+        )
+      ) === JSON.stringify(["listing-1"]),
+    "Search metadata carries vehicleAnalyses order"
   );
   assert(searchReq?.responseMimeType === "application/json", "Search request uses JSON mime");
   assert(
     Boolean(searchReq?.responseSchema) &&
-      JSON.stringify(searchReq?.responseSchema).includes("orderedListingIds") &&
-      !JSON.stringify(searchReq?.responseSchema).includes("finalAnswerTh"),
+      JSON.stringify(searchReq?.responseSchema).includes("vehicleAnalyses") &&
+      JSON.stringify(searchReq?.responseSchema).includes("introText") &&
+      !JSON.stringify(searchReq?.responseSchema).includes("finalAnswerTh") &&
+      !JSON.stringify(searchReq?.responseSchema).includes("replyText"),
     "Search request uses Search schema, not buyer finalAnswerTh"
   );
   assert(searchGenerateCount === 1, "Search composition makes one provider call");
@@ -564,7 +574,7 @@ async function main(): Promise<void> {
 
   resetLastFakeChatV3GeminiRequest();
   const invalidJsonClient = createFakeChatV3GeminiClient({
-    text: '{"replyText":',
+    text: '{"introText":',
   });
   const invalidJsonAdapter = createRealGeminiChatV3Provider({
     bypassLiveEnableGateForTests: true,
@@ -603,8 +613,8 @@ async function main(): Promise<void> {
     "Public conversation JSON omits Search fallback reason"
   );
   assert(
-    !JSON.stringify(invalidPublic).includes("replyText"),
-    "Public conversation JSON omits raw replyText"
+    !JSON.stringify(invalidPublic).includes("introText"),
+    "Public conversation JSON omits raw introText"
   );
   const invalidBoundary = readChatV3SearchCompositionBoundaryDiagnostic(invalidJsonRun);
   assert(
@@ -619,7 +629,7 @@ async function main(): Promise<void> {
 
   resetLastFakeChatV3GeminiRequest();
   const schemaMismatchClient = createFakeChatV3GeminiClient({
-    text: JSON.stringify({ orderedListingIds: ["listing-1"] }),
+    text: JSON.stringify({ vehicleAnalyses: [{ listingId: "listing-1", analysisText: "x" }] }),
   });
   const schemaMismatchAdapter = createRealGeminiChatV3Provider({
     bypassLiveEnableGateForTests: true,
