@@ -17,6 +17,11 @@ import {
   type ChatV3GeneralConversationBrain,
   type ChatV3GeneralConversationBrainStatus,
 } from "./chatV2V3GeneralBridgeClientApply";
+import {
+  parseServerOwnedChatV3SearchGroundedConversationBrain,
+  type ChatV3SearchGroundedConversationBrain,
+  type ChatV3SearchGroundedConversationBrainStatus,
+} from "./chatV2V3SearchGroundingClientApply";
 
 export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 
@@ -70,11 +75,13 @@ export interface ChatUserVisibleOrchestrateData {
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
   /**
-   * WP-NVB-02E — accepted only when Server sent exact literals.
+   * WP-NVB-02E / WP-NVB-03B — accepted only when Server sent exact literals.
    * Malformed values are stripped and ignored.
    */
-  conversationBrain?: ChatV3GeneralConversationBrain;
-  conversationBrainStatus?: ChatV3GeneralConversationBrainStatus;
+  conversationBrain?: ChatV3GeneralConversationBrain | ChatV3SearchGroundedConversationBrain;
+  conversationBrainStatus?:
+    | ChatV3GeneralConversationBrainStatus
+    | ChatV3SearchGroundedConversationBrainStatus;
   userVisibleRuntimeDiagnostic?: {
     runtimeMode: string;
     provider: string;
@@ -208,23 +215,31 @@ function classifyServerBridgeDiagnostic(
   return "bridge_success";
 }
 
-/** Accept only exact Server-owned V.3 General Bridge literals. */
+/** Accept only exact Server-owned V.3 General Bridge or Search Grounding literals. */
 function withSanitizedConversationBrain(
   data: ChatUserVisibleOrchestrateData
 ): ChatUserVisibleOrchestrateData {
-  const parsed = parseServerOwnedChatV3GeneralConversationBrain(data);
+  const searchParsed = parseServerOwnedChatV3SearchGroundedConversationBrain(data);
+  const generalParsed = parseServerOwnedChatV3GeneralConversationBrain(data);
   const {
     conversationBrain: _ignoredBrain,
     conversationBrainStatus: _ignoredStatus,
     ...rest
   } = data;
-  if (!parsed) {
+  if (searchParsed) {
+    return {
+      ...rest,
+      conversationBrain: searchParsed.conversationBrain,
+      conversationBrainStatus: searchParsed.conversationBrainStatus,
+    };
+  }
+  if (!generalParsed) {
     return rest;
   }
   return {
     ...rest,
-    conversationBrain: parsed.conversationBrain,
-    conversationBrainStatus: parsed.conversationBrainStatus,
+    conversationBrain: generalParsed.conversationBrain,
+    conversationBrainStatus: generalParsed.conversationBrainStatus,
   };
 }
 
@@ -405,8 +420,10 @@ export async function applyChatUserVisibleServerBridge(input: {
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
   carCards?: ChatCarCardData[];
-  conversationBrain?: ChatV3GeneralConversationBrain;
-  conversationBrainStatus?: ChatV3GeneralConversationBrainStatus;
+  conversationBrain?: ChatV3GeneralConversationBrain | ChatV3SearchGroundedConversationBrain;
+  conversationBrainStatus?:
+    | ChatV3GeneralConversationBrainStatus
+    | ChatV3SearchGroundedConversationBrainStatus;
 } | null> {
   const data = await fetchChatUserVisibleOrchestrate({
     userMessage: input.userMessage,

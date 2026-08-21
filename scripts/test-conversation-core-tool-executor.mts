@@ -835,7 +835,7 @@ assertEqual("execution: single call on error", retryOutcome.kind, "completed");
 const malformedOutputOutcome = await runExecutor(validRequest, {
   handler: () => ({
     status: "ok",
-    data: { listingIds: [], query: "missing ids are invalid for validator" },
+    data: { listingIds: ["ok-1"], query: "q", unexpectedKey: true },
   }),
 });
 assertEqual("execution: malformed handler output rejected", malformedOutputOutcome.kind, "completed");
@@ -844,6 +844,23 @@ if (malformedOutputOutcome.kind === "completed") {
     "execution: malformed output error code",
     malformedOutputOutcome.result.errorCode,
     CONVERSATION_CORE_TOOL_EXECUTOR_ERROR_CODES.handlerInvalidResult
+  );
+}
+
+const zeroSearchOutcome = await runExecutor(validRequest, {
+  handler: () => ({
+    status: "ok",
+    data: { listingIds: [], query: "รถเก๋ง Toyota เกียร์ออโต้ ราคาไม่เกิน 500000" },
+  }),
+});
+assertEqual("execution: marketplace.search zero-result completed", zeroSearchOutcome.kind, "completed");
+if (zeroSearchOutcome.kind === "completed") {
+  assertEqual("execution: marketplace.search zero-result status", zeroSearchOutcome.result.status, "ok");
+  const zeroData = zeroSearchOutcome.result.data as MarketplaceSearchToolData | undefined;
+  assertEqual(
+    "execution: marketplace.search zero-result empty ids",
+    zeroData?.listingIds ?? null,
+    []
   );
 }
 
@@ -1227,7 +1244,7 @@ assertEqual(
 );
 
 const MIN_TOOL_EXECUTOR_ASSERTIONS = 109;
-const EXPECTED_TOOL_EXECUTOR_ASSERTIONS = 117;
+const EXPECTED_TOOL_EXECUTOR_ASSERTIONS = 120;
 
 if (passCount < MIN_TOOL_EXECUTOR_ASSERTIONS) {
   console.error(

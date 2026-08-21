@@ -70,11 +70,20 @@ import {
   sanitizeBoundedGeneralBridgeHistory,
   type ChatV2V3GeneralConversationRunner,
 } from "./chat/chatV2V3GeneralConversationBridge";
+import {
+  executeChatV2V3SearchGroundingTurn,
+  resolveChatV2V3SearchGroundingRouting,
+  type ChatV2V3SearchGroundingRunner,
+} from "./chat/chatV2V3SearchGroundingBridge";
 import { CHAT_V3_USER_FACING_UNAVAILABLE } from "./chat-v3/chatV3ConversationContracts";
 import {
   CHAT_V3_GENERAL_CONVERSATION_BRAIN,
   type ChatV3GeneralConversationBrainStatus,
 } from "./chat/chatV2V3GeneralBridgeClientApply";
+import {
+  CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN,
+  type ChatV3SearchGroundedConversationBrainStatus,
+} from "./chat/chatV2V3SearchGroundingClientApply";
 
 export const SALES_BRAIN_USER_VISIBLE_ORCHESTRATE_ROUTE =
   "/api/ai/chat-user-visible-orchestrate";
@@ -142,12 +151,16 @@ export interface RedactedUserVisibleOrchestrationPayload {
   hasMoreCars?: boolean;
   isDraftPreview?: boolean;
   /**
-   * WP-NVB-02E — Server-owned V.3 General Bridge discriminator.
-   * Set only when General Bridge is selected. Never derived from userRole
-   * or request body. Not realProviderNetwork.
+   * WP-NVB-02E / WP-NVB-03B — Server-owned V.3 discriminator.
+   * Set only when General Bridge or Search Grounding is selected.
+   * Never derived from userRole or request body. Not realProviderNetwork.
    */
-  conversationBrain?: typeof CHAT_V3_GENERAL_CONVERSATION_BRAIN;
-  conversationBrainStatus?: ChatV3GeneralConversationBrainStatus;
+  conversationBrain?:
+    | typeof CHAT_V3_GENERAL_CONVERSATION_BRAIN
+    | typeof CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN;
+  conversationBrainStatus?:
+    | ChatV3GeneralConversationBrainStatus
+    | ChatV3SearchGroundedConversationBrainStatus;
   /** v6.8D — redacted real-provider diagnostics (no secret values) */
   realProviderNetwork?: boolean;
   realProviderGateReason?: string;
@@ -230,6 +243,17 @@ function withGeneralBridgeConversationBrain(
   return {
     ...payload,
     conversationBrain: CHAT_V3_GENERAL_CONVERSATION_BRAIN,
+    conversationBrainStatus: status,
+  };
+}
+
+function withSearchGroundingConversationBrain(
+  payload: RedactedUserVisibleOrchestrationPayload,
+  status: ChatV3SearchGroundedConversationBrainStatus
+): RedactedUserVisibleOrchestrationPayload {
+  return {
+    ...payload,
+    conversationBrain: CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN,
     conversationBrainStatus: status,
   };
 }
@@ -1026,6 +1050,7 @@ export interface ChatUserVisibleOrchestrateHandlerDeps {
   applyRealProvider?: typeof maybeApplyUserVisibleRealProvider;
   runConversationCore?: ChatUserVisibleConversationCoreRunner;
   runChatV3GeneralBridge?: ChatV2V3GeneralConversationRunner;
+  runChatV3SearchGrounding?: ChatV2V3SearchGroundingRunner;
 }
 
 export async function handleChatUserVisibleOrchestratePost(
@@ -1055,10 +1080,76 @@ export async function handleChatUserVisibleOrchestratePost(
       readEnv,
     });
 
+    const searchGroundingRouting = resolveChatV2V3SearchGroundingRouting({
+      authenticatedActorRef: auth.uid,
+      userMessage,
+      conversationHistory,
+      readEnv,
+    });
+
     let result: UserVisibleOrchestrationBridgeResult;
     let skipRealProvider = false;
 
-    if (coreRouting.kind === "conversation-core") {
+    if (searchGroundingRouting.kind === "kill-switch-fail-closed") {
+      skipRealProvider = true;
+      const unavailableText = CHAT_V3_USER_FACING_UNAVAILABLE;
+      const orchestrated: OrchestratedChatReply = {
+        text: unavailableText,
+        carCards: [],
+        skipGemini: true,
+        hasMoreCars: false,
+      };
+      result = {
+        orchestrated,
+        payload: withSearchGroundingConversationBrain(
+          buildRedactedPayload(orchestrated, unavailableText, false, false),
+          "failed-closed"
+        ),
+      };
+    } else if (searchGroundingRouting.kind === "selected") {
+      skipRealProvider = true;
+      const searchTurn = await executeChatV2V3SearchGroundingTurn({
+        authenticatedActorRef: auth.uid,
+        userMessage,
+        conversationHistory,
+        inventory,
+        readEnv,
+        environment: bridgeEnvironment,
+        runChatV3Conversation: deps.runChatV3SearchGrounding,
+        now: deps.now,
+      });
+      if (searchTurn.kind === "not-selected") {
+        const unavailableText = CHAT_V3_USER_FACING_UNAVAILABLE;
+        const orchestrated: OrchestratedChatReply = {
+          text: unavailableText,
+          carCards: [],
+          skipGemini: true,
+          hasMoreCars: false,
+        };
+        result = {
+          orchestrated,
+          payload: withSearchGroundingConversationBrain(
+            buildRedactedPayload(orchestrated, unavailableText, false, false),
+            "failed-closed"
+          ),
+        };
+      } else {
+        const userVisibleText = searchTurn.userVisibleText;
+        const orchestrated: OrchestratedChatReply = {
+          text: userVisibleText,
+          carCards: [...searchTurn.carCards],
+          skipGemini: true,
+          hasMoreCars: searchTurn.hasMoreCars,
+        };
+        result = {
+          orchestrated,
+          payload: withSearchGroundingConversationBrain(
+            buildRedactedPayload(orchestrated, userVisibleText, false, false),
+            searchTurn.conversationBrainStatus
+          ),
+        };
+      }
+    } else if (coreRouting.kind === "conversation-core") {
       skipRealProvider = true;
       const coreMapped = await executeChatUserVisibleConversationCoreTurn({
         authenticatedActorRef: auth.uid,

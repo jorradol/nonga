@@ -30,6 +30,8 @@ export interface BuildChatV3SystemInstructionOptions {
   vehicleContext?: ChatV3AutomotiveVehicleContext | null;
   /** When false, skip per-turn addendum (identity + principles only). Default true if message set. */
   includeTurnAddendum?: boolean;
+  /** Server-only Search Grounding appendix. Never accepted from Client request fields. */
+  searchGroundingAppendix?: string;
 }
 
 /**
@@ -121,6 +123,11 @@ export function buildChatV3SystemInstruction(
     parts.push("", composed.turnAddendum);
   } else if (options.vehicleContext?.vehicles?.length) {
     parts.push("", composed.turnAddendum);
+  }
+
+  const appendix = String(options.searchGroundingAppendix ?? "").trim();
+  if (appendix) {
+    parts.push("", appendix);
   }
 
   return parts.join("\n");

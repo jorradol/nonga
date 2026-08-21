@@ -48,6 +48,7 @@ import { buildChatV3SystemInstruction } from "./chatV3SystemInstruction";
 import { normalizeChatV3AssistantTypography } from "./chatV3TypographyNormalize";
 import { normalizeChatV3UnsupportedDurableMemoryClaims } from "./chatV3MemoryClaimNormalizer";
 import type { FinanceCalcResult } from "../../../utils/financeCalculator";
+import type { ChatV3AutomotiveVehicleContext } from "./chatV3AutomotiveReasoning";
 
 export interface RunChatV3ConversationOptions {
   rawRequest: unknown;
@@ -57,6 +58,12 @@ export interface RunChatV3ConversationOptions {
   allowFakeProvider?: boolean;
   now?: () => number;
   createMessageId?: () => string;
+  /** Server-only Search Grounding appendix. Never read from Client request body. */
+  searchGroundingAppendix?: string;
+  /** Server-only trusted vehicles for Search Grounding. Bypasses Client DTO cap. */
+  searchGroundingVehicleContext?: ChatV3AutomotiveVehicleContext | null;
+  /** Search Grounding composition: skip post-answer correction generate. */
+  searchGroundingComposition?: boolean;
 }
 
 function mapProviderFailureToErrorCode(
@@ -165,6 +172,10 @@ export async function runChatV3Conversation(
   }
 
   const request: ChatV3ValidatedConversationRequest = validated.value;
+  const searchVehicleContext =
+    options.searchGroundingVehicleContext ?? request.vehicleContext ?? null;
+  const searchAppendix = String(options.searchGroundingAppendix ?? "").trim();
+  const searchComposition = options.searchGroundingComposition === true;
 
   // WP-V3-11 — input safety assessment (does not mutate user message).
   const safetyAssessment = assessChatV3Safety(request.message);
@@ -198,7 +209,8 @@ export async function runChatV3Conversation(
   const baseInstruction = buildChatV3SystemInstruction(request.expertMode, {
     message: request.message,
     history: request.history,
-    vehicleContext: request.vehicleContext ?? null,
+    vehicleContext: searchVehicleContext,
+    ...(searchAppendix ? { searchGroundingAppendix: searchAppendix } : {}),
   });
   const systemInstruction = appendChatV3SafetyInstructionGuidance(
     baseInstruction,
@@ -248,7 +260,7 @@ export async function runChatV3Conversation(
   const financeAnalysis = analyzeChatV3AutomotiveTurn({
     message: request.message,
     history: request.history,
-    vehicleContext: request.vehicleContext ?? null,
+    vehicleContext: searchVehicleContext,
   });
   const trustedFinance =
     financeAnalysis.financeBlock.status === "complete"
@@ -264,6 +276,15 @@ export async function runChatV3Conversation(
     recordChatV3HighRiskGuardMetadata({
       riskClasses: [],
       remainingRiskClasses: [],
+      correctionAttempted: false,
+      correctionAccepted: false,
+      fallbackUsed: false,
+      providerErrorCategory: "none",
+    });
+  } else if (searchComposition) {
+    recordChatV3HighRiskGuardMetadata({
+      riskClasses: firstRiskClasses,
+      remainingRiskClasses: riskClassesOf(firstHighRisk),
       correctionAttempted: false,
       correctionAccepted: false,
       fallbackUsed: false,

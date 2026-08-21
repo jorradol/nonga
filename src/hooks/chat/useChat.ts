@@ -20,6 +20,7 @@ import {
   type ChatUserVisibleOrchestrateData,
 } from "../../services/ai/chat/chatUserVisibleOrchestrateClient";
 import { resolveChatV2V3GeneralBridgeClientApply } from "../../services/ai/chat/chatV2V3GeneralBridgeClientApply";
+import { resolveChatV2V3SearchGroundingClientApply } from "../../services/ai/chat/chatV2V3SearchGroundingClientApply";
 import {
   shouldInvokeAuthenticatedGeneralConversationServerBridge,
   shouldInvokeAuthenticatedVehicleSearchServerBridge,
@@ -1780,13 +1781,39 @@ export function useChat() {
           await publishMandatoryBridgeFailure();
           return;
         }
-        const mandatoryOrchestrated =
-          resolveMandatoryVehicleSearchOrchestratedReply(bridgeResult.data);
-        if (!mandatoryOrchestrated) {
-          await publishMandatoryBridgeFailure();
-          return;
+        const searchApply = resolveChatV2V3SearchGroundingClientApply({
+          searchHopAttempted: true,
+          hopStatus: "success",
+          userVisibleText: bridgeResult.data.userVisibleText,
+          carCards: bridgeResult.data.carCards,
+          hasMoreCars: bridgeResult.data.hasMoreCars,
+          conversationBrain: bridgeResult.data.conversationBrain,
+          conversationBrainStatus: bridgeResult.data.conversationBrainStatus,
+          localOrchestrated: orchestrated,
+        });
+        if (searchApply.action === "fail-closed") {
+          orchestrated = {
+            text: searchApply.text,
+            carCards: [],
+            skipGemini: true,
+            hasMoreCars: false,
+          };
+        } else if (searchApply.action === "adopt-search") {
+          orchestrated = {
+            text: searchApply.text,
+            carCards: searchApply.carCards,
+            skipGemini: true,
+            hasMoreCars: searchApply.hasMoreCars,
+          };
+        } else {
+          const mandatoryOrchestrated =
+            resolveMandatoryVehicleSearchOrchestratedReply(bridgeResult.data);
+          if (!mandatoryOrchestrated) {
+            await publishMandatoryBridgeFailure();
+            return;
+          }
+          orchestrated = mandatoryOrchestrated;
         }
-        orchestrated = mandatoryOrchestrated;
       } else {
         const shouldCallUserVisibleBridge =
           shouldInvokeAuthenticatedGeneralConversationServerBridge({

@@ -585,6 +585,28 @@ assertFail(
   }),
   "duplicate_listing_id"
 );
+assertOk(
+  "marketplace.search empty listingIds is valid zero-result",
+  validateToolResult({
+    ...validMarketplaceToolResult(),
+    data: {
+      listingIds: [],
+      query: "รถเก๋ง Toyota เกียร์ออโต้ ราคาไม่เกิน 500000",
+    },
+  })
+);
+assertFail(
+  "inventory.fetch empty listingIds remains invalid",
+  validateToolResult({
+    requestId: TOOL_REQUEST_ID,
+    conversationId: CONVERSATION_ID,
+    toolName: "inventory.fetch",
+    status: "ok",
+    provenance: "inventory-api",
+    data: { listingIds: [] },
+  }),
+  "empty_listing_ids"
+);
 
 // --- Finance tool contracts ---
 assertOk("valid finance ToolRequest", validateToolRequest(validFinanceToolRequest()));

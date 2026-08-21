@@ -273,13 +273,17 @@ function validateBoundedErrorCode(
 function validateListingIdList(
   raw: unknown,
   path: string,
-  issues: ValidationIssue[]
+  issues: ValidationIssue[],
+  options?: { readonly allowEmpty?: boolean }
 ): string[] | null {
   if (!Array.isArray(raw)) {
     issues.push(issue(path, "invalid_listing_ids", "Listing ids must be an array"));
     return null;
   }
   if (raw.length === 0) {
+    if (options?.allowEmpty === true) {
+      return [];
+    }
     issues.push(issue(path, "empty_listing_ids", "Listing ids cannot be empty"));
     return null;
   }
@@ -510,7 +514,9 @@ function validateMarketplaceSearchData(
     return undefined;
   }
   rejectUnknownKeys(raw, MARKETPLACE_SEARCH_DATA_KEYS, "data", issues);
-  const listingIds = validateListingIdList(raw.listingIds, "data.listingIds", issues);
+  const listingIds = validateListingIdList(raw.listingIds, "data.listingIds", issues, {
+    allowEmpty: true,
+  });
   const query = requireString(raw.query, "data.query", issues, {
     maxLength: CONVERSATION_CORE_MAX_MESSAGE_LENGTH,
   });
