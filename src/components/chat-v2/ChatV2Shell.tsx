@@ -11,7 +11,7 @@
  * and the Vehicle Workspace opens as an overlay sheet. No horizontal overflow.
  * Free-drag resizing is desktop-only.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
 import type { ChatCarCardData } from "../../types";
@@ -24,9 +24,10 @@ import { useChatV2PanelResize } from "./adapters/useChatV2PanelResize";
 
 export function ChatV2Shell() {
   const { isGenerating } = useChatContext();
-  const cars = useAppStore((s) => s.cars);
   const fetchCars = useAppStore((s) => s.fetchCars);
   const { workspace, status, openRailDiscoveryVehicle } = useChatV2Presentation();
+  const [railInventoryReady, setRailInventoryReady] = useState(false);
+  const railFetchStartedRef = useRef(false);
   // Drawer state (<1024px only). Closed by default; never used at lg+.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Desktop collapse state (lg+ only). Sidebar is EXPANDED by default and
@@ -48,10 +49,23 @@ export function ChatV2Shell() {
   }, []);
 
   useEffect(() => {
-    if (cars.length === 0) {
-      void fetchCars();
-    }
-  }, [cars.length, fetchCars]);
+    if (railFetchStartedRef.current) return;
+    railFetchStartedRef.current = true;
+
+    let cancelled = false;
+    setRailInventoryReady(false);
+
+    void (async () => {
+      await fetchCars();
+      if (cancelled) return;
+      const loadState = useAppStore.getState().carsLoadState;
+      setRailInventoryReady(loadState === "success");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchCars]);
 
   const handleRailDiscoverySelect = useCallback(
     (input: { card: ChatCarCardData }) => {
@@ -94,6 +108,7 @@ export function ChatV2Shell() {
         resizeLargeStep={panelResize.resizeLargeStep}
         onResizeWidth={panelResize.setSidebarWidth}
         onRailDiscoverySelect={handleRailDiscoverySelect}
+        railInventoryReady={railInventoryReady}
       />
 
       <ChatV2Conversation

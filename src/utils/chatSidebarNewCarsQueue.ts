@@ -18,6 +18,26 @@ export interface SidebarNewCarSlide {
   year: number;
 }
 
+/** Canonical marketplace-public listing states (see marketplaceInventory.isPublishedListing). */
+const SIDEBAR_SALE_READY_LISTING_STATUSES = new Set(["published"]);
+
+/**
+ * Canonical sale-ready pipeline states.
+ * Missing saleStatus is non-blocking (see listingSaleOutcome.isListingSaleBlockingPublic).
+ * Explicit "published" is the only non-empty saleStatus allowed on the rail.
+ */
+const SIDEBAR_SALE_READY_SALE_STATUSES = new Set(["published"]);
+
+function normalizeSidebarStatusToken(
+  raw: unknown
+): string | null | "__malformed__" {
+  if (raw == null) return null;
+  if (typeof raw !== "string") return "__malformed__";
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed.toLowerCase();
+}
+
 export function carToChatInventoryCar(car: Car): ChatInventoryCar {
   return {
     id: car.id,
@@ -44,27 +64,33 @@ export function carToChatInventoryCar(car: Car): ChatInventoryCar {
 }
 
 /**
- * Fail-closed marketplace visibility for the sidebar discovery rail.
+ * Positive allowlist, fail-closed marketplace visibility for the sidebar discovery rail.
  * Source: useAppStore.cars (GET /api/cars → marketplace inventory).
+ *
+ * Missing listingStatus: legacy rows remain marketplace-public (marketplaceInventory.ts).
+ * Missing saleStatus: non-blocking unless pending_sale/sold (listingSaleOutcome.ts).
  */
 export function isSidebarNewCarSaleReady(car: Car): boolean {
   if (!car || typeof car.id !== "string" || car.id.trim().length === 0) {
     return false;
   }
-  if (car.isSold) return false;
-  if (car.listingStatus === "hidden" || car.listingStatus === "pending_review") {
-    return false;
-  }
-  if (car.saleStatus === "pending_sale" || car.saleStatus === "sold") {
-    return false;
-  }
+  if (car.isSold === true) return false;
+
+  const listingStatus = normalizeSidebarStatusToken(car.listingStatus);
+  if (listingStatus === "__malformed__") return false;
   if (
-    car.listingStatus != null &&
-    car.listingStatus !== "" &&
-    car.listingStatus !== "published"
+    listingStatus != null &&
+    !SIDEBAR_SALE_READY_LISTING_STATUSES.has(listingStatus)
   ) {
     return false;
   }
+
+  const saleStatus = normalizeSidebarStatusToken(car.saleStatus);
+  if (saleStatus === "__malformed__") return false;
+  if (saleStatus != null && !SIDEBAR_SALE_READY_SALE_STATUSES.has(saleStatus)) {
+    return false;
+  }
+
   const inv = carToChatInventoryCar(car);
   return resolveChatListingImageUrls(inv).length > 0;
 }

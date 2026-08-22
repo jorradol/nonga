@@ -205,6 +205,8 @@ interface ChatV2SidebarProps {
     readonly car: Car;
     readonly card: ChatCarCardData;
   }) => void;
+  /** V.2 page-entry inventory verification — rail hidden until true. */
+  railInventoryReady?: boolean;
 }
 
 export function ChatV2Sidebar({
@@ -222,6 +224,7 @@ export function ChatV2Sidebar({
   resizeLargeStep,
   onResizeWidth,
   onRailDiscoverySelect,
+  railInventoryReady = false,
 }: ChatV2SidebarProps) {
   const {
     sessions,
@@ -318,7 +321,7 @@ export function ChatV2Sidebar({
         </button>
       </div>
 
-      {onRailDiscoverySelect && (
+      {onRailDiscoverySelect && railInventoryReady && (
         <ChatSidebarNewCarsSlider
           collapsed={false}
           onMobileSidebarClose={closeIfDrawer}
@@ -464,7 +467,7 @@ export function ChatV2Sidebar({
               </span>
             )}
           </span>
-          {onRailDiscoverySelect && (
+          {onRailDiscoverySelect && railInventoryReady && (
             <ChatSidebarNewCarsSlider
               collapsed
               onDiscoverySelect={onRailDiscoverySelect}

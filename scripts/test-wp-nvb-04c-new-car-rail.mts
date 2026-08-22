@@ -1,6 +1,6 @@
 /**
- * WP-NVB-04C — V.1 New-Car Rail Adapter into V.2 Sidebar
- * npm run test:wp-nvb-04c-new-car-rail  (or tsx scripts/test-wp-nvb-04c-new-car-rail.mts)
+ * WP-NVB-04C / WP-NVB-04C-R1 — V.2 New-Car Rail adapter + sale-readiness/freshness
+ * tsx scripts/test-wp-nvb-04c-new-car-rail.mts
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -62,7 +62,7 @@ function sampleCar(overrides: Partial<Car> & Pick<Car, "id">): Car {
 }
 
 function main(): void {
-  console.log("=== WP-NVB-04C New-Car Rail Adapter ===\n");
+  console.log("=== WP-NVB-04C / 04C-R1 New-Car Rail ===\n");
 
   const sidebar = read("src/components/chat-v2/ChatV2Sidebar.tsx");
   const shell = read("src/components/chat-v2/ChatV2Shell.tsx");
@@ -144,6 +144,99 @@ function main(): void {
     fail("reject-missing-image");
   }
   pass("reject-missing-image");
+
+  // R1 — positive allowlist exclusions
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "sale-hidden", saleStatus: "hidden" })
+    )
+  ) {
+    fail("reject-saleStatus-hidden");
+  }
+  pass("reject-saleStatus-hidden");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "sale-cancelled", saleStatus: "sale_cancelled" })
+    )
+  ) {
+    fail("reject-saleStatus-sale_cancelled");
+  }
+  pass("reject-saleStatus-sale_cancelled");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "cancelled", saleStatus: "cancelled" as Car["saleStatus"] })
+    )
+  ) {
+    fail("reject-saleStatus-cancelled");
+  }
+  pass("reject-saleStatus-cancelled");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "reserved", saleStatus: "reserved" as Car["saleStatus"] })
+    )
+  ) {
+    fail("reject-saleStatus-reserved");
+  }
+  pass("reject-saleStatus-reserved");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "withdrawn", saleStatus: "withdrawn" as Car["saleStatus"] })
+    )
+  ) {
+    fail("reject-saleStatus-withdrawn");
+  }
+  pass("reject-saleStatus-withdrawn");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "unknown-sale", saleStatus: "unknown" as Car["saleStatus"] })
+    )
+  ) {
+    fail("reject-unknown-saleStatus");
+  }
+  pass("reject-unknown-saleStatus");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "malformed-listing", listingStatus: 123 as unknown as Car["listingStatus"] })
+    )
+  ) {
+    fail("reject-malformed-listingStatus");
+  }
+  pass("reject-malformed-listingStatus");
+
+  if (
+    isSidebarNewCarSaleReady(
+      sampleCar({ id: "malformed-sale", saleStatus: { bad: true } as unknown as Car["saleStatus"] })
+    )
+  ) {
+    fail("reject-malformed-saleStatus");
+  }
+  pass("reject-malformed-saleStatus");
+
+  // Missing status — canonical legacy semantics (marketplaceInventory / listingSaleOutcome)
+  const legacyMissing = sampleCar({
+    id: "legacy-missing-status",
+    listingStatus: undefined,
+    saleStatus: undefined,
+  });
+  if (!isSidebarNewCarSaleReady(legacyMissing)) {
+    fail("allow-missing-listing-and-sale-status");
+  }
+  pass("allow-missing-listing-and-sale-status");
+
+  if (
+    !isSidebarNewCarSaleReady(
+      sampleCar({ id: "explicit-published-sale", saleStatus: "published" })
+    )
+  ) {
+    fail("allow-explicit-saleStatus-published");
+  }
+  pass("allow-explicit-saleStatus-published");
 
   // 13. duplicate listing ID
   const dupes = buildSidebarNewCarsQueue([
@@ -248,9 +341,24 @@ function main(): void {
   }
   pass("no-pii-logging-in-changed-sources");
 
-  // Authoritative source evidence
+  // Authoritative source + freshness evidence
   mustInclude(queueSrc, "useAppStore.cars", "queue-doc-authoritative-source");
-  mustInclude(shell, "fetchCars", "shell-bootstrap-fetchCars");
+  mustInclude(queueSrc, "SIDEBAR_SALE_READY_LISTING_STATUSES", "queue-positive-listing-allowlist");
+  mustInclude(queueSrc, "SIDEBAR_SALE_READY_SALE_STATUSES", "queue-positive-sale-allowlist");
+  mustInclude(queueSrc, "marketplaceInventory", "queue-listing-missing-semantics-doc");
+  mustInclude(queueSrc, "listingSaleOutcome", "queue-sale-missing-semantics-doc");
+  mustInclude(shell, "fetchCars", "shell-page-entry-fetchCars");
+  mustInclude(shell, "railInventoryReady", "shell-rail-readiness-state");
+  mustInclude(shell, "useState(false)", "shell-readiness-starts-false");
+  mustInclude(shell, 'setRailInventoryReady(loadState === "success")', "shell-readiness-from-load-state");
+  mustInclude(shell, "cancelled = true", "shell-unmount-cancellation");
+  mustInclude(shell, "railFetchStartedRef", "shell-single-fetch-guard");
+  mustNotInclude(shell, "cars.length === 0", "shell-no-conditional-empty-fetch");
+  mustInclude(sidebar, "railInventoryReady", "sidebar-readiness-prop");
+  mustInclude(sidebar, "onRailDiscoverySelect && railInventoryReady", "sidebar-gates-rail-until-ready");
+  mustNotInclude(sidebar, "fetchCars", "sidebar-no-fetchCars");
+  mustNotInclude(slider, "fetchCars", "slider-no-fetchCars");
+  mustNotInclude(shell, "setInterval", "shell-no-polling");
   mustInclude(queueSrc, "isSidebarNewCarSaleReady", "queue-sale-ready-gate");
   mustInclude(queueSrc, "listingStatus", "queue-listingStatus-field");
   mustInclude(queueSrc, "saleStatus", "queue-saleStatus-field");
@@ -261,7 +369,7 @@ function main(): void {
   }
   pass("queue-max-constant");
 
-  console.log(`\n=== WP-NVB-04C — OK (${passCount} assertions) ===`);
+  console.log(`\n=== WP-NVB-04C / 04C-R1 — OK (${passCount} assertions) ===`);
 }
 
 main();
