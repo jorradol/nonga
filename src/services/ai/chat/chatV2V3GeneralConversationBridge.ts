@@ -10,6 +10,7 @@ import {
   type ChatV3ConversationResponse,
   type ChatV3HistoryTurn,
 } from "../chat-v3/chatV3ConversationContracts";
+import type { ChatV3AutomotiveVehicleContext } from "../chat-v3/chatV3AutomotiveReasoning";
 import {
   runChatV3Conversation,
   type RunChatV3ConversationOptions,
@@ -341,6 +342,7 @@ export async function executeChatV2V3GeneralBridgeTurn(input: {
   readonly environment: SalesBrainRuntimeEnvironment;
   readonly runChatV3Conversation?: ChatV2V3GeneralConversationRunner;
   readonly now?: () => number;
+  readonly authoritativeVehicleContext?: ChatV3AutomotiveVehicleContext | null;
 }): Promise<ChatV2V3GeneralBridgeTurnOutcome> {
   const routing = resolveChatV2V3GeneralBridgeRouting({
     authenticatedActorRef: input.authenticatedActorRef,
@@ -371,6 +373,7 @@ export async function executeChatV2V3GeneralBridgeTurn(input: {
     environment: mapBridgeEnvironment(input.environment),
     readEnv: input.readEnv,
     now: input.now,
+    authoritativeSelectedVehicleContext: input.authoritativeVehicleContext ?? null,
   });
 
   const successText = extractSuccessText(response);

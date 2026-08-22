@@ -52,6 +52,11 @@ const LAST_SELECTED_CAR_KEY = "nonga_chat_last_selected_car";
 const SESSION_SELECTION_MAP_KEY = "nonga_chat_session_vehicle_selection_v1";
 const RECENTLY_VIEWED_CARS_KEY = "nonga_chat_recently_viewed_cars";
 
+/** Bounded listing id contract — mirrors conversation-core listing id limits. */
+export const CHAT_SELECTED_LISTING_ID_MAX_LENGTH = 128;
+
+const CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/;
+
 /**
  * Truthy sentinel returned by loadLastSelectedCarId after an explicit clear.
  * Orchestrator treats a truthy id as "do not fall back to recently-viewed /
@@ -230,6 +235,26 @@ export function resolveSelectedCarIdState(
   if (!id) return { kind: "none" };
   if (isSelectionClearedMarker(id)) return { kind: "cleared" };
   return { kind: "selected", id };
+}
+
+/** Fail-closed parser for client→server selected listing id (ID only). */
+export function parseBoundedSelectedListingId(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (typeof raw !== "string") return null;
+  const id = raw.trim();
+  if (!id || id.length > CHAT_SELECTED_LISTING_ID_MAX_LENGTH) return null;
+  if (CONTROL_CHAR_RE.test(id)) return null;
+  if (isSelectionClearedMarker(id)) return null;
+  return id;
+}
+
+/** Active session selected listing id for orchestrate requests — ID only, no card facts. */
+export function resolveActiveSessionSelectedListingId(
+  chatSessionId?: string | null
+): string | null {
+  const state = resolveSelectedCarIdState(chatSessionId);
+  if (state.kind !== "selected") return null;
+  return parseBoundedSelectedListingId(state.id);
 }
 
 export function saveInChatBuyerContext(

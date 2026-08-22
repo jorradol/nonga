@@ -69,6 +69,8 @@ export interface RunChatV3ConversationOptions {
   searchGroundingAppendix?: string;
   /** Server-only trusted vehicles for Search Grounding. Bypasses Client DTO cap. */
   searchGroundingVehicleContext?: ChatV3AutomotiveVehicleContext | null;
+  /** Server-only grounded selected vehicle for General follow-ups. Bypasses Client DTO. */
+  authoritativeSelectedVehicleContext?: ChatV3AutomotiveVehicleContext | null;
   /** Search Grounding composition: skip post-answer correction generate. */
   searchGroundingComposition?: boolean;
 }
@@ -263,7 +265,10 @@ export async function runChatV3Conversation(
 
   const request: ChatV3ValidatedConversationRequest = validated.value;
   const searchVehicleContext =
-    options.searchGroundingVehicleContext ?? request.vehicleContext ?? null;
+    options.searchGroundingVehicleContext ??
+    options.authoritativeSelectedVehicleContext ??
+    request.vehicleContext ??
+    null;
   const searchAppendix = String(options.searchGroundingAppendix ?? "").trim();
 
   // WP-V3-11 — input safety assessment (does not mutate user message).

@@ -48,6 +48,7 @@ import {
 import { resolveBuyerLeadFlowEscape } from "../../services/leads/buyerLeadFlowEscape";
 import { updateConversationalLeadMemory } from "../../services/leads/conversationalLeadMemory";
 import type { ChatCarCardData } from "../../types";
+import { resolveActiveSessionSelectedListingId } from "../../utils/chatCarContext";
 import { useBuyerLeadCaptureStore } from "../../stores/buyerLeadCaptureStore";
 import type { ChatInventoryCar } from "../../services/ai/chat/marketplaceChatSearch";
 import {
@@ -1762,6 +1763,7 @@ export function useChat() {
         messages: historyAfterUser,
         currentUserMessage: trimmed,
       });
+      const selectedListingIdForBridge = resolveActiveSessionSelectedListingId(sessionId);
 
       if (isMandatoryVehicleSearchBridge) {
         const bridgeResult = await resolveChatUserVisibleBridgeResult({
@@ -1769,6 +1771,7 @@ export function useChat() {
           attachedImageCount: hasImages ? imageAttachments.length : undefined,
           pilotSessionContext,
           conversationHistory: conversationHistoryForBridge,
+          selectedListingId: selectedListingIdForBridge,
         });
         const publishMandatoryBridgeFailure = async () => {
           const { replyText, carCards } =
@@ -1834,6 +1837,7 @@ export function useChat() {
             orchestratedText: orchestrated?.text ?? "",
             pilotSessionContext,
             conversationHistory: conversationHistoryForBridge,
+            selectedListingId: selectedListingIdForBridge,
           });
           const v3Apply = resolveChatV2V3GeneralBridgeClientApply({
             userMessage: trimmed,

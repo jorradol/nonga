@@ -22,6 +22,7 @@ import {
   type ChatV3SearchGroundedConversationBrain,
   type ChatV3SearchGroundedConversationBrainStatus,
 } from "./chatV2V3SearchGroundingClientApply";
+import { parseBoundedSelectedListingId } from "../../../utils/chatCarContext";
 
 export const CHAT_USER_VISIBLE_ORCHESTRATE_ROUTE = "/api/ai/chat-user-visible-orchestrate";
 
@@ -248,6 +249,7 @@ function buildOrchestrateRequestBody(input: {
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
   conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
+  selectedListingId?: string | null;
 }): Record<string, unknown> {
   const body: Record<string, unknown> = { userMessage: input.userMessage };
   if (input.attachedImageCount !== undefined) {
@@ -261,6 +263,10 @@ function buildOrchestrateRequestBody(input: {
       role: turn.role,
       content: turn.content,
     }));
+  }
+  const selectedListingId = parseBoundedSelectedListingId(input.selectedListingId);
+  if (selectedListingId) {
+    body.selectedListingId = selectedListingId;
   }
   return body;
 }
@@ -341,6 +347,7 @@ export async function resolveChatUserVisibleBridgeResult(
     attachedImageCount?: number;
     pilotSessionContext?: PilotBuyerSessionContext;
     conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
+    selectedListingId?: string | null;
   },
   deps: ChatUserVisibleBridgeDeps = {}
 ): Promise<ChatUserVisibleBridgeResult> {
@@ -396,6 +403,7 @@ export async function fetchChatUserVisibleOrchestrate(input: {
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
   conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
+  selectedListingId?: string | null;
 }): Promise<ChatUserVisibleOrchestrateData | null> {
   const result = await resolveChatUserVisibleBridgeResult(input);
   if (result.status === "failure") {
@@ -414,6 +422,7 @@ export async function applyChatUserVisibleServerBridge(input: {
   orchestratedText: string;
   pilotSessionContext?: PilotBuyerSessionContext;
   conversationHistory?: readonly ChatUserVisibleConversationHistoryTurn[];
+  selectedListingId?: string | null;
 }): Promise<{
   userVisibleText: string;
   pilotPathActive: boolean;
@@ -430,6 +439,7 @@ export async function applyChatUserVisibleServerBridge(input: {
     attachedImageCount: input.attachedImageCount,
     pilotSessionContext: input.pilotSessionContext,
     conversationHistory: input.conversationHistory,
+    selectedListingId: input.selectedListingId,
   });
   if (!data) {
     return null;

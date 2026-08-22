@@ -16,6 +16,10 @@ import {
   classifyProviderGroundingIntent,
 } from "./chat/chatSearchOrchestrator";
 import type { ChatInventoryCar } from "./chat/marketplaceChatSearch";
+import { resolveChatListingTransmission } from "./chat/marketplaceChatSearch";
+import { isPublishedDiscoveryListing } from "./chat/vehicleDiscoveryMatcher";
+import type { ChatV3AutomotiveVehicleContext } from "./chat-v3/chatV3AutomotiveReasoning";
+import { parseBoundedSelectedListingId } from "../../utils/chatCarContext";
 import { mapChatRoleToSalesBrainUserRole } from "./salesBrainShadowChatPath";
 import { wireShadowChatPathWithPilot } from "./salesBrainShadowChatPathNode";
 import {
@@ -128,6 +132,13 @@ export type UserVisibleRuntimeGroundedV3CompositionOutcome =
   | "failed-closed"
   | "not-applicable";
 
+export type SelectedVehicleGroundingOutcome =
+  | "no-selection"
+  | "malformed-id"
+  | "not-found"
+  | "unavailable"
+  | "resolved";
+
 export interface UserVisibleRuntimeLaneEvidence {
   routingLane: UserVisibleRuntimeRoutingLane;
   businessToolName: UserVisibleRuntimeBusinessToolName;
@@ -149,6 +160,9 @@ export interface UserVisibleRuntimeLaneEvidence {
   searchCompositionValidationCode?: SearchCompositionValidationCode;
   searchPresentationMode?: SearchPresentationMode;
   searchCountClaimDisposition?: SearchCountClaimDisposition;
+  selectedVehicleGroundingRequested?: boolean;
+  selectedVehicleGroundingOutcome?: SelectedVehicleGroundingOutcome;
+  selectedVehicleContextSupplied?: boolean;
 }
 
 export interface UserVisibleRuntimeAttributionDiagnostic {
@@ -197,8 +211,94 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   searchCompositionValidationCode?: SearchCompositionValidationCode;
   searchPresentationMode?: SearchPresentationMode;
   searchCountClaimDisposition?: SearchCountClaimDisposition;
+  selectedVehicleGroundingRequested?: boolean;
+  selectedVehicleGroundingOutcome?: SelectedVehicleGroundingOutcome;
+  selectedVehicleContextSupplied?: boolean;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
+
+export function buildAuthoritativeSelectedVehicleContext(
+  car: ChatInventoryCar
+): ChatV3AutomotiveVehicleContext {
+  const facts: Record<string, string> = {
+    brand: String(car.brand ?? "").trim(),
+    model: String(car.model ?? "").trim(),
+    year: String(car.year),
+    price: String(car.price),
+    source: "authoritative-marketplace-inventory",
+  };
+  if (typeof car.mileage === "number" && car.mileage > 0) {
+    facts.mileage = String(car.mileage);
+  }
+  const transmission =
+    resolveChatListingTransmission(car) ?? String(car.transmission ?? "").trim();
+  if (transmission) {
+    facts.transmission = transmission;
+  }
+  if (car.listingStatus) {
+    facts.listingStatus = String(car.listingStatus);
+  }
+  if (car.saleStatus) {
+    facts.saleStatus = String(car.saleStatus);
+  }
+  return {
+    selectedVehicleId: car.id,
+    vehicles: [
+      {
+        id: car.id,
+        label: `${car.year} ${car.brand} ${car.model}`.trim(),
+        facts,
+      },
+    ],
+  };
+}
+
+/**
+ * Authoritative listing-by-id resolver for General V.3 follow-ups.
+ * Source: loadChatInventory() → listPublished(); visibility via isPublishedDiscoveryListing.
+ */
+export function resolveAuthoritativeSelectedVehicleContext(
+  selectedListingId: string | null | undefined,
+  inventory: readonly ChatInventoryCar[]
+): {
+  outcome: SelectedVehicleGroundingOutcome;
+  context: ChatV3AutomotiveVehicleContext | null;
+} {
+  if (selectedListingId == null || selectedListingId === "") {
+    return { outcome: "no-selection", context: null };
+  }
+  const id = parseBoundedSelectedListingId(selectedListingId);
+  if (!id) {
+    return { outcome: "malformed-id", context: null };
+  }
+  const car = inventory.find((entry) => String(entry.id ?? "").trim() === id);
+  if (!car) {
+    return { outcome: "not-found", context: null };
+  }
+  if (!isPublishedDiscoveryListing(car)) {
+    return { outcome: "unavailable", context: null };
+  }
+  return {
+    outcome: "resolved",
+    context: buildAuthoritativeSelectedVehicleContext(car),
+  };
+}
+
+function selectedVehicleGroundingLaneEvidence(input: {
+  requested: boolean;
+  outcome: SelectedVehicleGroundingOutcome;
+}): Pick<
+  UserVisibleRuntimeLaneEvidence,
+  | "selectedVehicleGroundingRequested"
+  | "selectedVehicleGroundingOutcome"
+  | "selectedVehicleContextSupplied"
+> {
+  return {
+    selectedVehicleGroundingRequested: input.requested,
+    selectedVehicleGroundingOutcome: input.outcome,
+    selectedVehicleContextSupplied: input.outcome === "resolved",
+  };
+}
 
 export interface UserVisibleOrchestrationBridgeInput {
   userMessage: string;
@@ -735,6 +835,24 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
                 searchCountClaimDisposition: lane.searchCountClaimDisposition,
               }
             : {}),
+          ...(lane.selectedVehicleGroundingRequested != null
+            ? {
+                selectedVehicleGroundingRequested:
+                  lane.selectedVehicleGroundingRequested,
+              }
+            : {}),
+          ...(lane.selectedVehicleGroundingOutcome
+            ? {
+                selectedVehicleGroundingOutcome:
+                  lane.selectedVehicleGroundingOutcome,
+              }
+            : {}),
+          ...(lane.selectedVehicleContextSupplied != null
+            ? {
+                selectedVehicleContextSupplied:
+                  lane.selectedVehicleContextSupplied,
+              }
+            : {}),
         }
       : {}),
     ...(input.payload.conversationBrain
@@ -1150,6 +1268,7 @@ function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
   attachedImageCount?: number;
   pilotSessionContext?: PilotBuyerSessionContext;
   conversationHistory?: unknown;
+  selectedListingId?: string;
 } | { error: string } {
   const userMessage = String(body?.userMessage ?? "").trim();
   if (!userMessage) {
@@ -1168,12 +1287,17 @@ function parseOrchestrateBody(body: Record<string, unknown> | undefined): {
   const pilotSessionContext = sanitizePilotSessionContext(body?.pilotSessionContext);
   const conversationHistory =
     body?.conversationHistory !== undefined ? body.conversationHistory : undefined;
+  const selectedListingId =
+    body?.selectedListingId !== undefined
+      ? parseBoundedSelectedListingId(body.selectedListingId) ?? undefined
+      : undefined;
   // WP-NVB-02E — conversationBrain is server-owned; request body cannot set it.
   return {
     userMessage,
     attachedImageCount,
     ...(pilotSessionContext ? { pilotSessionContext } : {}),
     ...(conversationHistory !== undefined ? { conversationHistory } : {}),
+    ...(selectedListingId ? { selectedListingId } : {}),
   };
 }
 
@@ -1345,7 +1469,7 @@ export async function handleChatUserVisibleOrchestratePost(
       res.status(400).json({ success: false, message: parsed.error });
       return;
     }
-    const { userMessage, attachedImageCount, pilotSessionContext, conversationHistory } =
+    const { userMessage, attachedImageCount, pilotSessionContext, conversationHistory, selectedListingId } =
       parsed;
     const inventory = await deps.loadChatInventory();
     const bridgeEnvironment = resolveBridgeEnvironment();
@@ -1520,6 +1644,10 @@ export async function handleChatUserVisibleOrchestratePost(
         };
       } else if (generalBridgeRouting.kind === "selected") {
         skipRealProvider = true;
+        const selectedVehicleGrounding = resolveAuthoritativeSelectedVehicleContext(
+          selectedListingId,
+          inventory
+        );
         const generalBridgeTurn = await executeChatV2V3GeneralBridgeTurn({
           authenticatedActorRef: auth.uid,
           userMessage,
@@ -1531,6 +1659,7 @@ export async function handleChatUserVisibleOrchestratePost(
           environment: bridgeEnvironment,
           runChatV3Conversation: deps.runChatV3GeneralBridge,
           now: deps.now,
+          authoritativeVehicleContext: selectedVehicleGrounding.context,
         });
         const userVisibleText =
           generalBridgeTurn.kind === "success" ||
@@ -1552,7 +1681,13 @@ export async function handleChatUserVisibleOrchestratePost(
             conversationBrainStatus
           ),
         };
-        laneEvidence = generalLaneEvidence();
+        laneEvidence = {
+          ...generalLaneEvidence(),
+          ...selectedVehicleGroundingLaneEvidence({
+            requested: selectedListingId != null && selectedListingId !== "",
+            outcome: selectedVehicleGrounding.outcome,
+          }),
+        };
       } else {
         const runLegacy =
           deps.runLegacyOrchestration ?? orchestrateUserVisibleChatForTrustedAuth;
