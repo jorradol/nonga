@@ -11,8 +11,10 @@
  * and the Vehicle Workspace opens as an overlay sheet. No horizontal overflow.
  * Free-drag resizing is desktop-only.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
+import { useAppStore } from "../../store";
+import type { ChatCarCardData } from "../../types";
 import { ChatV2Conversation } from "./ChatV2Conversation";
 import { ChatV2MobileVehicleSheet } from "./ChatV2MobileVehicleSheet";
 import { ChatV2Sidebar } from "./ChatV2Sidebar";
@@ -22,7 +24,9 @@ import { useChatV2PanelResize } from "./adapters/useChatV2PanelResize";
 
 export function ChatV2Shell() {
   const { isGenerating } = useChatContext();
-  const { workspace, status } = useChatV2Presentation();
+  const cars = useAppStore((s) => s.cars);
+  const fetchCars = useAppStore((s) => s.fetchCars);
+  const { workspace, status, openRailDiscoveryVehicle } = useChatV2Presentation();
   // Drawer state (<1024px only). Closed by default; never used at lg+.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Desktop collapse state (lg+ only). Sidebar is EXPANDED by default and
@@ -42,6 +46,19 @@ export function ChatV2Shell() {
   const toggleSidebarCollapsed = useCallback(() => {
     setSidebarCollapsed((prev) => !prev);
   }, []);
+
+  useEffect(() => {
+    if (cars.length === 0) {
+      void fetchCars();
+    }
+  }, [cars.length, fetchCars]);
+
+  const handleRailDiscoverySelect = useCallback(
+    (input: { card: ChatCarCardData }) => {
+      openRailDiscoveryVehicle(input.card);
+    },
+    [openRailDiscoveryVehicle]
+  );
 
   return (
     <div
@@ -76,6 +93,7 @@ export function ChatV2Shell() {
         resizeStep={panelResize.resizeStep}
         resizeLargeStep={panelResize.resizeLargeStep}
         onResizeWidth={panelResize.setSidebarWidth}
+        onRailDiscoverySelect={handleRailDiscoverySelect}
       />
 
       <ChatV2Conversation

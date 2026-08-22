@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useChatContext } from "../../contexts/chat/ChatContext";
 import { useAppStore } from "../../store";
+import type { Car, ChatCarCardData } from "../../types";
 import { useChatStore } from "../../stores/chat/chatStore";
 import {
   addRecentlyViewedCarId,
@@ -19,11 +20,17 @@ import { LISTING_PLACEHOLDER_IMAGE } from "../../utils/listingImages";
 interface ChatSidebarNewCarsSliderProps {
   collapsed: boolean;
   onMobileSidebarClose?: () => void;
+  /** V.2 discovery rail — opens workspace selection without AI message injection. */
+  onDiscoverySelect?: (input: {
+    readonly car: Car;
+    readonly card: ChatCarCardData;
+  }) => void;
 }
 
 export function ChatSidebarNewCarsSlider({
   collapsed,
   onMobileSidebarClose,
+  onDiscoverySelect,
 }: ChatSidebarNewCarsSliderProps) {
   const cars = useAppStore((s) => s.cars);
   const slides = useMemo(() => buildSidebarNewCarsQueue(cars), [cars]);
@@ -96,6 +103,19 @@ export function ChatSidebarNewCarsSlider({
     const car = cars.find((c) => c.id === current.id);
     if (!car) return;
 
+    if (onDiscoverySelect) {
+      const card = buildSidebarCarCardFromCar(car);
+      if (activeSessionId) {
+        saveLastSelectedCarId(car.id, activeSessionId);
+        addRecentlyViewedCarId(car.id);
+      }
+      onDiscoverySelect({ car, card });
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        onMobileSidebarClose?.();
+      }
+      return;
+    }
+
     let sessionId = activeSessionId;
     if (!sessionId) {
       sessionId = await createNewChat();
@@ -119,6 +139,7 @@ export function ChatSidebarNewCarsSlider({
     createNewChat,
     current,
     isGenerating,
+    onDiscoverySelect,
     onMobileSidebarClose,
     selectSession,
   ]);

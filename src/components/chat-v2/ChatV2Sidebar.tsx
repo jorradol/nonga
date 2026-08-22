@@ -30,6 +30,7 @@ import { useAppStore } from "../../store";
 import ProfileAvatar from "../profile/ProfileAvatar";
 import AccountProfileMenu from "../profile/AccountProfileMenu";
 import { ChatV2ResizeHandle } from "./ChatV2ResizeHandle";
+import { ChatSidebarNewCarsSlider } from "../chat/ChatSidebarNewCarsSlider";
 import { useChatV2FocusTrap } from "./adapters/useChatV2FocusTrap";
 import { CHAT_V2_SIDEBAR_INLINE_MEDIA_QUERY } from "./adapters/useChatV2Presentation";
 import {
@@ -37,6 +38,7 @@ import {
   CHAT_V2_SIDEBAR_WIDTH_MAX,
   CHAT_V2_SIDEBAR_WIDTH_MIN,
 } from "./panelWidths";
+import type { Car, ChatCarCardData } from "../../types";
 
 function shortRoleLabel(role: string): string {
   switch (role) {
@@ -199,6 +201,10 @@ interface ChatV2SidebarProps {
   resizeStep?: number;
   resizeLargeStep?: number;
   onResizeWidth?: (next: number) => void;
+  onRailDiscoverySelect?: (input: {
+    readonly car: Car;
+    readonly card: ChatCarCardData;
+  }) => void;
 }
 
 export function ChatV2Sidebar({
@@ -215,6 +221,7 @@ export function ChatV2Sidebar({
   resizeStep,
   resizeLargeStep,
   onResizeWidth,
+  onRailDiscoverySelect,
 }: ChatV2SidebarProps) {
   const {
     sessions,
@@ -310,6 +317,14 @@ export function ChatV2Sidebar({
           </span>
         </button>
       </div>
+
+      {onRailDiscoverySelect && (
+        <ChatSidebarNewCarsSlider
+          collapsed={false}
+          onMobileSidebarClose={closeIfDrawer}
+          onDiscoverySelect={onRailDiscoverySelect}
+        />
+      )}
 
       <nav
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2.5 pb-3 space-y-1 scrollbar-thin"
@@ -449,6 +464,12 @@ export function ChatV2Sidebar({
               </span>
             )}
           </span>
+          {onRailDiscoverySelect && (
+            <ChatSidebarNewCarsSlider
+              collapsed
+              onDiscoverySelect={onRailDiscoverySelect}
+            />
+          )}
         </div>
       )}
 

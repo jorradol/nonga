@@ -75,6 +75,8 @@ export interface ChatV2WorkspaceState {
 export interface ChatV2Presentation {
   workspace: ChatV2WorkspaceState;
   status: ChatV2ActivityStatus;
+  /** Discovery rail selection — isolated from room Search carCards. */
+  openRailDiscoveryVehicle: (card: ChatCarCardData) => void;
 }
 
 function useMediaQuery(query: string): boolean {
@@ -196,15 +198,14 @@ export function useChatV2Presentation(): ChatV2Presentation {
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [railDiscoveryVehicle, setRailDiscoveryVehicle] =
+    useState<ChatCarCardData | null>(null);
   const sheetReturnFocusRef = useRef<HTMLElement | null>(null);
   // Tracks which result set we already auto-expanded for (mirrors D1 panel).
   // User collapse is respected until a NEW sourceMessageId arrives.
   const lastAutoExpandMessageIdRef = useRef<string | null>(null);
 
-  // discoveredVehicles = structured carCards of the CURRENT conversation only.
-  // Reuses the D1 trusted derivation (stable listing IDs, dedupe, latest AI
-  // message wins). Switching to a session without results clears the list.
-  const { vehicles, hasMoreCars, sourceMessageId } = useMemo(
+  const discovered = useMemo(
     () => deriveDiscoveredVehicles(currentMessages),
     [currentMessages]
   );
@@ -214,8 +215,41 @@ export function useChatV2Presentation(): ChatV2Presentation {
   useEffect(() => {
     setIsSheetOpen(false);
     setIsCollapsed(false);
+    setRailDiscoveryVehicle(null);
     lastAutoExpandMessageIdRef.current = null;
   }, [activeSessionId]);
+
+  const openRailDiscoveryVehicle = useCallback((card: ChatCarCardData) => {
+    if (!isTrustedVehicleCard(card)) return;
+    setRailDiscoveryVehicle(card);
+    setIsCollapsed(false);
+    if (activeSessionId) {
+      saveLastSelectedCarId(card.id, activeSessionId);
+      bumpSelectionRevision();
+    }
+    if (window.matchMedia(CHAT_V2_DESKTOP_MEDIA_QUERY).matches) {
+      return;
+    }
+    sheetReturnFocusRef.current =
+      (document.activeElement as HTMLElement | null) ?? null;
+    setIsSheetOpen(true);
+  }, [activeSessionId]);
+
+  // Room Search results take precedence over a prior rail preview.
+  useEffect(() => {
+    if (!discovered.sourceMessageId || discovered.vehicles.length === 0) return;
+    setRailDiscoveryVehicle(null);
+  }, [discovered.sourceMessageId, discovered.vehicles.length]);
+
+  const vehicles = useMemo(() => {
+    if (railDiscoveryVehicle) return [railDiscoveryVehicle];
+    return discovered.vehicles;
+  }, [railDiscoveryVehicle, discovered.vehicles]);
+
+  const sourceMessageId = railDiscoveryVehicle
+    ? null
+    : discovered.sourceMessageId;
+  const hasMoreCars = railDiscoveryVehicle ? false : discovered.hasMoreCars;
 
   // Auto-expand the desktop column when a NEW trusted result set arrives.
   // Empty → results: panel must appear without a refresh.
@@ -277,5 +311,6 @@ export function useChatV2Presentation(): ChatV2Presentation {
       closeSheet,
     },
     status,
+    openRailDiscoveryVehicle,
   };
 }

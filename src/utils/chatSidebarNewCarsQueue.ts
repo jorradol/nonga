@@ -39,14 +39,38 @@ export function carToChatInventoryCar(car: Car): ChatInventoryCar {
     ownerName: car.ownerName,
     isSold: car.isSold,
     listingStatus: car.listingStatus,
+    saleStatus: car.saleStatus,
   };
 }
 
-export function isPublishedCarWithRealImage(car: Car): boolean {
+/**
+ * Fail-closed marketplace visibility for the sidebar discovery rail.
+ * Source: useAppStore.cars (GET /api/cars → marketplace inventory).
+ */
+export function isSidebarNewCarSaleReady(car: Car): boolean {
+  if (!car || typeof car.id !== "string" || car.id.trim().length === 0) {
+    return false;
+  }
   if (car.isSold) return false;
-  if (car.listingStatus === "hidden") return false;
+  if (car.listingStatus === "hidden" || car.listingStatus === "pending_review") {
+    return false;
+  }
+  if (car.saleStatus === "pending_sale" || car.saleStatus === "sold") {
+    return false;
+  }
+  if (
+    car.listingStatus != null &&
+    car.listingStatus !== "" &&
+    car.listingStatus !== "published"
+  ) {
+    return false;
+  }
   const inv = carToChatInventoryCar(car);
   return resolveChatListingImageUrls(inv).length > 0;
+}
+
+export function isPublishedCarWithRealImage(car: Car): boolean {
+  return isSidebarNewCarSaleReady(car);
 }
 
 /** Newest first; falls back to API order when createdAt is missing/invalid. */
@@ -66,14 +90,16 @@ export function sortCarsByRecency(cars: readonly Car[]): Car[] {
 export function buildSidebarNewCarsQueue(
   cars: readonly Car[]
 ): SidebarNewCarSlide[] {
-  const withImages = sortCarsByRecency(cars.filter(isPublishedCarWithRealImage));
+  const withImages = sortCarsByRecency(cars.filter(isSidebarNewCarSaleReady));
   const slides: SidebarNewCarSlide[] = [];
+  const seenIds = new Set<string>();
   for (const car of withImages) {
-    if (slides.length >= SIDEBAR_NEW_CARS_QUEUE_MAX) break;
+    if (seenIds.has(car.id)) continue;
     const inv = carToChatInventoryCar(car);
     const urls = resolveChatListingImageUrls(inv);
     const imageUrl = urls[0];
     if (!imageUrl) continue;
+    seenIds.add(car.id);
     slides.push({
       id: car.id,
       imageUrl,
@@ -81,6 +107,7 @@ export function buildSidebarNewCarsQueue(
       model: car.model,
       year: car.year,
     });
+    if (slides.length >= SIDEBAR_NEW_CARS_QUEUE_MAX) break;
   }
   return slides;
 }
