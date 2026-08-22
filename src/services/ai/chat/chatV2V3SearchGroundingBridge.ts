@@ -41,7 +41,6 @@ import {
   buildSearchGroundingVehicleContext,
   looksLikeSearchGroundingJsonEnvelope,
   orderSearchGroundingCarCards,
-  orderSearchGroundingListings,
   renderSearchVehicleSectionsMarkdown,
   renderZeroResultSearchMarkdown,
   validateSearchVehicleSections,
@@ -548,91 +547,103 @@ function resolveGroundedSearchDisplay(input: {
     });
   };
 
-  if (!successText || leaked) {
+  if (leaked) {
     return readableFallback(
       resolveMissingOrLeakedDiagnostic({
         response: input.response,
-        leaked,
+        leaked: true,
         successTextPresent: Boolean(successText),
       })
     );
   }
 
-  if (!sections) {
-    return readableFallback({
-      searchCompositionFallbackReason: "composition-validation-failed",
-      structuredOutputParseStatus:
-        readChatV3SearchCompositionBoundaryDiagnostic(input.response)
-          ?.structuredOutputParseStatus ?? "plain-text",
-      searchCompositionTextPresent: true,
-      searchCompositionValidationCode: "invalid-listing-ids",
+  // Adaptive: structured metadata may carry an intentionally short/empty narrative.
+  // Do not treat empty success text as style failure when sections are present.
+  if (sections) {
+    const validated = validateSearchVehicleSections({
+      sections,
+      packet: input.packet,
     });
-  }
+    if (validated.ok === false) {
+      const mapped = mapCompositionValidation(validated.reason);
+      return readableFallback({
+        searchCompositionFallbackReason: mapped.fallbackReason,
+        structuredOutputParseStatus:
+          readChatV3SearchCompositionBoundaryDiagnostic(input.response)
+            ?.structuredOutputParseStatus ?? "structured",
+        searchCompositionTextPresent: Boolean(successText),
+        searchCompositionValidationCode: mapped.validationCode,
+      });
+    }
 
-  const validated = validateSearchVehicleSections({
-    sections,
-    packet: input.packet,
-  });
-  if (validated.ok === false) {
-    const mapped = mapCompositionValidation(validated.reason);
-    return readableFallback({
-      searchCompositionFallbackReason: mapped.fallbackReason,
-      structuredOutputParseStatus:
-        readChatV3SearchCompositionBoundaryDiagnostic(input.response)
-          ?.structuredOutputParseStatus ?? "structured",
-      searchCompositionTextPresent: true,
-      searchCompositionValidationCode: mapped.validationCode,
-    });
-  }
+    const accepted = withPresentationMode(
+      {
+        ...acceptedCompositionDiagnostic(input.response),
+        searchCountClaimDisposition: validated.countClaimDisposition,
+        searchCompositionTextPresent:
+          Boolean(validated.introText) ||
+          Boolean(validated.closingText) ||
+          validated.vehicleAnalyses.some((item) => Boolean(item.analysisText)),
+      },
+      zero ? "zero-result" : "vehicle-sections"
+    );
 
-  const accepted = withPresentationMode(
-    {
-      ...acceptedCompositionDiagnostic(input.response),
-      searchCountClaimDisposition: validated.countClaimDisposition,
-    },
-    zero ? "zero-result" : "vehicle-sections"
-  );
+    if (zero) {
+      return successOutcome({
+        text: renderZeroResultSearchMarkdown({
+          introText: validated.introText,
+          closingText: validated.closingText,
+        }),
+        carCards: [],
+        usedDeterministicFallback: false,
+        displayOrderClassification: "zero-result",
+        structuredOrderValid: true,
+        validatedToolResultListingIdCount: 0,
+        marketplaceSearchExecutionCount,
+        diagnostic: accepted,
+      });
+    }
 
-  if (zero) {
+    const listingsById = new Map(
+      input.packet.displayedListings.map((listing) => [listing.id, listing])
+    );
     return successOutcome({
-      text: renderZeroResultSearchMarkdown({
+      text: renderSearchVehicleSectionsMarkdown({
         introText: validated.introText,
         closingText: validated.closingText,
+        vehicleAnalyses: validated.vehicleAnalyses,
+        listingsById,
       }),
-      carCards: [],
+      carCards: orderSearchGroundingCarCards(
+        input.canonicalCards,
+        validated.orderedListingIds
+      ),
       usedDeterministicFallback: false,
-      displayOrderClassification: "zero-result",
+      displayOrderClassification: "structured-accepted",
       structuredOrderValid: true,
-      validatedToolResultListingIdCount: 0,
+      validatedToolResultListingIdCount: validatedCount,
       marketplaceSearchExecutionCount,
       diagnostic: accepted,
     });
   }
 
-  const orderedListings = orderSearchGroundingListings(
-    input.packet.displayedListings,
-    validated.orderedListingIds
-  );
-  const analysesByListingId = new Map(
-    validated.vehicleAnalyses.map((item) => [item.listingId, item.analysisText])
-  );
-  return successOutcome({
-    text: renderSearchVehicleSectionsMarkdown({
-      introText: validated.introText,
-      closingText: validated.closingText,
-      orderedListings,
-      analysesByListingId,
-    }),
-    carCards: orderSearchGroundingCarCards(
-      input.canonicalCards,
-      validated.orderedListingIds
-    ),
-    usedDeterministicFallback: false,
-    displayOrderClassification: "structured-accepted",
-    structuredOrderValid: true,
-    validatedToolResultListingIdCount: validatedCount,
-    marketplaceSearchExecutionCount,
-    diagnostic: accepted,
+  if (!successText) {
+    return readableFallback(
+      resolveMissingOrLeakedDiagnostic({
+        response: input.response,
+        leaked: false,
+        successTextPresent: false,
+      })
+    );
+  }
+
+  return readableFallback({
+    searchCompositionFallbackReason: "composition-validation-failed",
+    structuredOutputParseStatus:
+      readChatV3SearchCompositionBoundaryDiagnostic(input.response)
+        ?.structuredOutputParseStatus ?? "plain-text",
+    searchCompositionTextPresent: true,
+    searchCompositionValidationCode: "invalid-listing-ids",
   });
 }
 

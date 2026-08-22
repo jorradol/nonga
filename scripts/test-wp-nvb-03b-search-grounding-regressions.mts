@@ -317,12 +317,21 @@ assertNotIncludes(
   files.compose,
   "SEARCH_SERVER_OWNED_NEUTRAL_INTRO"
 );
+assertNotIncludes(
+  "adaptive appendix no longer forces complete analyses",
+  files.compose,
+  "ครบทุกคัน"
+);
 assertTruthy(
   "count-claim disposition is Search-owned",
   files.compose.includes("SEARCH_COUNT_CLAIM_DISPOSITIONS") &&
     files.compose.includes("stripIncorrectAggregateCountClaims") &&
     files.bridge.includes("searchCountClaimDisposition") &&
     files.server.includes("searchCountClaimDisposition")
+);
+assertTruthy(
+  "adaptive narrative subset validator present",
+  files.compose.includes("validateSearchNarrativeAnalysisListingIds")
 );
 assertNotIncludes(
   "General bridge omits Search count-claim disposition",

@@ -346,16 +346,51 @@ function joinMarkdownBlocks(blocks: readonly string[]): string {
 export function renderSearchVehicleSectionsMarkdown(input: {
   readonly introText: string;
   readonly closingText: string;
-  readonly orderedListings: readonly SearchGroundingListingFacts[];
-  readonly analysesByListingId: ReadonlyMap<string, string>;
+  /**
+   * Adaptive narrative only: render sections for analyses that have text.
+   * Card order remains authoritative on the Server card set, not this list.
+   */
+  readonly vehicleAnalyses?: readonly SearchVehicleAnalysis[];
+  readonly listingsById?: ReadonlyMap<string, SearchGroundingListingFacts>;
+  /** @deprecated Prefer vehicleAnalyses + listingsById for adaptive narrative. */
+  readonly orderedListings?: readonly SearchGroundingListingFacts[];
+  /** @deprecated Prefer vehicleAnalyses + listingsById for adaptive narrative. */
+  readonly analysesByListingId?: ReadonlyMap<string, string>;
 }): string {
-  const sections = input.orderedListings.map((listing, index) =>
-    renderTrustedVehicleSection({
-      index: index + 1,
-      listing,
-      analysisText: input.analysesByListingId.get(listing.id),
-    })
-  );
+  const sections: string[] = [];
+  if (input.vehicleAnalyses && input.listingsById) {
+    let index = 0;
+    for (const item of input.vehicleAnalyses) {
+      const analysis = prepareSearchNarrativeForMarkdown(item.analysisText);
+      if (!analysis) continue;
+      const listing = input.listingsById.get(item.listingId);
+      if (!listing) continue;
+      index += 1;
+      sections.push(
+        renderTrustedVehicleSection({
+          index,
+          listing,
+          analysisText: analysis,
+        })
+      );
+    }
+  } else {
+    const orderedListings = input.orderedListings ?? [];
+    const analysesByListingId = input.analysesByListingId ?? new Map<string, string>();
+    for (const listing of orderedListings) {
+      const analysis = prepareSearchNarrativeForMarkdown(
+        analysesByListingId.get(listing.id) ?? ""
+      );
+      if (!analysis) continue;
+      sections.push(
+        renderTrustedVehicleSection({
+          index: sections.length + 1,
+          listing,
+          analysisText: analysis,
+        })
+      );
+    }
+  }
   return joinMarkdownBlocks([
     prepareSearchNarrativeForMarkdown(input.introText),
     ...sections,
@@ -422,10 +457,13 @@ export function buildSearchGroundingAppendix(packet: SearchGroundingPacket): str
     "ห้ามอ้างว่าบันทึกความจำถาวรแล้ว",
     "ถ้าข้อเท็จจริงไม่มีในรายการ ห้ามพูดถึงข้อเท็จจริงนั้น",
     "ส่งผลลัพธ์เป็น JSON ตาม schema เท่านั้น",
-    "introText คือบทนำภาษาไทยตามธรรมชาติ ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
-    "vehicleAnalyses คือลำดับการแสดงผลเดียว ทั้งหัวข้อรถและการ์ด ต้องใช้ listingId จาก trustedListings ให้ครบทุกคัน ไม่ซ้ำ ไม่เกิน 10 และห้ามเพิ่มคันที่ไม่มีในรายการ",
-    "analysisText ของแต่ละคันเป็นการวิเคราะห์ประกอบการตัดสินใจ ห้ามตั้งชื่อรถใหม่ ห้ามเปลี่ยนรุ่นย่อย ห้ามระบุราคาหรือเลขไมล์ซ้ำเป็นข้อเท็จจริง และห้ามแต่งสเปกที่ไม่มีใน trustedListings",
-    "closingText คือบทปิดหรือคำแนะนำตามธรรมชาติ ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
+    "เลือก presentation ตามคำขอผู้ใช้ได้เอง: สั้น ละเอียด เปรียบเทียบ แนะนำตามบริบท หรือขอดูรถเฉย ๆ",
+    "introText เป็นบทนำภาษาไทยตามธรรมชาติ ว่างได้เมื่อไม่จำเป็น ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
+    "vehicleAnalyses เป็นอาเรย์ว่างได้ หรือมีเฉพาะคันที่ต้องการอธิบาย ไม่ต้องครบทุก listing; listingId ต้องมาจาก trustedListings เท่านั้น ไม่ซ้ำ ไม่เกิน 10 และห้ามเพิ่มคันที่ไม่มีในรายการ",
+    "analysisText ของแต่ละรายการเป็นการวิเคราะห์ประกอบการตัดสินใจเมื่อจำเป็น ห้ามตั้งชื่อรถใหม่ ห้ามเปลี่ยนรุ่นย่อย ห้ามระบุราคาหรือเลขไมล์ซ้ำเป็นข้อเท็จจริง และห้ามแต่งสเปกที่ไม่มีใน trustedListings",
+    "closingText เป็นบทปิดหรือคำถามต่อเนื่องได้ตามบริบท ว่างได้เมื่อไม่จำเป็น ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
+    "การ์ดและลำดับรถมาจาก Server อยู่แล้ว ไม่ต้องเล่าซ้ำทุกคันเมื่อผู้ใช้ขอดูรถเฉย ๆ หรือขอสั้น ๆ",
+    "เมื่อเป็นคำขอ 'ดูเพิ่ม' ห้ามอธิบายผลหน้าก่อนซ้ำทั้งก้อน",
     "เมื่อ displayedCount เป็น 0 ให้ส่ง vehicleAnalyses เป็นอาเรย์ว่าง พร้อม introText ที่บอกตามจริงว่าไม่พบรถที่ตรงในรอบนี้ โดยไม่กล่าวว่าตลาดทั้งหมดว่าง",
     `trustedListings=${JSON.stringify(listings)}`,
   ].join("\n");
@@ -821,15 +859,27 @@ export function validateSearchVehicleSections(input: {
   if (!Array.isArray(analyses)) {
     return { ok: false, reason: "invalid-listing-ids" };
   }
-  if (!intro) {
-    return { ok: false, reason: "empty-text" };
+
+  // Adaptive: non-zero Search may omit intro/closing/analyses.
+  // Zero-result still needs an honest no-match cue when intro is present;
+  // empty intro on zero-result falls through to deterministic no-match.
+  if (input.packet.displayedCount === 0) {
+    if (analyses.length !== 0) {
+      return { ok: false, reason: "invalid-listing-ids" };
+    }
+    if (!intro) {
+      return { ok: false, reason: "empty-text" };
+    }
+    if (!SEARCH_ZERO_RESULT_NO_MATCH_CUE.test(intro)) {
+      return { ok: false, reason: "empty-text" };
+    }
   }
 
-  const orderCheck = validateSearchGroundingOrderedListingIds({
-    orderedListingIds: analyses.map((item) => item.listingId),
+  const narrativeIdCheck = validateSearchNarrativeAnalysisListingIds({
+    analysisListingIds: analyses.map((item) => item.listingId),
     returnedListingIds: listingIds,
   });
-  if (!orderCheck.ok) {
+  if (!narrativeIdCheck.ok) {
     return { ok: false, reason: "invalid-listing-ids" };
   }
 
@@ -839,20 +889,11 @@ export function validateSearchVehicleSections(input: {
   ) {
     return { ok: false, reason: "unsupported-listing-claim" };
   }
-  if (countTrustedIdentitiesInText(intro, input.packet.displayedListings) >= 2) {
+  if (intro && countTrustedIdentitiesInText(intro, input.packet.displayedListings) >= 2) {
     return { ok: false, reason: "unsupported-listing-claim" };
   }
-  if (countTrustedIdentitiesInText(closing, input.packet.displayedListings) >= 2) {
+  if (closing && countTrustedIdentitiesInText(closing, input.packet.displayedListings) >= 2) {
     return { ok: false, reason: "unsupported-listing-claim" };
-  }
-
-  if (input.packet.displayedCount === 0) {
-    if (analyses.length !== 0) {
-      return { ok: false, reason: "invalid-listing-ids" };
-    }
-    if (!SEARCH_ZERO_RESULT_NO_MATCH_CUE.test(intro)) {
-      return { ok: false, reason: "empty-text" };
-    }
   }
 
   const factsById = new Map(
@@ -862,7 +903,8 @@ export function validateSearchVehicleSections(input: {
   for (const item of analyses) {
     const analysisText = normalizeSearchNarrativeWhitespace(item.analysisText);
     if (!analysisText) {
-      return { ok: false, reason: "empty-text" };
+      // Empty analysis entries are omitted — not a style failure.
+      continue;
     }
     if (textContainsRawListingId(analysisText, listingIds)) {
       return { ok: false, reason: "unsupported-listing-claim" };
@@ -909,16 +951,18 @@ export function validateSearchVehicleSections(input: {
     closingText = closingStrip.text;
     closingReplaced = closingStrip.changed;
 
-    renderedAnalyses = acceptedAnalyses.map((item) => {
-      const analysisStrip = stripIncorrectAggregateCountClaims(
-        item.analysisText,
-        authoritativeTotal
-      );
-      if (analysisStrip.changed) {
-        analysisRejected = true;
-      }
-      return { listingId: item.listingId, analysisText: analysisStrip.text };
-    });
+    renderedAnalyses = acceptedAnalyses
+      .map((item) => {
+        const analysisStrip = stripIncorrectAggregateCountClaims(
+          item.analysisText,
+          authoritativeTotal
+        );
+        if (analysisStrip.changed) {
+          analysisRejected = true;
+        }
+        return { listingId: item.listingId, analysisText: analysisStrip.text };
+      })
+      .filter((item) => item.analysisText.length > 0);
   }
 
   const composed = [
@@ -928,17 +972,22 @@ export function validateSearchVehicleSections(input: {
   ]
     .filter(Boolean)
     .join("\n\n");
-  const grounded = validateSearchGroundingComposition({
-    text: composed,
-    packet: input.packet,
-  });
-  if (grounded.ok === false) {
-    return { ok: false, reason: grounded.reason };
+
+  // Adaptive empty narrative is allowed when cards still carry the result set.
+  if (composed) {
+    const grounded = validateSearchGroundingComposition({
+      text: composed,
+      packet: input.packet,
+    });
+    if (grounded.ok === false) {
+      return { ok: false, reason: grounded.reason };
+    }
   }
 
   return {
     ok: true,
-    orderedListingIds: orderCheck.orderedListingIds,
+    // Card order remains the authoritative ToolResult listing set.
+    orderedListingIds: listingIds,
     introText,
     closingText,
     vehicleAnalyses: renderedAnalyses,
@@ -1070,7 +1119,7 @@ export function unwrapSearchGroundingProviderContent(
   const introRaw = record.introText;
   const closingRaw = record.closingText;
   const analyses = parseVehicleAnalyses(record.vehicleAnalyses);
-  if (typeof introRaw !== "string" || !introRaw.trim()) {
+  if (typeof introRaw !== "string") {
     return { kind: "json-leak" };
   }
   if (typeof closingRaw !== "string") {
@@ -1142,6 +1191,34 @@ export function validateSearchGroundingOrderedListingIds(input: {
     }
   }
   return { ok: true, orderedListingIds: ordered };
+}
+
+/**
+ * Adaptive narrative analyses may mention a subset of returned listings.
+ * Unknown/duplicate/empty ids remain hard failures. Completeness is not required.
+ */
+export function validateSearchNarrativeAnalysisListingIds(input: {
+  readonly analysisListingIds: readonly string[];
+  readonly returnedListingIds: readonly string[];
+}): { readonly ok: true } | { readonly ok: false; readonly reason: string } {
+  const returnedSet = new Set(input.returnedListingIds);
+  if (input.analysisListingIds.length > SEARCH_GROUNDING_MAX_ORDERED_LISTING_IDS) {
+    return { ok: false, reason: "exceeds-max-10" };
+  }
+  const seen = new Set<string>();
+  for (const id of input.analysisListingIds) {
+    if (typeof id !== "string" || !id.trim()) {
+      return { ok: false, reason: "invalid-id" };
+    }
+    if (seen.has(id)) {
+      return { ok: false, reason: "duplicate-id" };
+    }
+    seen.add(id);
+    if (!returnedSet.has(id)) {
+      return { ok: false, reason: "unknown-id" };
+    }
+  }
+  return { ok: true };
 }
 
 export function orderSearchGroundingListings(

@@ -199,7 +199,7 @@ function classifySearchCompositionJsonLeak(
   }
   const record = parsed as Record<string, unknown>;
   const introRaw = record.introText;
-  if (typeof introRaw !== "string" || !introRaw.trim()) {
+  if (typeof introRaw !== "string") {
     return {
       searchCompositionFallbackReason: "structured-output-schema-mismatch",
       structuredOutputParseStatus: "schema-mismatch",
@@ -410,6 +410,38 @@ export async function runChatV3Conversation(
   const outputSafety = applyChatV3SafetyBoundary(providerContent);
   if (outputSafety.ok === false) {
     const empty = !String(providerContent ?? "").trim();
+    // Adaptive Search: empty narrative with valid structured metadata is allowed.
+    // Cards remain authoritative; do not invent a Server essay.
+    if (searchComposition && searchCompositionMetadata && empty) {
+      recordChatV3HighRiskGuardMetadata({
+        riskClasses: [],
+        remainingRiskClasses: [],
+        correctionAttempted: false,
+        correctionAccepted: false,
+        fallbackUsed: false,
+        providerErrorCategory: "none",
+      });
+      return withSearchCompositionBoundaryDiagnostic(
+        true,
+        {
+          success: true,
+          data: {
+            sliceId: CHAT_V3_CONVERSATION_SLICE_ID,
+            conversationId: request.conversationId,
+            messageId: options.createMessageId?.() ?? defaultMessageId(now),
+            content: "",
+            expertModeHint: request.expertMode,
+            providerId: providerResult.providerId,
+            searchComposition: searchCompositionMetadata,
+          },
+        },
+        {
+          searchCompositionFallbackReason: "none",
+          structuredOutputParseStatus: searchParseStatus,
+          searchCompositionTextPresent: false,
+        }
+      );
+    }
     return withSearchCompositionBoundaryDiagnostic(
       searchComposition,
       {

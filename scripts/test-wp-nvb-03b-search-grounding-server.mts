@@ -811,6 +811,9 @@ const FOUR_CARS: ChatInventoryCar[] = [
 ];
 const PATH_C_REPLY =
   "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 4 คันในรอบนี้ครับ เริ่มจาก Toyota Vios ปี 2020 แล้วตามด้วย Toyota Altis, Toyota Yaris และ Toyota Camry";
+/** Authoritative Search ToolResult / card order for FOUR_CARS fixtures. */
+const TOOL_RESULT_ORDER = ["id-a", "id-b", "id-c", "id-d"] as const;
+/** Narrative analysis order only — must not force card order. */
 const PATH_C_ORDER = ["id-c", "id-a", "id-b", "id-d"] as const;
 const PATH_C_INTRO = "เจอรถเก๋งที่ตรวจแล้วในรอบนี้ 4 คันครับ ไล่ดูทีละคันได้เลย";
 const PATH_C_INTRO_ALT = "จากรอบนี้มีรถเก๋งให้เทียบ 4 คันครับ ไล่จากตัวเลือกที่น่าดูก่อน";
@@ -1097,9 +1100,9 @@ function executeSearchWithProvider(
     assertEqual("path-c: classification accepted", turn.displayOrderClassification, "structured-accepted");
     assertEqual("path-c: presentation vehicle-sections", turn.searchPresentationMode, "vehicle-sections");
     assertEqual("path-c: structured valid", turn.structuredOrderValid, true);
-    assertEqual("path-c: card order follows structured ids", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("path-c: card order follows toolresult ids", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
     assertEqual("path-c: listing count 4", turn.carCards.length, 4);
-    assertEqual("path-c: set unchanged", [...turn.carCards.map((c) => c.id)].sort(), [...PATH_C_ORDER].sort());
+    assertEqual("path-c: set unchanged", [...turn.carCards.map((c) => c.id)].sort(), [...TOOL_RESULT_ORDER].sort());
     assertEqual("path-c: no deterministic fallback", turn.usedDeterministicFallback, false);
     assertEqual("path-c: fallback reason none", turn.searchCompositionFallbackReason, "none");
     assertEqual("path-c: validation none", turn.searchCompositionValidationCode, "none");
@@ -1186,11 +1189,14 @@ function executeSearchWithProvider(
         })
       ),
   });
-  assertEqual("missing-ids: success fallback", turn.kind, "success");
+  assertEqual("subset-analyses: success", turn.kind, "success");
   if (turn.kind === "success") {
-    assertEqual("missing-ids: classification", turn.displayOrderClassification, "deterministic-fallback");
-    assertEqual("missing-ids: canonical four", turn.carCards.length, 4);
-    assertEqual("missing-ids: presentation readable-fallback", turn.searchPresentationMode, "readable-fallback");
+    assertEqual("subset-analyses: classification", turn.displayOrderClassification, "structured-accepted");
+    assertEqual("subset-analyses: presentation", turn.searchPresentationMode, "vehicle-sections");
+    assertEqual("subset-analyses: canonical four cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
+    assertEqual("subset-analyses: not deterministic", turn.usedDeterministicFallback, false);
+    assertEqual("subset-analyses: three views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 3);
+    assertNotIncludes("subset-analyses: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
   }
 }
 
@@ -1330,7 +1336,7 @@ function executeSearchWithProvider(
     });
     const data = asSuccess(hop.body).data;
     assertEqual("http path-c: search marker", data?.conversationBrain, CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN);
-    assertEqual("http path-c: ordered cards", (data?.carCards ?? []).map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("http path-c: ordered cards", (data?.carCards ?? []).map((c) => c.id), [...TOOL_RESULT_ORDER]);
     assertEqual("http path-c: legacy never", hop.counters.legacy, 0);
     assertEqual("http path-c: search v3 once", hop.counters.searchV3, 1);
     assertEqual("http path-c: real provider never", hop.counters.realProvider, 0);
@@ -1568,7 +1574,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertIncludes("diag composition-count: remaining V3 intro kept", turn.userVisibleText, "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว");
     assertNotIncludes("diag composition-count: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
     assertEqual("diag composition-count: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
-    assertEqual("diag composition-count: ordered cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("diag composition-count: ordered cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
     assertSeparatedVehicleSections("diag composition-count", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
   }
 }
@@ -1585,7 +1591,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertEqual("diag valid-structured: presentation", turn.searchPresentationMode, "vehicle-sections");
     assertEqual("diag valid-structured: count disposition none", turn.searchCountClaimDisposition, "none");
     assertIncludes("diag valid-structured: intro kept", turn.userVisibleText, PATH_C_INTRO);
-    assertEqual("diag valid-structured: ordered cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("diag valid-structured: ordered cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
     assertEqual("diag valid-structured: not deterministic", turn.usedDeterministicFallback, false);
     assertEqual("diag valid-structured: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
     assertSeparatedVehicleSections("diag valid-structured", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
@@ -1609,7 +1615,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertEqual(`${label}: fallback none`, turn.searchCompositionFallbackReason, "none");
     assertEqual(`${label}: validation none`, turn.searchCompositionValidationCode, "none");
     assertEqual(`${label}: not deterministic`, turn.usedDeterministicFallback, false);
-    assertEqual(`${label}: cards`, turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual(`${label}: cards`, turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
     assertEqual(`${label}: four views`, (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
     assertNotIncludes(`${label}: no readable notice`, turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
     assertSeparatedVehicleSections(label, turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
@@ -1761,7 +1767,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
         "เอคัดรถที่ตรงตามเงื่อนไขที่ตรวจแล้วมาให้ในรอบนี้ครับ"
       );
       assertEqual("count-strip intro keep rest: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
-      assertEqual("count-strip intro keep rest: cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+      assertEqual("count-strip intro keep rest: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
     }
   }
 
@@ -1784,7 +1790,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
       );
       assertIncludes("count-norm closing: intro kept", turn.userVisibleText, PATH_C_INTRO);
       assertEqual("count-norm closing: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
-      assertEqual("count-norm closing: cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+      assertEqual("count-norm closing: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
       assertNotIncludes("count-norm closing: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
       assertNotIncludes(
         "count-norm closing: no server neutral intro",
@@ -1817,9 +1823,163 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
       assertIncludes("count-reject analysis: remaining analysis kept", turn.userVisibleText, "แต่คันนี้ปีใหม่กว่าในชุดนี้");
       assertEqual("count-reject analysis: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
       assertIncludes("count-reject analysis: other view kept", turn.userVisibleText, PATH_C_ANALYSES[1].analysisText);
-      assertEqual("count-reject analysis: cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+      assertEqual("count-reject analysis: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
       assertNotIncludes("count-reject analysis: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
       assertSeparatedVehicleSections("count-reject analysis", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
+    }
+  }
+}
+
+{
+  async function adaptiveTurn(
+    overrides: Partial<ChatV3SearchCompositionMetadata>,
+    userMessage = ACCEPTANCE_QUERY
+  ) {
+    return executeChatV2V3SearchGroundingTurn({
+      authenticatedActorRef: PILOT_UID,
+      userMessage,
+      inventory: FOUR_CARS,
+      readEnv: readEnvFrom(enabledEnv),
+      environment: "local",
+      runChatV3Conversation: async () =>
+        v3StructuredSuccess(pathCComposition(overrides)),
+    });
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "เจอ 4 คันครับ",
+      vehicleAnalyses: [],
+      closingText: "",
+    });
+    assertEqual("adaptive short: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive short: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("adaptive short: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
+      assertEqual("adaptive short: no views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 0);
+      assertIncludes("adaptive short: intro kept", turn.userVisibleText, "เจอ 4 คันครับ");
+      assertNotIncludes("adaptive short: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+      assertEqual("adaptive short: not deterministic", turn.usedDeterministicFallback, false);
+      assertEqual("adaptive short: disposition none", turn.searchCountClaimDisposition, "none");
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "",
+      vehicleAnalyses: [],
+      closingText: "",
+    });
+    assertEqual("adaptive empty narrative: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive empty narrative: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("adaptive empty narrative: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
+      assertEqual("adaptive empty narrative: text empty", turn.userVisibleText.trim(), "");
+      assertNotIncludes("adaptive empty narrative: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+      assertEqual("adaptive empty narrative: not deterministic", turn.usedDeterministicFallback, false);
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "ขอดูจากรายการได้เลยครับ",
+      vehicleAnalyses: [],
+      closingText: "",
+    });
+    assertEqual("adaptive view-only: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive view-only: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("adaptive view-only: no essay sections", (turn.userVisibleText.match(/^\d+\. \*\*/m) ?? []).length, 0);
+      assertEqual("adaptive view-only: cards", turn.carCards.length, 4);
+      assertNotIncludes("adaptive view-only: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "รอบนี้มีเพิ่มอีก 4 คันครับ",
+      vehicleAnalyses: [],
+      closingText: "",
+    });
+    assertEqual("adaptive load-more: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive load-more: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertIncludes("adaptive load-more: short intro", turn.userVisibleText, "รอบนี้มีเพิ่มอีก 4 คันครับ");
+      assertNotIncludes("adaptive load-more: no prior PATH_C_INTRO", turn.userVisibleText, PATH_C_INTRO);
+      assertEqual("adaptive load-more: no views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 0);
+      assertEqual("adaptive load-more: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "สรุปเทียบสองคันที่ตรงเงื่อนไข",
+      vehicleAnalyses: [
+        {
+          listingId: "id-a",
+          analysisText: "คันนี้ไมล์ต่ำกว่ารุ่นเทียบในชุดนี้",
+        },
+        {
+          listingId: "id-b",
+          analysisText: "คันนี้ราคาต่ำกว่าเมื่อเทียบในชุดนี้",
+        },
+      ],
+      closingText: "",
+    });
+    assertEqual("adaptive compare: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive compare: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("adaptive compare: two views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 2);
+      assertEqual("adaptive compare: four cards", turn.carCards.length, 4);
+      assertIncludes("adaptive compare: intro", turn.userVisibleText, "สรุปเทียบสองคันที่ตรงเงื่อนไข");
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "ถ้าเน้นใช้ในเมือง แนะนำดูคันไมล์ต่ำก่อนครับ",
+      vehicleAnalyses: [
+        {
+          listingId: "id-a",
+          analysisText: "เหมาะกับใช้ในเมืองจากไมล์และเกียร์ที่ตรวจแล้ว",
+        },
+      ],
+      closingText: "อยากให้เทียบคันอื่นต่อไหมครับ",
+    });
+    assertEqual("adaptive city: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive city: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("adaptive city: one view", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 1);
+      assertIncludes("adaptive city: closing kept", turn.userVisibleText, "อยากให้เทียบคันอื่นต่อไหมครับ");
+      assertEqual("adaptive city: cards", turn.carCards.length, 4);
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: "",
+      vehicleAnalyses: PATH_C_ANALYSES,
+      closingText: "",
+    });
+    assertEqual("adaptive empty intro: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive empty intro: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("adaptive empty intro: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
+      assertEqual("adaptive empty intro: not deterministic", turn.usedDeterministicFallback, false);
+    }
+  }
+
+  {
+    const turn = await adaptiveTurn({
+      introText: PATH_C_INTRO,
+      vehicleAnalyses: PATH_C_ANALYSES,
+      closingText: "",
+    });
+    assertEqual("adaptive empty closing: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("adaptive empty closing: accepted", turn.displayOrderClassification, "structured-accepted");
+      assertIncludes("adaptive empty closing: intro kept", turn.userVisibleText, PATH_C_INTRO);
+      assertEqual("adaptive empty closing: not deterministic", turn.usedDeterministicFallback, false);
     }
   }
 }
@@ -2018,7 +2178,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertIncludes("r1 layout: svg word not stripped", layoutTurn.userVisibleText, "svg");
     assertSeparatedVehicleSections("r1 layout", layoutTurn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
     assertNoCompetingMarkdownLayout("r1 layout", layoutTurn.userVisibleText);
-    assertEqual("r1 layout: card order", layoutTurn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual("r1 layout: card order", layoutTurn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
     assertNotIncludes("r1 layout: no vehicleAnalyses key", layoutTurn.userVisibleText, "vehicleAnalyses");
     assertNotIncludes("r1 layout: no raw json brace dump", layoutTurn.userVisibleText, '"listingId"');
     assertFalsy(
