@@ -76,7 +76,10 @@ import {
   type ChatV2V3SearchGroundingRunner,
   type ChatV2V3SearchGroundingTurnOutcome,
 } from "./chat/chatV2V3SearchGroundingBridge";
-import type { SearchDisplayOrderClassification } from "./chat/chatV2V3SearchGroundingCompose";
+import type {
+  SearchCountClaimDisposition,
+  SearchDisplayOrderClassification,
+} from "./chat/chatV2V3SearchGroundingCompose";
 import {
   CHAT_V3_USER_FACING_UNAVAILABLE,
   type SearchCompositionFallbackReason,
@@ -145,6 +148,7 @@ export interface UserVisibleRuntimeLaneEvidence {
   searchCompositionTextPresent?: boolean;
   searchCompositionValidationCode?: SearchCompositionValidationCode;
   searchPresentationMode?: SearchPresentationMode;
+  searchCountClaimDisposition?: SearchCountClaimDisposition;
 }
 
 export interface UserVisibleRuntimeAttributionDiagnostic {
@@ -192,6 +196,7 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   searchCompositionTextPresent?: boolean;
   searchCompositionValidationCode?: SearchCompositionValidationCode;
   searchPresentationMode?: SearchPresentationMode;
+  searchCountClaimDisposition?: SearchCountClaimDisposition;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
 
@@ -724,6 +729,11 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
             : {}),
           ...(lane.searchPresentationMode
             ? { searchPresentationMode: lane.searchPresentationMode }
+            : {}),
+          ...(lane.searchCountClaimDisposition
+            ? {
+                searchCountClaimDisposition: lane.searchCountClaimDisposition,
+              }
             : {}),
         }
       : {}),
@@ -1314,6 +1324,9 @@ function searchLaneEvidenceFromTurn(
       : {}),
     ...(searchTurn.searchPresentationMode
       ? { searchPresentationMode: searchTurn.searchPresentationMode }
+      : {}),
+    ...(searchTurn.searchCountClaimDisposition
+      ? { searchCountClaimDisposition: searchTurn.searchCountClaimDisposition }
       : {}),
   };
 }

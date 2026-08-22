@@ -545,6 +545,7 @@ function testSearchLaneEvidencePrivacy() {
       searchCompositionTextPresent: true,
       searchCompositionValidationCode: "none",
       searchPresentationMode: "vehicle-sections",
+      searchCountClaimDisposition: "none",
     },
   });
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
@@ -561,6 +562,7 @@ function testSearchLaneEvidencePrivacy() {
   ok("search lane text present", diagnostic.searchCompositionTextPresent === true);
   ok("search lane validation none", diagnostic.searchCompositionValidationCode === "none");
   ok("search lane presentation vehicle-sections", diagnostic.searchPresentationMode === "vehicle-sections");
+  ok("search lane count disposition none", diagnostic.searchCountClaimDisposition === "none");
   ok("search lane skipGemini", diagnostic.skipGemini === true);
   ok("search lane no legacy after search", diagnostic.legacyFallbackAfterSearchSelection === false);
   assertNoSensitiveLeakage(serialized, "search-lane");
@@ -569,6 +571,7 @@ function testSearchLaneEvidencePrivacy() {
   ok("search lane serialized event", serialized.includes("user_visible_runtime_attribution"));
   ok("search lane serialized fallback reason", serialized.includes("searchCompositionFallbackReason"));
   ok("search lane serialized presentation", serialized.includes("vehicle-sections"));
+  ok("search lane serialized count disposition", serialized.includes("searchCountClaimDisposition"));
   ok("search lane serialized no replyText", !serialized.includes("replyText"));
   ok("search lane serialized no introText", !serialized.includes("introText"));
   ok("search lane serialized no UID", !serialized.includes(FULL_UID));
@@ -615,9 +618,11 @@ function testGeneralLaneEvidenceZeros() {
   ok("general lane text present absent", diagnostic.searchCompositionTextPresent == null);
   ok("general lane validation absent", diagnostic.searchCompositionValidationCode == null);
   ok("general lane presentation absent", diagnostic.searchPresentationMode == null);
+  ok("general lane count disposition absent", diagnostic.searchCountClaimDisposition == null);
   const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
   assertNoSensitiveLeakage(serialized, "general-lane");
   ok("general lane serialized omits fallback reason", !serialized.includes("searchCompositionFallbackReason"));
+  ok("general lane serialized omits count disposition", !serialized.includes("searchCountClaimDisposition"));
 }
 
 function testSearchFallbackReasonBoundedSerialization() {
@@ -668,6 +673,7 @@ function testSearchFallbackReasonBoundedSerialization() {
   ok("fallback no replyText", !serialized.includes("replyText"));
   ok("fallback no introText", !serialized.includes("introText"));
   ok("fallback serialized presentation", serialized.includes("readable-fallback"));
+  ok("fallback omits count disposition", !serialized.includes("searchCountClaimDisposition"));
   ok("fallback no UID", !serialized.includes(FULL_UID));
   ok("fallback no listing ids", !serialized.includes("id-a"));
 }

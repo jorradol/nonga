@@ -307,5 +307,27 @@ assertNotIncludes(
   files.compose,
   "canonical-toolresult-degraded"
 );
+assertNotIncludes(
+  "blanket extractCountClaims helper removed",
+  files.compose,
+  "extractCountClaims"
+);
+assertNotIncludes(
+  "server-owned neutral intro rewrite removed",
+  files.compose,
+  "SEARCH_SERVER_OWNED_NEUTRAL_INTRO"
+);
+assertTruthy(
+  "count-claim disposition is Search-owned",
+  files.compose.includes("SEARCH_COUNT_CLAIM_DISPOSITIONS") &&
+    files.compose.includes("stripIncorrectAggregateCountClaims") &&
+    files.bridge.includes("searchCountClaimDisposition") &&
+    files.server.includes("searchCountClaimDisposition")
+);
+assertNotIncludes(
+  "General bridge omits Search count-claim disposition",
+  generalBridgeSrc,
+  "searchCountClaimDisposition"
+);
 
 console.log(`\nWP-NVB-03B regression guards passed: ${passCount}`);

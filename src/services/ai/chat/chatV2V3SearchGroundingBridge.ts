@@ -45,6 +45,7 @@ import {
   renderSearchVehicleSectionsMarkdown,
   renderZeroResultSearchMarkdown,
   validateSearchVehicleSections,
+  type SearchCountClaimDisposition,
   type SearchDisplayOrderClassification,
   type SearchGroundingPacket,
   type SearchVehicleSectionsOutput,
@@ -106,6 +107,7 @@ export type ChatV2V3SearchGroundingTurnOutcome =
       readonly searchCompositionTextPresent?: boolean;
       readonly searchCompositionValidationCode?: SearchCompositionValidationCode;
       readonly searchPresentationMode?: SearchPresentationMode;
+      readonly searchCountClaimDisposition?: SearchCountClaimDisposition;
     }
   | {
       readonly kind: "failed-closed";
@@ -281,6 +283,7 @@ type SearchCompositionDiagnosticFields = {
   readonly searchCompositionTextPresent: boolean;
   readonly searchCompositionValidationCode: SearchCompositionValidationCode;
   readonly searchPresentationMode?: SearchPresentationMode;
+  readonly searchCountClaimDisposition?: SearchCountClaimDisposition;
 };
 
 function successOutcome(input: {
@@ -583,15 +586,18 @@ function resolveGroundedSearchDisplay(input: {
   }
 
   const accepted = withPresentationMode(
-    acceptedCompositionDiagnostic(input.response),
+    {
+      ...acceptedCompositionDiagnostic(input.response),
+      searchCountClaimDisposition: validated.countClaimDisposition,
+    },
     zero ? "zero-result" : "vehicle-sections"
   );
 
   if (zero) {
     return successOutcome({
       text: renderZeroResultSearchMarkdown({
-        introText: sections.introText,
-        closingText: sections.closingText,
+        introText: validated.introText,
+        closingText: validated.closingText,
       }),
       carCards: [],
       usedDeterministicFallback: false,
@@ -608,12 +614,12 @@ function resolveGroundedSearchDisplay(input: {
     validated.orderedListingIds
   );
   const analysesByListingId = new Map(
-    sections.vehicleAnalyses.map((item) => [item.listingId, item.analysisText])
+    validated.vehicleAnalyses.map((item) => [item.listingId, item.analysisText])
   );
   return successOutcome({
     text: renderSearchVehicleSectionsMarkdown({
-      introText: sections.introText,
-      closingText: sections.closingText,
+      introText: validated.introText,
+      closingText: validated.closingText,
       orderedListings,
       analysesByListingId,
     }),

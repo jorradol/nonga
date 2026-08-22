@@ -252,6 +252,17 @@ export interface SearchVehicleSectionsOutput {
 export const SEARCH_READABLE_FALLBACK_NOTICE =
   "ระบบสามารถแสดงข้อเท็จจริงที่ตรวจแล้วของประกาศได้ แต่การวิเคราะห์โดยละเอียดจากเอไม่พร้อมใช้งานชั่วคราวครับ";
 
+export const SEARCH_COUNT_CLAIM_DISPOSITIONS = [
+  "none",
+  "intro-replaced",
+  "vehicle-analysis-rejected",
+  "closing-replaced",
+  "multiple-segments-normalized",
+] as const;
+
+export type SearchCountClaimDisposition =
+  (typeof SEARCH_COUNT_CLAIM_DISPOSITIONS)[number];
+
 export const SEARCH_ZERO_RESULT_NO_MATCH_CUE =
   /ไม่พบ|ยังไม่พบ|ไม่มี(?:รถ)?ที่ตรง|ไม่ตรงตามเงื่อนไข/;
 
@@ -447,15 +458,152 @@ function normalizeForGrounding(text: string): string {
   return String(text ?? "").replace(/\s+/g, " ").trim();
 }
 
-function extractCountClaims(text: string): number[] {
-  const counts: number[] = [];
-  const pattern = /(\d+)\s*คัน/g;
-  let match: RegExpExecArray | null = pattern.exec(text);
+const VEHICLE_COUNT_TOKEN_RE = /(\d+)\s*คัน/g;
+const MARKETPLACE_WIDE_TOTAL_RE = /ทั้งตลาด|ทั่วตลาด|ในตลาดมี|มีรถในระบบ/;
+const AGGREGATE_RESULT_COUNT_CUE_RE =
+  /พบ|เจอ|คัด|แนะนำ|ตัวเลือก|ผลลัพธ์|รถที่พบ|ทั้งหมด|ผลการค้นหา/;
+const LOCAL_VEHICLE_COUNT_WINDOW_RE =
+  /(?:เป็น)?รถ\s*\d+\s*คัน(?:สำหรับ|ของ)|อยู่แล้ว\s*\d+\s*คัน|มีรถอยู่แล้ว|คันที่\s*\d+|คันแรก|คันที่สอง|คันที่สาม/;
+
+function splitCountClaimClauses(text: string): string[] {
+  const normalized = normalizeForGrounding(text);
+  if (!normalized) return [];
+  return normalized
+    .split(/(?:ครับ|[.!?。;]|[\n\r])+/)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0);
+}
+
+function isLocalVehicleCountWindow(window: string): boolean {
+  return LOCAL_VEHICLE_COUNT_WINDOW_RE.test(window);
+}
+
+function clauseHasAggregateResultCountCue(clause: string): boolean {
+  if (AGGREGATE_RESULT_COUNT_CUE_RE.test(clause)) return true;
+  const withoutOwnership = clause.replace(/มีรถอยู่แล้ว/g, "");
+  return /(?<!ไม่)มี/.test(withoutOwnership);
+}
+
+function inspectClauseAggregateCountClaims(
+  clause: string,
+  authoritativeTotal: number
+): "ok" | "incorrect-aggregate" {
+  VEHICLE_COUNT_TOKEN_RE.lastIndex = 0;
+  let match: RegExpExecArray | null = VEHICLE_COUNT_TOKEN_RE.exec(clause);
   while (match) {
-    counts.push(Number(match[1]));
-    match = pattern.exec(text);
+    const count = Number(match[1]);
+    const index = match.index ?? 0;
+    const window = clause.slice(
+      Math.max(0, index - 24),
+      Math.min(clause.length, index + match[0].length + 24)
+    );
+    if (!isLocalVehicleCountWindow(window) && clauseHasAggregateResultCountCue(clause)) {
+      if (!Number.isFinite(count) || count !== authoritativeTotal) {
+        return "incorrect-aggregate";
+      }
+    }
+    match = VEHICLE_COUNT_TOKEN_RE.exec(clause);
   }
-  return counts;
+  return "ok";
+}
+
+function inspectSegmentAggregateCountClaims(
+  text: string,
+  authoritativeTotal: number
+): "ok" | "incorrect-aggregate" {
+  const clauses = splitCountClaimClauses(text);
+  const targets = clauses.length > 0 ? clauses : [normalizeForGrounding(text)];
+  for (const clause of targets) {
+    if (inspectClauseAggregateCountClaims(clause, authoritativeTotal) === "incorrect-aggregate") {
+      return "incorrect-aggregate";
+    }
+  }
+  return "ok";
+}
+
+/**
+ * Grounding-only repair: drop incorrect aggregate Search-total phrases/tokens.
+ * Keeps remaining V.3 wording. Never invents Server replacement prose.
+ */
+function stripIncorrectAggregateCountClaims(
+  text: string,
+  authoritativeTotal: number
+): { readonly text: string; readonly changed: boolean } {
+  const normalized = normalizeForGrounding(text);
+  if (!normalized) {
+    return { text: "", changed: false };
+  }
+  if (inspectSegmentAggregateCountClaims(normalized, authoritativeTotal) === "ok") {
+    return { text: normalized, changed: false };
+  }
+
+  const clauses = splitCountClaimClauses(normalized);
+  const targets = clauses.length > 0 ? clauses : [normalized];
+  const kept: string[] = [];
+  let changed = false;
+
+  for (const clause of targets) {
+    if (inspectClauseAggregateCountClaims(clause, authoritativeTotal) === "ok") {
+      kept.push(clause);
+      continue;
+    }
+    changed = true;
+    let cleaned = clause.replace(/ทั้งหมด\s*(\d+)\s*คัน/g, (full, rawCount: string) => {
+      const count = Number(rawCount);
+      return Number.isFinite(count) && count === authoritativeTotal ? full : "";
+    });
+    cleaned = cleaned.replace(VEHICLE_COUNT_TOKEN_RE, (full, rawCount: string, offset: number) => {
+      const count = Number(rawCount);
+      if (Number.isFinite(count) && count === authoritativeTotal) {
+        return full;
+      }
+      const window = clause.slice(
+        Math.max(0, offset - 24),
+        Math.min(clause.length, offset + full.length + 24)
+      );
+      if (isLocalVehicleCountWindow(window)) {
+        return full;
+      }
+      if (clauseHasAggregateResultCountCue(clause)) {
+        return "";
+      }
+      return full;
+    });
+    cleaned = normalizeForGrounding(cleaned);
+    if (cleaned) {
+      kept.push(cleaned);
+    }
+  }
+
+  return {
+    text: normalizeForGrounding(kept.join(" ")),
+    changed,
+  };
+}
+
+function resolveCountClaimDisposition(input: {
+  readonly introReplaced: boolean;
+  readonly closingReplaced: boolean;
+  readonly analysisRejected: boolean;
+}): SearchCountClaimDisposition {
+  const flags = [
+    input.introReplaced,
+    input.closingReplaced,
+    input.analysisRejected,
+  ].filter(Boolean).length;
+  if (flags === 0) return "none";
+  if (flags > 1) return "multiple-segments-normalized";
+  if (input.introReplaced) return "intro-replaced";
+  if (input.closingReplaced) return "closing-replaced";
+  return "vehicle-analysis-rejected";
+}
+
+function hasUnsupportedMarketplaceTotalClaim(text: string): boolean {
+  const normalized = normalizeForGrounding(text);
+  if (!normalized) return false;
+  if (MARKETPLACE_WIDE_TOTAL_RE.test(normalized)) return true;
+  const withoutBoundedAllCount = normalized.replace(/ทั้งหมด\s*\d+\s*คัน/g, "");
+  return /ทั้งหมด/.test(withoutBoundedAllCount);
 }
 
 export function validateSearchGroundingComposition(input: {
@@ -466,21 +614,8 @@ export function validateSearchGroundingComposition(input: {
   if (!text) {
     return { ok: false, reason: "empty-text" };
   }
-  if (/ทั้งหมด/.test(text)) {
+  if (hasUnsupportedMarketplaceTotalClaim(text)) {
     return { ok: false, reason: "marketplace-total-claim" };
-  }
-  if (/ทั้งตลาด|ทั่วตลาด|ในตลาดมี\s*\d+|มีรถในระบบ\s*\d+/.test(text)) {
-    return { ok: false, reason: "marketplace-total-claim" };
-  }
-
-  const counts = extractCountClaims(text);
-  for (const count of counts) {
-    if (count !== input.packet.displayedCount && count !== input.packet.returnedCount) {
-      return { ok: false, reason: "incorrect-count" };
-    }
-    if (count !== input.packet.displayedCount) {
-      return { ok: false, reason: "displayed-count-mismatch" };
-    }
   }
 
   const knownIds = new Set(input.packet.displayedListingIds);
@@ -671,12 +806,17 @@ export function validateSearchVehicleSections(input: {
   | {
       readonly ok: true;
       readonly orderedListingIds: readonly string[];
+      readonly introText: string;
+      readonly closingText: string;
+      readonly vehicleAnalyses: readonly SearchVehicleAnalysis[];
+      readonly countClaimDisposition: SearchCountClaimDisposition;
     }
   | { readonly ok: false; readonly reason: string } {
   const intro = normalizeSearchNarrativeWhitespace(input.sections.introText);
   const closing = normalizeSearchNarrativeWhitespace(input.sections.closingText);
   const analyses = input.sections.vehicleAnalyses;
   const listingIds = input.packet.returnedListingIds;
+  const authoritativeTotal = listingIds.length;
 
   if (!Array.isArray(analyses)) {
     return { ok: false, reason: "invalid-listing-ids" };
@@ -718,7 +858,7 @@ export function validateSearchVehicleSections(input: {
   const factsById = new Map(
     input.packet.displayedListings.map((listing) => [listing.id, listing])
   );
-  const analysisParts: string[] = [];
+  const acceptedAnalyses: SearchVehicleAnalysis[] = [];
   for (const item of analyses) {
     const analysisText = normalizeSearchNarrativeWhitespace(item.analysisText);
     if (!analysisText) {
@@ -740,10 +880,54 @@ export function validateSearchVehicleSections(input: {
     if (UNSUPPORTED_LISTING_CLAIM_RE.test(analysisText)) {
       return { ok: false, reason: "unsupported-listing-claim" };
     }
-    analysisParts.push(analysisText);
+    acceptedAnalyses.push({ listingId: item.listingId, analysisText });
   }
 
-  const composed = [intro, ...analysisParts, closing].filter(Boolean).join("\n\n");
+  if (hasUnsupportedMarketplaceTotalClaim(intro) || hasUnsupportedMarketplaceTotalClaim(closing)) {
+    return { ok: false, reason: "marketplace-total-claim" };
+  }
+  for (const item of acceptedAnalyses) {
+    if (hasUnsupportedMarketplaceTotalClaim(item.analysisText)) {
+      return { ok: false, reason: "marketplace-total-claim" };
+    }
+  }
+
+  let introText = intro;
+  let closingText = closing;
+  let introReplaced = false;
+  let closingReplaced = false;
+  let analysisRejected = false;
+  const normalizeCounts = input.packet.displayedCount > 0;
+  let renderedAnalyses = acceptedAnalyses;
+
+  if (normalizeCounts) {
+    const introStrip = stripIncorrectAggregateCountClaims(introText, authoritativeTotal);
+    introText = introStrip.text;
+    introReplaced = introStrip.changed;
+
+    const closingStrip = stripIncorrectAggregateCountClaims(closingText, authoritativeTotal);
+    closingText = closingStrip.text;
+    closingReplaced = closingStrip.changed;
+
+    renderedAnalyses = acceptedAnalyses.map((item) => {
+      const analysisStrip = stripIncorrectAggregateCountClaims(
+        item.analysisText,
+        authoritativeTotal
+      );
+      if (analysisStrip.changed) {
+        analysisRejected = true;
+      }
+      return { listingId: item.listingId, analysisText: analysisStrip.text };
+    });
+  }
+
+  const composed = [
+    introText,
+    ...renderedAnalyses.map((item) => item.analysisText),
+    closingText,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   const grounded = validateSearchGroundingComposition({
     text: composed,
     packet: input.packet,
@@ -752,7 +936,18 @@ export function validateSearchVehicleSections(input: {
     return { ok: false, reason: grounded.reason };
   }
 
-  return { ok: true, orderedListingIds: orderCheck.orderedListingIds };
+  return {
+    ok: true,
+    orderedListingIds: orderCheck.orderedListingIds,
+    introText,
+    closingText,
+    vehicleAnalyses: renderedAnalyses,
+    countClaimDisposition: resolveCountClaimDisposition({
+      introReplaced,
+      closingReplaced,
+      analysisRejected,
+    }),
+  };
 }
 
 function escapeRegExp(value: string): string {

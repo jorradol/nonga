@@ -577,11 +577,11 @@ assertEqual(
       packet: packet.packet,
     });
     assertEqual("grounding: marketplace total fails", badTotal.ok, false);
-    const badCount = validateSearchGroundingComposition({
-      text: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ",
+    const localCount = validateSearchGroundingComposition({
+      text: "เหมาะเป็นรถ 1 คันสำหรับครอบครัว จากข้อมูลที่ตรวจแล้ว",
       packet: packet.packet,
     });
-    assertEqual("grounding: smaller count fails", badCount.ok, false);
+    assertEqual("grounding: local 1 คัน does not fail concatenated composition", localCount.ok, true);
   }
 }
 
@@ -1370,6 +1370,7 @@ function executeSearchWithProvider(
     assertEqual("attr search: parse status structured", parsed.structuredOutputParseStatus, "structured");
     assertEqual("attr search: text present", parsed.searchCompositionTextPresent, true);
     assertEqual("attr search: validation none", parsed.searchCompositionValidationCode, "none");
+    assertEqual("attr search: count disposition none", parsed.searchCountClaimDisposition, "none");
     assertEqual("attr search: skipGemini", parsed.skipGemini, true);
     assertFalsy("attr search: no raw id-a", JSON.stringify(parsed).includes("id-a"));
     assertFalsy("attr search: no PATH_C_REPLY", JSON.stringify(parsed).includes("Vios"));
@@ -1411,6 +1412,7 @@ function executeSearchWithProvider(
     assertEqual("attr general: parse status absent", parsed.structuredOutputParseStatus, undefined);
     assertEqual("attr general: text present absent", parsed.searchCompositionTextPresent, undefined);
     assertEqual("attr general: validation absent", parsed.searchCompositionValidationCode, undefined);
+    assertEqual("attr general: count disposition absent", parsed.searchCountClaimDisposition, undefined);
     assertFalsy("attr general: no listing ids", /id-[abcd]/.test(JSON.stringify(parsed)));
   } finally {
     console.log = originalLog;
@@ -1554,9 +1556,20 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
   );
   assertEqual("diag composition-count: success", turn.kind, "success");
   if (turn.kind === "success") {
-    assertEqual("diag composition-count: reason", turn.searchCompositionFallbackReason, "composition-count-claim-invalid");
-    assertEqual("diag composition-count: code", turn.searchCompositionValidationCode, "incorrect-count");
-    assertEqual("diag composition-count: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+    assertEqual("diag composition-count: classification", turn.displayOrderClassification, "structured-accepted");
+    assertEqual("diag composition-count: presentation", turn.searchPresentationMode, "vehicle-sections");
+    assertEqual("diag composition-count: reason none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("diag composition-count: validation none", turn.searchCompositionValidationCode, "none");
+    assertEqual("diag composition-count: disposition", turn.searchCountClaimDisposition, "intro-replaced");
+    assertEqual("diag composition-count: not deterministic fallback", turn.usedDeterministicFallback, false);
+    assertNotIncludes("diag composition-count: no server neutral intro", turn.userVisibleText, "เอคัดรถที่ตรงตามเงื่อนไขที่ตรวจแล้วมาให้ในรอบนี้ครับ");
+    assertNotIncludes("diag composition-count: wrong count omitted", turn.userVisibleText, "3 คัน");
+    assertNotIncludes("diag composition-count: wrong intro omitted", turn.userVisibleText, "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ");
+    assertIncludes("diag composition-count: remaining V3 intro kept", turn.userVisibleText, "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว");
+    assertNotIncludes("diag composition-count: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+    assertEqual("diag composition-count: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
+    assertEqual("diag composition-count: ordered cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertSeparatedVehicleSections("diag composition-count", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
   }
 }
 
@@ -1570,10 +1583,244 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertEqual("diag valid-structured: reason", turn.searchCompositionFallbackReason, "none");
     assertEqual("diag valid-structured: parse", turn.structuredOutputParseStatus, "structured");
     assertEqual("diag valid-structured: presentation", turn.searchPresentationMode, "vehicle-sections");
+    assertEqual("diag valid-structured: count disposition none", turn.searchCountClaimDisposition, "none");
     assertIncludes("diag valid-structured: intro kept", turn.userVisibleText, PATH_C_INTRO);
     assertEqual("diag valid-structured: ordered cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
     assertEqual("diag valid-structured: not deterministic", turn.usedDeterministicFallback, false);
+    assertEqual("diag valid-structured: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
     assertSeparatedVehicleSections("diag valid-structured", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
+  }
+}
+
+{
+  async function countClaimTurn(
+    overrides: Partial<ChatV3SearchCompositionMetadata>
+  ) {
+    return executeSearchWithProvider(
+      fakeSearchProvider(pathCProviderJson(overrides))
+    );
+  }
+
+  function assertAcceptedFour(label: string, turn: Awaited<ReturnType<typeof executeSearchWithProvider>>) {
+    assertEqual(`${label}: success`, turn.kind, "success");
+    if (turn.kind !== "success") return;
+    assertEqual(`${label}: classification`, turn.displayOrderClassification, "structured-accepted");
+    assertEqual(`${label}: presentation`, turn.searchPresentationMode, "vehicle-sections");
+    assertEqual(`${label}: fallback none`, turn.searchCompositionFallbackReason, "none");
+    assertEqual(`${label}: validation none`, turn.searchCompositionValidationCode, "none");
+    assertEqual(`${label}: not deterministic`, turn.usedDeterministicFallback, false);
+    assertEqual(`${label}: cards`, turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    assertEqual(`${label}: four views`, (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
+    assertNotIncludes(`${label}: no readable notice`, turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+    assertSeparatedVehicleSections(label, turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
+  }
+
+  {
+    const turn = await countClaimTurn({ introText: "เอคัดมาให้ 4 คัน" });
+    assertAcceptedFour("count-accept explicit 4", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept explicit 4: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept explicit 4: intro kept", turn.userVisibleText, "เอคัดมาให้ 4 คัน");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      introText: "พบตัวเลือกที่ตรวจแล้ว 4 คัน",
+    });
+    assertAcceptedFour("count-accept found 4", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept found 4: disposition", turn.searchCountClaimDisposition, "none");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      introText: "เจอรถเก๋งที่ตรวจแล้วในรอบนี้ครับ ไล่ดูทีละคันได้เลย",
+    });
+    assertAcceptedFour("count-accept no numeric total", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept no numeric total: disposition", turn.searchCountClaimDisposition, "none");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 0 ? `${item.analysisText} รถคันแรกในชุดนี้` : item.analysisText,
+      })),
+    });
+    assertAcceptedFour("count-accept คันแรก", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept คันแรก: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept คันแรก: local kept", turn.userVisibleText, "รถคันแรก");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 1 ? `${item.analysisText} รถคันที่ 1 ในชุดนี้` : item.analysisText,
+      })),
+    });
+    assertAcceptedFour("count-accept คันที่ 1", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept คันที่ 1: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept คันที่ 1: local kept", turn.userVisibleText, "รถคันที่ 1");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 2
+            ? `${item.analysisText} เหมาะเป็นรถ 1 คันสำหรับครอบครัว`
+            : item.analysisText,
+      })),
+    });
+    assertAcceptedFour("count-accept family 1 คัน", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept family 1 คัน: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept family 1 คัน: local kept", turn.userVisibleText, "เหมาะเป็นรถ 1 คันสำหรับครอบครัว");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 3 ? `${item.analysisText} มีรถอยู่แล้ว 1 คัน` : item.analysisText,
+      })),
+    });
+    assertAcceptedFour("count-accept already own 1", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept already own 1: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept already own 1: local kept", turn.userVisibleText, "มีรถอยู่แล้ว 1 คัน");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 0
+            ? `${item.analysisText} งบซ่อมประมาณ 5,000 บาท`
+            : item.analysisText,
+      })),
+    });
+    assertAcceptedFour("count-accept repair baht", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept repair baht: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept repair baht: kept", turn.userVisibleText, "5,000 บาท");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 1
+            ? `${item.analysisText} ใช้ในเมืองวันละ 40 กม.`
+            : item.analysisText,
+      })),
+    });
+    assertAcceptedFour("count-accept daily km", turn);
+    if (turn.kind === "success") {
+      assertEqual("count-accept daily km: disposition", turn.searchCountClaimDisposition, "none");
+      assertIncludes("count-accept daily km: kept", turn.userVisibleText, "40 กม.");
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      introText:
+        "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ ไล่ดูทีละคันจากข้อเท็จจริงที่ตรวจแล้วได้เลย",
+    });
+    assertEqual("count-strip intro keep rest: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("count-strip intro keep rest: disposition", turn.searchCountClaimDisposition, "intro-replaced");
+      assertEqual("count-strip intro keep rest: fallback none", turn.searchCompositionFallbackReason, "none");
+      assertNotIncludes("count-strip intro keep rest: wrong count omitted", turn.userVisibleText, "3 คัน");
+      assertIncludes(
+        "count-strip intro keep rest: other sentence kept",
+        turn.userVisibleText,
+        "ไล่ดูทีละคันจากข้อเท็จจริงที่ตรวจแล้วได้เลย"
+      );
+      assertNotIncludes(
+        "count-strip intro keep rest: no server neutral intro",
+        turn.userVisibleText,
+        "เอคัดรถที่ตรงตามเงื่อนไขที่ตรวจแล้วมาให้ในรอบนี้ครับ"
+      );
+      assertEqual("count-strip intro keep rest: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
+      assertEqual("count-strip intro keep rest: cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      closingText: "ทั้งหมด 3 คัน จากรอบนี้ควรเทียบข้อเท็จจริงที่ตรวจแล้วครับ",
+    });
+    assertEqual("count-norm closing: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("count-norm closing: classification", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("count-norm closing: presentation", turn.searchPresentationMode, "vehicle-sections");
+      assertEqual("count-norm closing: disposition", turn.searchCountClaimDisposition, "closing-replaced");
+      assertEqual("count-norm closing: fallback none", turn.searchCompositionFallbackReason, "none");
+      assertEqual("count-norm closing: not deterministic", turn.usedDeterministicFallback, false);
+      assertNotIncludes("count-norm closing: wrong closing omitted", turn.userVisibleText, "ทั้งหมด 3 คัน");
+      assertIncludes(
+        "count-norm closing: remaining closing kept",
+        turn.userVisibleText,
+        "จากรอบนี้ควรเทียบข้อเท็จจริงที่ตรวจแล้ว"
+      );
+      assertIncludes("count-norm closing: intro kept", turn.userVisibleText, PATH_C_INTRO);
+      assertEqual("count-norm closing: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
+      assertEqual("count-norm closing: cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+      assertNotIncludes("count-norm closing: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+      assertNotIncludes(
+        "count-norm closing: no server neutral intro",
+        turn.userVisibleText,
+        "เอคัดรถที่ตรงตามเงื่อนไขที่ตรวจแล้วมาให้ในรอบนี้ครับ"
+      );
+      assertSeparatedVehicleSections("count-norm closing", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
+    }
+  }
+
+  {
+    const turn = await countClaimTurn({
+      vehicleAnalyses: PATH_C_ANALYSES.map((item, index) => ({
+        listingId: item.listingId,
+        analysisText:
+          index === 0
+            ? `ผลการค้นหามีทั้งหมด 3 คัน แต่คันนี้ปีใหม่กว่าในชุดนี้`
+            : item.analysisText,
+      })),
+    });
+    assertEqual("count-reject analysis: success", turn.kind, "success");
+    if (turn.kind === "success") {
+      assertEqual("count-reject analysis: classification", turn.displayOrderClassification, "structured-accepted");
+      assertEqual("count-reject analysis: presentation", turn.searchPresentationMode, "vehicle-sections");
+      assertEqual("count-reject analysis: disposition", turn.searchCountClaimDisposition, "vehicle-analysis-rejected");
+      assertEqual("count-reject analysis: fallback none", turn.searchCompositionFallbackReason, "none");
+      assertEqual("count-reject analysis: not deterministic", turn.usedDeterministicFallback, false);
+      assertNotIncludes("count-reject analysis: false total omitted", turn.userVisibleText, "ผลการค้นหามีทั้งหมด 3 คัน");
+      assertNotIncludes("count-reject analysis: wrong count omitted", turn.userVisibleText, "3 คัน");
+      assertIncludes("count-reject analysis: remaining analysis kept", turn.userVisibleText, "แต่คันนี้ปีใหม่กว่าในชุดนี้");
+      assertEqual("count-reject analysis: four views", (turn.userVisibleText.match(/มุมมองของเอ/g) ?? []).length, 4);
+      assertIncludes("count-reject analysis: other view kept", turn.userVisibleText, PATH_C_ANALYSES[1].analysisText);
+      assertEqual("count-reject analysis: cards", turn.carCards.map((c) => c.id), [...PATH_C_ORDER]);
+      assertNotIncludes("count-reject analysis: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+      assertSeparatedVehicleSections("count-reject analysis", turn.userVisibleText, FOUR_CARS, PATH_C_ORDER);
+    }
   }
 }
 
