@@ -34,6 +34,7 @@ import {
   NONGA_CHAT_V2_V3_SEARCH_GROUNDING_PILOT_UIDS_ENV,
   resolveChatV2V3SearchGroundingRouting,
   SEARCH_GROUNDING_NO_MATCH_TEXT,
+  SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT,
   SEARCH_GROUNDING_UNSUPPORTED_TEXT,
 } from "../src/services/ai/chat/chatV2V3SearchGroundingBridge.ts";
 import { CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN } from "../src/services/ai/chat/chatV2V3SearchGroundingClientApply.ts";
@@ -346,6 +347,26 @@ assertEqual("criteria: show-more supported", showMore.supported, true);
 assertEqual("criteria: show-more pageIndex 1", showMore.pageIndex, 1);
 assertEqual("criteria: show-more keeps brand", showMore.brand, "Toyota");
 assertEqual("criteria: show-more keeps body", showMore.bodyClass, "sedan");
+
+{
+  const orphan = parseServerDirectedSearchCriteria("ดูเพิ่ม", [], 2026);
+  assertEqual("criteria: show-more without prior unsupported", orphan.supported, false);
+  assertEqual(
+    "criteria: show-more without prior reason",
+    orphan.unsupportedReasons,
+    ["show-more-without-prior"]
+  );
+}
+
+assertEqual(
+  "routing: show-more without prior is search-selected",
+  resolveChatV2V3SearchGroundingRouting({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: "ดูเพิ่ม",
+    readEnv: readEnvFrom(enabledEnv),
+  }).kind,
+  "selected"
+);
 
 assertFalsy(
   "pilot: flag default off",
@@ -751,6 +772,34 @@ assertEqual(
 {
   const hop = await runHandler({
     uid: PILOT_UID,
+    body: { userMessage: "ดูเพิ่ม" },
+    env: searchEnv({
+      [NONGA_CHAT_V2_V3_SEARCH_GROUNDING_ENABLED_ENV]: "true",
+      [NONGA_AI_EMERGENCY_KILL_SWITCH_ENV]: "true",
+    }),
+  });
+  assertEqual("kill show-more: v3 never", hop.counters.searchV3, 0);
+  assertEqual("kill show-more: legacy never", hop.counters.legacy, 0);
+  assertEqual(
+    "kill show-more: unavailable",
+    asSuccess(hop.body).data?.userVisibleText,
+    CHAT_V3_USER_FACING_UNAVAILABLE
+  );
+  assertNotIncludes(
+    "kill show-more: not no-match",
+    asSuccess(hop.body).data?.userVisibleText ?? "",
+    SEARCH_GROUNDING_NO_MATCH_TEXT
+  );
+  assertNotIncludes(
+    "kill show-more: not context-required cue",
+    asSuccess(hop.body).data?.userVisibleText ?? "",
+    SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT
+  );
+}
+
+{
+  const hop = await runHandler({
+    uid: PILOT_UID,
     body: { userMessage: ACCEPTANCE_QUERY },
     env: enabledEnv,
     inventory: [],
@@ -787,6 +836,69 @@ assertEqual(
     "show-more http: no first-page duplicates",
     returned.filter((id) => firstPage.includes(id)),
     []
+  );
+}
+
+{
+  let v3Calls = 0;
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: "ดูเพิ่ม",
+    inventory: MIXED_INVENTORY,
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => {
+      v3Calls += 1;
+      throw new Error("v3 must not run for unsupported show-more");
+    },
+  });
+  assertEqual("show-more orphan: success", turn.kind, "success");
+  assertEqual("show-more orphan: no v3 call", v3Calls, 0);
+  if (turn.kind === "success") {
+    assertEqual(
+      "show-more orphan: classification",
+      turn.displayOrderClassification,
+      "unsupported-show-more-without-prior"
+    );
+    assertEqual(
+      "show-more orphan: cue",
+      turn.userVisibleText,
+      SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT
+    );
+    assertNotIncludes("show-more orphan: not no-match cue", turn.userVisibleText, SEARCH_GROUNDING_NO_MATCH_TEXT);
+    assertNotIncludes("show-more orphan: not ไม่พบรถ", turn.userVisibleText, "ไม่พบรถ");
+    assertNotIncludes("show-more orphan: not unavailable", turn.userVisibleText, CHAT_V3_USER_FACING_UNAVAILABLE);
+    assertEqual("show-more orphan: no cards", turn.carCards.length, 0);
+    assertEqual("show-more orphan: listing count", turn.validatedToolResultListingIdCount, 0);
+    assertEqual("show-more orphan: no marketplace tool", turn.marketplaceSearchExecutionCount, 0);
+    assertEqual("show-more orphan: not deterministic", turn.usedDeterministicFallback, false);
+    assertEqual("show-more orphan: fallback none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("show-more orphan: not zero-result presentation", turn.searchPresentationMode, undefined);
+    assertSearchDiagPrivacy(JSON.stringify(turn), "show-more orphan diag");
+  }
+}
+
+{
+  const hop = await runHandler({
+    uid: PILOT_UID,
+    body: { userMessage: "ดูเพิ่ม" },
+    env: enabledEnv,
+    inventory: MIXED_INVENTORY,
+    runV3: async () => {
+      throw new Error("http v3 must not run for unsupported show-more");
+    },
+  });
+  const data = asSuccess(hop.body).data;
+  assertEqual("show-more orphan http: marker", data?.conversationBrain, CHAT_V3_SEARCH_GROUNDED_CONVERSATION_BRAIN);
+  assertEqual("show-more orphan http: cue", data?.userVisibleText, SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT);
+  assertEqual("show-more orphan http: no cards", data?.carCards.length, 0);
+  assertEqual("show-more orphan http: no v3", hop.counters.searchV3, 0);
+  assertEqual("show-more orphan http: no legacy", hop.counters.legacy, 0);
+  assertEqual("show-more orphan http: no general", hop.counters.generalV3, 0);
+  assertNotIncludes(
+    "show-more orphan http: not no-match",
+    data?.userVisibleText ?? "",
+    SEARCH_GROUNDING_NO_MATCH_TEXT
   );
 }
 
@@ -1343,6 +1455,8 @@ function executeSearchWithProvider(
     assertEqual("zero-empty: not deterministic essay", turn.usedDeterministicFallback, false);
     assertNotIncludes("zero-empty: not unavailable", turn.userVisibleText, CHAT_V3_USER_FACING_UNAVAILABLE);
     assertNotIncludes("zero-empty: no numbered section", turn.userVisibleText, "1. **");
+    assertNotIncludes("zero-empty: cue has no ครับ", turn.userVisibleText, "ครับ");
+    assertNotIncludes("zero-empty: cue has no ค่ะ", turn.userVisibleText, "ค่ะ");
     assertSearchDiagPrivacy(JSON.stringify(turn), "zero-empty diag");
   }
 }
@@ -1440,6 +1554,46 @@ function executeSearchWithProvider(
     assertNotIncludes("zero-fabricated: no invented price", turn.userVisibleText, "370,000");
     assertNotIncludes("zero-fabricated: no commentary", turn.userVisibleText, "มุมมองของเอ");
     assertEqual("zero-fabricated: validation failed", turn.searchCompositionValidationCode, "invalid-listing-ids");
+    assertEqual("zero-fabricated: not empty-v3 cue", turn.searchCompositionFallbackReason !== "missing-success-text", true);
+    assertEqual(
+      "zero-fabricated: not unsupported show-more",
+      turn.displayOrderClassification !== "unsupported-show-more-without-prior",
+      true
+    );
+  }
+}
+
+{
+  const rawJson = JSON.stringify({
+    introText: "x",
+    vehicleAnalyses: [],
+    closingText: "",
+  });
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => v3Success(rawJson),
+  });
+  assertEqual("zero json-leak: success fail-safe", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero json-leak: classification", turn.displayOrderClassification, "zero-result");
+    assertEqual("zero json-leak: reason", turn.searchCompositionFallbackReason, "structured-output-envelope-leak");
+    assertEqual("zero json-leak: deterministic fail-safe", turn.usedDeterministicFallback, true);
+    assertEqual("zero json-leak: no cards", turn.carCards.length, 0);
+    assertFalsy("zero json-leak: no raw json", looksLikeSearchGroundingJsonEnvelope(turn.userVisibleText));
+    assertEqual(
+      "zero json-leak: not empty-v3 missing-success",
+      turn.searchCompositionFallbackReason !== "missing-success-text",
+      true
+    );
+    assertEqual(
+      "zero json-leak: not unsupported show-more",
+      turn.displayOrderClassification !== "unsupported-show-more-without-prior",
+      true
+    );
   }
 }
 
@@ -1658,10 +1812,20 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertEqual("diag provider-failure zero: reason", turn.searchCompositionFallbackReason, "provider-failure");
     assertEqual("diag provider-failure zero: no cards", turn.carCards.length, 0);
     assertEqual("diag provider-failure zero: not missing-success-text", turn.searchCompositionFallbackReason !== "missing-success-text", true);
+    assertEqual(
+      "diag provider-failure zero: not unsupported show-more",
+      turn.displayOrderClassification !== "unsupported-show-more-without-prior",
+      true
+    );
     assertNotIncludes(
       "diag provider-failure zero: not unavailable",
       turn.userVisibleText,
       CHAT_V3_USER_FACING_UNAVAILABLE
+    );
+    assertNotIncludes(
+      "diag provider-failure zero: not context-required cue",
+      turn.userVisibleText,
+      SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT
     );
   }
 }

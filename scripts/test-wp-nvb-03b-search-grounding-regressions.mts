@@ -7,6 +7,8 @@ import {
   NONGA_CHAT_V2_V3_SEARCH_GROUNDING_ENABLED_ENV,
   NONGA_CHAT_V2_V3_SEARCH_GROUNDING_PILOT_UIDS_ENV,
   resolveChatV2V3SearchGroundingRouting,
+  SEARCH_GROUNDING_NO_MATCH_TEXT,
+  SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT,
 } from "../src/services/ai/chat/chatV2V3SearchGroundingBridge.ts";
 import {
   NONGA_CHAT_V2_V3_GENERAL_BRIDGE_ENABLED_ENV,
@@ -156,6 +158,16 @@ assertEqual(
   resolveChatV2V3SearchGroundingRouting({
     authenticatedActorRef: SEARCH_PILOT,
     userMessage: SEARCH_MESSAGE,
+    readEnv: readEnv(env()),
+  }).kind,
+  "selected"
+);
+
+assertEqual(
+  "show-more without prior still search-selected",
+  resolveChatV2V3SearchGroundingRouting({
+    authenticatedActorRef: SEARCH_PILOT,
+    userMessage: "ดูเพิ่ม",
     readEnv: readEnv(env()),
   }).kind,
   "selected"
@@ -346,6 +358,32 @@ assertTruthy(
   "Search tool failure stays fail-closed",
   files.bridge.includes("malformed_tool_result") &&
     files.bridge.includes("search_tool_failed")
+);
+assertEqual(
+  "no-match Server cue is gender-neutral",
+  SEARCH_GROUNDING_NO_MATCH_TEXT,
+  "ยังไม่พบรถที่ตรงตามเงื่อนไขที่ระบุในรอบนี้"
+);
+assertFalsy("no-match cue has no ครับ", SEARCH_GROUNDING_NO_MATCH_TEXT.includes("ครับ"));
+assertFalsy("no-match cue has no ค่ะ", SEARCH_GROUNDING_NO_MATCH_TEXT.includes("ค่ะ"));
+assertEqual(
+  "unsupported show-more cue is context-required",
+  SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT,
+  "ยังไม่มีผลการค้นหาก่อนหน้าสำหรับดูเพิ่ม กรุณาค้นหารถก่อน"
+);
+assertFalsy(
+  "unsupported show-more cue is not no-match",
+  SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT.includes("ไม่พบรถ")
+);
+assertTruthy(
+  "unsupported show-more has distinct classification",
+  files.compose.includes("unsupported-show-more-without-prior") &&
+    files.bridge.includes("unsupportedShowMoreWithoutPriorOutcome")
+);
+assertTruthy(
+  "unsupported show-more short-circuits before marketplace match",
+  files.bridge.includes('unsupportedReasons.includes("show-more-without-prior")') &&
+    files.bridge.includes("return unsupportedShowMoreWithoutPriorOutcome();")
 );
 assertNotIncludes(
   "General bridge omits Search count-claim disposition",

@@ -43,6 +43,7 @@ import {
   orderSearchGroundingCarCards,
   renderSearchVehicleSectionsMarkdown,
   renderZeroResultSearchMarkdown,
+  SEARCH_GROUNDING_NO_MATCH_TEXT,
   validateSearchVehicleSections,
   type SearchCountClaimDisposition,
   type SearchDisplayOrderClassification,
@@ -62,8 +63,10 @@ export const NONGA_CHAT_V2_V3_SEARCH_GROUNDING_ENABLED_ENV =
 export const NONGA_CHAT_V2_V3_SEARCH_GROUNDING_PILOT_UIDS_ENV =
   "NONGA_CHAT_V2_V3_SEARCH_GROUNDING_PILOT_UIDS";
 
-export const SEARCH_GROUNDING_NO_MATCH_TEXT =
-  "ไม่พบรถที่ตรงตามเงื่อนไขที่ระบุในรอบนี้ครับ";
+export { SEARCH_GROUNDING_NO_MATCH_TEXT };
+
+export const SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT =
+  "ยังไม่มีผลการค้นหาก่อนหน้าสำหรับดูเพิ่ม กรุณาค้นหารถก่อน";
 
 export const SEARCH_GROUNDING_UNSUPPORTED_TEXT =
   "ยังไม่สามารถค้นจากเงื่อนไขนี้ได้อย่างแม่นยำครับ จึงไม่ขยายผลไปยังรถที่ไม่ตรงตามที่ขอ";
@@ -180,10 +183,9 @@ export function classifySearchGroundingLane(input: {
   const continuation = hasPriorSubstantiveServerDirectedSearch(
     history as ServerDirectedSearchHistoryTurn[]
   );
-  if (
-    isServerDirectedSearchShowMoreMessage(input.userMessage) &&
-    continuation
-  ) {
+  // Show-more is Search-owned. Missing prior page context is a
+  // context-required outcome — not another lane and not a no-match.
+  if (isServerDirectedSearchShowMoreMessage(input.userMessage)) {
     return { allowed: true, reason: "vehicle-search-intent" };
   }
   const classified = classifyConversationCoreLane({
@@ -340,6 +342,24 @@ function noMatchOutcome(
             searchPresentationMode: "zero-result",
           },
         }),
+  });
+}
+
+function unsupportedShowMoreWithoutPriorOutcome(): ChatV2V3SearchGroundingTurnOutcome {
+  return successOutcome({
+    text: SEARCH_GROUNDING_SHOW_MORE_WITHOUT_PRIOR_TEXT,
+    carCards: [],
+    usedDeterministicFallback: false,
+    displayOrderClassification: "unsupported-show-more-without-prior",
+    structuredOrderValid: true,
+    validatedToolResultListingIdCount: 0,
+    marketplaceSearchExecutionCount: 0,
+    diagnostic: {
+      searchCompositionFallbackReason: "none",
+      structuredOutputParseStatus: "not-applicable",
+      searchCompositionTextPresent: false,
+      searchCompositionValidationCode: "none",
+    },
   });
 }
 
@@ -757,13 +777,14 @@ export async function executeChatV2V3SearchGroundingTurn(input: {
   );
 
   if (!criteria.supported) {
+    if (criteria.unsupportedReasons.includes("show-more-without-prior")) {
+      return unsupportedShowMoreWithoutPriorOutcome();
+    }
     return noMatchOutcome(
-      criteria.unsupportedReasons.includes("show-more-without-prior")
-        ? SEARCH_GROUNDING_NO_MATCH_TEXT
-        : criteria.unsupportedReasons.length > 0 &&
-            !criteria.unsupportedReasons.includes("no-supported-criterion")
-          ? SEARCH_GROUNDING_UNSUPPORTED_TEXT
-          : SEARCH_GROUNDING_NO_MATCH_TEXT,
+      criteria.unsupportedReasons.length > 0 &&
+        !criteria.unsupportedReasons.includes("no-supported-criterion")
+        ? SEARCH_GROUNDING_UNSUPPORTED_TEXT
+        : SEARCH_GROUNDING_NO_MATCH_TEXT,
       0
     );
   }

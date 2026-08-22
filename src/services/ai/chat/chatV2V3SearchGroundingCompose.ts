@@ -266,6 +266,10 @@ export type SearchCountClaimDisposition =
 export const SEARCH_ZERO_RESULT_NO_MATCH_CUE =
   /ไม่พบ|ยังไม่พบ|ไม่มี(?:รถ)?ที่ตรง|ไม่ตรงตามเงื่อนไข/;
 
+/** Server factual cue for authoritative empty ToolResult. Gender-neutral. */
+export const SEARCH_GROUNDING_NO_MATCH_TEXT =
+  "ยังไม่พบรถที่ตรงตามเงื่อนไขที่ระบุในรอบนี้";
+
 function formatBaht(price: number): string {
   return `${price.toLocaleString("th-TH")} บาท`;
 }
@@ -403,7 +407,7 @@ export function renderReadableSearchFallbackMarkdown(
   orderedListings: readonly SearchGroundingListingFacts[] = packet.displayedListings
 ): string {
   if (orderedListings.length === 0) {
-    return "ไม่พบรถที่ตรงตามเงื่อนไขที่ระบุในรอบนี้ครับ";
+    return SEARCH_GROUNDING_NO_MATCH_TEXT;
   }
   const sections = orderedListings.map((listing, index) =>
     renderTrustedVehicleSection({
@@ -1050,7 +1054,8 @@ export type SearchDisplayOrderClassification =
   | "structured-accepted"
   | "deterministic-fallback"
   | "zero-result"
-  | "failed-closed";
+  | "failed-closed"
+  | "unsupported-show-more-without-prior";
 
 export type SearchGroundingProviderUnwrap =
   | {

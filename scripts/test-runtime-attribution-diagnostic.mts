@@ -678,6 +678,59 @@ function testSearchFallbackReasonBoundedSerialization() {
   ok("fallback no listing ids", !serialized.includes("id-a"));
 }
 
+function testUnsupportedShowMoreAttributionPrivacy() {
+  const diagnostic = buildUserVisibleRuntimeAttributionDiagnostic({
+    requestCorrelationId: "corr-show-more-orphan",
+    payload: basePayload({
+      conversationBrain: "chat-v3-search-grounded",
+      conversationBrainStatus: "success",
+      skipGemini: true,
+      fallbackToLegacy: false,
+      carCardCount: 0,
+    }),
+    userMessage: USER_MESSAGE,
+    firebaseUid: FULL_UID,
+    userRole: "buyer",
+    environment: "staging",
+    env: AI_FIRST_ENV,
+    laneEvidence: {
+      routingLane: "search",
+      businessToolName: "none",
+      marketplaceSearchExecutionCount: 0,
+      inventoryFetchExecutionCount: 0,
+      geminiInitialFunctionCallingAttemptCount: 0,
+      groundedV3CompositionAttempted: false,
+      groundedV3CompositionOutcome: "not-applicable",
+      legacyFallbackAfterSearchSelection: false,
+      validatedToolResultListingIdCount: 0,
+      orderedCardCount: 0,
+      displayedCardCount: 0,
+      displayOrderClassification: "unsupported-show-more-without-prior",
+      structuredOrderValid: true,
+      searchFailureClassification: "none",
+      searchCompositionFallbackReason: "none",
+      structuredOutputParseStatus: "not-applicable",
+      searchCompositionTextPresent: false,
+      searchCompositionValidationCode: "none",
+    },
+  });
+  const serialized = serializeRuntimeAttributionDiagnosticForStructuredLog(diagnostic);
+  ok(
+    "unsupported show-more classification",
+    diagnostic.displayOrderClassification === "unsupported-show-more-without-prior"
+  );
+  ok("unsupported show-more no marketplace", diagnostic.marketplaceSearchExecutionCount === 0);
+  ok("unsupported show-more tool none", diagnostic.businessToolName === "none");
+  ok("unsupported show-more no composition", diagnostic.groundedV3CompositionAttempted === false);
+  ok("unsupported show-more no legacy", diagnostic.legacyFallbackAfterSearchSelection === false);
+  assertNoSensitiveLeakage(serialized, "unsupported-show-more");
+  ok("unsupported show-more serialized class", serialized.includes("unsupported-show-more-without-prior"));
+  ok("unsupported show-more no replyText", !serialized.includes("replyText"));
+  ok("unsupported show-more no introText", !serialized.includes("introText"));
+  ok("unsupported show-more no UID", !serialized.includes(FULL_UID));
+  ok("unsupported show-more no user text", !serialized.includes(USER_MESSAGE));
+}
+
 async function main() {
   console.log("=== Runtime Attribution Diagnostic Contract ===\n");
   await testProviderSuccess();
@@ -690,6 +743,7 @@ async function main() {
   testSearchLaneEvidencePrivacy();
   testGeneralLaneEvidenceZeros();
   testSearchFallbackReasonBoundedSerialization();
+  testUnsupportedShowMoreAttributionPrivacy();
   console.log("\n=== Runtime Attribution Diagnostic Contract complete ===");
 }
 
