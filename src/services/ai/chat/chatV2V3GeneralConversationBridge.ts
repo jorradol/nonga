@@ -52,12 +52,73 @@ export type ChatV2V3GeneralBridgeRouting =
 export type ChatV2V3GeneralBridgeTurnOutcome =
   | { readonly kind: "not-selected"; readonly reason: string }
   | { readonly kind: "kill-switch-fail-closed"; readonly userVisibleText: string }
+  | {
+      readonly kind: "selected-reference-fail-closed";
+      readonly userVisibleText: string;
+    }
   | { readonly kind: "success"; readonly userVisibleText: string }
   | {
       readonly kind: "failed-closed";
       readonly userVisibleText: string;
       readonly errorCode?: string;
     };
+
+export const SELECTED_VEHICLE_UNCONFIRMED_STATUS_CUE =
+  "ไม่สามารถยืนยันข้อมูลรถที่เลือกได้ในขณะนี้ กรุณาเลือกรถอีกครั้ง";
+
+const THAI_EXPLICIT_SELECTED_VEHICLE_PHRASES = [
+  "รถคันนี้",
+  "คันที่เลือก",
+  "รถที่เลือก",
+  "คันดังกล่าว",
+  "คันนี้",
+] as const;
+
+const ENGLISH_EXPLICIT_SELECTED_VEHICLE_PATTERNS: readonly RegExp[] = [
+  /\bthis car\b/i,
+  /\bthis vehicle\b/i,
+  /\bselected car\b/i,
+  /\bselected vehicle\b/i,
+];
+
+export type SelectedVehicleGroundingOutcomeForBridge =
+  | "no-selection"
+  | "malformed-id"
+  | "not-found"
+  | "unavailable-blocking-status"
+  | "resolved"
+  | "resolver-failure";
+
+/** Bounded deterministic cues for explicit selected-vehicle references only. */
+export function detectExplicitSelectedVehicleReference(message: string): boolean {
+  const text = String(message ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!text) return false;
+  if (THAI_EXPLICIT_SELECTED_VEHICLE_PHRASES.some((phrase) => text.includes(phrase))) {
+    return true;
+  }
+  return ENGLISH_EXPLICIT_SELECTED_VEHICLE_PATTERNS.some((pattern) =>
+    pattern.test(text)
+  );
+}
+
+export function shouldFailClosedExplicitSelectedVehicleReference(input: {
+  readonly userMessage: string;
+  readonly selectedListingIdRequested: boolean;
+  readonly groundingOutcome: SelectedVehicleGroundingOutcomeForBridge;
+}): boolean {
+  if (!detectExplicitSelectedVehicleReference(input.userMessage)) {
+    return false;
+  }
+  if (input.groundingOutcome === "resolved") {
+    return false;
+  }
+  if (input.selectedListingIdRequested) {
+    return true;
+  }
+  return input.groundingOutcome === "no-selection" || input.groundingOutcome === "resolver-failure";
+}
 
 export type ChatV2V3GeneralConversationRunner = (
   options: RunChatV3ConversationOptions
@@ -343,6 +404,8 @@ export async function executeChatV2V3GeneralBridgeTurn(input: {
   readonly runChatV3Conversation?: ChatV2V3GeneralConversationRunner;
   readonly now?: () => number;
   readonly authoritativeVehicleContext?: ChatV3AutomotiveVehicleContext | null;
+  readonly selectedListingIdRequested?: boolean;
+  readonly selectedVehicleGroundingOutcome?: SelectedVehicleGroundingOutcomeForBridge;
 }): Promise<ChatV2V3GeneralBridgeTurnOutcome> {
   const routing = resolveChatV2V3GeneralBridgeRouting({
     authenticatedActorRef: input.authenticatedActorRef,
@@ -356,6 +419,20 @@ export async function executeChatV2V3GeneralBridgeTurn(input: {
 
   if (routing.kind === "not-selected") {
     return { kind: "not-selected", reason: routing.reason };
+  }
+
+  const groundingOutcome = input.selectedVehicleGroundingOutcome ?? "no-selection";
+  if (
+    shouldFailClosedExplicitSelectedVehicleReference({
+      userMessage: input.userMessage,
+      selectedListingIdRequested: input.selectedListingIdRequested === true,
+      groundingOutcome,
+    })
+  ) {
+    return {
+      kind: "selected-reference-fail-closed",
+      userVisibleText: SELECTED_VEHICLE_UNCONFIRMED_STATUS_CUE,
+    };
   }
 
   const history = sanitizeBoundedGeneralBridgeHistory(

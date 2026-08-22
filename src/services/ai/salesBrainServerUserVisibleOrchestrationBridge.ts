@@ -70,6 +70,7 @@ import {
 import { hashPiiForLog } from "../../utils/piiLogRedaction";
 import {
   executeChatV2V3GeneralBridgeTurn,
+  detectExplicitSelectedVehicleReference,
   resolveChatV2V3GeneralBridgeRouting,
   sanitizeBoundedGeneralBridgeHistory,
   type ChatV2V3GeneralConversationRunner,
@@ -136,8 +137,9 @@ export type SelectedVehicleGroundingOutcome =
   | "no-selection"
   | "malformed-id"
   | "not-found"
-  | "unavailable"
-  | "resolved";
+  | "unavailable-blocking-status"
+  | "resolved"
+  | "resolver-failure";
 
 export interface UserVisibleRuntimeLaneEvidence {
   routingLane: UserVisibleRuntimeRoutingLane;
@@ -163,6 +165,9 @@ export interface UserVisibleRuntimeLaneEvidence {
   selectedVehicleGroundingRequested?: boolean;
   selectedVehicleGroundingOutcome?: SelectedVehicleGroundingOutcome;
   selectedVehicleContextSupplied?: boolean;
+  selectedVehicleExplicitReferenceDetected?: boolean;
+  selectedVehicleReferenceFailClosed?: boolean;
+  selectedVehicleGeneralContextWithheld?: boolean;
 }
 
 export interface UserVisibleRuntimeAttributionDiagnostic {
@@ -214,8 +219,52 @@ export interface UserVisibleRuntimeAttributionDiagnostic {
   selectedVehicleGroundingRequested?: boolean;
   selectedVehicleGroundingOutcome?: SelectedVehicleGroundingOutcome;
   selectedVehicleContextSupplied?: boolean;
+  selectedVehicleExplicitReferenceDetected?: boolean;
+  selectedVehicleReferenceFailClosed?: boolean;
+  selectedVehicleGeneralContextWithheld?: boolean;
 }
 const MAX_USER_VISIBLE_EVIDENCE_CHARS = 1200;
+
+/** Mirrors WP-NVB-04C-R1 rail positive allowlist; image not required for follow-up context. */
+const SELECTED_VEHICLE_SALE_READY_LISTING_STATUSES = new Set(["published"]);
+const SELECTED_VEHICLE_SALE_READY_SALE_STATUSES = new Set(["published"]);
+
+function normalizeSelectedVehicleStatusToken(
+  raw: unknown
+): string | null | "__malformed__" {
+  if (raw == null) return null;
+  if (typeof raw !== "string") return "__malformed__";
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed.toLowerCase();
+}
+
+export function isSelectedVehicleSaleReady(car: ChatInventoryCar): boolean {
+  if (!car || typeof car.id !== "string" || car.id.trim().length === 0) {
+    return false;
+  }
+  if (car.isSold === true) return false;
+
+  const listingStatus = normalizeSelectedVehicleStatusToken(car.listingStatus);
+  if (listingStatus === "__malformed__") return false;
+  if (
+    listingStatus != null &&
+    !SELECTED_VEHICLE_SALE_READY_LISTING_STATUSES.has(listingStatus)
+  ) {
+    return false;
+  }
+
+  const saleStatus = normalizeSelectedVehicleStatusToken(car.saleStatus);
+  if (saleStatus === "__malformed__") return false;
+  if (
+    saleStatus != null &&
+    !SELECTED_VEHICLE_SALE_READY_SALE_STATUSES.has(saleStatus)
+  ) {
+    return false;
+  }
+
+  return true;
+}
 
 export function buildAuthoritativeSelectedVehicleContext(
   car: ChatInventoryCar
@@ -259,13 +308,17 @@ export function buildAuthoritativeSelectedVehicleContext(
  */
 export function resolveAuthoritativeSelectedVehicleContext(
   selectedListingId: string | null | undefined,
-  inventory: readonly ChatInventoryCar[]
+  inventory: readonly ChatInventoryCar[],
+  options?: { readonly inventoryLoadFailed?: boolean }
 ): {
   outcome: SelectedVehicleGroundingOutcome;
   context: ChatV3AutomotiveVehicleContext | null;
 } {
   if (selectedListingId == null || selectedListingId === "") {
     return { outcome: "no-selection", context: null };
+  }
+  if (options?.inventoryLoadFailed) {
+    return { outcome: "resolver-failure", context: null };
   }
   const id = parseBoundedSelectedListingId(selectedListingId);
   if (!id) {
@@ -275,8 +328,8 @@ export function resolveAuthoritativeSelectedVehicleContext(
   if (!car) {
     return { outcome: "not-found", context: null };
   }
-  if (!isPublishedDiscoveryListing(car)) {
-    return { outcome: "unavailable", context: null };
+  if (!isPublishedDiscoveryListing(car) || !isSelectedVehicleSaleReady(car)) {
+    return { outcome: "unavailable-blocking-status", context: null };
   }
   return {
     outcome: "resolved",
@@ -287,16 +340,31 @@ export function resolveAuthoritativeSelectedVehicleContext(
 function selectedVehicleGroundingLaneEvidence(input: {
   requested: boolean;
   outcome: SelectedVehicleGroundingOutcome;
+  explicitReferenceDetected?: boolean;
+  referenceFailClosed?: boolean;
+  generalContextWithheld?: boolean;
 }): Pick<
   UserVisibleRuntimeLaneEvidence,
   | "selectedVehicleGroundingRequested"
   | "selectedVehicleGroundingOutcome"
   | "selectedVehicleContextSupplied"
+  | "selectedVehicleExplicitReferenceDetected"
+  | "selectedVehicleReferenceFailClosed"
+  | "selectedVehicleGeneralContextWithheld"
 > {
   return {
     selectedVehicleGroundingRequested: input.requested,
     selectedVehicleGroundingOutcome: input.outcome,
     selectedVehicleContextSupplied: input.outcome === "resolved",
+    ...(input.explicitReferenceDetected != null
+      ? { selectedVehicleExplicitReferenceDetected: input.explicitReferenceDetected }
+      : {}),
+    ...(input.referenceFailClosed != null
+      ? { selectedVehicleReferenceFailClosed: input.referenceFailClosed }
+      : {}),
+    ...(input.generalContextWithheld != null
+      ? { selectedVehicleGeneralContextWithheld: input.generalContextWithheld }
+      : {}),
   };
 }
 
@@ -851,6 +919,24 @@ export function buildUserVisibleRuntimeAttributionDiagnostic(input: {
             ? {
                 selectedVehicleContextSupplied:
                   lane.selectedVehicleContextSupplied,
+              }
+            : {}),
+          ...(lane.selectedVehicleExplicitReferenceDetected != null
+            ? {
+                selectedVehicleExplicitReferenceDetected:
+                  lane.selectedVehicleExplicitReferenceDetected,
+              }
+            : {}),
+          ...(lane.selectedVehicleReferenceFailClosed != null
+            ? {
+                selectedVehicleReferenceFailClosed:
+                  lane.selectedVehicleReferenceFailClosed,
+              }
+            : {}),
+          ...(lane.selectedVehicleGeneralContextWithheld != null
+            ? {
+                selectedVehicleGeneralContextWithheld:
+                  lane.selectedVehicleGeneralContextWithheld,
               }
             : {}),
         }
@@ -1471,7 +1557,14 @@ export async function handleChatUserVisibleOrchestratePost(
     }
     const { userMessage, attachedImageCount, pilotSessionContext, conversationHistory, selectedListingId } =
       parsed;
-    const inventory = await deps.loadChatInventory();
+    let inventory: ChatInventoryCar[] = [];
+    let inventoryLoadFailed = false;
+    try {
+      inventory = await deps.loadChatInventory();
+    } catch {
+      inventory = [];
+      inventoryLoadFailed = true;
+    }
     const bridgeEnvironment = resolveBridgeEnvironment();
     const readEnv = deps.readEnv ?? ((key: string) => process.env[key]);
     const envSnapshot = process.env as Record<string, string | undefined>;
@@ -1644,10 +1737,18 @@ export async function handleChatUserVisibleOrchestratePost(
         };
       } else if (generalBridgeRouting.kind === "selected") {
         skipRealProvider = true;
+        const selectedIdRequested =
+          selectedListingId != null && selectedListingId !== "";
+        const explicitReferenceDetected =
+          detectExplicitSelectedVehicleReference(userMessage);
         const selectedVehicleGrounding = resolveAuthoritativeSelectedVehicleContext(
           selectedListingId,
-          inventory
+          inventory,
+          { inventoryLoadFailed: inventoryLoadFailed && selectedIdRequested }
         );
+        const generalContextWithheld =
+          selectedVehicleGrounding.outcome !== "resolved" &&
+          selectedVehicleGrounding.outcome !== "no-selection";
         const generalBridgeTurn = await executeChatV2V3GeneralBridgeTurn({
           authenticatedActorRef: auth.uid,
           userMessage,
@@ -1660,11 +1761,14 @@ export async function handleChatUserVisibleOrchestratePost(
           runChatV3Conversation: deps.runChatV3GeneralBridge,
           now: deps.now,
           authoritativeVehicleContext: selectedVehicleGrounding.context,
+          selectedListingIdRequested: selectedIdRequested,
+          selectedVehicleGroundingOutcome: selectedVehicleGrounding.outcome,
         });
         const userVisibleText =
           generalBridgeTurn.kind === "success" ||
           generalBridgeTurn.kind === "failed-closed" ||
-          generalBridgeTurn.kind === "kill-switch-fail-closed"
+          generalBridgeTurn.kind === "kill-switch-fail-closed" ||
+          generalBridgeTurn.kind === "selected-reference-fail-closed"
             ? generalBridgeTurn.userVisibleText
             : CHAT_V3_USER_FACING_UNAVAILABLE;
         const orchestrated: OrchestratedChatReply = {
@@ -1673,7 +1777,11 @@ export async function handleChatUserVisibleOrchestratePost(
           skipGemini: true,
         };
         const conversationBrainStatus: ChatV3GeneralConversationBrainStatus =
-          generalBridgeTurn.kind === "success" ? "success" : "failed-closed";
+          generalBridgeTurn.kind === "success"
+            ? "success"
+            : generalBridgeTurn.kind === "selected-reference-fail-closed"
+              ? "failed-closed"
+              : "failed-closed";
         result = {
           orchestrated,
           payload: withGeneralBridgeConversationBrain(
@@ -1684,8 +1792,13 @@ export async function handleChatUserVisibleOrchestratePost(
         laneEvidence = {
           ...generalLaneEvidence(),
           ...selectedVehicleGroundingLaneEvidence({
-            requested: selectedListingId != null && selectedListingId !== "",
+            requested: selectedIdRequested,
             outcome: selectedVehicleGrounding.outcome,
+            explicitReferenceDetected,
+            referenceFailClosed:
+              generalBridgeTurn.kind === "selected-reference-fail-closed",
+            generalContextWithheld:
+              generalContextWithheld && !explicitReferenceDetected,
           }),
         };
       } else {
