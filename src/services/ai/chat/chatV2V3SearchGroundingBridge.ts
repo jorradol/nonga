@@ -523,7 +523,7 @@ function resolveGroundedSearchDisplay(input: {
   const successText = input.response ? extractSuccessText(input.response) : null;
   const leaked =
     Boolean(successText) && looksLikeSearchGroundingJsonEnvelope(successText ?? "");
-  const sections = input.response
+  let sections = input.response
     ? extractSearchVehicleSections(input.response)
     : undefined;
 
@@ -547,6 +547,28 @@ function resolveGroundedSearchDisplay(input: {
     });
   };
 
+  const zeroResultServerCue = (
+    diagnostic: SearchCompositionDiagnosticFields
+  ): ChatV2V3SearchGroundingTurnOutcome =>
+    successOutcome({
+      text: SEARCH_GROUNDING_NO_MATCH_TEXT,
+      carCards: [],
+      usedDeterministicFallback: false,
+      displayOrderClassification: "zero-result",
+      structuredOrderValid: true,
+      validatedToolResultListingIdCount: 0,
+      marketplaceSearchExecutionCount,
+      diagnostic: withPresentationMode(
+        {
+          ...diagnostic,
+          searchCompositionTextPresent: false,
+          searchCompositionFallbackReason: "missing-success-text",
+          searchCompositionValidationCode: "empty-text",
+        },
+        "zero-result"
+      ),
+    });
+
   if (leaked) {
     return readableFallback(
       resolveMissingOrLeakedDiagnostic({
@@ -555,6 +577,15 @@ function resolveGroundedSearchDisplay(input: {
         successTextPresent: Boolean(successText),
       })
     );
+  }
+
+  // Plain-text V.3 on a successful empty ToolResult is still a V.3 reply.
+  if (!sections && zero && successText) {
+    sections = {
+      introText: successText,
+      closingText: "",
+      vehicleAnalyses: [],
+    };
   }
 
   // Adaptive: structured metadata may carry an intentionally short/empty narrative.
@@ -576,24 +607,30 @@ function resolveGroundedSearchDisplay(input: {
       });
     }
 
+    const v3HasText =
+      Boolean(validated.introText) ||
+      Boolean(validated.closingText) ||
+      validated.vehicleAnalyses.some((item) => Boolean(item.analysisText));
+
     const accepted = withPresentationMode(
       {
         ...acceptedCompositionDiagnostic(input.response),
         searchCountClaimDisposition: validated.countClaimDisposition,
-        searchCompositionTextPresent:
-          Boolean(validated.introText) ||
-          Boolean(validated.closingText) ||
-          validated.vehicleAnalyses.some((item) => Boolean(item.analysisText)),
+        searchCompositionTextPresent: v3HasText,
       },
       zero ? "zero-result" : "vehicle-sections"
     );
 
     if (zero) {
+      const rendered = renderZeroResultSearchMarkdown({
+        introText: validated.introText,
+        closingText: validated.closingText,
+      }).trim();
+      if (!rendered) {
+        return zeroResultServerCue(accepted);
+      }
       return successOutcome({
-        text: renderZeroResultSearchMarkdown({
-          introText: validated.introText,
-          closingText: validated.closingText,
-        }),
+        text: rendered,
         carCards: [],
         usedDeterministicFallback: false,
         displayOrderClassification: "zero-result",
@@ -624,6 +661,19 @@ function resolveGroundedSearchDisplay(input: {
       validatedToolResultListingIdCount: validatedCount,
       marketplaceSearchExecutionCount,
       diagnostic: accepted,
+    });
+  }
+
+  // Successful empty ToolResult + successful empty V.3 → Server factual cue.
+  // Provider/tool-unrelated V.3 failure still uses existing fail-closed/readable paths.
+  if (zero && input.response?.success === true) {
+    return zeroResultServerCue({
+      searchCompositionFallbackReason: "missing-success-text",
+      structuredOutputParseStatus:
+        readChatV3SearchCompositionBoundaryDiagnostic(input.response)
+          ?.structuredOutputParseStatus ?? "absent",
+      searchCompositionTextPresent: false,
+      searchCompositionValidationCode: "empty-text",
     });
   }
 

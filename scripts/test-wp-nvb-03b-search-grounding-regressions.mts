@@ -333,6 +333,20 @@ assertTruthy(
   "adaptive narrative subset validator present",
   files.compose.includes("validateSearchNarrativeAnalysisListingIds")
 );
+assertTruthy(
+  "zero-result Server cue reuses existing no-match text",
+  files.bridge.includes("SEARCH_GROUNDING_NO_MATCH_TEXT") &&
+    files.bridge.includes("zeroResultServerCue")
+);
+assertTruthy(
+  "zero-result cue requires successful V.3 empty reply",
+  files.bridge.includes("zero && input.response?.success === true")
+);
+assertTruthy(
+  "Search tool failure stays fail-closed",
+  files.bridge.includes("malformed_tool_result") &&
+    files.bridge.includes("search_tool_failed")
+);
 assertNotIncludes(
   "General bridge omits Search count-claim disposition",
   generalBridgeSrc,

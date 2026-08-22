@@ -1266,9 +1266,180 @@ function executeSearchWithProvider(
     assertEqual("zero-result: presentation", turn.searchPresentationMode, "zero-result");
     assertEqual("zero-result: valid empty", turn.structuredOrderValid, true);
     assertEqual("zero-result: no cards", turn.carCards.length, 0);
+    assertEqual("zero-result: listing count", turn.validatedToolResultListingIdCount, 0);
     assertEqual("zero-result: fallback reason none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("zero-result: text present", turn.searchCompositionTextPresent, true);
+    assertEqual("zero-result: keeps V.3 text", turn.userVisibleText, SEARCH_GROUNDING_NO_MATCH_TEXT);
     assertEqual("zero-result: not deterministic-fallback class", turn.displayOrderClassification, "zero-result");
+    assertEqual("zero-result: not deterministic fallback", turn.usedDeterministicFallback, false);
     assertNotIncludes("zero-result: no numbered section", turn.userVisibleText, "1. **");
+  }
+}
+
+{
+  let v3Calls = 0;
+  const natural =
+    "งบนี้ยังไม่มีตัวเลือกที่ตรวจแล้วครับ ถ้าปรับช่วงราคาได้ บอกเอได้นะครับ";
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => {
+      v3Calls += 1;
+      return v3StructuredSuccess({
+        introText: natural,
+        vehicleAnalyses: [],
+        closingText: "",
+      });
+    },
+  });
+  assertEqual("zero-natural: success", turn.kind, "success");
+  assertEqual("zero-natural: one model call", v3Calls, 1);
+  if (turn.kind === "success") {
+    assertEqual("zero-natural: classification", turn.displayOrderClassification, "zero-result");
+    assertEqual("zero-natural: presentation", turn.searchPresentationMode, "zero-result");
+    assertEqual("zero-natural: no cards", turn.carCards.length, 0);
+    assertEqual("zero-natural: listing count", turn.validatedToolResultListingIdCount, 0);
+    assertEqual("zero-natural: fallback none", turn.searchCompositionFallbackReason, "none");
+    assertEqual("zero-natural: text present", turn.searchCompositionTextPresent, true);
+    assertEqual("zero-natural: keeps V.3", turn.userVisibleText, natural);
+    assertEqual("zero-natural: not deterministic", turn.usedDeterministicFallback, false);
+    assertSearchDiagPrivacy(
+      JSON.stringify({
+        ...turn,
+        userVisibleText: "",
+      }),
+      "zero-natural diag"
+    );
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: "",
+        vehicleAnalyses: [],
+        closingText: "",
+      }),
+  });
+  assertEqual("zero-empty: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero-empty: classification", turn.displayOrderClassification, "zero-result");
+    assertEqual("zero-empty: presentation", turn.searchPresentationMode, "zero-result");
+    assertEqual("zero-empty: cue", turn.userVisibleText, SEARCH_GROUNDING_NO_MATCH_TEXT);
+    assertEqual("zero-empty: no cards", turn.carCards.length, 0);
+    assertEqual("zero-empty: listing count", turn.validatedToolResultListingIdCount, 0);
+    assertEqual("zero-empty: missing-success-text", turn.searchCompositionFallbackReason, "missing-success-text");
+    assertEqual("zero-empty: empty-text code", turn.searchCompositionValidationCode, "empty-text");
+    assertEqual("zero-empty: text present false", turn.searchCompositionTextPresent, false);
+    assertEqual("zero-empty: not deterministic essay", turn.usedDeterministicFallback, false);
+    assertNotIncludes("zero-empty: not unavailable", turn.userVisibleText, CHAT_V3_USER_FACING_UNAVAILABLE);
+    assertNotIncludes("zero-empty: no numbered section", turn.userVisibleText, "1. **");
+    assertSearchDiagPrivacy(JSON.stringify(turn), "zero-empty diag");
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: "  \n\t  ",
+        vehicleAnalyses: [],
+        closingText: "   ",
+      }),
+  });
+  assertEqual("zero-whitespace: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero-whitespace: cue", turn.userVisibleText, SEARCH_GROUNDING_NO_MATCH_TEXT);
+    assertEqual("zero-whitespace: no cards", turn.carCards.length, 0);
+    assertEqual("zero-whitespace: missing-success-text", turn.searchCompositionFallbackReason, "missing-success-text");
+    assertEqual("zero-whitespace: text present false", turn.searchCompositionTextPresent, false);
+    assertEqual("zero-whitespace: not deterministic essay", turn.usedDeterministicFallback, false);
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () => v3Success(""),
+  });
+  assertEqual("zero-plain-empty: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero-plain-empty: cue", turn.userVisibleText, SEARCH_GROUNDING_NO_MATCH_TEXT);
+    assertEqual("zero-plain-empty: no cards", turn.carCards.length, 0);
+    assertEqual("zero-plain-empty: missing-success-text", turn.searchCompositionFallbackReason, "missing-success-text");
+    assertEqual("zero-plain-empty: not deterministic essay", turn.usedDeterministicFallback, false);
+    assertNotIncludes("zero-plain-empty: not unavailable", turn.userVisibleText, CHAT_V3_USER_FACING_UNAVAILABLE);
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว 3 คันในรอบนี้ครับ",
+        vehicleAnalyses: [],
+        closingText: "",
+      }),
+  });
+  assertEqual("zero-false-count: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero-false-count: classification", turn.displayOrderClassification, "zero-result");
+    assertNotIncludes("zero-false-count: no 3 คัน", turn.userVisibleText, "3 คัน");
+    assertNotIncludes("zero-false-count: no พบรถที่ตรง", turn.userVisibleText, "พบรถที่ตรงตามเงื่อนไขที่ตรวจแล้ว");
+    assertEqual("zero-false-count: no cards", turn.carCards.length, 0);
+    assertEqual("zero-false-count: not unavailable", turn.kind, "success");
+  }
+}
+
+{
+  const turn = await executeChatV2V3SearchGroundingTurn({
+    authenticatedActorRef: PILOT_UID,
+    userMessage: ACCEPTANCE_QUERY,
+    inventory: [],
+    readEnv: readEnvFrom(enabledEnv),
+    environment: "local",
+    runChatV3Conversation: async () =>
+      v3StructuredSuccess({
+        introText: "เจอรถที่ตรงแล้วครับ",
+        vehicleAnalyses: [
+          {
+            listingId: "id-extra",
+            analysisText: "คันนี้ราคา 370,000 บาท จากประกาศที่ตรวจแล้ว",
+          },
+        ],
+        closingText: "",
+      }),
+  });
+  assertEqual("zero-fabricated: success fail-safe", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("zero-fabricated: no cards", turn.carCards.length, 0);
+    assertNotIncludes("zero-fabricated: no extra id", turn.userVisibleText, "id-extra");
+    assertNotIncludes("zero-fabricated: no invented price", turn.userVisibleText, "370,000");
+    assertNotIncludes("zero-fabricated: no commentary", turn.userVisibleText, "มุมมองของเอ");
+    assertEqual("zero-fabricated: validation failed", turn.searchCompositionValidationCode, "invalid-listing-ids");
   }
 }
 
@@ -1476,6 +1647,22 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
     assertEqual("diag provider-failure: text present", turn.searchCompositionTextPresent, false);
     assertEqual("diag provider-failure: cards canonical", turn.carCards.map((c) => c.id), ["id-a", "id-b", "id-c", "id-d"]);
     assertEqual("diag provider-failure: text unchanged", turn.userVisibleText, expectedDeterministicFourText);
+  }
+}
+
+{
+  const turn = await executeSearchWithProvider(failingSearchProvider(), []);
+  assertEqual("diag provider-failure zero: success", turn.kind, "success");
+  if (turn.kind === "success") {
+    assertEqual("diag provider-failure zero: classification", turn.displayOrderClassification, "zero-result");
+    assertEqual("diag provider-failure zero: reason", turn.searchCompositionFallbackReason, "provider-failure");
+    assertEqual("diag provider-failure zero: no cards", turn.carCards.length, 0);
+    assertEqual("diag provider-failure zero: not missing-success-text", turn.searchCompositionFallbackReason !== "missing-success-text", true);
+    assertNotIncludes(
+      "diag provider-failure zero: not unavailable",
+      turn.userVisibleText,
+      CHAT_V3_USER_FACING_UNAVAILABLE
+    );
   }
 }
 
@@ -1876,6 +2063,7 @@ function assertSearchDiagPrivacy(serialized: string, label: string): void {
       assertEqual("adaptive empty narrative: cards", turn.carCards.map((c) => c.id), [...TOOL_RESULT_ORDER]);
       assertEqual("adaptive empty narrative: text empty", turn.userVisibleText.trim(), "");
       assertNotIncludes("adaptive empty narrative: no readable notice", turn.userVisibleText, SEARCH_READABLE_FALLBACK_NOTICE);
+      assertNotIncludes("adaptive empty narrative: no zero-result cue", turn.userVisibleText, SEARCH_GROUNDING_NO_MATCH_TEXT);
       assertEqual("adaptive empty narrative: not deterministic", turn.usedDeterministicFallback, false);
     }
   }

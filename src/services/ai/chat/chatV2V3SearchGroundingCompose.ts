@@ -464,7 +464,7 @@ export function buildSearchGroundingAppendix(packet: SearchGroundingPacket): str
     "closingText เป็นบทปิดหรือคำถามต่อเนื่องได้ตามบริบท ว่างได้เมื่อไม่จำเป็น ห้ามใส่รหัสประกาศดิบ และห้ามสร้างรายชื่อรถสำรอง",
     "การ์ดและลำดับรถมาจาก Server อยู่แล้ว ไม่ต้องเล่าซ้ำทุกคันเมื่อผู้ใช้ขอดูรถเฉย ๆ หรือขอสั้น ๆ",
     "เมื่อเป็นคำขอ 'ดูเพิ่ม' ห้ามอธิบายผลหน้าก่อนซ้ำทั้งก้อน",
-    "เมื่อ displayedCount เป็น 0 ให้ส่ง vehicleAnalyses เป็นอาเรย์ว่าง พร้อม introText ที่บอกตามจริงว่าไม่พบรถที่ตรงในรอบนี้ โดยไม่กล่าวว่าตลาดทั้งหมดว่าง",
+    "เมื่อ displayedCount เป็น 0 ให้ส่ง vehicleAnalyses เป็นอาเรย์ว่าง ห้ามกล่าวว่าพบรถ และห้ามแต่งประกาศ ราคา หรือสต็อก introText ว่างได้",
     `trustedListings=${JSON.stringify(listings)}`,
   ].join("\n");
 }
@@ -608,6 +608,14 @@ function stripIncorrectAggregateCountClaims(
       return full;
     });
     cleaned = normalizeForGrounding(cleaned);
+    if (
+      authoritativeTotal === 0 &&
+      cleaned &&
+      clauseHasAggregateResultCountCue(cleaned) &&
+      !isLocalVehicleCountWindow(cleaned)
+    ) {
+      continue;
+    }
     if (cleaned) {
       kept.push(cleaned);
     }
@@ -861,17 +869,11 @@ export function validateSearchVehicleSections(input: {
   }
 
   // Adaptive: non-zero Search may omit intro/closing/analyses.
-  // Zero-result still needs an honest no-match cue when intro is present;
-  // empty intro on zero-result falls through to deterministic no-match.
+  // Zero-result may omit intro; Server applies a factual cue later if empty.
+  // Analyses on a successful empty ToolResult are fabricated listings.
   if (input.packet.displayedCount === 0) {
     if (analyses.length !== 0) {
       return { ok: false, reason: "invalid-listing-ids" };
-    }
-    if (!intro) {
-      return { ok: false, reason: "empty-text" };
-    }
-    if (!SEARCH_ZERO_RESULT_NO_MATCH_CUE.test(intro)) {
-      return { ok: false, reason: "empty-text" };
     }
   }
 
@@ -939,31 +941,28 @@ export function validateSearchVehicleSections(input: {
   let introReplaced = false;
   let closingReplaced = false;
   let analysisRejected = false;
-  const normalizeCounts = input.packet.displayedCount > 0;
   let renderedAnalyses = acceptedAnalyses;
 
-  if (normalizeCounts) {
-    const introStrip = stripIncorrectAggregateCountClaims(introText, authoritativeTotal);
-    introText = introStrip.text;
-    introReplaced = introStrip.changed;
+  const introStrip = stripIncorrectAggregateCountClaims(introText, authoritativeTotal);
+  introText = introStrip.text;
+  introReplaced = introStrip.changed;
 
-    const closingStrip = stripIncorrectAggregateCountClaims(closingText, authoritativeTotal);
-    closingText = closingStrip.text;
-    closingReplaced = closingStrip.changed;
+  const closingStrip = stripIncorrectAggregateCountClaims(closingText, authoritativeTotal);
+  closingText = closingStrip.text;
+  closingReplaced = closingStrip.changed;
 
-    renderedAnalyses = acceptedAnalyses
-      .map((item) => {
-        const analysisStrip = stripIncorrectAggregateCountClaims(
-          item.analysisText,
-          authoritativeTotal
-        );
-        if (analysisStrip.changed) {
-          analysisRejected = true;
-        }
-        return { listingId: item.listingId, analysisText: analysisStrip.text };
-      })
-      .filter((item) => item.analysisText.length > 0);
-  }
+  renderedAnalyses = acceptedAnalyses
+    .map((item) => {
+      const analysisStrip = stripIncorrectAggregateCountClaims(
+        item.analysisText,
+        authoritativeTotal
+      );
+      if (analysisStrip.changed) {
+        analysisRejected = true;
+      }
+      return { listingId: item.listingId, analysisText: analysisStrip.text };
+    })
+    .filter((item) => item.analysisText.length > 0);
 
   const composed = [
     introText,
@@ -973,7 +972,18 @@ export function validateSearchVehicleSections(input: {
     .filter(Boolean)
     .join("\n\n");
 
-  // Adaptive empty narrative is allowed when cards still carry the result set.
+  if (
+    input.packet.displayedCount === 0 &&
+    composed &&
+    (extractListingPriceClaims(composed).length > 0 ||
+      extractListingMileageClaims(composed).length > 0 ||
+      UNSUPPORTED_LISTING_CLAIM_RE.test(composed))
+  ) {
+    return { ok: false, reason: "unsupported-listing-claim" };
+  }
+
+  // Adaptive empty narrative is allowed when cards still carry the result set,
+  // and when a successful zero-result leaves V.3 text empty.
   if (composed) {
     const grounded = validateSearchGroundingComposition({
       text: composed,
